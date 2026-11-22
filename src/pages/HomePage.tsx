@@ -32,6 +32,13 @@ export function HomePage() {
             {t.home.heroSubtitle}
           </p>
 
+          <blockquote
+            data-testid="home-manifesto"
+            className="border-s-2 border-cyan-400/70 bg-cyan-500/[0.06] rounded-e-lg ps-4 pe-3 py-2.5 text-sm sm:text-base font-medium italic text-cyan-100/95 tracking-wide max-w-2xl"
+          >
+            “{t.home.manifesto}”
+          </blockquote>
+
           <div className="flex flex-wrap gap-3 pt-2">
             <Link
               to="/create"

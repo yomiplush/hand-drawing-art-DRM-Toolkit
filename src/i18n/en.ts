@@ -118,6 +118,7 @@ export const en = {
     heroTitle: 'Cryptographic Provenance & QR Certificates for Human-Made Art',
     heroSubtitle:
       'Sign your artwork locally with Ed25519, embed a self-contained verification QR code into a lossless PNG margin, and let anyone verify rights and pixel integrity completely offline.',
+    manifesto: 'Your artwork should outlive the platform that certifies it.',
     ctaCreate: 'Create Signed PNG',
     ctaVerify: 'Verify Artwork / QR',
     ctaKeys: 'Manage Artist Keys',

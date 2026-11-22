@@ -18,7 +18,7 @@ function buildTestArtworkPng(width = 160, height = 120): Buffer {
 }
 
 test.describe('Certified Handmade E2E suite', () => {
-  test('full key lifecycle, signing, PNG QR burning, verification, tamper detection, trust, wave bg, and multilingual switching', async ({
+  test('full key lifecycle, signing, PNG QR burning, verification, tamper detection, trust, wave bg, motto, and multilingual switching', async ({
     page,
   }, testInfo) => {
     const externalRequests: string[] = [];
@@ -36,6 +36,9 @@ test.describe('Certified Handmade E2E suite', () => {
 
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByTestId('home-manifesto')).toContainText(
+      'Your artwork should outlive the platform that certifies it.',
+    );
 
     // PS3-inspired animated wave background canvas is mounted and sized
     const waveCanvas = page.getByTestId('ps3-wave-bg');
@@ -50,10 +53,13 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.getByTestId('cookie-reject-btn').click();
     await expect(page.getByTestId('cookie-consent-banner')).toBeHidden();
 
-    // Multi-language switching (JA, zh-CN, ko, ru, uk, ar RTL, back to EN)
+    // Multi-language switching (JA + motto check, zh-CN, ko, ru, uk, ar RTL, back to EN)
     const langSelect = page.getByTestId('lang-select');
     await langSelect.selectOption('ja');
     await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
+    await expect(page.getByTestId('home-manifesto')).toContainText(
+      'あなたの作品は、それを証明するプラットフォームより長く生き続けるべきだ。',
+    );
     await langSelect.selectOption('zh-CN');
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
     await langSelect.selectOption('ko');
@@ -128,9 +134,11 @@ test.describe('Certified Handmade E2E suite', () => {
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
     await expect(page.getByTestId('status-identity')).toContainText('Unknown / Unverified Key');
-    await expect(page.getByTestId('status-assessment')).toContainText('Local Signals Analyzed');
+    await expect(page.getByTestId('status-assessment')).toContainText('Local Signals Checked');
     await expect(page.getByTestId('assessment-details-card')).toContainText('160 × 120 px');
-    await expect(page.getByTestId('assessment-details-card')).toContainText('No AI generator metadata tags found');
+    await expect(page.getByTestId('assessment-details-card')).toContainText(
+      'No AI generator metadata tags found',
+    );
 
     // Trust this key locally from /verify
     await page.getByTestId('verify-trust-label-input').fill('YomiPlush Official');
@@ -139,15 +147,16 @@ test.describe('Certified Handmade E2E suite', () => {
       'Locally Trusted Key (YomiPlush Official)',
     );
 
-    // 4. Direct navigation to /verify#proof=... (without image first -> Not Assessed, then attach original PNG -> Local Signals Analyzed, then tampered PNG)
+    // 4. Direct navigation to /verify#proof=... (without image first -> Not Assessed, then attach original PNG -> Local Signals Checked, then tampered PNG)
     await page.goto(verifyHref!);
+    await expect(page.getByTestId('verify-proof-artwork-cta')).toBeVisible();
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
     await expect(page.getByTestId('status-integrity')).toContainText('Not Checked');
     await expect(page.getByTestId('status-assessment')).toContainText('Not Assessed');
 
     await page.getByTestId('verify-attach-artwork-input').setInputFiles(artPath);
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
-    await expect(page.getByTestId('status-assessment')).toContainText('Local Signals Analyzed');
+    await expect(page.getByTestId('status-assessment')).toContainText('Local Signals Checked');
 
     // Tamper 1 pixel in artwork and verify Mismatched detection
     const decodedArt = decodePng(fs.readFileSync(artPath));
@@ -162,7 +171,7 @@ test.describe('Certified Handmade E2E suite', () => {
     expect(externalRequests).toEqual([]);
   });
 
-  test('header GitHub & Sponsor Heart links and Manual In-Image QR Studio end-to-end flow', async ({
+  test('header GitHub & Sponsor Heart links, /qr-studio removal/redirect, and unified In-Image QR Studio inside /create', async ({
     page,
   }, testInfo) => {
     await page.goto('/');
@@ -185,15 +194,21 @@ test.describe('Certified Handmade E2E suite', () => {
     expect(sponsorBox).not.toBeNull();
     expect(sponsorBox!.x).toBeGreaterThan(githubBox!.x);
 
-    // Navigate from /create cross-link banner into /qr-studio
-    await page.goto('/create');
-    await page.getByTestId('create-open-qr-studio').click();
-    await expect(page).toHaveURL(/\/qr-studio$/);
+    // /qr-studio removed from navigation & redirects to /create?mode=studio
+    await expect(page.locator('a[href="/qr-studio"]')).toHaveCount(0);
+    await page.goto('/qr-studio');
+    await expect(page).toHaveURL(/\/create\?mode=studio$/);
+    await expect(page.getByTestId('create-mode-studio')).toHaveAttribute('aria-selected', 'true');
 
-    // Upload 320x240 artwork, 1-click create key, adjust preset/opacity, verify readability & sign
+    // Switch back to /create, then toggle into studio mode inside /create
+    await page.goto('/create');
+    await page.getByTestId('create-mode-studio').click();
+    await expect(page).toHaveURL(/\/create\?mode=studio$/);
+
+    // Upload 320x240 artwork, adjust preset/opacity, verify readability, 1-click create key & sign
     const artPath = testInfo.outputPath('studio-art.png');
     fs.writeFileSync(artPath, buildTestArtworkPng(320, 240));
-    await page.getByTestId('qrstudio-image-input').setInputFiles(artPath);
+    await page.getByTestId('create-image-input').setInputFiles(artPath);
     await expect(page.getByTestId('qrstudio-preview-canvas')).toBeVisible();
 
     await page.getByTestId('qrstudio-preset-topLeft').click();
@@ -202,14 +217,14 @@ test.describe('Certified Handmade E2E suite', () => {
       'Scannable in live preview',
     );
 
-    await page.getByTestId('qrstudio-quick-keygen').click();
-    await expect(page.getByTestId('qrstudio-key-select')).toBeVisible();
+    await page.getByTestId('create-quick-keygen').click();
+    await expect(page.getByTestId('create-key-select')).toBeVisible();
 
-    await page.getByTestId('qrstudio-sign-button').click();
-    await expect(page.getByTestId('qrstudio-result-section')).toBeVisible();
+    await page.getByTestId('create-sign-button').click();
+    await expect(page.getByTestId('create-result-section')).toBeVisible();
 
     const dlPromise = page.waitForEvent('download');
-    await page.getByTestId('qrstudio-download-png').click();
+    await page.getByTestId('download-signed-png').click();
     const dl = await dlPromise;
     const studioPngPath = testInfo.outputPath('studio.in-image-qr.png');
     await dl.saveAs(studioPngPath);
@@ -220,6 +235,84 @@ test.describe('Certified Handmade E2E suite', () => {
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
     await expect(page.getByTestId('verification-results')).toContainText('in-image-masked');
+  });
+
+  test('mobile #proof= Step 2 CTA, clipboard paste verification, and PWA ?shared=1 cache consumer', async ({
+    page,
+  }, testInfo) => {
+    await page.goto('/');
+    await page.getByTestId('cookie-reject-btn').click();
+
+    // Generate key & sign a test artwork in /create
+    await page.goto('/create');
+    await page.getByTestId('create-quick-keygen').click();
+    await expect(page.getByTestId('create-key-select')).toBeVisible();
+
+    const artBuffer = buildTestArtworkPng(160, 120);
+    const artPath = testInfo.outputPath('mobile-art.png');
+    fs.writeFileSync(artPath, artBuffer);
+    await page.getByTestId('create-image-input').setInputFiles(artPath);
+    await page.getByTestId('create-sign-button').click();
+    await expect(page.getByTestId('create-result-section')).toBeVisible();
+
+    const verifyHref = await page.getByTestId('open-local-verify').getAttribute('href');
+    expect(verifyHref).toContain('/verify#proof=');
+
+    const dlPromise = page.waitForEvent('download');
+    await page.getByTestId('download-signed-png').click();
+    const dl = await dlPromise;
+    const signedPath = testInfo.outputPath('mobile-signed.png');
+    await dl.saveAs(signedPath);
+    const signedBytes = Array.from(fs.readFileSync(signedPath));
+
+    // Open /verify#proof=... -> Step 2 CTA visible, paste image via ClipboardEvent on window
+    await page.goto(verifyHref!);
+    await expect(page.getByTestId('verify-proof-artwork-cta')).toBeVisible();
+    await expect(page.getByTestId('verify-paste-image-btn')).toBeVisible();
+    await expect(page.getByTestId('status-integrity')).toContainText('Not Checked');
+
+    const artBytes = Array.from(artBuffer);
+    await page.evaluate((bytes) => {
+      const dt = new DataTransfer();
+      const file = new File([new Uint8Array(bytes)], 'pasted-artwork.png', { type: 'image/png' });
+      dt.items.add(file);
+      const evt = new ClipboardEvent('paste', {
+        clipboardData: dt,
+        bubbles: true,
+        cancelable: true,
+      });
+      window.dispatchEvent(evt);
+    }, artBytes);
+
+    await expect(page.getByTestId('status-signature')).toContainText('Valid');
+    await expect(page.getByTestId('status-integrity')).toContainText('Matched');
+    await expect(page.getByTestId('status-assessment')).toContainText('Local Signals Checked');
+
+    // Simulate PWA Share Target handoff (?shared=1 via Cache Storage 'chm-share-target-v1')
+    await page.evaluate(async (bytes) => {
+      const cache = await caches.open('chm-share-target-v1');
+      await cache.put(
+        '/__shared-artwork__',
+        new Response(new Uint8Array(bytes), {
+          headers: {
+            'Content-Type': 'image/png',
+            'X-Shared-Filename': encodeURIComponent('shared-signed.png'),
+          },
+        }),
+      );
+    }, signedBytes);
+
+    await page.goto('/verify?shared=1');
+    await expect(page).toHaveURL(/\/verify$/);
+    await expect(page.getByTestId('status-signature')).toContainText('Valid');
+    await expect(page.getByTestId('status-integrity')).toContainText('Matched');
+
+    // Cache entry must be cleaned up immediately after consumption
+    const remainingCache = await page.evaluate(async () => {
+      const cache = await caches.open('chm-share-target-v1');
+      return (await cache.match('/__shared-artwork__')) !== undefined;
+    });
+    expect(remainingCache).toBe(false);
   });
 
   test('GDPR bottom popup, consent-gated locale persistence, and /#privacypolicy page', async ({
@@ -356,7 +449,7 @@ test.describe('Certified Handmade E2E suite', () => {
 
     await page.getByTestId('verify-attach-artwork-input').setInputFiles(artPath);
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
-    await expect(page.getByTestId('status-assessment')).toContainText('Local Signals Analyzed');
+    await expect(page.getByTestId('status-assessment')).toContainText('Local Signals Checked');
 
     await context.setOffline(false);
   });

@@ -6,6 +6,7 @@ import type { HowToTranslations } from './howto';
 import type { LicenseGuideTranslations } from './licenses';
 import type { QrStudioTranslations } from './qrStudio';
 import type { TutorialTranslations } from './tutorial';
+import type { VerifyMobileTranslations } from './verifyMobile';
 
 export type Locale = SupportedLocale;
 
@@ -15,6 +16,7 @@ export type FullTranslations = Translations & {
   tutorial: TutorialTranslations;
   assessment: AssessmentTranslations;
   qrStudio: QrStudioTranslations;
+  verifyMobile: VerifyMobileTranslations;
 };
 
 export interface LocaleOption {

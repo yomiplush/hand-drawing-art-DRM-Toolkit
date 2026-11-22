@@ -40,6 +40,7 @@ export const es: Translations = withFallback({
     badge: 'Código abierto · Sin NFT · Sin Blockchain · 100% Gratis',
     heroTitle: 'Procedencia Criptográfica y Certificados QR para Arte Hecho por Humanos',
     heroSubtitle: 'Firma tu obra localmente con Ed25519, incrusta un código QR autónomo en un PNG sin pérdidas y permite verificar derechos e integridad de píxeles sin conexión.',
+    manifesto: 'Tu obra debe sobrevivir a la plataforma que la certifica.',
     ctaCreate: 'Crear PNG firmado',
     ctaVerify: 'Verificar obra / QR',
     ctaKeys: 'Gestionar claves',
@@ -106,6 +107,7 @@ export const fr: Translations = withFallback({
     badge: 'Open Source · Sans NFT · Sans Blockchain · 100 % Gratuit',
     heroTitle: 'Provenance Cryptographique et Certificats QR pour l’Art Fait Main',
     heroSubtitle: 'Signez vos œuvres localement avec Ed25519, intégrez un QR code autonome dans un PNG sans perte et vérifiez droits et pixels même hors ligne.',
+    manifesto: 'Votre œuvre doit survivre à la plateforme qui la certifie.',
     ctaCreate: 'Créer un PNG signé',
     ctaVerify: 'Vérifier œuvre / QR',
     ctaKeys: 'Gérer les clés',
@@ -172,6 +174,7 @@ export const de: Translations = withFallback({
     badge: 'Open Source · Kein NFT · Keine Blockchain · 100 % Kostenlos',
     heroTitle: 'Kryptografische Herkunftsnachweise & QR-Zertifikate für handgemachte Kunst',
     heroSubtitle: 'Signieren Sie Werke lokal mit Ed25519, brennen Sie einen autarken Prüf-QR-Code verlustfrei in den PNG-Rand und prüfen Sie Rechte und Pixel komplett offline.',
+    manifesto: 'Dein Kunstwerk sollte die Plattform überdauern, die es zertifiziert.',
     ctaCreate: 'Signiertes PNG erstellen',
     ctaVerify: 'Werk / QR prüfen',
     ctaKeys: 'Schlüssel verwalten',
@@ -225,6 +228,7 @@ export const pt: Translations = withFallback({
   home: {
     badge: 'Código Aberto · Sem NFT · Sem Blockchain · 100% Gratuito',
     heroTitle: 'Proveniência Criptográfica e Certificados QR para Arte Feita por Humanos',
+    manifesto: 'Sua obra deve durar mais do que a plataforma que a certifica.',
     ctaCreate: 'Criar PNG Assinado',
     ctaVerify: 'Verificar Obra / QR',
     ctaKeys: 'Gerenciar Chaves',
@@ -257,6 +261,7 @@ export const it: Translations = withFallback({
   home: {
     badge: 'Open Source · No NFT · No Blockchain · 100% Gratuito',
     heroTitle: 'Provenienza Crittografica e Certificati QR per Arte Fatta a Mano',
+    manifesto: 'La tua opera dovrebbe sopravvivere alla piattaforma che la certifica.',
     ctaCreate: 'Crea PNG Firmato',
     ctaVerify: 'Verifica Opera / QR',
     ctaKeys: 'Gestisci Chiavi',
@@ -289,6 +294,7 @@ export const ar: Translations = withFallback({
   home: {
     badge: 'مفتوح المصدر · بدون NFT · بدون بلوكتشين · مجاني 100%',
     heroTitle: 'إثبات المصدر التشفيري وشهادات QR للفن المصنوع يدوياً',
+    manifesto: 'يجب أن يعيش عملك الفني أطول من المنصّة التي تصادق عليه.',
     ctaCreate: 'إنشاء PNG موقّع',
     ctaVerify: 'التحقق من العمل / QR',
     ctaKeys: 'إدارة المفاتيح',

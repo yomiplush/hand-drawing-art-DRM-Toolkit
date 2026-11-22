@@ -95,6 +95,13 @@ export function StatusDimensionsGrid({
           text: t.assessment.badgeAiMetadataDetected,
         };
       }
+      if (assessment?.summaryKey === 'ai-pixel-signals-detected') {
+        return {
+          tone: 'border-amber-400/45 bg-amber-950/40 text-amber-100',
+          icon: AlertTriangle,
+          text: t.assessment.badgeAiPixelSignalsDetected,
+        };
+      }
       return {
         tone: 'border-sky-300/35 bg-[#05162b]/75 text-sky-100',
         icon: Cpu,

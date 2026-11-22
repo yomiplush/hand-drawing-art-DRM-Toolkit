@@ -17,7 +17,6 @@ import { DocsPage } from './pages/DocsPage';
 import { HomePage } from './pages/HomePage';
 import { KeysPage } from './pages/KeysPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
-import { QrStudioPage } from './pages/QrStudioPage';
 import { TutorialPage } from './pages/TutorialPage';
 import { VerifyCertificatePage } from './pages/VerifyCertificatePage';
 
@@ -107,7 +106,7 @@ function AppRoutes() {
           <Route path="/privacypolicy" element={privacyElement} />
           <Route path="/tutorial" element={<TutorialPage />} />
           <Route path="/create" element={<CreateCertificatePage />} />
-          <Route path="/qr-studio" element={<QrStudioPage />} />
+          <Route path="/qr-studio" element={<Navigate to="/create?mode=studio" replace />} />
           <Route path="/verify" element={<VerifyCertificatePage />} />
           <Route path="/keys" element={<KeysPage />} />
           <Route path="/docs" element={<DocsPage />} />

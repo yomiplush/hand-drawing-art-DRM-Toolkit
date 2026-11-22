@@ -4,6 +4,12 @@ export interface QrStudioTranslations {
   navLabel: string;
   title: string;
   subtitle: string;
+  modeSectionTitle: string;
+  modeOuterLabel: string;
+  modeOuterDesc: string;
+  modeStudioLabel: string;
+  modeStudioDesc: string;
+  uploadFirstHint: string;
   createBannerTitle: string;
   createBannerDesc: string;
   createBannerBtn: string;
@@ -52,6 +58,12 @@ export const QR_STUDIO_I18N: Record<SupportedLocale, QrStudioTranslations> = {
     title: '半透明QR 手動埋め込みスタジオ',
     subtitle:
       'イラストの内側に半透明やスタイル付きのQRコードを直接ドラッグ配置します。QRボックス以外の全ピクセルはSHA-256で厳密に保護されます。',
+    modeSectionTitle: 'QRコードの配置方法を選択',
+    modeOuterLabel: '外枠フレーム配置（かんたん・標準）',
+    modeOuterDesc: '画像の外側に余白を追加してQRを配置します（元絵を一切隠しません）。',
+    modeStudioLabel: '絵の中に半透明QRを埋め込む（QRスタジオ）',
+    modeStudioDesc: 'ドラッグ配置・サイズ・不透明度（半透明）を手動調整して直接合成します。',
+    uploadFirstHint: 'ステップ1で作品画像を読み込むと、ここに半透明QRのドラッグ調整プレビューが表示されます。',
     createBannerTitle: '絵の中に半透明QRを直接埋め込みたいですか？',
     createBannerDesc:
       '専用のQRスタジオで、ドラッグ配置・サイズ調整・不透明度（半透明）・リアルタイム読取テストをしながら埋め込めます。',
@@ -101,6 +113,12 @@ export const QR_STUDIO_I18N: Record<SupportedLocale, QrStudioTranslations> = {
     title: 'Manual In-Image QR Studio',
     subtitle:
       'Drag, resize, and blend a semi-transparent or styled QR code directly inside your artwork. Every pixel outside the QR mask remains SHA-256 verified.',
+    modeSectionTitle: 'QR Placement Mode',
+    modeOuterLabel: 'Outer Margin Frame (Simple)',
+    modeOuterDesc: 'Adds a clean border outside the artwork so zero artwork pixels are covered.',
+    modeStudioLabel: 'In-Image Semi-Transparent QR Studio',
+    modeStudioDesc: 'Drag position, tune size & opacity, and blend a QR directly inside the image.',
+    uploadFirstHint: 'Select an artwork image in Step 1 above to preview and drag your semi-transparent QR code here.',
     createBannerTitle: 'Want to embed a semi-transparent QR directly inside the artwork?',
     createBannerDesc:
       'Open the dedicated Manual QR Studio to drag position, tune size & opacity, and test live QR readability without adding an outer border.',
@@ -150,6 +168,12 @@ export const QR_STUDIO_I18N: Record<SupportedLocale, QrStudioTranslations> = {
     title: '半透明二维码手动嵌入工作室',
     subtitle:
       '直接在画作内部拖动、缩放并调节半透明二维码。二维码遮罩区域以外的所有像素均受 SHA-256 严格保护。',
+    modeSectionTitle: '选择二维码放置方式',
+    modeOuterLabel: '外边框放置（简单模式）',
+    modeOuterDesc: '在画面外添加留白边框放置二维码，完全不遮挡原画内容。',
+    modeStudioLabel: '画内半透明二维码（QR 工作室）',
+    modeStudioDesc: '直接在画面内部拖动位置、调节尺寸与透明度并实时检测扫码效果。',
+    uploadFirstHint: '请先在步骤 1 中选择作品图片，随后即可在此处拖动调整半透明二维码。',
     createBannerTitle: '想把半透明二维码直接嵌进画作内部吗？',
     createBannerDesc:
       '使用专用二维码工作室，可拖动位置、调节大小与不透明度，并实时测试本地扫码可读性，无需外加边框。',
@@ -199,6 +223,12 @@ export const QR_STUDIO_I18N: Record<SupportedLocale, QrStudioTranslations> = {
     title: '半透明 QR 手動嵌入工作室',
     subtitle:
       '直接在畫作內部拖曳、縮放並調整半透明 QR Code。QR 遮罩範圍以外的所有像素均受 SHA-256 嚴密保護。',
+    modeSectionTitle: '選擇 QR Code 放置模式',
+    modeOuterLabel: '外邊框放置（簡單標準）',
+    modeOuterDesc: '於圖片外側加入留白邊框放置 QR，不會遮擋任何原作筆觸。',
+    modeStudioLabel: '畫作內半透明 QR（QR 工作室）',
+    modeStudioDesc: '直接在畫作內拖曳位置、調整尺寸與不透明度並即時測試掃碼效果。',
+    uploadFirstHint: '請先於步驟 1 選擇作品圖片，即可在此拖曳調整半透明 QR Code。',
     createBannerTitle: '想把半透明 QR Code 直接嵌入畫作內部嗎？',
     createBannerDesc:
       '前往專屬 QR 工作室，即可拖曳位置、調整尺寸與不透明度，並即時測試本地掃碼可讀性，無需額外邊框。',
@@ -248,6 +278,12 @@ export const QR_STUDIO_I18N: Record<SupportedLocale, QrStudioTranslations> = {
     title: '반투명 QR 수동 삽입 스튜디오',
     subtitle:
       '작품 이미지 안쪽에 반투명 또는 스타일이 적용된 QR 코드를 직접 드래그해 배치하세요. QR 영역 바깥의 모든 픽셀은 SHA-256으로 무결성이 보호됩니다.',
+    modeSectionTitle: 'QR 배치 방식 선택',
+    modeOuterLabel: '바깥 여백 프레임 (간편 모드)',
+    modeOuterDesc: '그림 바깥쪽에 여백을 추가해 원화를 가리지 않고 QR을 배치합니다.',
+    modeStudioLabel: '그림 내부 반투명 QR (QR 스튜디오)',
+    modeStudioDesc: '그림 위에서 직접 드래그, 크기·투명도 조절, 실시간 스캔 테스트가 가능합니다.',
+    uploadFirstHint: '1단계에서 작품 이미지를 먼저 선택하면 여기에서 반투명 QR을 드래그해 배치할 수 있습니다.',
     createBannerTitle: '그림 안쪽에 반투명 QR 코드를 직접 넣고 싶으신가요?',
     createBannerDesc:
       '전용 QR 스튜디오에서 드래그 위치 지정, 크기/투명도 조절, 실시간 스캔 테스트까지 외곽 여백 없이 설정할 수 있습니다.',
@@ -297,6 +333,12 @@ export const QR_STUDIO_I18N: Record<SupportedLocale, QrStudioTranslations> = {
     title: 'Студия ручного встраивания QR-кода',
     subtitle:
       'Перетаскивайте, масштабируйте и настраивайте полупрозрачный QR-код прямо поверх иллюстрации. Все пиксели вне области QR защищены SHA-256.',
+    modeSectionTitle: 'Режим размещения QR-кода',
+    modeOuterLabel: 'Внешняя рамка (простой режим)',
+    modeOuterDesc: 'Добавляет поле вокруг рисунка и не перекрывает ни одного пикселя работы.',
+    modeStudioLabel: 'Полупрозрачный QR внутри рисунка (QR-студия)',
+    modeStudioDesc: 'Перетаскивайте QR по картинке, меняйте размер, прозрачность и стиль наложения.',
+    uploadFirstHint: 'Выберите изображение на шаге 1, чтобы настроить полупрозрачный QR прямо на нём.',
     createBannerTitle: 'Хотите встроить полупрозрачный QR-код прямо внутрь рисунка?',
     createBannerDesc:
       'Откройте специальную QR-студию: перетащите QR мышью, настройте прозрачность и сразу проверьте считываемость без добавления рамки.',
@@ -346,6 +388,12 @@ export const QR_STUDIO_I18N: Record<SupportedLocale, QrStudioTranslations> = {
     title: 'Студія ручного вбудовування QR-коду',
     subtitle:
       'Перетягуйте, масштабуйте та налаштовуйте напівпрозорий QR-код безпосередньо всередині ілюстрації. Усі пікселі поза областю QR захищені SHA-256.',
+    modeSectionTitle: 'Спосіб розміщення QR-коду',
+    modeOuterLabel: 'Зовнішня рамка (простий режим)',
+    modeOuterDesc: 'Додає поле навколо малюнка та не перекриває жодного пікселя твору.',
+    modeStudioLabel: 'Напівпрозорий QR всередині малюнка (QR-студія)',
+    modeStudioDesc: 'Перетягуйте QR по зображенню, змінюйте розмір, прозорість і стиль накладання.',
+    uploadFirstHint: 'Оберіть зображення на кроці 1, щоб розмістити та налаштувати напівпрозорий QR.',
     createBannerTitle: 'Хочете вбудувати напівпрозорий QR-код прямо всередину малюнка?',
     createBannerDesc:
       'Відкрийте спеціальну QR-студію: перетягніть QR, налаштуйте прозорість та перевірте зчитуваність наживо без зовнішньої рамки.',
@@ -395,6 +443,12 @@ export const QR_STUDIO_I18N: Record<SupportedLocale, QrStudioTranslations> = {
     title: 'Estudio Manual de QR en Imagen',
     subtitle:
       'Arrastra, redimensiona y mezcla un código QR semitransparente directamente dentro de tu obra. Cada píxel fuera de la máscara QR mantiene su verificación SHA-256.',
+    modeSectionTitle: 'Modo de colocación del QR',
+    modeOuterLabel: 'Marco exterior (Simple)',
+    modeOuterDesc: 'Añade un margen externo alrededor de la obra sin cubrir ningún píxel del dibujo.',
+    modeStudioLabel: 'QR semitransparente en la imagen (Estudio QR)',
+    modeStudioDesc: 'Arrastra, ajusta tamaño y opacidad y mezcla el QR directamente sobre el arte.',
+    uploadFirstHint: 'Selecciona primero una imagen en el Paso 1 para previsualizar y mover tu QR semitransparente aquí.',
     createBannerTitle: '¿Quieres incrustar un QR semitransparente dentro de la ilustración?',
     createBannerDesc:
       'Abre el Estudio QR dedicado para moverlo con el cursor, ajustar tamaño y opacidad y probar su lectura en vivo sin añadir bordes externos.',
@@ -444,6 +498,12 @@ export const QR_STUDIO_I18N: Record<SupportedLocale, QrStudioTranslations> = {
     title: 'Studio QR Manuel dans l’Image',
     subtitle:
       'Glissez, redimensionnez et fondez un QR code semi-transparent directement dans votre illustration. Chaque pixel hors du masque QR reste vérifié par SHA-256.',
+    modeSectionTitle: 'Mode de placement du QR',
+    modeOuterLabel: 'Cadre de marge externe (Simple)',
+    modeOuterDesc: 'Ajoute une bordure autour du dessin sans recouvrir aucun pixel de l’œuvre.',
+    modeStudioLabel: 'QR semi-transparent dans l’image (Studio QR)',
+    modeStudioDesc: 'Glissez, réglez taille et opacité et intégrez le QR directement dans l’image.',
+    uploadFirstHint: 'Sélectionnez d’abord une image à l’étape 1 pour placer votre QR semi-transparent ici.',
     createBannerTitle: 'Intégrer un QR semi-transparent directement dans l’illustration ?',
     createBannerDesc:
       'Ouvrez le Studio QR dédié pour déplacer le QR à la main, régler taille et opacité, et tester sa lisibilité en direct sans marge extérieure.',
@@ -493,6 +553,12 @@ export const QR_STUDIO_I18N: Record<SupportedLocale, QrStudioTranslations> = {
     title: 'Manuelles In-Image QR-Studio',
     subtitle:
       'Ziehe einen halbtransparenten QR-Code direkt in dein Kunstwerk, skaliere ihn und passe die Deckkraft an. Alle Pixel außerhalb der QR-Maske bleiben per SHA-256 geschützt.',
+    modeSectionTitle: 'QR-Platzierungsmodus',
+    modeOuterLabel: 'Außenrahmen (Einfach)',
+    modeOuterDesc: 'Fügt einen Rand außerhalb des Bildes hinzu, ohne Bildpixel zu verdecken.',
+    modeStudioLabel: 'Halbtransparentes QR im Bild (QR-Studio)',
+    modeStudioDesc: 'Ziehen, Größe & Deckkraft anpassen und QR direkt im Bild platzieren.',
+    uploadFirstHint: 'Wähle zuerst in Schritt 1 ein Bild aus, um den halbtransparenten QR-Code hier zu platzieren.',
     createBannerTitle: 'Halbtransparenten QR-Code direkt im Bild einbetten?',
     createBannerDesc:
       'Öffne das manuelle QR-Studio, um Position, Größe und Deckkraft per Drag & Drop anzupassen und die Lesbarkeit live ohne Außenrahmen zu testen.',
@@ -542,6 +608,12 @@ export const QR_STUDIO_I18N: Record<SupportedLocale, QrStudioTranslations> = {
     title: 'Estúdio Manual de QR na Imagem',
     subtitle:
       'Arraste, redimensione e misture um QR code semitransparente diretamente dentro da arte. Todos os pixels fora da máscara QR permanecem verificados por SHA-256.',
+    modeSectionTitle: 'Modo de posicionamento do QR',
+    modeOuterLabel: 'Moldura externa (Simples)',
+    modeOuterDesc: 'Adiciona uma margem ao redor da arte sem cobrir nenhum pixel do desenho.',
+    modeStudioLabel: 'QR semitransparente na imagem (Estúdio QR)',
+    modeStudioDesc: 'Arraste, ajuste tamanho e opacidade e incorpore o QR dentro da imagem.',
+    uploadFirstHint: 'Selecione primeiro uma imagem no Passo 1 para posicionar seu QR semitransparente aqui.',
     createBannerTitle: 'Quer incorporar um QR semitransparente dentro da ilustração?',
     createBannerDesc:
       'Abra o Estúdio QR dedicado para arrastar a posição, ajustar tamanho e opacidade e testar a leitura ao vivo sem borda externa.',
@@ -591,6 +663,12 @@ export const QR_STUDIO_I18N: Record<SupportedLocale, QrStudioTranslations> = {
     title: 'Studio QR Manuale nell’Immagine',
     subtitle:
       'Trascina, ridimensiona e fondi un codice QR semitrasparente direttamente dentro la tua opera. Ogni pixel esterno alla maschera QR resta verificato via SHA-256.',
+    modeSectionTitle: 'Modalità di posizionamento QR',
+    modeOuterLabel: 'Cornice esterna (Semplice)',
+    modeOuterDesc: 'Aggiunge un bordo intorno all’opera senza coprire alcun pixel del disegno.',
+    modeStudioLabel: 'QR semitrasparente nell’immagine (Studio QR)',
+    modeStudioDesc: 'Trascina, regola dimensioni e opacità e fondi il QR direttamente nell’immagine.',
+    uploadFirstHint: 'Seleziona prima un’immagine al Passo 1 per posizionare qui il tuo QR semitrasparente.',
     createBannerTitle: 'Vuoi incorporare un QR semitrasparente direttamente nell’illustrazione?',
     createBannerDesc:
       'Apri lo Studio QR dedicato per trascinare il QR, regolare dimensioni e opacità e testare la scansione dal vivo senza cornici esterne.',
@@ -640,6 +718,12 @@ export const QR_STUDIO_I18N: Record<SupportedLocale, QrStudioTranslations> = {
     title: 'استوديو تضمين رمز QR شبه الشفاف يدويًا',
     subtitle:
       'اسحب رمز QR شبه الشفاف وغيّر حجمه وشفافيته مباشرة داخل العمل الفني. تبقى كل وحدات البكسل خارج قناع QR محمية بتجزئة SHA-256.',
+    modeSectionTitle: 'وضع موضع رمز QR',
+    modeOuterLabel: 'إطار هامش خارجي (بسيط)',
+    modeOuterDesc: 'يضيف هامشًا خارجيًا حول الرسم دون تغطية أي بكسل من العمل الفني.',
+    modeStudioLabel: 'رمز QR شبه شفاف داخل الصورة (استوديو QR)',
+    modeStudioDesc: 'اسحب الموضع واضبط الحجم والشفافية وادمج رمز QR مباشرة داخل الصورة.',
+    uploadFirstHint: 'اختر صورة العمل الفني في الخطوة 1 أولاً لمعاينة رمز QR شبه الشفاف وتحريكه هنا.',
     createBannerTitle: 'هل تريد تضمين رمز QR شبه شفاف مباشرة داخل الرسم؟',
     createBannerDesc:
       'افتح استوديو QR المخصص لسحب الموضع وتعديل الحجم والشفافية واختبار قابلية المسح فورًا دون إضافة إطار خارجي.',
