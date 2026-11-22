@@ -39,10 +39,10 @@ export function ImageDropzone({
         setDragging(false);
         handleFiles(e.dataTransfer.files);
       }}
-      className={`relative rounded-xl border-2 border-dashed transition-colors p-6 text-center ${
+      className={`relative rounded-xl border border-dashed transition-colors p-6 text-center ${
         dragging
-          ? 'border-cyan-400 bg-cyan-500/10'
-          : 'border-slate-700 bg-slate-900/50 hover:border-cyan-500/50 hover:bg-slate-900/80'
+          ? 'border-sky-300/70 bg-sky-400/10'
+          : 'border-white/[0.16] bg-[#030b18]/55 hover:border-white/[0.3] hover:bg-[#041122]/75'
       } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
     >
       <input
@@ -63,8 +63,8 @@ export function ImageDropzone({
         htmlFor={inputId}
         className="flex flex-col items-center justify-center gap-2 cursor-pointer min-h-[110px]"
       >
-        <div className="rounded-full bg-cyan-500/10 p-3 border border-cyan-500/20 text-cyan-300">
-          <UploadCloud className="h-6 w-6" aria-hidden="true" />
+        <div className="rounded-lg bg-white/[0.06] p-2.5 border border-white/[0.1] text-sky-200">
+          <UploadCloud className="h-5 w-5" aria-hidden="true" />
         </div>
         <span className="text-sm sm:text-base font-medium text-slate-100">{title}</span>
         {subtitle && <span className="text-xs text-slate-400 max-w-md">{subtitle}</span>}

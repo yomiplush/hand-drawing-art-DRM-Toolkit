@@ -15,25 +15,25 @@ export function HomePage() {
   const icons = [Sparkles, Lock, QrCode, ShieldCheck];
 
   return (
-    <div className="space-y-10">
-      <section className="relative overflow-hidden rounded-2xl border border-cyan-500/25 bg-gradient-to-br from-[#0b1f3a] via-[#08172c] to-[#06111e] p-6 sm:p-10 shadow-xl shadow-cyan-950/30">
+    <div className="space-y-12">
+      <section className="py-4 sm:py-8 border-b border-white/[0.08]">
         <div className="max-w-3xl space-y-5">
-          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-3.5 py-1 text-xs font-medium text-cyan-200">
-            <span>{t.home.badge}</span>
-          </div>
+          <p className="text-[11px] font-mono uppercase tracking-[0.16em] text-sky-300/80">
+            {t.home.badge}
+          </p>
 
-          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-white leading-tight">
+          <h1 className="text-2xl sm:text-4xl font-semibold tracking-tight text-white leading-tight">
             {t.home.heroTitle}
           </h1>
 
-          <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+          <p className="text-sm sm:text-base text-slate-300/90 leading-relaxed max-w-2xl">
             {t.home.heroSubtitle}
           </p>
 
           <div className="flex flex-wrap gap-3 pt-2">
             <Link
               to="/create"
-              className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-400 transition-colors min-h-[44px]"
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-white transition-colors min-h-[44px]"
             >
               <FileSignature className="h-4 w-4" aria-hidden="true" />
               <span>{t.home.ctaCreate}</span>
@@ -41,17 +41,17 @@ export function HomePage() {
 
             <Link
               to="/verify"
-              className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/40 bg-cyan-500/10 px-5 py-3 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/20 transition-colors min-h-[44px]"
+              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.16] bg-[#061426]/65 backdrop-blur-md px-5 py-2.5 text-sm font-medium text-slate-100 hover:bg-white/[0.1] transition-colors min-h-[44px]"
             >
-              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              <ShieldCheck className="h-4 w-4 text-sky-300" aria-hidden="true" />
               <span>{t.home.ctaVerify}</span>
             </Link>
 
             <Link
               to="/keys"
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/70 px-5 py-3 text-sm font-semibold text-slate-200 hover:border-slate-500 hover:text-white transition-colors min-h-[44px]"
+              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.1] bg-[#041020]/55 backdrop-blur-md px-5 py-2.5 text-sm font-medium text-slate-200 hover:border-white/[0.22] hover:text-white transition-colors min-h-[44px]"
             >
-              <KeyRound className="h-4 w-4" aria-hidden="true" />
+              <KeyRound className="h-4 w-4 text-slate-300" aria-hidden="true" />
               <span>{t.home.ctaKeys}</span>
             </Link>
           </div>
@@ -59,20 +59,23 @@ export function HomePage() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-lg sm:text-xl font-semibold text-white">{t.home.principlesTitle}</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <h2 className="text-sm font-mono uppercase tracking-[0.14em] text-slate-300">
+          {t.home.principlesTitle}
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-px rounded-lg overflow-hidden border border-white/[0.09] bg-white/[0.08]">
           {t.home.principles.map((item, idx) => {
             const Icon = icons[idx % icons.length];
             return (
               <div
                 key={item.title}
-                className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-2 hover:border-cyan-500/30 transition-colors"
+                className="bg-[#051224]/70 backdrop-blur-md p-6 space-y-2.5"
               >
-                <div className="inline-flex items-center justify-center rounded-lg bg-cyan-500/10 border border-cyan-500/20 p-2 text-cyan-300">
-                  <Icon className="h-5 w-5" aria-hidden="true" />
+                <div className="flex items-center justify-between text-slate-400">
+                  <span className="font-mono text-[11px] tracking-widest">0{idx + 1}</span>
+                  <Icon className="h-4 w-4 text-sky-300/80" aria-hidden="true" />
                 </div>
-                <h3 className="text-base font-semibold text-slate-100">{item.title}</h3>
-                <p className="text-sm text-slate-400 leading-relaxed">{item.desc}</p>
+                <h3 className="text-base font-medium text-slate-100">{item.title}</h3>
+                <p className="text-sm text-slate-300/80 leading-relaxed">{item.desc}</p>
               </div>
             );
           })}
@@ -81,14 +84,14 @@ export function HomePage() {
 
       <section
         aria-label={t.home.disclaimerTitle}
-        className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-5 flex items-start gap-3.5"
+        className="rounded-lg border border-white/[0.09] border-s-2 border-s-amber-400/70 bg-[#061325]/70 backdrop-blur-md p-5 flex items-start gap-3.5"
       >
-        <AlertCircle className="h-5 w-5 text-amber-300 shrink-0 mt-0.5" aria-hidden="true" />
+        <AlertCircle className="h-5 w-5 text-amber-300/90 shrink-0 mt-0.5" aria-hidden="true" />
         <div className="space-y-1">
-          <h2 className="text-sm sm:text-base font-semibold text-amber-200">
+          <h2 className="text-sm sm:text-base font-medium text-amber-100">
             {t.home.disclaimerTitle}
           </h2>
-          <p className="text-xs sm:text-sm text-amber-100/90 leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-300/90 leading-relaxed">
             {t.home.disclaimerBody}
           </p>
         </div>

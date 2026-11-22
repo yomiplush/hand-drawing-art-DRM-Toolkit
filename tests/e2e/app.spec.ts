@@ -18,7 +18,7 @@ function buildTestArtworkPng(width = 160, height = 120): Buffer {
 }
 
 test.describe('Certified Handmade E2E suite', () => {
-  test('full key lifecycle, signing, PNG QR burning, verification, tamper detection, trust, and JA/EN toggle', async ({
+  test('full key lifecycle, signing, PNG QR burning, verification, tamper detection, trust, wave bg, and multilingual switching', async ({
     page,
   }, testInfo) => {
     const externalRequests: string[] = [];
@@ -37,11 +37,37 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
-    // Toggle Japanese <-> English
-    await page.getByTestId('lang-toggle').click();
+    // PS3-inspired animated wave background canvas is mounted and sized
+    const waveCanvas = page.getByTestId('ps3-wave-bg');
+    await expect(waveCanvas).toBeVisible();
+    const box = await waveCanvas.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeGreaterThan(200);
+    expect(box!.height).toBeGreaterThan(200);
+
+    // Dismiss initial cookie banner cleanly so it doesn't obscure bottom interactions
+    await expect(page.getByTestId('cookie-consent-banner')).toBeVisible();
+    await page.getByTestId('cookie-reject-btn').click();
+    await expect(page.getByTestId('cookie-consent-banner')).toBeHidden();
+
+    // Multi-language switching (JA, zh-CN, ko, ru, uk, ar RTL, back to EN)
+    const langSelect = page.getByTestId('lang-select');
+    await langSelect.selectOption('ja');
     await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
-    await page.getByTestId('lang-toggle').click();
+    await langSelect.selectOption('zh-CN');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
+    await langSelect.selectOption('ko');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ko');
+    await langSelect.selectOption('ru');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
+    await langSelect.selectOption('uk');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'uk');
+    await langSelect.selectOption('ar');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await langSelect.selectOption('en');
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
 
     // 1. Go to Keys page, generate keypair with encrypted backup
     await page.goto('/keys');
@@ -129,8 +155,46 @@ test.describe('Certified Handmade E2E suite', () => {
     expect(externalRequests).toEqual([]);
   });
 
+  test('GDPR bottom popup, consent-gated locale persistence, and /#privacypolicy page', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('cookie-consent-banner')).toBeVisible();
+
+    // Reject optional -> select Japanese -> reload -> banner stays closed and language resets to default 'en'
+    await page.getByTestId('cookie-reject-btn').click();
+    await expect(page.getByTestId('cookie-consent-banner')).toBeHidden();
+    await page.getByTestId('lang-select').selectOption('ja');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
+
+    await page.reload();
+    await expect(page.getByTestId('cookie-consent-banner')).toBeHidden();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+
+    // Reopen via footer button -> Accept optional -> select Ukrainian -> reload -> Ukrainian persists
+    await page.getByTestId('footer-cookie-settings').click();
+    await expect(page.getByTestId('cookie-consent-banner')).toBeVisible();
+    await page.getByTestId('cookie-accept-btn').click();
+    await expect(page.getByTestId('cookie-consent-banner')).toBeHidden();
+
+    await page.getByTestId('lang-select').selectOption('uk');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'uk');
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'uk');
+
+    // Visit /#privacypolicy and verify gdpr-info.eu reference + reset button
+    await page.goto('/#privacypolicy');
+    await expect(page.getByTestId('privacy-policy-page')).toBeVisible();
+    await expect(page.locator('a[href="https://gdpr-info.eu/"]')).toBeVisible();
+    await expect(page.getByTestId('policy-consent-status')).toBeVisible();
+
+    await page.getByTestId('policy-reset-btn').click();
+    await expect(page.getByTestId('cookie-consent-banner')).toBeVisible();
+  });
+
   test('works offline via Service Worker on /verify#proof=...', async ({ page, context }, testInfo) => {
     await page.goto('/');
+    await page.getByTestId('cookie-reject-btn').click();
     await page.evaluate(async () => {
       if ('serviceWorker' in navigator) {
         await navigator.serviceWorker.ready;

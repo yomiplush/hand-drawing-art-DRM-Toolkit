@@ -1,20 +1,49 @@
 import React, { useEffect, useState } from 'react';
-import { I18nContext } from './context';
+import { persistOptionalLocale, readOptionalLocale } from '../core/storage/consent';
+import { I18nContext, LOCALE_OPTIONS } from './context';
 import type { Locale } from './context';
 import { en } from './en';
+import type { Translations } from './en';
 import { ja } from './ja';
+import { ko, zhCN, zhTW } from './locales/eastAsia';
+import { ar, de, es, fr, it, pt } from './locales/europeanAndArabic';
+import { ru, uk } from './locales/slavic';
 
-const STORAGE_KEY = 'chm_locale';
+const LOCALE_MAP: Record<Locale, Translations> = {
+  en,
+  ja,
+  'zh-CN': zhCN,
+  'zh-TW': zhTW,
+  ko,
+  ru,
+  uk,
+  es,
+  fr,
+  de,
+  pt,
+  it,
+  ar,
+};
 
 function detectInitialLocale(): Locale {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === 'en' || saved === 'ja') return saved;
-  } catch {
-    // Ignore storage restriction
-  }
-  if (typeof navigator !== 'undefined' && navigator.language?.toLowerCase().startsWith('ja')) {
-    return 'ja';
+  const saved = readOptionalLocale();
+  if (saved) return saved;
+  if (typeof navigator !== 'undefined' && navigator.language) {
+    const lang = navigator.language.toLowerCase();
+    if (lang.startsWith('ja')) return 'ja';
+    if (lang.includes('hant') || lang === 'zh-tw' || lang === 'zh-hk' || lang === 'zh-mo') {
+      return 'zh-TW';
+    }
+    if (lang.startsWith('zh')) return 'zh-CN';
+    if (lang.startsWith('ko')) return 'ko';
+    if (lang.startsWith('ru')) return 'ru';
+    if (lang.startsWith('uk')) return 'uk';
+    if (lang.startsWith('es')) return 'es';
+    if (lang.startsWith('fr')) return 'fr';
+    if (lang.startsWith('de')) return 'de';
+    if (lang.startsWith('pt')) return 'pt';
+    if (lang.startsWith('it')) return 'it';
+    if (lang.startsWith('ar')) return 'ar';
   }
   return 'en';
 }
@@ -24,19 +53,17 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   const setLocale = (next: Locale) => {
     setLocaleState(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // Ignore storage restriction
-    }
+    persistOptionalLocale(next);
   };
 
   useEffect(() => {
     document.documentElement.lang = locale;
+    const option = LOCALE_OPTIONS.find((o) => o.code === locale);
+    document.documentElement.dir = option?.dir ?? 'ltr';
   }, [locale]);
 
   const toggleLocale = () => setLocale(locale === 'en' ? 'ja' : 'en');
-  const t = locale === 'ja' ? ja : en;
+  const t = LOCALE_MAP[locale] ?? en;
 
   return (
     <I18nContext.Provider value={{ locale, setLocale, toggleLocale, t }}>

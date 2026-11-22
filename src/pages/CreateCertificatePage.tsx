@@ -192,13 +192,13 @@ export function CreateCertificatePage() {
 
   return (
     <div className="space-y-8">
-      <header className="space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white">{t.create.title}</h1>
+      <header className="space-y-2 border-b border-white/[0.08] pb-5">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-white">{t.create.title}</h1>
         <p className="text-sm sm:text-base text-slate-300">{t.create.subtitle}</p>
       </header>
 
       <form onSubmit={handleSignAndBurn} className="space-y-6">
-        <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
+        <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
           <div>
             <h2 className="text-base sm:text-lg font-semibold text-white">{t.create.step1}</h2>
             <p className="text-xs text-slate-400 mt-1">{t.create.step1Hint}</p>
@@ -212,7 +212,7 @@ export function CreateCertificatePage() {
           />
 
           {artworkRaster && artworkPreviewUrl && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center rounded-xl border border-white/[0.09] bg-[#030b18]/65 p-4">
               <div className="md:col-span-1 flex justify-center bg-slate-900 rounded-lg p-2 border border-slate-800">
                 <img
                   src={artworkPreviewUrl}
@@ -237,7 +237,7 @@ export function CreateCertificatePage() {
           )}
         </section>
 
-        <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
+        <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
           <h2 className="text-base sm:text-lg font-semibold text-white">{t.create.step2}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -254,7 +254,7 @@ export function CreateCertificatePage() {
                 onChange={(e) => setAuthorName(e.target.value)}
                 placeholder={t.create.authorPlaceholder}
                 data-testid="create-author-input"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
               />
             </div>
 
@@ -272,13 +272,13 @@ export function CreateCertificatePage() {
                 onChange={(e) => setArtworkTitle(e.target.value)}
                 placeholder={t.create.titlePlaceholder}
                 data-testid="create-title-input"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
               />
             </div>
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
+        <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
           <h2 className="text-base sm:text-lg font-semibold text-white">{t.create.step3}</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -291,7 +291,7 @@ export function CreateCertificatePage() {
                 value={licenseId}
                 onChange={(e) => setLicenseId(e.target.value as LicenseId)}
                 data-testid="create-license-select"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
               >
                 {LICENSE_DEFINITIONS.map((lic) => (
                   <option key={lic.id} value={lic.id}>
@@ -315,7 +315,7 @@ export function CreateCertificatePage() {
                 value={attributionName}
                 onChange={(e) => setAttributionName(e.target.value)}
                 placeholder={t.create.attributionPlaceholder}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
               />
             </div>
           </div>
@@ -332,7 +332,7 @@ export function CreateCertificatePage() {
                 id="commercialUse"
                 value={commercialUse}
                 onChange={(e) => setCommercialUse(e.target.value as PolicySignal)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
               >
                 <option value="unspecified">{t.create.policyUnspecified}</option>
                 <option value="allow">{t.create.policyAllow}</option>
@@ -351,7 +351,7 @@ export function CreateCertificatePage() {
                 id="redistribution"
                 value={redistribution}
                 onChange={(e) => setRedistribution(e.target.value as PolicySignal)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
               >
                 <option value="unspecified">{t.create.policyUnspecified}</option>
                 <option value="allow">{t.create.policyAllow}</option>
@@ -368,7 +368,7 @@ export function CreateCertificatePage() {
                 value={aiTraining}
                 onChange={(e) => setAiTraining(e.target.value as PolicySignal)}
                 data-testid="create-ai-select"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
               >
                 <option value="disallow">{t.create.policyDisallow}</option>
                 <option value="allow">{t.create.policyAllow}</option>
@@ -383,7 +383,7 @@ export function CreateCertificatePage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
+        <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
           <h2 className="text-base sm:text-lg font-semibold text-white">{t.create.step4}</h2>
           {keys.length === 0 ? (
             <div className="rounded-lg border border-amber-400/35 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -410,7 +410,7 @@ export function CreateCertificatePage() {
                   value={selectedKeyId}
                   onChange={(e) => setSelectedKeyId(e.target.value)}
                   data-testid="create-key-select"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white"
+                  className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
                 >
                   {keys.map((k) => (
                     <option key={k.id} value={k.id}>
@@ -434,7 +434,7 @@ export function CreateCertificatePage() {
                     required
                     value={keyPassphrase}
                     onChange={(e) => setKeyPassphrase(e.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white"
+                    className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
                   />
                 </div>
               )}
@@ -442,7 +442,7 @@ export function CreateCertificatePage() {
           )}
         </section>
 
-        <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
+        <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
           <h2 className="text-base sm:text-lg font-semibold text-white">{t.create.step5}</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -454,7 +454,7 @@ export function CreateCertificatePage() {
                 id="placement"
                 value={placement}
                 onChange={(e) => setPlacement(e.target.value as QrPlacement)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
               >
                 <option value="bottom-right">{t.create.placements['bottom-right']}</option>
                 <option value="bottom-left">{t.create.placements['bottom-left']}</option>
@@ -471,7 +471,7 @@ export function CreateCertificatePage() {
                 id="theme"
                 value={theme}
                 onChange={(e) => setTheme(e.target.value as FrameTheme)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
               >
                 <option value="dark-slate">{t.create.themes['dark-slate']}</option>
                 <option value="pure-white">{t.create.themes['pure-white']}</option>
@@ -503,7 +503,7 @@ export function CreateCertificatePage() {
                 id="moduleScale"
                 value={moduleScale}
                 onChange={(e) => setModuleScale(Number(e.target.value))}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
               >
                 <option value={0}>{t.create.autoScale}</option>
                 <option value={2}>2 px / module</option>
@@ -535,7 +535,7 @@ export function CreateCertificatePage() {
                 type="url"
                 value={verifyBaseUrl}
                 onChange={(e) => setVerifyBaseUrl(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-xs font-mono text-slate-200"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2 text-xs font-mono text-slate-200"
               />
               <p className="text-[11px] text-slate-400 mt-1">{t.create.verifyUrlHint}</p>
             </div>
@@ -556,7 +556,7 @@ export function CreateCertificatePage() {
             type="submit"
             disabled={busy || !artworkRaster || !selectedKey}
             data-testid="create-sign-button"
-            className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-6 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px]"
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-6 py-3 text-sm font-semibold text-slate-950 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px]"
           >
             <FileSignature className="h-4 w-4" aria-hidden="true" />
             <span>{busy ? t.create.signingBusy : t.create.signButton}</span>
@@ -568,7 +568,7 @@ export function CreateCertificatePage() {
       {signedResult && signedPreviewUrl && (
         <section
           data-testid="create-result-section"
-          className="rounded-2xl border border-cyan-500/35 bg-[#091b30] p-6 space-y-5"
+          className="rounded-xl border border-white/[0.14] bg-[#051224]/75 backdrop-blur-md p-6 space-y-5"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-cyan-200">{t.create.resultTitle}</h2>
@@ -577,7 +577,7 @@ export function CreateCertificatePage() {
                 type="button"
                 onClick={handleDownloadSignedPng}
                 data-testid="download-signed-png"
-                className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-400 min-h-[44px]"
+                className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-white min-h-[44px]"
               >
                 <Download className="h-4 w-4" aria-hidden="true" />
                 <span>{t.create.downloadPng}</span>
@@ -614,7 +614,7 @@ export function CreateCertificatePage() {
             </div>
 
             <dl className="space-y-3 text-xs sm:text-sm">
-              <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+              <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3">
                 <dt className="text-xs text-slate-400">{t.create.artworkRegionLabel}</dt>
                 <dd className="font-mono text-white mt-0.5">
                   [{signedResult.manifest.region.join(', ')}] → Output{' '}
@@ -622,7 +622,7 @@ export function CreateCertificatePage() {
                 </dd>
               </div>
 
-              <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+              <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3">
                 <dt className="text-xs text-slate-400">{t.create.artworkShaLabel}</dt>
                 <dd className="font-mono text-xs text-cyan-300 break-all mt-0.5">
                   {bytesToHex(signedResult.manifest.sha256)}
@@ -630,13 +630,13 @@ export function CreateCertificatePage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3">
                   <dt className="text-xs text-slate-400">{t.create.proofSizeLabel}</dt>
                   <dd className="font-mono text-white mt-0.5">
                     {signedResult.proofBytes.length} bytes
                   </dd>
                 </div>
-                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3">
                   <dt className="text-xs text-slate-400">{t.create.qrVersionLabel}</dt>
                   <dd className="font-mono text-white mt-0.5">
                     v{signedResult.qrVersion} ({signedResult.qrModules}×{signedResult.qrModules})

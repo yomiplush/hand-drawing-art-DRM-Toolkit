@@ -34,17 +34,17 @@ export function StatusDimensionsGrid({
 
   const sigCard = {
     valid: {
-      tone: 'border-cyan-400/40 bg-cyan-500/10 text-cyan-200',
+      tone: 'border-sky-300/35 bg-[#05162b]/75 text-sky-100',
       icon: CheckCircle2,
       text: t.verify.badges.sigValid,
     },
     invalid: {
-      tone: 'border-rose-500/50 bg-rose-500/15 text-rose-200',
+      tone: 'border-rose-500/45 bg-rose-950/50 text-rose-100',
       icon: XCircle,
       text: t.verify.badges.sigInvalid,
     },
     unsupported: {
-      tone: 'border-amber-400/40 bg-amber-500/15 text-amber-200',
+      tone: 'border-amber-400/40 bg-amber-950/40 text-amber-100',
       icon: AlertTriangle,
       text: t.verify.badges.sigUnsupported,
     },
@@ -52,17 +52,17 @@ export function StatusDimensionsGrid({
 
   const intCard = {
     matched: {
-      tone: 'border-cyan-400/40 bg-cyan-500/10 text-cyan-200',
+      tone: 'border-sky-300/35 bg-[#05162b]/75 text-sky-100',
       icon: CheckCircle2,
       text: t.verify.badges.intMatched,
     },
     mismatched: {
-      tone: 'border-rose-500/50 bg-rose-500/15 text-rose-200',
+      tone: 'border-rose-500/45 bg-rose-950/50 text-rose-100',
       icon: XCircle,
       text: t.verify.badges.intMismatched,
     },
     'not-checked': {
-      tone: 'border-amber-400/35 bg-amber-500/10 text-amber-200',
+      tone: 'border-amber-400/35 bg-amber-950/35 text-amber-100',
       icon: HelpCircle,
       text: t.verify.badges.intNotChecked,
     },
@@ -70,14 +70,14 @@ export function StatusDimensionsGrid({
 
   const idCard = {
     'locally-trusted': {
-      tone: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200',
+      tone: 'border-emerald-400/40 bg-emerald-950/40 text-emerald-100',
       icon: ShieldCheck,
       text: trustedKeyLabel
         ? `${t.verify.badges.idTrusted} (${trustedKeyLabel})`
         : t.verify.badges.idTrusted,
     },
     unknown: {
-      tone: 'border-amber-400/35 bg-amber-500/10 text-amber-200',
+      tone: 'border-amber-400/35 bg-amber-950/35 text-amber-100',
       icon: ShieldAlert,
       text: t.verify.badges.idUnknown,
     },
@@ -85,17 +85,17 @@ export function StatusDimensionsGrid({
 
   const assessCard = {
     'not-assessed': {
-      tone: 'border-slate-700 bg-slate-900/70 text-slate-300',
+      tone: 'border-white/[0.1] bg-[#051224]/70 text-slate-300',
       icon: Cpu,
       text: t.verify.badges.assessNotAssessed,
     },
     'experimental-available': {
-      tone: 'border-sky-400/35 bg-sky-500/10 text-sky-200',
+      tone: 'border-sky-300/35 bg-[#05162b]/75 text-sky-100',
       icon: Cpu,
       text: t.verify.badges.assessExperimental,
     },
     inconclusive: {
-      tone: 'border-slate-600 bg-slate-800/70 text-slate-300',
+      tone: 'border-white/[0.12] bg-[#051224]/70 text-slate-300',
       icon: HelpCircle,
       text: t.verify.badges.assessInconclusive,
     },
@@ -116,9 +116,9 @@ export function StatusDimensionsGrid({
           <div
             key={card.key}
             data-testid={card.testId}
-            className={`rounded-xl border p-4 ${card.tone}`}
+            className={`rounded-xl border backdrop-blur-md p-4 ${card.tone}`}
           >
-            <div className="text-xs font-medium uppercase tracking-wider opacity-80 mb-1.5">
+            <div className="text-xs font-medium uppercase tracking-wider opacity-75 mb-1.5">
               {card.title}
             </div>
             <div className="flex items-center gap-2 font-semibold text-sm sm:text-base">

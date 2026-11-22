@@ -214,18 +214,18 @@ export function VerifyCertificatePage() {
   const tabClass = (tab: InputTab) =>
     `inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors min-h-[44px] ${
       activeTab === tab
-        ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/40'
-        : 'bg-slate-900/60 text-slate-300 border border-slate-800 hover:border-slate-700'
+        ? 'bg-white/[0.12] text-white border border-white/[0.2]'
+        : 'bg-[#051224]/60 text-slate-300 border border-white/[0.09] hover:border-white/[0.18]'
     }`;
 
   return (
     <div className="space-y-8">
-      <header className="space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white">{t.verify.title}</h1>
+      <header className="space-y-2 border-b border-white/[0.08] pb-5">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-white">{t.verify.title}</h1>
         <p className="text-sm sm:text-base text-slate-300">{t.verify.subtitle}</p>
       </header>
 
-      <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-5">
+      <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-5">
         <div className="flex flex-wrap gap-2" role="tablist">
           <button
             type="button"
@@ -284,12 +284,12 @@ export function VerifyCertificatePage() {
               onChange={(e) => setProofInput(e.target.value)}
               placeholder={t.verify.proofInputPlaceholder}
               data-testid="verify-proof-textarea"
-              className="w-full rounded-lg border border-slate-700 bg-slate-950/80 p-3 text-xs font-mono text-white placeholder:text-slate-500"
+              className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 p-3 text-xs font-mono text-white placeholder:text-slate-500"
             />
             <button
               type="submit"
               data-testid="verify-proof-submit"
-              className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-400 min-h-[44px]"
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-white min-h-[44px]"
             >
               <span>{t.verify.verifyProofBtn}</span>
             </button>
@@ -336,12 +336,12 @@ export function VerifyCertificatePage() {
             </div>
           )}
 
-          <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 text-xs sm:text-sm text-slate-300">
+          <div className="rounded-xl border border-white/[0.1] bg-[#051224]/65 backdrop-blur-md p-4 text-xs sm:text-sm text-slate-300">
             {t.verify.trustReminder}
           </div>
 
           {result.manifest && (
-            <section className="rounded-xl border border-cyan-500/25 bg-slate-900/50 p-5 space-y-3">
+            <section className="rounded-xl border border-white/[0.12] bg-[#051224]/65 backdrop-blur-md p-5 space-y-3">
               <h3 className="text-sm sm:text-base font-semibold text-white">
                 {t.verify.attachArtworkTitle}
               </h3>
@@ -359,7 +359,7 @@ export function VerifyCertificatePage() {
           )}
 
           {result.manifest && (
-            <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
+            <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
               <h2 className="text-base sm:text-lg font-semibold text-white">
                 {t.verify.detailsTitle}
               </h2>
@@ -442,7 +442,7 @@ export function VerifyCertificatePage() {
               {result.signatureStatus === 'valid' && result.identityStatus === 'unknown' && (
                 <form
                   onSubmit={handleTrustThisKey}
-                  className="rounded-xl border border-slate-700 bg-slate-950/70 p-4 space-y-3"
+                  className="rounded-xl border border-white/[0.1] bg-[#030b18]/65 p-4 space-y-3"
                 >
                   <p className="text-xs sm:text-sm font-medium text-slate-200">
                     {t.verify.trustKeyPrompt}
@@ -474,7 +474,7 @@ export function VerifyCertificatePage() {
                 </p>
               )}
 
-              <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 flex items-start gap-2.5 text-xs text-slate-400">
+              <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/55 p-3 flex items-start gap-2.5 text-xs text-slate-400">
                 <Cpu className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" aria-hidden="true" />
                 <span>{t.verify.assessmentNote}</span>
               </div>
@@ -488,7 +488,7 @@ export function VerifyCertificatePage() {
 
 function DetailRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+    <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3">
       <dt className="text-xs text-slate-400">{label}</dt>
       <dd className={`mt-0.5 text-slate-100 break-all ${mono ? 'font-mono text-xs' : ''}`}>
         {value}

@@ -7,6 +7,8 @@ export const en = {
     verify: 'Verify',
     keys: 'Identity / Keys',
     docs: 'Docs',
+    privacy: 'Privacy Policy',
+    cookieSettings: '🍪 Cookie Settings',
     menuLabel: 'Toggle navigation menu',
     langToggle: '日本語',
   },
@@ -16,6 +18,100 @@ export const en = {
     updateAvailable: 'A new offline version is available.',
     updateButton: 'Update Now',
     localOnlyPill: '100% Local · No Server Upload',
+  },
+  consent: {
+    title: '🍪 Privacy & Cookie Preferences (GDPR)',
+    body: 'Certified Handmade processes all artwork, keys, and verification locally in your browser with ZERO tracking, analytics, or advertising cookies. Strictly necessary local storage is used only for offline PWA caching and any keys you choose to save. May we also store your optional UI preference cookie (selected interface language)?',
+    acceptBtn: 'Accept Optional',
+    rejectBtn: 'Reject Optional',
+    policyLink: 'Privacy Policy (GDPR)',
+    closeLabel: 'Close cookie preferences',
+    statusLabel: 'Current Consent Status',
+    statusAccepted: 'Accepted (Optional preference cookie enabled)',
+    statusRejected: 'Rejected (Strictly necessary storage only)',
+    statusUnset: 'Not yet chosen',
+  },
+  privacyPolicy: {
+    title: 'Privacy Policy & GDPR Notice',
+    subtitle:
+      'Prepared in alignment with Regulation (EU) 2016/679 (GDPR — gdpr-info.eu) and the ePrivacy Directive for Certified Handmade.',
+    lastUpdated: 'Effective / Updated: November 22, 2026',
+    gdprRefLabel: 'GDPR Reference Text:',
+    gdprRefUrl: 'https://gdpr-info.eu/',
+    controlsTitle: 'Your Consent & Local Storage Controls (Art. 7(3) GDPR)',
+    controlsDesc:
+      'You may accept, reject, or withdraw consent for optional preference cookies/storage at any time. Rejecting immediately clears optional preference storage without affecting core local signing or verification.',
+    reopenBannerBtn: 'Open Bottom Cookie Popup',
+    resetConsentBtn: 'Clear Optional Data & Reset Consent',
+    manageKeysBtn: 'Manage / Delete Local Keys (/keys)',
+    sections: [
+      {
+        title: '1. Controller & Open-Source Scope (Art. 13 GDPR)',
+        body: 'Certified Handmade is a static, client-side, open-source web application (MIT License) maintained at github.com/yomiplush/hand-drawing-art-DRM-Toolkit and planned for hosting at certified-handmade.com. There are no user accounts, no central authentication servers, no telemetry, and no commercial data monetization.',
+      },
+      {
+        title: '2. Data Processed Strictly Locally on Your Device',
+        body: 'All artwork files, RGBA8 pixel buffers, SHA-256 digests, Ed25519 private/public keys, passphrase-encrypted backups (.chkey.json), camera QR frames (getUserMedia), and #proof=... URL fragments are processed exclusively inside your browser memory and local device storage. Artwork images and private keys are NEVER uploaded to any server.',
+      },
+      {
+        title: '3. Legal Bases for Processing (Art. 6(1) GDPR)',
+        body: '• Art. 6(1)(b) / Art. 6(1)(f) (Strictly Necessary Local Execution): Reading image files you select, generating/verifying cryptographic proofs, caching static assets via Service Worker for offline use, and storing your consent choice locally.\n• Art. 6(1)(a) (Explicit Consent): Storing optional UI preference cookies/localStorage (such as your chosen interface language across visits) and accessing your device camera when you manually start QR scanning.',
+      },
+      {
+        title: '4. Cookies & Client-Side Storage Inventory',
+        body: 'We do NOT use any advertising, profiling, social media, or third-party analytics cookies (zero external network requests).',
+      },
+      {
+        title: '5. Static Hosting Infrastructure (Cloudflare Pages)',
+        body: 'When your browser initially fetches static HTML/JS/CSS/icon files over HTTPS, Cloudflare Pages processes standard transient HTTP transport metadata (such as IP address and TLS connection headers) strictly to deliver static files and protect against abuse. Once cached by the PWA Service Worker, subsequent offline usage sends zero network requests. Proof payloads reside inside the URL #proof=... fragment, which browsers do not transmit in HTTP GET requests.',
+      },
+      {
+        title: '6. Your Rights Under GDPR (Art. 7, Art. 15–22, Art. 77)',
+        body: '• Right of Access & Portability (Art. 15, 20): Inspect all locally stored keys in Identity / Keys (/keys) and export public keys or encrypted backups (.chkey.json) and signed PNGs at any time.\n• Right to Erasure (Art. 17): Delete individual keys in /keys, clear optional preference storage below, or clear your browser’s site data.\n• Right to Withdraw Consent (Art. 7(3)): Click "Reject Optional" or reopen the cookie popup below at any time.\n• Right to Lodge a Complaint (Art. 77): You have the right to lodge a complaint with a competent EU/EEA data protection supervisory authority.',
+      },
+      {
+        title: '7. Recipients, Third-Country Transfers & Automated Decision-Making',
+        body: 'No personal data from your artworks or keys is shared with third parties or transferred to third countries by the application. Certified Handmade does not perform automated decision-making or profiling under Art. 22 GDPR.',
+      },
+    ],
+    tableHeaders: {
+      name: 'Storage / Cookie Name',
+      category: 'Category & Legal Basis',
+      purpose: 'Purpose',
+      retention: 'Retention',
+    },
+    tableRows: [
+      {
+        name: 'chm_consent / chm_gdpr_consent_v1',
+        category: 'Strictly Necessary (Art. 6(1)(f))',
+        purpose: 'Remembers whether you accepted or rejected optional preferences (no tracking ID).',
+        retention: '180 days or until cleared',
+      },
+      {
+        name: 'IndexedDB (certified-handmade-store)',
+        category: 'Strictly Necessary on User Action (Art. 6(1)(b))',
+        purpose: 'Stores your local Ed25519 key handles and your personal Locally Trusted Keys list.',
+        retention: 'Until deleted by user or browser eviction',
+      },
+      {
+        name: 'Service Worker Cache (workbox-precache)',
+        category: 'Strictly Necessary for Offline PWA (Art. 6(1)(b))',
+        purpose: 'Caches static app bundle locally so signing & verification work offline.',
+        retention: 'Until updated or site data cleared',
+      },
+      {
+        name: 'chm_locale (Cookie & localStorage)',
+        category: 'Optional Preference (Consent — Art. 6(1)(a))',
+        purpose: 'Remembers your chosen interface language across visits.',
+        retention: '180 days if accepted; deleted immediately if rejected',
+      },
+      {
+        name: 'Analytics / Ad / Tracking Cookies',
+        category: 'None',
+        purpose: 'Not used anywhere in Certified Handmade.',
+        retention: 'N/A',
+      },
+    ],
   },
   home: {
     badge: 'Open Source · No NFT · No Blockchain · 100% Free',
