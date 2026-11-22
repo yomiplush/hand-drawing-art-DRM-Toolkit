@@ -195,6 +195,40 @@ test.describe('Certified Handmade E2E suite', () => {
     await expect(page.getByTestId('cookie-consent-banner')).toBeVisible();
   });
 
+  test('Tutorial menu navigation, guided flow into /create, and multilingual tutorial rendering', async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto('/');
+    await page.getByTestId('cookie-accept-btn').click();
+
+    // Check Tutorial link in menu (Primary desktop nav or Mobile hamburger drawer)
+    if (isMobile) {
+      await page.getByRole('button', { name: 'Menu' }).click();
+      const mobileNavLink = page.locator('nav[aria-label="Mobile"] a[href="/tutorial"]');
+      await expect(mobileNavLink).toBeVisible();
+      await mobileNavLink.click();
+    } else {
+      const desktopNavLink = page.locator('nav[aria-label="Primary"] a[href="/tutorial"]');
+      await expect(desktopNavLink).toBeVisible();
+      await desktopNavLink.click();
+    }
+
+    await expect(page.getByTestId('tutorial-page')).toBeVisible();
+    await expect(page.getByTestId('tutorial-step-0')).toBeVisible();
+    await expect(page.getByTestId('tutorial-cheat-section')).toContainText('ARR (All Rights Reserved)');
+
+    // Check multilingual rendering (ja and uk)
+    await page.getByTestId('lang-select').selectOption('ja');
+    await expect(page.getByTestId('tutorial-page')).toContainText('かんたんチュートリアル');
+    await page.getByTestId('lang-select').selectOption('uk');
+    await expect(page.getByTestId('tutorial-page')).toContainText('Простий покроковий туторіал');
+
+    // Follow guided CTA from Tutorial into /create
+    await page.getByTestId('tutorial-step-cta-0').click();
+    await expect(page).toHaveURL(/\/create$/);
+    await expect(page.getByTestId('create-quick-keygen')).toBeVisible();
+  });
 
   test('beginner-friendly 1-click keygen on /create and multilingual license guide on /docs', async ({
     page,
@@ -202,6 +236,7 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.goto('/');
     await page.getByTestId('cookie-accept-btn').click();
     await expect(page.getByTestId('home-howto-section')).toBeVisible();
+    await expect(page.getByTestId('home-tutorial-link')).toBeVisible();
 
     // Switch to Japanese and verify beginner guide & 1-click keygen on /create
     await page.getByTestId('lang-select').selectOption('ja');

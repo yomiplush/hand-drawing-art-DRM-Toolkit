@@ -3,6 +3,7 @@ import { LICENSE_DEFINITIONS } from '../../src/core/manifest/types';
 import { SUPPORTED_LOCALES } from '../../src/core/storage/consent';
 import { HOWTO_I18N } from '../../src/i18n/howto';
 import { LICENSE_I18N } from '../../src/i18n/licenses';
+import { TUTORIAL_I18N } from '../../src/i18n/tutorial';
 
 describe('13-language license guide & simple how-to translations', () => {
   it('provides localized license descriptions for all 8 licenses in all 13 languages', () => {
@@ -41,6 +42,31 @@ describe('13-language license guide & simple how-to translations', () => {
       if (locale !== 'en') {
         expect(howto.homeTitle).not.toBe(HOWTO_I18N.en.homeTitle);
         expect(howto.quickKeyBtn).not.toBe(HOWTO_I18N.en.quickKeyBtn);
+      }
+    }
+  });
+
+  it('provides full Tutorial page translations & guided links for all 13 languages', () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      const tut = TUTORIAL_I18N[locale];
+      expect(tut.navLabel.trim().length).toBeGreaterThan(1);
+      expect(tut.homeCta.trim().length).toBeGreaterThan(3);
+      expect(tut.title.trim().length).toBeGreaterThan(3);
+      expect(tut.reassuranceItems).toHaveLength(3);
+      expect(tut.steps).toHaveLength(4);
+      for (const step of tut.steps) {
+        expect(step.title.trim().length).toBeGreaterThan(3);
+        expect(step.desc.trim().length).toBeGreaterThan(10);
+        expect(step.ctaLabel.trim().length).toBeGreaterThan(2);
+        expect(['/create', '/verify', '/keys', '/docs']).toContain(step.to);
+      }
+      expect(tut.cheatItems).toHaveLength(4);
+      expect(tut.faqs).toHaveLength(3);
+
+      if (locale !== 'en') {
+        expect(tut.title).not.toBe(TUTORIAL_I18N.en.title);
+        expect(tut.subtitle).not.toBe(TUTORIAL_I18N.en.subtitle);
+        expect(tut.homeCta).not.toBe(TUTORIAL_I18N.en.homeCta);
       }
     }
   });

@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import {
   AlertCircle,
+  ArrowRight,
+  Compass,
   FileSignature,
   KeyRound,
   Lock,
@@ -54,16 +56,37 @@ export function HomePage() {
               <KeyRound className="h-4 w-4 text-slate-300" aria-hidden="true" />
               <span>{t.home.ctaKeys}</span>
             </Link>
+
+            <Link
+              to="/tutorial"
+              data-testid="home-hero-tutorial-link"
+              className="inline-flex items-center gap-2 rounded-lg border border-sky-400/25 bg-sky-500/10 backdrop-blur-md px-4 py-2.5 text-sm font-medium text-sky-100 hover:bg-sky-500/20 transition-colors min-h-[44px]"
+            >
+              <Compass className="h-4 w-4 text-sky-300" aria-hidden="true" />
+              <span>{t.tutorial.navLabel}</span>
+            </Link>
           </div>
         </div>
       </section>
 
       <section className="space-y-4" data-testid="home-howto-section">
-        <div className="space-y-1">
-          <h2 className="text-sm font-mono uppercase tracking-[0.14em] text-sky-300/90">
-            {t.howTo.homeTitle}
-          </h2>
-          <p className="text-sm text-slate-300/85">{t.howTo.homeSubtitle}</p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="space-y-1">
+            <h2 className="text-sm font-mono uppercase tracking-[0.14em] text-sky-300/90">
+              {t.howTo.homeTitle}
+            </h2>
+            <p className="text-sm text-slate-300/85">{t.howTo.homeSubtitle}</p>
+          </div>
+
+          <Link
+            to="/tutorial"
+            data-testid="home-tutorial-link"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#051224]/70 px-3.5 py-2 text-xs sm:text-sm font-medium text-sky-200 hover:border-sky-400/40 hover:text-white transition-colors min-h-[38px]"
+          >
+            <Compass className="h-4 w-4 text-sky-300" aria-hidden="true" />
+            <span>{t.tutorial.homeCta}</span>
+            <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

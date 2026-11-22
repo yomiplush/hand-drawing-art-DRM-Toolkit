@@ -10,6 +10,7 @@ import { LICENSE_I18N } from './licenses';
 import { ko, zhCN, zhTW } from './locales/eastAsia';
 import { ar, de, es, fr, it, pt } from './locales/europeanAndArabic';
 import { ru, uk } from './locales/slavic';
+import { TUTORIAL_I18N } from './tutorial';
 
 const LOCALE_MAP: Record<Locale, Translations> = {
   en,
@@ -70,6 +71,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     ...base,
     licenses: LICENSE_I18N[locale] ?? LICENSE_I18N.en,
     howTo: HOWTO_I18N[locale] ?? HOWTO_I18N.en,
+    tutorial: TUTORIAL_I18N[locale] ?? TUTORIAL_I18N.en,
   };
 
   return (

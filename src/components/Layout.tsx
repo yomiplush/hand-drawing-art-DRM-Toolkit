@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import {
   BookOpen,
+  Compass,
   FileSignature,
   Globe,
   Home,
@@ -49,6 +50,7 @@ export function Layout({
 
   const navItems = [
     { to: '/', label: t.nav.home, icon: Home, end: true },
+    { to: '/tutorial', label: t.tutorial.navLabel, icon: Compass, end: false },
     { to: '/create', label: t.nav.create, icon: FileSignature, end: false },
     { to: '/verify', label: t.nav.verify, icon: ShieldCheck, end: false },
     { to: '/keys', label: t.nav.keys, icon: KeyRound, end: false },
@@ -56,7 +58,7 @@ export function Layout({
   ];
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors min-h-[38px] ${
+    `inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 xl:px-3 py-1.5 text-[13px] xl:text-sm font-medium transition-colors min-h-[38px] ${
       isActive
         ? 'bg-white/[0.1] text-white border border-white/[0.16]'
         : 'text-slate-300/90 hover:bg-white/[0.06] hover:text-white border border-transparent'
@@ -86,7 +88,7 @@ export function Layout({
                 const Icon = item.icon;
                 return (
                   <NavLink key={item.to} to={item.to} end={item.end} className={linkClass}>
-                    <Icon className="h-4 w-4 opacity-80" aria-hidden="true" />
+                    <Icon className="h-4 w-4 opacity-80 shrink-0" aria-hidden="true" />
                     <span>{item.label}</span>
                   </NavLink>
                 );
@@ -210,6 +212,13 @@ export function Layout({
             <p>{t.pwa.localOnlyPill} · MIT License</p>
           </div>
           <div className="flex flex-wrap items-center gap-4">
+            <Link
+              to="/tutorial"
+              data-testid="footer-tutorial-link"
+              className="hover:text-white transition-colors"
+            >
+              {t.tutorial.navLabel}
+            </Link>
             <Link to="/docs" className="hover:text-white transition-colors">
               {t.nav.docs}
             </Link>

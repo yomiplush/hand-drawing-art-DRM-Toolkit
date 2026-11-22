@@ -17,6 +17,7 @@ import { DocsPage } from './pages/DocsPage';
 import { HomePage } from './pages/HomePage';
 import { KeysPage } from './pages/KeysPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
+import { TutorialPage } from './pages/TutorialPage';
 import { VerifyCertificatePage } from './pages/VerifyCertificatePage';
 
 function AppRoutes() {
@@ -103,6 +104,7 @@ function AppRoutes() {
         >
           <Route path="/" element={isHashPrivacyRoute ? privacyElement : <HomePage />} />
           <Route path="/privacypolicy" element={privacyElement} />
+          <Route path="/tutorial" element={<TutorialPage />} />
           <Route path="/create" element={<CreateCertificatePage />} />
           <Route path="/verify" element={<VerifyCertificatePage />} />
           <Route path="/keys" element={<KeysPage />} />

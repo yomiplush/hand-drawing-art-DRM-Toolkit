@@ -3,12 +3,14 @@ import type { SupportedLocale } from '../core/storage/consent';
 import type { Translations } from './en';
 import type { HowToTranslations } from './howto';
 import type { LicenseGuideTranslations } from './licenses';
+import type { TutorialTranslations } from './tutorial';
 
 export type Locale = SupportedLocale;
 
 export type FullTranslations = Translations & {
   licenses: LicenseGuideTranslations;
   howTo: HowToTranslations;
+  tutorial: TutorialTranslations;
 };
 
 export interface LocaleOption {
