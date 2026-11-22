@@ -1,5 +1,7 @@
 import { computePublicKeyFingerprint } from '../crypto/ed25519';
-import { hashCanonicalRaster } from '../image/canonicalRaster';
+import { hashCanonicalRaster, hashMaskedArtworkRegion } from '../image/canonicalRaster';
+import { clampInImageQrOptions, overlayQrIntoArtwork } from '../image/inImageQr';
+import type { ClampedInImageQrOptions, InImageQrOptions } from '../image/inImageQr';
 import { assertArtworkInputBounds, encodeCanonicalRgba8ToPng } from '../image/pngCodec';
 import type { CanonicalRaster } from '../image/pngCodec';
 import { burnQrIntoRaster, computeBurnLayout } from '../image/qrBurner';
@@ -15,13 +17,25 @@ import {
   generateArtworkId,
 } from './cborCodec';
 import { buildProofUrl } from './proofUrl';
-import { DEFAULT_VERIFY_BASE_URL, PROTOCOL_VERSION } from './types';
+import { DEFAULT_VERIFY_BASE_URL, PROTOCOL_VERSION, PROTOCOL_VERSION_MASKED } from './types';
 import type { ArtworkRegion, LicenseDeclaration, SignedManifest, UnsignedManifest } from './types';
 
 export interface SignedArtworkResult {
   pngBytes: Uint8Array;
   raster: CanonicalRaster;
   layout: BurnLayout;
+  manifest: SignedManifest;
+  proofBytes: Uint8Array;
+  proofUrl: string;
+  qrVersion: number;
+  qrModules: number;
+}
+
+export interface InImageSignedArtworkResult {
+  pngBytes: Uint8Array;
+  raster: CanonicalRaster;
+  qrMask: ArtworkRegion;
+  clampedOptions: ClampedInImageQrOptions;
   manifest: SignedManifest;
   proofBytes: Uint8Array;
   proofUrl: string;
@@ -217,6 +231,97 @@ async function finalizeSignedPng(params: {
     pngBytes,
     raster,
     layout,
+    manifest: {
+      ...unsignedManifest,
+      artworkIdHex,
+      signature,
+    },
+    proofBytes,
+    proofUrl,
+    qrVersion: qrMatrix.version,
+    qrModules: qrMatrix.size,
+  };
+}
+
+/**
+ * Signs an artwork using Protocol v2 (`qrMask`) and embeds a semi-transparent or styled
+ * QR code directly inside the illustration at the user's manually chosen coordinates.
+ * Every pixel outside `qrMask` is hashed into the signed SHA-256 digest and preserved untouched.
+ */
+export async function createInImageSignedArtworkPng(params: {
+  artworkRaster: CanonicalRaster;
+  authorKey: AuthorKeyRecord;
+  passphraseIfEncrypted?: string;
+  authorName?: string;
+  artworkTitle?: string;
+  license: LicenseDeclaration;
+  qrOptions: InImageQrOptions;
+  verifyBaseUrl?: string;
+  issuedAt?: number;
+}): Promise<InImageSignedArtworkResult> {
+  const {
+    artworkRaster,
+    authorKey,
+    passphraseIfEncrypted,
+    authorName,
+    artworkTitle,
+    license,
+    qrOptions,
+    verifyBaseUrl = DEFAULT_VERIFY_BASE_URL,
+    issuedAt = Math.floor(Date.now() / 1000),
+  } = params;
+
+  assertArtworkInputBounds(artworkRaster);
+
+  const clamped = clampInImageQrOptions(artworkRaster.width, artworkRaster.height, qrOptions);
+  const region: ArtworkRegion = [0, 0, artworkRaster.width, artworkRaster.height];
+  const qrMask: ArtworkRegion = [clamped.x, clamped.y, clamped.boxSize, clamped.boxSize];
+
+  const { digest: sha256 } = await hashMaskedArtworkRegion(artworkRaster, region, qrMask);
+  const artworkId = generateArtworkId();
+  const artworkIdHex = formatUuidHex(artworkId);
+
+  const unsignedManifest: UnsignedManifest = {
+    version: PROTOCOL_VERSION_MASKED,
+    artworkId,
+    publicKey: authorKey.publicKey,
+    sha256,
+    region,
+    qrMask,
+    issuedAt,
+    license,
+    authorName,
+    artworkTitle,
+  };
+
+  const payloadBytes = encodeUnsignedPayload(unsignedManifest);
+  const signingMessage = buildSigningMessage(payloadBytes);
+  const signature = await signWithAuthorKey(authorKey, signingMessage, passphraseIfEncrypted);
+  const proofBytes = encodeSignedProofEnvelope(
+    payloadBytes,
+    signature,
+    PROTOCOL_VERSION_MASKED,
+  );
+  const proofUrl = buildProofUrl(proofBytes, verifyBaseUrl);
+  const qrMatrix = generateQrMatrix(proofUrl, clamped.eccLevel);
+
+  const { raster, clamped: finalClamped } = overlayQrIntoArtwork(
+    artworkRaster,
+    qrMatrix,
+    clamped,
+  );
+
+  const pngBytes = encodeCanonicalRgba8ToPng(raster, {
+    Software: 'Certified Handmade v2',
+    'CHM-Protocol': '2',
+    'CHM-Artwork-ID': artworkIdHex,
+  });
+
+  return {
+    pngBytes,
+    raster,
+    qrMask,
+    clampedOptions: finalClamped,
     manifest: {
       ...unsignedManifest,
       artworkIdHex,

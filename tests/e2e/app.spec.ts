@@ -18,7 +18,7 @@ function buildTestArtworkPng(width = 160, height = 120): Buffer {
 }
 
 test.describe('Certified Handmade E2E suite', () => {
-  test('full key lifecycle, signing, PNG QR burning, verification, tamper detection, trust, and JA/EN toggle', async ({
+  test('full key lifecycle, signing, PNG QR burning, verification, tamper detection, trust, wave bg, and multilingual switching', async ({
     page,
   }, testInfo) => {
     const externalRequests: string[] = [];
@@ -37,11 +37,37 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
-    // Toggle Japanese <-> English
-    await page.getByTestId('lang-toggle').click();
+    // PS3-inspired animated wave background canvas is mounted and sized
+    const waveCanvas = page.getByTestId('ps3-wave-bg');
+    await expect(waveCanvas).toBeVisible();
+    const box = await waveCanvas.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeGreaterThan(200);
+    expect(box!.height).toBeGreaterThan(200);
+
+    // Dismiss initial cookie banner cleanly so it doesn't obscure bottom interactions
+    await expect(page.getByTestId('cookie-consent-banner')).toBeVisible();
+    await page.getByTestId('cookie-reject-btn').click();
+    await expect(page.getByTestId('cookie-consent-banner')).toBeHidden();
+
+    // Multi-language switching (JA, zh-CN, ko, ru, uk, ar RTL, back to EN)
+    const langSelect = page.getByTestId('lang-select');
+    await langSelect.selectOption('ja');
     await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
-    await page.getByTestId('lang-toggle').click();
+    await langSelect.selectOption('zh-CN');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
+    await langSelect.selectOption('ko');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ko');
+    await langSelect.selectOption('ru');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
+    await langSelect.selectOption('uk');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'uk');
+    await langSelect.selectOption('ar');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await langSelect.selectOption('en');
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
 
     // 1. Go to Keys page, generate keypair with encrypted backup
     await page.goto('/keys');
@@ -78,7 +104,9 @@ test.describe('Certified Handmade E2E suite', () => {
 
     await page.getByTestId('create-author-input').fill('YomiPlush');
     await page.getByTestId('create-title-input').fill('Moonlight E2E');
+    await expect(page.getByTestId('create-license-summary')).toBeVisible();
     await page.getByTestId('create-license-select').selectOption('CC-BY-NC-4.0');
+    await expect(page.getByTestId('create-license-summary')).toContainText('CC BY-NC 4.0');
     await page.getByTestId('create-sign-button').click();
 
     await expect(page.getByTestId('create-result-section')).toBeVisible();
@@ -92,14 +120,17 @@ test.describe('Certified Handmade E2E suite', () => {
     const verifyHref = await page.getByTestId('open-local-verify').getAttribute('href');
     expect(verifyHref).toContain('/verify#proof=');
 
-    // 3. Upload signed PNG on /verify -> reads QR + matches embedded artwork region
+    // 3. Upload signed PNG on /verify -> reads QR + matches embedded artwork region + runs local signal assessment
     await page.goto('/verify');
     await page.getByTestId('verify-image-input').setInputFiles(signedPngPath);
     await expect(page.getByTestId('verification-results')).toBeVisible();
+    await expect(page.getByTestId('verify-license-summary')).toContainText('CC BY-NC 4.0');
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
     await expect(page.getByTestId('status-identity')).toContainText('Unknown / Unverified Key');
-    await expect(page.getByTestId('status-assessment')).toContainText('Not Assessed');
+    await expect(page.getByTestId('status-assessment')).toContainText('Local Signals Analyzed');
+    await expect(page.getByTestId('assessment-details-card')).toContainText('160 × 120 px');
+    await expect(page.getByTestId('assessment-details-card')).toContainText('No AI generator metadata tags found');
 
     // Trust this key locally from /verify
     await page.getByTestId('verify-trust-label-input').fill('YomiPlush Official');
@@ -108,13 +139,15 @@ test.describe('Certified Handmade E2E suite', () => {
       'Locally Trusted Key (YomiPlush Official)',
     );
 
-    // 4. Direct navigation to /verify#proof=... (without image first, then attach original PNG, then tampered PNG)
+    // 4. Direct navigation to /verify#proof=... (without image first -> Not Assessed, then attach original PNG -> Local Signals Analyzed, then tampered PNG)
     await page.goto(verifyHref!);
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
     await expect(page.getByTestId('status-integrity')).toContainText('Not Checked');
+    await expect(page.getByTestId('status-assessment')).toContainText('Not Assessed');
 
     await page.getByTestId('verify-attach-artwork-input').setInputFiles(artPath);
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
+    await expect(page.getByTestId('status-assessment')).toContainText('Local Signals Analyzed');
 
     // Tamper 1 pixel in artwork and verify Mismatched detection
     const decodedArt = decodePng(fs.readFileSync(artPath));
@@ -129,8 +162,171 @@ test.describe('Certified Handmade E2E suite', () => {
     expect(externalRequests).toEqual([]);
   });
 
+  test('header GitHub & Sponsor Heart links and Manual In-Image QR Studio end-to-end flow', async ({
+    page,
+  }, testInfo) => {
+    await page.goto('/');
+    await page.getByTestId('cookie-reject-btn').click();
+
+    // Top-right GitHub link + adjacent Sponsor Heart link to its right
+    const githubLink = page.getByTestId('header-github-link');
+    const sponsorLink = page.getByTestId('header-sponsor-link');
+    await expect(githubLink).toBeVisible();
+    await expect(sponsorLink).toBeVisible();
+    await expect(githubLink).toHaveAttribute(
+      'href',
+      'https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit',
+    );
+    await expect(sponsorLink).toHaveAttribute('href', 'https://github.com/sponsors/yomiplush');
+
+    const githubBox = await githubLink.boundingBox();
+    const sponsorBox = await sponsorLink.boundingBox();
+    expect(githubBox).not.toBeNull();
+    expect(sponsorBox).not.toBeNull();
+    expect(sponsorBox!.x).toBeGreaterThan(githubBox!.x);
+
+    // Navigate from /create cross-link banner into /qr-studio
+    await page.goto('/create');
+    await page.getByTestId('create-open-qr-studio').click();
+    await expect(page).toHaveURL(/\/qr-studio$/);
+
+    // Upload 320x240 artwork, 1-click create key, adjust preset/opacity, verify readability & sign
+    const artPath = testInfo.outputPath('studio-art.png');
+    fs.writeFileSync(artPath, buildTestArtworkPng(320, 240));
+    await page.getByTestId('qrstudio-image-input').setInputFiles(artPath);
+    await expect(page.getByTestId('qrstudio-preview-canvas')).toBeVisible();
+
+    await page.getByTestId('qrstudio-preset-topLeft').click();
+    await page.getByTestId('qrstudio-opacity-slider').fill('75');
+    await expect(page.getByTestId('qrstudio-readability-badge')).toContainText(
+      'Scannable in live preview',
+    );
+
+    await page.getByTestId('qrstudio-quick-keygen').click();
+    await expect(page.getByTestId('qrstudio-key-select')).toBeVisible();
+
+    await page.getByTestId('qrstudio-sign-button').click();
+    await expect(page.getByTestId('qrstudio-result-section')).toBeVisible();
+
+    const dlPromise = page.waitForEvent('download');
+    await page.getByTestId('qrstudio-download-png').click();
+    const dl = await dlPromise;
+    const studioPngPath = testInfo.outputPath('studio.in-image-qr.png');
+    await dl.saveAs(studioPngPath);
+
+    // Verify downloaded in-image QR PNG on /verify -> Valid + Matched + in-image-masked
+    await page.goto('/verify');
+    await page.getByTestId('verify-image-input').setInputFiles(studioPngPath);
+    await expect(page.getByTestId('status-signature')).toContainText('Valid');
+    await expect(page.getByTestId('status-integrity')).toContainText('Matched');
+    await expect(page.getByTestId('verification-results')).toContainText('in-image-masked');
+  });
+
+  test('GDPR bottom popup, consent-gated locale persistence, and /#privacypolicy page', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('cookie-consent-banner')).toBeVisible();
+
+    // Reject optional -> select Japanese -> reload -> banner stays closed and language resets to default 'en'
+    await page.getByTestId('cookie-reject-btn').click();
+    await expect(page.getByTestId('cookie-consent-banner')).toBeHidden();
+    await page.getByTestId('lang-select').selectOption('ja');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
+
+    await page.reload();
+    await expect(page.getByTestId('cookie-consent-banner')).toBeHidden();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+
+    // Reopen via footer button -> Accept optional -> select Ukrainian -> reload -> Ukrainian persists
+    await page.getByTestId('footer-cookie-settings').click();
+    await expect(page.getByTestId('cookie-consent-banner')).toBeVisible();
+    await page.getByTestId('cookie-accept-btn').click();
+    await expect(page.getByTestId('cookie-consent-banner')).toBeHidden();
+
+    await page.getByTestId('lang-select').selectOption('uk');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'uk');
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'uk');
+
+    // Visit /#privacypolicy and verify gdpr-info.eu reference + reset button
+    await page.goto('/#privacypolicy');
+    await expect(page.getByTestId('privacy-policy-page')).toBeVisible();
+    await expect(page.locator('a[href="https://gdpr-info.eu/"]')).toBeVisible();
+    await expect(page.getByTestId('policy-consent-status')).toBeVisible();
+
+    await page.getByTestId('policy-reset-btn').click();
+    await expect(page.getByTestId('cookie-consent-banner')).toBeVisible();
+  });
+
+  test('Tutorial menu navigation, guided flow into /create, and multilingual tutorial rendering', async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto('/');
+    await page.getByTestId('cookie-accept-btn').click();
+
+    // Check Tutorial link in menu (Primary desktop nav or Mobile hamburger drawer)
+    if (isMobile) {
+      await page.getByRole('button', { name: 'Menu' }).click();
+      const mobileNavLink = page.locator('nav[aria-label="Mobile"] a[href="/tutorial"]');
+      await expect(mobileNavLink).toBeVisible();
+      await mobileNavLink.click();
+    } else {
+      const desktopNavLink = page.locator('nav[aria-label="Primary"] a[href="/tutorial"]');
+      await expect(desktopNavLink).toBeVisible();
+      await desktopNavLink.click();
+    }
+
+    await expect(page.getByTestId('tutorial-page')).toBeVisible();
+    await expect(page.getByTestId('tutorial-step-0')).toBeVisible();
+    await expect(page.getByTestId('tutorial-cheat-section')).toContainText('ARR (All Rights Reserved)');
+
+    // Check multilingual rendering (ja and uk)
+    await page.getByTestId('lang-select').selectOption('ja');
+    await expect(page.getByTestId('tutorial-page')).toContainText('かんたんチュートリアル');
+    await page.getByTestId('lang-select').selectOption('uk');
+    await expect(page.getByTestId('tutorial-page')).toContainText('Простий покроковий туторіал');
+
+    // Follow guided CTA from Tutorial into /create
+    await page.getByTestId('tutorial-step-cta-0').click();
+    await expect(page).toHaveURL(/\/create$/);
+    await expect(page.getByTestId('create-quick-keygen')).toBeVisible();
+  });
+
+  test('beginner-friendly 1-click keygen on /create and multilingual license guide on /docs', async ({
+    page,
+  }, testInfo) => {
+    await page.goto('/');
+    await page.getByTestId('cookie-accept-btn').click();
+    await expect(page.getByTestId('home-howto-section')).toBeVisible();
+    await expect(page.getByTestId('home-tutorial-link')).toBeVisible();
+
+    // Switch to Japanese and verify beginner guide & 1-click keygen on /create
+    await page.getByTestId('lang-select').selectOption('ja');
+    await expect(page.getByTestId('home-howto-section')).toContainText('3ステップ');
+
+    await page.goto('/create');
+    await expect(page.getByTestId('create-license-summary')).toContainText('無断使用');
+    await page.getByTestId('create-quick-keygen').click();
+    await expect(page.getByTestId('create-key-select')).toBeVisible();
+
+    const artPath = testInfo.outputPath('quick-art.png');
+    fs.writeFileSync(artPath, buildTestArtworkPng(120, 90));
+    await page.getByTestId('create-image-input').setInputFiles(artPath);
+    await page.getByTestId('create-sign-button').click();
+    await expect(page.getByTestId('create-result-section')).toBeVisible();
+
+    // Check /docs license guide in multiple languages
+    await page.goto('/docs');
+    await expect(page.getByTestId('docs-licenses-section')).toContainText('CC BY-NC-ND 4.0');
+    await page.getByTestId('lang-select').selectOption('uk');
+    await expect(page.getByTestId('docs-licenses-section')).toContainText('Довідник ліцензій');
+  });
+
   test('works offline via Service Worker on /verify#proof=...', async ({ page, context }, testInfo) => {
     await page.goto('/');
+    await page.getByTestId('cookie-reject-btn').click();
     await page.evaluate(async () => {
       if ('serviceWorker' in navigator) {
         await navigator.serviceWorker.ready;
@@ -160,6 +356,7 @@ test.describe('Certified Handmade E2E suite', () => {
 
     await page.getByTestId('verify-attach-artwork-input').setInputFiles(artPath);
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
+    await expect(page.getByTestId('status-assessment')).toContainText('Local Signals Analyzed');
 
     await context.setOffline(false);
   });

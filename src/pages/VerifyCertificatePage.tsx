@@ -3,14 +3,15 @@ import { useLocation } from 'react-router-dom';
 import {
   AlertTriangle,
   Camera,
-  Cpu,
   FileImage,
   Link2,
   ShieldAlert,
   ShieldCheck,
   XCircle,
 } from 'lucide-react';
+import { AssessmentDetailsCard } from '../components/AssessmentDetailsCard';
 import { ImageDropzone } from '../components/ImageDropzone';
+import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
 import { QrCameraScanner } from '../components/QrCameraScanner';
 import { StatusDimensionsGrid } from '../components/StatusBadge';
 import { base64UrlEncode, bytesToHex } from '../core/crypto/sha256';
@@ -40,6 +41,7 @@ export function VerifyCertificatePage() {
     hasInitialHashProof ? window.location.hash : null,
   );
   const [attachedRaster, setAttachedRaster] = useState<CanonicalRaster | null>(null);
+  const [attachedRawBytes, setAttachedRawBytes] = useState<Uint8Array | null>(null);
   const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -49,13 +51,18 @@ export function VerifyCertificatePage() {
   const [trustSavedMsg, setTrustSavedMsg] = useState<string | null>(null);
 
   const runProofVerify = useCallback(
-    async (rawProof: string, raster: CanonicalRaster | null) => {
+    async (
+      rawProof: string,
+      raster: CanonicalRaster | null,
+      rawBytes: Uint8Array | null = null,
+    ) => {
       setErrorMsg(null);
       setTrustSavedMsg(null);
       setActiveProofRaw(rawProof);
       const res = await verifyProofAndArtwork({
         proofInput: rawProof,
         artworkRaster: raster,
+        rawFileBytes: rawBytes,
       });
       setResult(res);
     },
@@ -70,12 +77,14 @@ export function VerifyCertificatePage() {
     verifyProofAndArtwork({
       proofInput: hash,
       artworkRaster: null,
+      rawFileBytes: null,
     }).then((res) => {
       if (active) {
         setActiveTab('proof');
         setProofInput(window.location.href);
         setActiveProofRaw(hash);
         setAttachedRaster(null);
+        setAttachedRawBytes(null);
         setAttachedFileName(null);
         setQrInfoNote(null);
         setErrorMsg(null);
@@ -93,8 +102,10 @@ export function VerifyCertificatePage() {
     setQrInfoNote(null);
     setTrustSavedMsg(null);
     try {
-      const res = await verifyImageWithEmbeddedQr({ fileOrBytes: file });
+      const rawBytes = new Uint8Array(await file.arrayBuffer());
+      const res = await verifyImageWithEmbeddedQr({ fileOrBytes: rawBytes });
       setAttachedRaster(res.raster);
+      setAttachedRawBytes(rawBytes);
       setAttachedFileName(file.name);
       setActiveProofRaw(res.qrRawText);
       setProofInput(res.qrRawText);
@@ -111,11 +122,13 @@ export function VerifyCertificatePage() {
   const handleAttachArtworkForProof = async (file: File) => {
     setErrorMsg(null);
     try {
-      const { raster } = await decodeImageFileToCanonicalRgba8(file);
+      const rawBytes = new Uint8Array(await file.arrayBuffer());
+      const { raster } = await decodeImageFileToCanonicalRgba8(rawBytes);
       setAttachedRaster(raster);
+      setAttachedRawBytes(rawBytes);
       setAttachedFileName(file.name);
       if (activeProofRaw) {
-        await runProofVerify(activeProofRaw, raster);
+        await runProofVerify(activeProofRaw, raster, rawBytes);
       }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Failed to decode artwork image');
@@ -125,16 +138,16 @@ export function VerifyCertificatePage() {
   const handleManualProofSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setQrInfoNote(null);
-    await runProofVerify(proofInput, attachedRaster);
+    await runProofVerify(proofInput, attachedRaster, attachedRawBytes);
   };
 
   const handleCameraDetected = useCallback(
     (rawText: string) => {
       setProofInput(rawText);
       setQrInfoNote('QR detected from local camera stream');
-      void runProofVerify(rawText, attachedRaster);
+      void runProofVerify(rawText, attachedRaster, attachedRawBytes);
     },
-    [attachedRaster, runProofVerify],
+    [attachedRaster, attachedRawBytes, runProofVerify],
   );
 
   const handleTrustThisKey = async (e: React.FormEvent) => {
@@ -151,7 +164,7 @@ export function VerifyCertificatePage() {
     setTrustLabelInput('');
     setTrustSavedMsg(label);
     if (activeProofRaw) {
-      await runProofVerify(activeProofRaw, attachedRaster);
+      await runProofVerify(activeProofRaw, attachedRaster, attachedRawBytes);
     }
   };
 
@@ -214,18 +227,18 @@ export function VerifyCertificatePage() {
   const tabClass = (tab: InputTab) =>
     `inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors min-h-[44px] ${
       activeTab === tab
-        ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/40'
-        : 'bg-slate-900/60 text-slate-300 border border-slate-800 hover:border-slate-700'
+        ? 'bg-white/[0.12] text-white border border-white/[0.2]'
+        : 'bg-[#051224]/60 text-slate-300 border border-white/[0.09] hover:border-white/[0.18]'
     }`;
 
   return (
     <div className="space-y-8">
-      <header className="space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white">{t.verify.title}</h1>
+      <header className="space-y-2 border-b border-white/[0.08] pb-5">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-white">{t.verify.title}</h1>
         <p className="text-sm sm:text-base text-slate-300">{t.verify.subtitle}</p>
       </header>
 
-      <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-5">
+      <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-5">
         <div className="flex flex-wrap gap-2" role="tablist">
           <button
             type="button"
@@ -284,12 +297,12 @@ export function VerifyCertificatePage() {
               onChange={(e) => setProofInput(e.target.value)}
               placeholder={t.verify.proofInputPlaceholder}
               data-testid="verify-proof-textarea"
-              className="w-full rounded-lg border border-slate-700 bg-slate-950/80 p-3 text-xs font-mono text-white placeholder:text-slate-500"
+              className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 p-3 text-xs font-mono text-white placeholder:text-slate-500"
             />
             <button
               type="submit"
               data-testid="verify-proof-submit"
-              className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-400 min-h-[44px]"
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-white min-h-[44px]"
             >
               <span>{t.verify.verifyProofBtn}</span>
             </button>
@@ -321,9 +334,15 @@ export function VerifyCertificatePage() {
               integrityStatus={result.integrityStatus}
               identityStatus={result.identityStatus}
               assessmentStatus={result.assessmentStatus}
+              assessment={result.assessment}
               trustedKeyLabel={result.trustedKeyLabel}
             />
           </section>
+
+          <AssessmentDetailsCard
+            assessment={result.assessment}
+            testId="assessment-details-card"
+          />
 
           {result.errors.length > 0 && (
             <div
@@ -336,12 +355,12 @@ export function VerifyCertificatePage() {
             </div>
           )}
 
-          <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 text-xs sm:text-sm text-slate-300">
+          <div className="rounded-xl border border-white/[0.1] bg-[#051224]/65 backdrop-blur-md p-4 text-xs sm:text-sm text-slate-300">
             {t.verify.trustReminder}
           </div>
 
           {result.manifest && (
-            <section className="rounded-xl border border-cyan-500/25 bg-slate-900/50 p-5 space-y-3">
+            <section className="rounded-xl border border-white/[0.12] bg-[#051224]/65 backdrop-blur-md p-5 space-y-3">
               <h3 className="text-sm sm:text-base font-semibold text-white">
                 {t.verify.attachArtworkTitle}
               </h3>
@@ -359,7 +378,7 @@ export function VerifyCertificatePage() {
           )}
 
           {result.manifest && (
-            <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
+            <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
               <h2 className="text-base sm:text-lg font-semibold text-white">
                 {t.verify.detailsTitle}
               </h2>
@@ -393,6 +412,13 @@ export function VerifyCertificatePage() {
                   value={`[${result.manifest.region.join(', ')}]`}
                   mono
                 />
+                {result.manifest.qrMask && (
+                  <DetailRow
+                    label={t.qrStudio.maskRegionLabel}
+                    value={`[${result.manifest.qrMask.join(', ')}]`}
+                    mono
+                  />
+                )}
                 <DetailRow
                   label={t.verify.fields.fingerprint}
                   value={`${result.publicKeyFingerprintShort ?? ''} (${result.publicKeyFingerprintHex ?? ''})`}
@@ -419,7 +445,7 @@ export function VerifyCertificatePage() {
                 />
                 <DetailRow
                   label={t.verify.fields.license}
-                  value={result.manifest.license.licenseId}
+                  value={`${result.manifest.license.licenseId} — ${t.licenses.items[result.manifest.license.licenseId].name}`}
                 />
                 <DetailRow
                   label={t.verify.fields.attribution}
@@ -439,10 +465,15 @@ export function VerifyCertificatePage() {
                 />
               </dl>
 
+              <LicenseSummaryCard
+                licenseId={result.manifest.license.licenseId}
+                testId="verify-license-summary"
+              />
+
               {result.signatureStatus === 'valid' && result.identityStatus === 'unknown' && (
                 <form
                   onSubmit={handleTrustThisKey}
-                  className="rounded-xl border border-slate-700 bg-slate-950/70 p-4 space-y-3"
+                  className="rounded-xl border border-white/[0.1] bg-[#030b18]/65 p-4 space-y-3"
                 >
                   <p className="text-xs sm:text-sm font-medium text-slate-200">
                     {t.verify.trustKeyPrompt}
@@ -473,11 +504,6 @@ export function VerifyCertificatePage() {
                   {t.verify.trustedAlready} {trustSavedMsg}
                 </p>
               )}
-
-              <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 flex items-start gap-2.5 text-xs text-slate-400">
-                <Cpu className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" aria-hidden="true" />
-                <span>{t.verify.assessmentNote}</span>
-              </div>
             </section>
           )}
         </div>
@@ -488,7 +514,7 @@ export function VerifyCertificatePage() {
 
 function DetailRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+    <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3">
       <dt className="text-xs text-slate-400">{label}</dt>
       <dd className={`mt-0.5 text-slate-100 break-all ${mono ? 'font-mono text-xs' : ''}`}>
         {value}

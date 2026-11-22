@@ -9,6 +9,8 @@ export const ja: Translations = {
     verify: '検証',
     keys: '鍵管理',
     docs: 'ドキュメント',
+    privacy: 'プライバシーポリシー',
+    cookieSettings: '🍪 Cookie設定',
     menuLabel: 'ナビゲーションメニューを切り替え',
     langToggle: 'English',
   },
@@ -18,6 +20,100 @@ export const ja: Translations = {
     updateAvailable: '新しいオフライン版が利用可能です。',
     updateButton: '今すぐ更新',
     localOnlyPill: '完全ローカル処理・サーバー送信なし',
+  },
+  consent: {
+    title: '🍪 プライバシーとCookieの設定（GDPR準拠）',
+    body: 'Certified Handmadeは作品画像・署名鍵・検証処理をすべてブラウザ内でローカル実行し、広告・アクセス解析・トラッキング用Cookieは一切使用しません。必須ストレージ（オフラインPWAキャッシュや利用者が保存する署名鍵）に加えて、任意の表示設定Cookie（選択した表示言語の記憶）を保存してよろしいですか？',
+    acceptBtn: '同意する（設定を保存）',
+    rejectBtn: '拒否する（必須のみ）',
+    policyLink: 'プライバシーポリシー (GDPR)',
+    closeLabel: 'Cookie設定ポップアップを閉じる',
+    statusLabel: '現在の同意ステータス',
+    statusAccepted: '同意済み（任意の設定Cookieを保存中）',
+    statusRejected: '拒否済み（必須ストレージのみ使用・任意Cookieなし）',
+    statusUnset: '未選択',
+  },
+  privacyPolicy: {
+    title: 'プライバシーポリシー & GDPRに基づく開示',
+    subtitle:
+      'EU一般データ保護規則（GDPR: Regulation (EU) 2016/679 / gdpr-info.eu）およびePrivacy指令に基づき、Certified Handmadeのローカル完結型アーキテクチャに即して策定しています。',
+    lastUpdated: '制定・最終更新日: 2026年11月22日',
+    gdprRefLabel: 'GDPR条文リファレンス:',
+    gdprRefUrl: 'https://gdpr-info.eu/',
+    controlsTitle: '同意管理・ローカルデータ操作（GDPR第7条3項）',
+    controlsDesc:
+      '任意の設定Cookie／ストレージに対する同意はいつでも変更・撤回できます。「拒否する」を選択すると、任意の設定データ（言語設定Cookie/localStorage）は即座に削除され、署名・検証機能には影響しません。',
+    reopenBannerBtn: 'Cookie同意ポップアップを再表示',
+    resetConsentBtn: '任意データを削除して同意状態をリセット',
+    manageKeysBtn: 'ローカル署名鍵の管理・削除（/keys）',
+    sections: [
+      {
+        title: '1. 管理者およびオープンソース構成（GDPR第13条）',
+        body: 'Certified HandmadeはMITライセンスのオープンソース静的Webアプリケーション（github.com/yomiplush/hand-drawing-art-DRM-Toolkit、予定ドメイン: certified-handmade.com）です。ユーザーアカウント、中央認証サーバー、外部データベース、アクセス解析・テレメトリー、広告配信機構は一切存在しません。',
+      },
+      {
+        title: '2. 端末内のみでローカル処理されるデータ',
+        body: '読み込んだ作品画像、正規化RGBA8ピクセルデータ、SHA-256ハッシュ、Ed25519公開鍵・秘密鍵、暗号化バックアップ（.chkey.json）、カメラ映像フレーム（getUserMedia）、および #proof=... URLフラグメントは、すべて利用者のブラウザメモリおよび端末内ストレージのみで処理されます。これらが外部サーバーへ送信されることはありません。',
+      },
+      {
+        title: '3. 処理の法的根拠（GDPR第6条1項）',
+        body: '• 第6条1項(b) / (f)（契約/利用者が要求した機能実行・正当な利益による必須処理）: 選択した画像のローカル読み込み、署名・検証の実行、PWAオフライン用キャッシュ、および同意拒否/許可の選択状態の保持。\n• 第6条1項(a)（明示的同意）: 任意の機能設定Cookie/localStorage（UI表示言語設定の永続記憶）の保存、およびQRスキャン開始時のカメラアクセス権限。',
+      },
+      {
+        title: '4. Cookieおよびブラウザストレージ一覧',
+        body: '広告用・行動追跡用・サードパーティ分析用のCookieは一切使用しません（外部ドメインへの通信自体がCSPで遮断されています）。',
+      },
+      {
+        title: '5. 静的ホスティング基盤について（Cloudflare Pages）',
+        body: '本サイトは静的アセット（HTML/JS/CSS/アイコン）のみをHTTPSで配信します。初回アクセス時のHTTPS通信において、Cloudflare Pagesの配信インフラが接続IPアドレスやTLSヘッダー等の標準的な一時通信メタデータを処理する場合があります。一度PWAキャッシュ後はオフラインでも動作し、#proof=... フラグメント内の署名データはブラウザの仕様上HTTPリクエストに含まれません。',
+      },
+      {
+        title: '6. GDPRに基づく利用者の権利（第7条・第15条〜第22条・第77条）',
+        body: '• アクセス権およびデータポータビリティ権（第15条・第20条）: 鍵管理画面（/keys）から保存済みの公開鍵や暗号化バックアップ（.chkey.json）、署名付きPNGをいつでも閲覧・エクスポートできます。\n• 削除権 / 忘れられる権利（第17条）: /keys 画面からの鍵削除、本ページでの任意データ消去、またはブラウザのサイトデータ消去により全データを完全に削除できます。\n• 同意撤回権（第7条3項）: 下部の同意設定またはフッターの「🍪 Cookie設定」からいつでも撤回可能です。\n• 監督機関への不服申立権（第77条）: EU/EEA居住者は管轄のデータ保護監督機関へ不服を申し立てる権利を有します。',
+      },
+      {
+        title: '7. 第三者提供・域外移転・自動プロファイリング',
+        body: '本アプリケーションが作品データや秘密鍵を第三者へ提供・販売・域外移転することはありません。また、GDPR第22条に該当する自動化された意思決定やプロファイリングも行いません。',
+      },
+    ],
+    tableHeaders: {
+      name: 'ストレージ / Cookie名',
+      category: '区分・法的根拠',
+      purpose: '利用目的',
+      retention: '保持期間',
+    },
+    tableRows: [
+      {
+        name: 'chm_consent / chm_gdpr_consent_v1',
+        category: '必須（GDPR第6条1項(f)）',
+        purpose: 'Cookie設定で選択した同意/拒否の状態のみを記録（追跡IDなし）。',
+        retention: '180日間、またはリセット時まで',
+      },
+      {
+        name: 'IndexedDB (certified-handmade-store)',
+        category: '利用者操作に基づく必須ストレージ（第6条1項(b)）',
+        purpose: '利用者が生成・復元したEd25519署名鍵とローカル信頼済み公開鍵リストを保存。',
+        retention: '利用者が削除するかブラウザが消去するまで',
+      },
+      {
+        name: 'Service Worker Cache (workbox-precache)',
+        category: 'オフラインPWA実行に必須（第6条1項(b)）',
+        purpose: 'アプリの静的ファイルを端末にキャッシュし、オフライン署名・検証を可能にする。',
+        retention: 'アプリ更新またはサイトデータ消去まで',
+      },
+      {
+        name: 'chm_locale (Cookie & localStorage)',
+        category: '任意の設定（明示的同意 — 第6条1項(a)）',
+        purpose: '選択したUI言語（日本語・English・中文 等）を次回訪問時も記憶する。',
+        retention: '同意時は180日間。拒否時は即座に削除・保存しない',
+      },
+      {
+        name: '解析・広告・トラッキングCookie',
+        category: 'なし',
+        purpose: 'Certified Handmadeでは一切使用しません。',
+        retention: '該当なし',
+      },
+    ],
   },
   home: {
     badge: 'オープンソース・NFTなし・ブロックチェーンなし・完全無料',

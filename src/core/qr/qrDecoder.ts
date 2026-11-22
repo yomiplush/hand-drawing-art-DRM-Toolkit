@@ -96,20 +96,26 @@ export function decodeQrFromCanonicalRaster(raster: CanonicalRaster): QrDecodeRe
     if (hit) return { rawText: hit, strategy: 'full-downscaled' };
   }
 
-  // 2. Targeted native-resolution margin & corner crops for high-res signed artworks
+  // 2. Targeted native-resolution margin, corner & center crops for high-res signed artworks
   const cropSpecs: Array<{ name: string; x: number; y: number; w: number; h: number }> = [];
   const halfW = Math.max(1, Math.floor(width / 2));
   const halfH = Math.max(1, Math.floor(height / 2));
   const stripH = Math.min(height, Math.max(480, Math.floor(height * 0.35)));
   const cornerW = Math.min(width, Math.max(640, halfW));
   const cornerH = Math.min(height, Math.max(640, halfH));
+  const centerX = Math.max(0, Math.floor((width - cornerW) / 2));
+  const centerY = Math.max(0, Math.floor((height - cornerH) / 2));
+  const midStripY = Math.max(0, Math.floor((height - stripH) / 2));
 
   cropSpecs.push(
     { name: 'bottom-right', x: width - cornerW, y: height - cornerH, w: cornerW, h: cornerH },
     { name: 'bottom-left', x: 0, y: height - cornerH, w: cornerW, h: cornerH },
     { name: 'top-right', x: width - cornerW, y: 0, w: cornerW, h: cornerH },
+    { name: 'top-left', x: 0, y: 0, w: cornerW, h: cornerH },
+    { name: 'center', x: centerX, y: centerY, w: cornerW, h: cornerH },
     { name: 'bottom-strip', x: 0, y: height - stripH, w: width, h: stripH },
     { name: 'top-strip', x: 0, y: 0, w: width, h: stripH },
+    { name: 'middle-strip', x: 0, y: midStripY, w: width, h: stripH },
   );
 
   for (const crop of cropSpecs) {

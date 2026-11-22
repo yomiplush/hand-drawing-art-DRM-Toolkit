@@ -1,7 +1,11 @@
 import { defaultHumanMadeAssessor } from '../assessment';
 import { computePublicKeyFingerprint, verifyEd25519Signature } from '../crypto/ed25519';
 import { bytesToHex, constantTimeEqual } from '../crypto/sha256';
-import { hashArtworkRegion, hashCanonicalRaster } from '../image/canonicalRaster';
+import {
+  hashArtworkRegion,
+  hashCanonicalRaster,
+  hashMaskedArtworkRegion,
+} from '../image/canonicalRaster';
 import { decodeImageFileToCanonicalRgba8 } from '../image/pngCodec';
 import type { CanonicalRaster } from '../image/pngCodec';
 import {
@@ -25,11 +29,13 @@ export type TrustedKeyLookup = (publicKey32: Uint8Array) => Promise<TrustedKeyRe
 export async function verifyProofAndArtwork(params: {
   proofInput: string;
   artworkRaster?: CanonicalRaster | null;
+  rawFileBytes?: Uint8Array | null;
   lookupTrustedKey?: TrustedKeyLookup;
 }): Promise<VerificationResult> {
   const {
     proofInput,
     artworkRaster = null,
+    rawFileBytes = null,
     lookupTrustedKey = findTrustedKeyByPublicKey,
   } = params;
 
@@ -122,7 +128,33 @@ export async function verifyProofAndArtwork(params: {
 
   if (artworkRaster) {
     const [rx, ry, rw, rh] = manifest.region;
-    if (artworkRaster.width === rw && artworkRaster.height === rh) {
+    if (manifest.qrMask) {
+      const matchesExactSize = artworkRaster.width === rw && artworkRaster.height === rh;
+      const fitsRegion = rx + rw <= artworkRaster.width && ry + rh <= artworkRaster.height;
+      if (matchesExactSize || fitsRegion) {
+        const targetRegion = matchesExactSize ? ([0, 0, rw, rh] as const) : manifest.region;
+        const { digest, hex } = await hashMaskedArtworkRegion(
+          artworkRaster,
+          targetRegion,
+          manifest.qrMask,
+        );
+        computedArtworkSha256Hex = hex;
+        if (constantTimeEqual(digest, manifest.sha256)) {
+          integrityStatus = 'matched';
+          matchedMode = 'in-image-masked';
+        } else {
+          integrityStatus = 'mismatched';
+          errors.push(
+            'Artwork SHA-256 digest (outside QR mask) does not match the signed manifest.',
+          );
+        }
+      } else {
+        integrityStatus = 'mismatched';
+        errors.push(
+          `Image dimensions (${artworkRaster.width}x${artworkRaster.height}) are smaller than declared region [${rx}, ${ry}, ${rw}x${rh}].`,
+        );
+      }
+    } else if (artworkRaster.width === rw && artworkRaster.height === rh) {
       const digest = await hashCanonicalRaster(artworkRaster);
       computedArtworkSha256Hex = bytesToHex(digest);
       if (constantTimeEqual(digest, manifest.sha256)) {
@@ -152,7 +184,17 @@ export async function verifyProofAndArtwork(params: {
     }
   }
 
-  const assessment = await defaultHumanMadeAssessor.assess(artworkRaster);
+  const assessmentRegion =
+    artworkRaster &&
+    matchedMode === 'embedded-region'
+      ? manifest.region
+      : null;
+
+  const assessment = await defaultHumanMadeAssessor.assess({
+    raster: artworkRaster,
+    region: assessmentRegion,
+    rawFileBytes,
+  });
 
   return {
     protocolVersion: manifest.version,
@@ -160,6 +202,7 @@ export async function verifyProofAndArtwork(params: {
     integrityStatus,
     identityStatus,
     assessmentStatus: assessment.status,
+    assessment,
     manifest,
     publicKeyFingerprintHex: fp.fullHex,
     publicKeyFingerprintShort: fp.shortDisplay,
@@ -184,7 +227,12 @@ export async function verifyImageWithEmbeddedQr(params: {
   raster: CanonicalRaster;
   verification: VerificationResult;
 }> {
-  const { raster, sourceFormat } = await decodeImageFileToCanonicalRgba8(params.fileOrBytes);
+  const rawBytes =
+    params.fileOrBytes instanceof Uint8Array
+      ? params.fileOrBytes
+      : new Uint8Array(await params.fileOrBytes.arrayBuffer());
+
+  const { raster, sourceFormat } = await decodeImageFileToCanonicalRgba8(rawBytes);
   const qr = decodeQrFromCanonicalRaster(raster);
   if (!qr) {
     throw new Error('No readable Certified Handmade QR code found in this image.');
@@ -192,6 +240,7 @@ export async function verifyImageWithEmbeddedQr(params: {
   const verification = await verifyProofAndArtwork({
     proofInput: qr.rawText,
     artworkRaster: raster,
+    rawFileBytes: rawBytes,
     lookupTrustedKey: params.lookupTrustedKey,
   });
   return {

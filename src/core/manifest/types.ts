@@ -1,4 +1,5 @@
 export const PROTOCOL_VERSION = 1 as const;
+export const PROTOCOL_VERSION_MASKED = 2 as const;
 export const DOMAIN_SEPARATION_PREFIX = new Uint8Array([0x43, 0x48, 0x4d, 0x31, 0x00]); // "CHM1\0"
 export const DEFAULT_VERIFY_BASE_URL = 'https://certified-handmade.com/verify';
 
@@ -17,6 +18,9 @@ export const LICENSE_DEFINITIONS = [
     isCreativeCommons: false,
     allowsCommercialDefault: 'disallow',
     allowsRedistributionDefault: 'disallow',
+    allowsDerivatives: false,
+    requiresAttribution: true,
+    requiresShareAlike: false,
   },
   {
     code: 1,
@@ -25,6 +29,9 @@ export const LICENSE_DEFINITIONS = [
     isCreativeCommons: true,
     allowsCommercialDefault: 'allow',
     allowsRedistributionDefault: 'allow',
+    allowsDerivatives: true,
+    requiresAttribution: false,
+    requiresShareAlike: false,
   },
   {
     code: 2,
@@ -33,6 +40,9 @@ export const LICENSE_DEFINITIONS = [
     isCreativeCommons: true,
     allowsCommercialDefault: 'allow',
     allowsRedistributionDefault: 'allow',
+    allowsDerivatives: true,
+    requiresAttribution: true,
+    requiresShareAlike: false,
   },
   {
     code: 3,
@@ -41,6 +51,9 @@ export const LICENSE_DEFINITIONS = [
     isCreativeCommons: true,
     allowsCommercialDefault: 'allow',
     allowsRedistributionDefault: 'allow',
+    allowsDerivatives: true,
+    requiresAttribution: true,
+    requiresShareAlike: true,
   },
   {
     code: 4,
@@ -49,6 +62,9 @@ export const LICENSE_DEFINITIONS = [
     isCreativeCommons: true,
     allowsCommercialDefault: 'disallow',
     allowsRedistributionDefault: 'allow',
+    allowsDerivatives: true,
+    requiresAttribution: true,
+    requiresShareAlike: false,
   },
   {
     code: 5,
@@ -57,6 +73,9 @@ export const LICENSE_DEFINITIONS = [
     isCreativeCommons: true,
     allowsCommercialDefault: 'disallow',
     allowsRedistributionDefault: 'allow',
+    allowsDerivatives: true,
+    requiresAttribution: true,
+    requiresShareAlike: true,
   },
   {
     code: 6,
@@ -65,6 +84,9 @@ export const LICENSE_DEFINITIONS = [
     isCreativeCommons: true,
     allowsCommercialDefault: 'allow',
     allowsRedistributionDefault: 'allow',
+    allowsDerivatives: false,
+    requiresAttribution: true,
+    requiresShareAlike: false,
   },
   {
     code: 7,
@@ -73,6 +95,9 @@ export const LICENSE_DEFINITIONS = [
     isCreativeCommons: true,
     allowsCommercialDefault: 'disallow',
     allowsRedistributionDefault: 'allow',
+    allowsDerivatives: false,
+    requiresAttribution: true,
+    requiresShareAlike: false,
   },
 ] as const;
 
@@ -92,11 +117,12 @@ export interface LicenseDeclaration {
 export type ArtworkRegion = readonly [x: number, y: number, width: number, height: number];
 
 export interface UnsignedManifest {
-  version: typeof PROTOCOL_VERSION;
+  version: typeof PROTOCOL_VERSION | typeof PROTOCOL_VERSION_MASKED;
   artworkId: Uint8Array;
   publicKey: Uint8Array;
   sha256: Uint8Array;
   region: ArtworkRegion;
+  qrMask?: ArtworkRegion;
   issuedAt: number;
   license: LicenseDeclaration;
   authorName?: string;
@@ -116,17 +142,51 @@ export type HumanMadeAssessmentStatus =
   | 'experimental-available'
   | 'inconclusive';
 
+export type ContainerFormat = 'png' | 'jpeg' | 'webp' | 'other' | 'unknown';
+
+export type AssessmentSignalOutcome =
+  | 'no-image'
+  | 'insufficient-visual-signal'
+  | 'ai-metadata-detected'
+  | 'local-signals-clean';
+
+export interface HumanMadeAssessmentMetrics {
+  artworkWidth: number;
+  artworkHeight: number;
+  containerFormat: ContainerFormat;
+  isCertifiedHandmadeOutput: boolean;
+  hasC2paContainer: boolean;
+  aiMetadataSignals: string[];
+  creativeToolHints: string[];
+  opaqueRatio: number;
+  transparentRatio: number;
+  semiTransparentRatio: number;
+  edgeDensity: number;
+  meanGradient: number;
+  flatRegionRatio: number;
+  sampledColorBuckets: number;
+}
+
+export interface HumanMadeAssessmentResult {
+  status: HumanMadeAssessmentStatus;
+  modelId: string | null;
+  summaryKey: AssessmentSignalOutcome;
+  metrics: HumanMadeAssessmentMetrics | null;
+  notes: string[];
+}
+
 export interface VerificationResult {
   protocolVersion: number | null;
   signatureStatus: SignatureStatus;
   integrityStatus: ArtworkIntegrityStatus;
   identityStatus: AuthorIdentityStatus;
   assessmentStatus: HumanMadeAssessmentStatus;
+  assessment?: HumanMadeAssessmentResult;
   manifest: SignedManifest | null;
   publicKeyFingerprintHex: string | null;
   publicKeyFingerprintShort: string | null;
   trustedKeyLabel: string | null;
-  matchedMode: 'embedded-region' | 'full-artwork' | null;
+  matchedMode: 'embedded-region' | 'full-artwork' | 'in-image-masked' | null;
   computedArtworkSha256Hex: string | null;
   proofBytesLength: number | null;
   errors: string[];

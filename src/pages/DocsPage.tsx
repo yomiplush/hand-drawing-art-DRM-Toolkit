@@ -1,4 +1,6 @@
-import { BookOpen, Package } from 'lucide-react';
+import { BookOpen, Compass, Package, Scale } from 'lucide-react';
+import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
+import { LICENSE_DEFINITIONS } from '../core/manifest/types';
 import { useI18n } from '../i18n/context';
 
 export function DocsPage() {
@@ -6,36 +8,94 @@ export function DocsPage() {
 
   return (
     <div className="space-y-8">
-      <header className="space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white">{t.docs.title}</h1>
+      <header className="space-y-2 border-b border-white/[0.08] pb-5">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-white">{t.docs.title}</h1>
         <p className="text-sm sm:text-base text-slate-300">{t.docs.subtitle}</p>
       </header>
+
+      <section className="rounded-xl border border-white/[0.1] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-base sm:text-lg font-medium text-white flex items-center gap-2">
+            <Compass className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+            <span>{t.howTo.docsUsageTitle}</span>
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-300">{t.howTo.homeSubtitle}</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {t.howTo.steps.map((step) => (
+            <div
+              key={step.title}
+              className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-1.5"
+            >
+              <h3 className="text-sm font-medium text-sky-200">{step.title}</h3>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">{step.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section
+        data-testid="docs-licenses-section"
+        className="rounded-xl border border-white/[0.1] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4"
+      >
+        <div className="space-y-1">
+          <h2 className="text-base sm:text-lg font-medium text-white flex items-center gap-2">
+            <Scale className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+            <span>{t.licenses.guideTitle}</span>
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+            {t.licenses.guideSubtitle}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {LICENSE_DEFINITIONS.map((lic) => (
+            <LicenseSummaryCard key={lic.id} licenseId={lic.id} />
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+          <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-1.5">
+            <h3 className="text-sm font-medium text-slate-100">{t.licenses.signalGuideTitle}</h3>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              {t.licenses.signalGuideBody}
+            </p>
+          </div>
+          <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-1.5">
+            <h3 className="text-sm font-medium text-slate-100">{t.licenses.appLicenseTitle}</h3>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              {t.licenses.appLicenseBody}
+            </p>
+          </div>
+        </div>
+      </section>
 
       <div className="space-y-4">
         {t.docs.sections.map((section) => (
           <section
             key={section.title}
-            className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-2"
+            className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-2"
           >
-            <h2 className="text-base sm:text-lg font-semibold text-cyan-200 flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-cyan-400 shrink-0" aria-hidden="true" />
+            <h2 className="text-base sm:text-lg font-medium text-slate-100 flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
               <span>{section.title}</span>
             </h2>
-            <p className="text-sm text-slate-300 leading-relaxed">{section.body}</p>
+            <p className="text-sm text-slate-300/90 leading-relaxed">{section.body}</p>
           </section>
         ))}
       </div>
 
-      <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-3">
-        <h2 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
-          <Package className="h-4 w-4 text-cyan-400" aria-hidden="true" />
+      <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-3">
+        <h2 className="text-base sm:text-lg font-medium text-white flex items-center gap-2">
+          <Package className="h-4 w-4 text-sky-300" aria-hidden="true" />
           <span>{t.docs.ossTitle}</span>
         </h2>
         <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-300">
           {t.docs.ossList.map((item) => (
             <li
               key={item}
-              className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2"
+              className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 px-3 py-2"
             >
               {item}
             </li>

@@ -170,8 +170,8 @@ export function KeysPage() {
 
   return (
     <div className="space-y-8">
-      <header className="space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white">{t.keys.title}</h1>
+      <header className="space-y-2 border-b border-white/[0.08] pb-5">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-white">{t.keys.title}</h1>
         <p className="text-sm sm:text-base text-slate-300">{t.keys.subtitle}</p>
       </header>
 
@@ -189,7 +189,7 @@ export function KeysPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
+        <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
           <h2 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
             <KeyRound className="h-5 w-5 text-cyan-400" aria-hidden="true" />
             <span>{t.keys.generateTitle}</span>
@@ -207,7 +207,7 @@ export function KeysPage() {
                 maxLength={64}
                 placeholder={t.keys.keyLabelPlaceholder}
                 data-testid="keygen-label"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
               />
             </div>
 
@@ -221,7 +221,7 @@ export function KeysPage() {
                 onChange={(e) => setNewPassphrase(e.target.value)}
                 placeholder={t.keys.backupPassPlaceholder}
                 data-testid="keygen-passphrase"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
               />
             </div>
 
@@ -234,7 +234,7 @@ export function KeysPage() {
             <button
               type="submit"
               data-testid="keygen-submit"
-              className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-400 transition-colors min-h-[44px]"
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-white transition-colors min-h-[44px]"
             >
               <PlusCircle className="h-4 w-4" aria-hidden="true" />
               <span>{t.keys.generateBtn}</span>
@@ -258,7 +258,7 @@ export function KeysPage() {
           )}
         </section>
 
-        <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
+        <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
           <h2 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
             <Upload className="h-5 w-5 text-cyan-400" aria-hidden="true" />
             <span>{t.keys.restoreTitle}</span>
@@ -291,7 +291,7 @@ export function KeysPage() {
                 value={restorePass}
                 onChange={(e) => setRestorePass(e.target.value)}
                 data-testid="restore-passphrase"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
               />
             </div>
 
@@ -318,7 +318,7 @@ export function KeysPage() {
         </section>
       </div>
 
-      <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
+      <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
         <h2 className="text-base sm:text-lg font-semibold text-white">{t.keys.myKeysTitle}</h2>
         {authorKeys.length === 0 ? (
           <p className="text-sm text-slate-400">{t.keys.noMyKeys}</p>
@@ -328,7 +328,7 @@ export function KeysPage() {
               <div
                 key={k.id}
                 data-testid="author-key-card"
-                className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4"
+                className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4"
               >
                 <div className="space-y-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -401,7 +401,7 @@ export function KeysPage() {
         )}
       </section>
 
-      <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-5">
+      <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-5">
         <div className="space-y-1">
           <h2 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-emerald-400" aria-hidden="true" />
@@ -418,7 +418,7 @@ export function KeysPage() {
             onChange={(e) => setTrustPubInput(e.target.value)}
             placeholder={t.keys.addTrustedPubInput}
             data-testid="trusted-pub-input"
-            className="rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
+            className="rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
           />
           <input
             type="text"
@@ -428,7 +428,7 @@ export function KeysPage() {
             maxLength={64}
             placeholder={t.keys.addTrustedLabelInput}
             data-testid="trusted-label-input"
-            className="rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
+            className="rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
           />
           <div className="flex gap-2">
             <input
@@ -437,7 +437,7 @@ export function KeysPage() {
               onChange={(e) => setTrustNote(e.target.value)}
               maxLength={200}
               placeholder={t.keys.addTrustedNoteInput}
-              className="flex-1 rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
+              className="flex-1 rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
             />
             <button
               type="submit"
@@ -462,7 +462,7 @@ export function KeysPage() {
             {trustedKeys.map((tk) => (
               <div
                 key={tk.publicKeyBase64Url}
-                className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
                 <div className="space-y-0.5 min-w-0">
                   <div className="font-semibold text-emerald-200 text-sm">{tk.label}</div>
