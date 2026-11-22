@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useId, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ClipboardPaste,
   FileImage,
+  Info,
   Link2,
   Share2,
   ShieldAlert,
@@ -32,6 +33,7 @@ const SHARE_TARGET_CACHE_KEY = '/__shared-artwork__';
 export function VerifyCertificatePage() {
   const { t } = useI18n();
   const location = useLocation();
+  const proofBundleInputId = useId();
 
   const hasInitialHashProof =
     typeof window !== 'undefined' && window.location.hash.includes('proof=');
@@ -294,6 +296,20 @@ export function VerifyCertificatePage() {
     await runProofVerify(proofInput, attachedRaster);
   };
 
+  const handleProofBundleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const text = await file.text();
+      setProofInput(text);
+      setQrInfoNote(`Loaded proof bundle: ${file.name}`);
+      await runProofVerify(text, attachedRaster);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to read proof bundle file');
+    }
+  };
+
   const handleCameraDetected = useCallback(
     (rawText: string) => {
       setProofInput(rawText);
@@ -403,6 +419,19 @@ export function VerifyCertificatePage() {
         data-testid="verify-proof-textarea"
         className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 p-3 text-xs font-mono text-white placeholder:text-slate-500"
       />
+      <div className="space-y-1.5">
+        <label htmlFor={proofBundleInputId} className="block text-xs font-medium text-slate-300">
+          {t.verify.proofBundleUploadLabel}
+        </label>
+        <input
+          id={proofBundleInputId}
+          type="file"
+          accept=".json,.chproof.json,application/json"
+          data-testid="verify-proof-bundle-input"
+          onChange={(e) => void handleProofBundleFileChange(e)}
+          className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border file:border-slate-700 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:font-medium file:text-slate-100 hover:file:bg-slate-700"
+        />
+      </div>
       <button
         type="submit"
         data-testid="verify-proof-submit"
@@ -449,6 +478,7 @@ export function VerifyCertificatePage() {
             role="tab"
             aria-selected={activeTab === 'proof'}
             onClick={() => setActiveTab('proof')}
+            data-testid="verify-tab-proof"
             className={tabClass('proof')}
           >
             <Link2 className="h-4 w-4" aria-hidden="true" />
@@ -587,6 +617,23 @@ export function VerifyCertificatePage() {
               {result.errors.map((err, i) => (
                 <p key={i}>{err}</p>
               ))}
+            </div>
+          )}
+
+          {result.manifest?.qrMask && (
+            <div
+              role="note"
+              data-testid="verify-qr-mask-notice"
+              className="rounded-xl border border-sky-400/35 bg-sky-500/10 p-4 flex items-start gap-3 text-xs sm:text-sm text-sky-100"
+            >
+              <Info className="h-5 w-5 text-sky-300 shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="space-y-1">
+                <h3 className="font-semibold text-sky-200">{t.verify.qrMaskNoticeTitle}</h3>
+                <p className="text-sky-100/90 leading-relaxed">{t.verify.qrMaskNoticeBody}</p>
+                <p className="font-mono text-xs text-sky-200">
+                  qrMask: [{result.manifest.qrMask.join(', ')}]
+                </p>
+              </div>
             </div>
           )}
 

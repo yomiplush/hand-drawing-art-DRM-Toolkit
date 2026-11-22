@@ -77,6 +77,7 @@ test.describe('Certified Handmade E2E suite', () => {
 
     // 1. Go to Keys page, generate keypair with encrypted backup
     await page.goto('/keys');
+    await expect(page.getByTestId('keys-standalone-storage-note')).toBeVisible();
     await page.getByTestId('keygen-label').fill('E2E Studio Key');
     await page.getByTestId('keygen-passphrase').fill('e2e-strong-passphrase');
     await page.getByTestId('keygen-submit').click();
@@ -319,6 +320,7 @@ test.describe('Certified Handmade E2E suite', () => {
 
     await page.getByTestId('create-quick-keygen').click();
     await expect(page.getByTestId('create-key-select')).toBeVisible();
+    await expect(page.getByTestId('create-key-backup-warning')).toBeVisible();
 
     await page.getByTestId('create-sign-button').click();
     await expect(page.getByTestId('create-result-section')).toBeVisible();
@@ -329,12 +331,13 @@ test.describe('Certified Handmade E2E suite', () => {
     const studioPngPath = testInfo.outputPath('studio.in-image-qr.png');
     await dl.saveAs(studioPngPath);
 
-    // Verify downloaded in-image QR PNG on /verify -> Valid + Matched + in-image-masked
+    // Verify downloaded in-image QR PNG on /verify -> Valid + Matched + in-image-masked + qrMask notice
     await page.goto('/verify');
     await page.getByTestId('verify-image-input').setInputFiles(studioPngPath);
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
     await expect(page.getByTestId('verification-results')).toContainText('in-image-masked');
+    await expect(page.getByTestId('verify-qr-mask-notice')).toBeVisible();
   });
 
   test('mobile #proof= Step 2 CTA, clipboard paste verification, and PWA ?shared=1 cache consumer', async ({
@@ -549,6 +552,62 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.getByTestId('verify-attach-artwork-input').setInputFiles(artPath);
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
 
+    await context.setOffline(false);
+  });
+
+  test('passphrase quick-keygen backup clearance, backup verification without import, and portable .chproof.json offline verification', async ({
+    page,
+    context,
+  }, testInfo) => {
+    await page.goto('/');
+    await page.getByTestId('cookie-reject-btn').click();
+
+    await page.goto('/create');
+    await page.getByTestId('create-quick-passphrase').fill('offline-backup-pass');
+    await page.getByTestId('create-quick-keygen').click();
+    await expect(page.getByTestId('create-key-select')).toBeVisible();
+    await expect(page.getByTestId('create-key-backup-warning')).toBeVisible();
+    await expect(page.getByTestId('create-download-pending-backup')).toBeVisible();
+
+    const keyDlPromise = page.waitForEvent('download');
+    await page.getByTestId('create-download-pending-backup').click();
+    const keyDl = await keyDlPromise;
+    const keyBackupPath = testInfo.outputPath('quick-backup.chkey.json');
+    await keyDl.saveAs(keyBackupPath);
+    await expect(page.getByTestId('create-key-backup-warning')).toBeHidden();
+
+    // Sign artwork and download portable .chproof.json
+    const artPath = testInfo.outputPath('bundle-art.png');
+    fs.writeFileSync(artPath, buildTestArtworkPng(140, 100));
+    await page.getByTestId('create-image-input').setInputFiles(artPath);
+    await page.getByTestId('create-sign-button').click();
+    await expect(page.getByTestId('create-result-section')).toBeVisible();
+
+    const bundleDlPromise = page.waitForEvent('download');
+    await page.getByTestId('download-proof-bundle').click();
+    const bundleDl = await bundleDlPromise;
+    const bundlePath = testInfo.outputPath('art.chproof.json');
+    await bundleDl.saveAs(bundlePath);
+
+    // Verify backup only on /keys without duplicating IndexedDB records
+    await page.goto('/keys');
+    await expect(page.getByTestId('key-unbacked-badge')).toHaveCount(0);
+    await page.getByTestId('restore-file-input').setInputFiles(keyBackupPath);
+    await page.getByTestId('restore-passphrase').fill('offline-backup-pass');
+    await page.getByTestId('verify-backup-btn').click();
+    await expect(page.getByTestId('restore-status-msg')).toContainText('Verified');
+    await expect(page.getByTestId('author-key-card')).toHaveCount(1);
+
+    // Go offline and verify portable .chproof.json + artwork
+    await context.setOffline(true);
+    await page.goto('/verify');
+    await page.getByTestId('verify-tab-proof').click();
+    await page.getByTestId('verify-proof-bundle-input').setInputFiles(bundlePath);
+    await expect(page.getByTestId('status-signature')).toContainText('Valid');
+    await expect(page.getByTestId('status-integrity')).toContainText('Not Checked');
+
+    await page.getByTestId('verify-attach-artwork-input').setInputFiles(artPath);
+    await expect(page.getByTestId('status-integrity')).toContainText('Matched');
     await context.setOffline(false);
   });
 });

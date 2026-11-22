@@ -180,6 +180,15 @@ export const ja: Translations = {
     goToKeys: '鍵管理画面へ',
     selectKeyLabel: '使用する署名鍵',
     passphrasePrompt: '暗号化された秘密鍵を復号するパスフレーズ',
+    quickPassLabel: 'バックアップ暗号化パスフレーズ（8文字以上・強く推奨）',
+    quickPassPlaceholder: '8文字以上入力すると .chkey.json 暗号化バックアップをすぐ保存できます',
+    quickBackupReadyTitle: '暗号化済み鍵バックアップ（.chkey.json）を保存してください',
+    quickBackupReadyBody:
+      'このファイルはオフラインの安全な場所へ保管してください。Web版とスタンドアローン版はブラウザ保存領域が別のため、このバックアップから復元することで鍵を移行できます。',
+    keyNotBackedUpWarning:
+      '警告：この署名鍵はまだバックアップされていません。ブラウザのデータ削除で消失する可能性があり、Web版とスタンドアローン版の保存領域も共有されません。',
+    keyNonExtractableNoBackup:
+      'この鍵はパスフレーズなしで作成された非抽出可能（Web Crypto）鍵のため、後から秘密鍵バックアップを書き出すことはできません。他端末やスタンドアローン版へ移行する場合は「鍵管理」でパスフレーズ付き鍵を作成してください。',
     step5: '5. QR配置と出力レイアウト',
     placementLabel: 'QR配置位置（作品領域の外側）',
     placements: {
@@ -204,8 +213,11 @@ export const ja: Translations = {
     signingBusy: 'ハッシュ計算・署名・PNG生成中…',
     resultTitle: '署名付きPNGが生成されました',
     downloadPng: '署名付きPNGをダウンロード',
+    downloadProofBundle: '証明バンドルを保存 (.chproof.json)',
     copyProofUrl: '検証URLをコピー',
     copied: 'コピーしました',
+    qrReadabilityPostWarn:
+      '注意：このサイズ・不透明度・スタイルで合成されたQRコードは自動デコードに失敗しました。不透明度やサイズを上げるか「すりガラス白」に切り替えて再生成してください。',
     artworkShaLabel: '作品領域 正規化RGBA8 SHA-256',
     artworkRegionLabel: '署名対象の作品領域 [x, y, w, h]',
     proofSizeLabel: 'CBOR証明データサイズ',
@@ -225,8 +237,9 @@ export const ja: Translations = {
     cameraStop: 'カメラ停止',
     cameraHint: 'カメラ映像は端末内のみで処理され、外部へ送信されません。QRコードを枠内に収めてください。',
     cameraError: 'カメラにアクセスできませんでした。ブラウザの権限を確認するか、画像アップロードをご利用ください。',
-    proofInputLabel: '検証URL（#proof=...）または Base64url トークン',
+    proofInputLabel: '検証URL（#proof=...）、Base64urlトークン、または .chproof.json',
     proofInputPlaceholder: 'https://certified-handmade.com/verify#proof=...',
+    proofBundleUploadLabel: 'または ポータブル証明バンドル (.chproof.json) を読み込む',
     verifyProofBtn: '署名データを検証',
     attachArtworkTitle: '作品画像との一致検証（推奨）',
     attachArtworkHint:
@@ -256,6 +269,9 @@ export const ja: Translations = {
       validNotChecked:
         '暗号署名は有効です — ただし作品画像ファイルとの一致はまだ検証されていません。',
     },
+    qrMaskNoticeTitle: 'Protocol v2 画像内QRマスクに関する注記',
+    qrMaskNoticeBody:
+      '埋め込まれたQRマスク領域 [x, y, w, h] の内部ピクセルは、仕様上 SHA-256 検証の対象外です。マスク領域の外側にある全ピクセルのみがバイト単位で照合されます。',
     trustReminder:
       '重要：「署名 Valid」は「人間による手描きが第三者に証明された」ことを意味しません。また、信頼済みリストにない公開鍵に総合認証バッジは表示されません。',
     detailsTitle: 'マニフェスト詳細',
@@ -291,6 +307,8 @@ export const ja: Translations = {
     storageWarningTitle: 'ブラウザ保存領域の消失に関する注意',
     storageWarningBody:
       'IndexedDBに保存された鍵は、ブラウザの履歴・サイトデータ削除や容量制限で消えることがあります。必ず暗号化バックアップ（.chkey.json）を安全な場所へ保存してください。秘密鍵を紛失すると復元できません。',
+    standaloneStorageNote:
+      'オリジン間のストレージ分離について：オンラインWeb版（certified-handmade.com）とオフライン・スタンドアローン版（127.0.0.1:43777）は別々のブラウザストレージを使用します。鍵を移行する場合は .chkey.json バックアップを保存して復元してください。',
     generateTitle: '新しいEd25519鍵ペアを生成',
     keyLabelInput: '鍵のラベル',
     keyLabelPlaceholder: '例：メイン作画鍵 2026',
@@ -301,10 +319,17 @@ export const ja: Translations = {
     backupReadyBody:
       '対応ブラウザでは署名鍵を非抽出可能なCryptoKeyとして保護します。他端末への移行やデータ消失に備え、AES-256-GCMで暗号化されたバックアップファイルを今すぐ保存してください。',
     downloadBackupBtn: '.chkey.json バックアップを保存',
-    restoreTitle: '暗号化バックアップから鍵を復元',
+    unbackedBadge: '未バックアップ',
+    noBackupExportNotice: 'パスフレーズなしで作成済み（非抽出可能鍵のため後から書き出し不可）',
+    restoreTitle: '暗号化バックアップの復元・事前検証',
     restorePassLabel: 'バックアップのパスフレーズ',
     restoreFileLabel: '.chkey.json ファイルを選択',
     restoreBtn: '復号して鍵を復元',
+    verifyBackupBtn: 'バックアップのみ検証（インポートしない）',
+    verifyBackupMatchExisting: '検証成功：バックアップは正常に復号され、保存済みのローカル鍵と一致しました',
+    verifyBackupMatchTrusted: '検証成功：バックアップは正常に復号され、信頼済み鍵と一致しました',
+    verifyBackupValidNew:
+      '検証成功：有効なEd25519バックアップです（このオリジンにはまだ未登録）',
     myKeysTitle: 'ローカル署名鍵一覧',
     noMyKeys: 'ローカル署名鍵はまだありません。',
     modeNonExtractable: 'Web Crypto 非抽出可能鍵',
@@ -335,15 +360,15 @@ export const ja: Translations = {
       },
       {
         title: '2. 画像ハッシュとQRの循環依存の解決',
-        body: 'QRコードを画像に焼き込むとファイル全体が変化するため、ファイル全体をハッシュすると循環依存になります。本ツールでは署名対象を作品領域 [x, y, w, h] の正規化RGBA8ピクセルのみに限定し、QRコードを領域外に配置することで解決しています。検証時はCanvasの乗算済みアルファ変換を回避した独立PNGデコーダーで [x, y, w, h] を取り出し再計算します。',
+        body: 'QRコードを画像に焼き込むとファイル全体が変化するため、ファイル全体をハッシュすると循環依存になります。本ツールでは署名対象を作品領域 [x, y, w, h] の正規化RGBA8ピクセルのみに限定し、QRコードを領域外に配置（Protocol v1）するか、qrMask領域を除外してハッシュ計算（Protocol v2）することで解決しています。検証時はCanvasの乗算済みアルファ変換を回避した独立PNGデコーダーでピクセルを取り出し再計算します。',
       },
       {
         title: '3. セキュリティモデルと証明の限界',
         body: '1) 署名が有効でも、公開鍵を別経路で確認して信頼リストに登録しない限り現実の本人性は確認されません。2) 発行日時は外部TSAを使わない自己申告です。3) 完成画像のみで手描き制作を確定証明することは数学的に不可能です。AI学習拒否等の設定は非拘束の意思表示です。',
       },
       {
-        title: '4. PWAのオフライン性と初回ロード制約',
-        body: '一度アクセスしてService Workerがキャッシュを完了した端末では、署名も検証も完全オフラインで実行できます。ただし、アプリを一度も取得していない端末はオフライン状態でWebアプリを初回起動できないというブラウザの制約があります。',
+        title: '4. PWAのオフライン性とスタンドアローン版',
+        body: '一度アクセスしてService Workerがキャッシュを完了した端末では、署名も検証も完全オフラインで実行できます。インターネットに一度も接続できない環境やUSBポータブル運用には、127.0.0.1:43777 で自己完結動作するLinux/Windows向けスタンドアローン版をご利用いただけます。',
       },
       {
         title: '5. オープン仕様と永続的独立検証',

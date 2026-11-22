@@ -1,6 +1,7 @@
 import { encode as encodePng } from 'fast-png';
 import { describe, expect, it } from 'vitest';
 import {
+  assertArtworkInputBounds,
   decodePngToCanonicalRgba8,
   encodeCanonicalRgba8ToPng,
   hashArtworkRegion,
@@ -51,7 +52,7 @@ describe('Canonical PNG codec and RGBA8 hashing', () => {
     expect(decoded.data).toEqual(new Uint8Array([10, 20, 30, 255, 40, 50, 60, 0]));
   });
 
-  it('rejects oversized PNG dimensions in IHDR pre-flight before decompression', () => {
+  it('rejects oversized PNG dimensions in IHDR pre-flight and corrupted PNG CRCs', () => {
     const fakeHugePng = new Uint8Array([
       0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
       0x00, 0x00, 0x00, 0x0d, // IHDR length 13
@@ -63,6 +64,32 @@ describe('Canonical PNG codec and RGBA8 hashing', () => {
     ]);
     expect(() => inspectPngHeader(fakeHugePng)).toThrow();
     expect(() => decodePngToCanonicalRgba8(fakeHugePng)).toThrow();
+
+    // Corrupt a CRC byte in an otherwise valid PNG
+    const validPng = encodeCanonicalRgba8ToPng({
+      width: 2,
+      height: 2,
+      data: new Uint8Array(16).fill(255),
+    });
+    const corruptedCrcPng = new Uint8Array(validPng);
+    corruptedCrcPng[30] ^= 0xff;
+    expect(() => decodePngToCanonicalRgba8(corruptedCrcPng)).toThrow();
+
+    // Enforce pixel-count & dimension ceiling in assertArtworkInputBounds
+    expect(() =>
+      assertArtworkInputBounds({
+        width: 9000,
+        height: 100,
+        data: new Uint8Array(0),
+      }),
+    ).toThrow();
+    expect(() =>
+      assertArtworkInputBounds({
+        width: 6000,
+        height: 6000, // 36 MP > 32 MP
+        data: new Uint8Array(0),
+      }),
+    ).toThrow();
   });
 
   it('hashes extracted sub-regions identically to standalone artwork', async () => {

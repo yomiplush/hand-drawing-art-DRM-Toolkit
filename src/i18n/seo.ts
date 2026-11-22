@@ -105,7 +105,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'How are my artist keys and backups encrypted?',
-        a: 'Signing keys use Ed25519 cryptography. Exported .chkey.json key backups are encrypted locally with AES-256-GCM using a 310,000-iteration PBKDF2-SHA256 key derivation from your passphrase, so you can keep portable cold backups safely without accounts.',
+        a: 'Signing keys use Ed25519 cryptography. Exported .chkey.json key backups are encrypted locally with AES-256-GCM using a 600,000-iteration PBKDF2-SHA256 key derivation from your passphrase, so you can keep portable cold backups safely without accounts.',
       },
       {
         q: 'Why does Certified Handmade say "Your artwork should outlive the platform that certifies it"?',
@@ -194,7 +194,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: '秘密鍵の暗号化バックアップにはどの暗号方式が使われていますか？',
-        a: '署名鍵にはEd25519を採用しています。.chkey.json形式のバックアップ書き出し時は、パスフレーズからPBKDF2-SHA256（310,000回反復）で導出した鍵を使い、AES-256-GCMで強固に暗号化されるため、アカウント登録なしで安全に鍵を保管できます。',
+        a: '署名鍵にはEd25519を採用しています。.chkey.json形式のバックアップ書き出し時は、パスフレーズからPBKDF2-SHA256（600,000回反復）で導出した鍵を使い、AES-256-GCMで強固に暗号化されるため、アカウント登録なしで安全に鍵を保管できます。',
       },
       {
         q: '「あなたの作品は、それを証明するプラットフォームより長く生き続けるべきだ」の意図は？',
@@ -261,7 +261,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: '密钥备份如何加密保存？',
-        a: '备份文件（.chkey.json）使用您设置的口令经 PBKDF2-SHA256（310,000 次迭代）派生密钥，并通过 AES-256-GCM 在本地加密。',
+        a: '备份文件（.chkey.json）使用您设置的口令经 PBKDF2-SHA256（600,000 次迭代）派生密钥，并通过 AES-256-GCM 在本地加密。',
       },
       {
         q: '为什么说“你的作品应当比认证它的平台更长久”？',
@@ -328,7 +328,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: '金鑰備份是如何加密的？',
-        a: '.chkey.json 備份檔會利用密碼與 PBKDF2-SHA256（310,000 次疊代）衍生金鑰，再以 AES-256-GCM 本機加密。',
+        a: '.chkey.json 備份檔會利用密碼與 PBKDF2-SHA256（600,000 次疊代）衍生金鑰，再以 AES-256-GCM 本機加密。',
       },
       {
         q: '為何強調「您的作品應該比認證它的平台更長久」？',
@@ -395,7 +395,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: '서명 키 백업은 어떻게 암호화되나요?',
-        a: '.chkey.json 백업은 입력한 암호로부터 PBKDF2-SHA256(310,000회)로 키를 유도한 뒤 AES-256-GCM으로 로컬 암호화합니다.',
+        a: '.chkey.json 백업은 입력한 암호로부터 PBKDF2-SHA256(600,000회)로 키를 유도한 뒤 AES-256-GCM으로 로컬 암호화합니다.',
       },
       {
         q: '“작품은 그것을 인증하는 플랫폼보다 오래 살아남아야 합니다”의 의미는 무엇인가요?',
@@ -462,7 +462,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'Как шифруются резервные копии ключей?',
-        a: 'Файлы .chkey.json шифруются локально алгоритмом AES-256-GCM с ключом из пароля через PBKDF2-SHA256 (310 000 итераций).',
+        a: 'Файлы .chkey.json шифруются локально алгоритмом AES-256-GCM с ключом из пароля через PBKDF2-SHA256 (600 000 итераций).',
       },
       {
         q: 'Что означает девиз о том, что работа переживёт платформу?',
@@ -529,7 +529,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'Як шифруються резервні копії ключів?',
-        a: 'Файли .chkey.json шифруються локально за допомогою AES-256-GCM з ключем, отриманим із парольної фрази через PBKDF2-SHA256 (310 000 ітерацій).',
+        a: 'Файли .chkey.json шифруються локально за допомогою AES-256-GCM з ключем, отриманим із парольної фрази через PBKDF2-SHA256 (600 000 ітерацій).',
       },
       {
         q: 'Чому робота має пережити платформу, що її засвідчує?',
@@ -596,7 +596,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: '¿Cómo se cifran las copias de seguridad de las claves?',
-        a: 'Los respaldos .chkey.json se cifran localmente con AES-256-GCM usando derivación PBKDF2-SHA256 de 310,000 iteraciones.',
+        a: 'Los respaldos .chkey.json se cifran localmente con AES-256-GCM usando derivación PBKDF2-SHA256 de 600,000 iteraciones.',
       },
       {
         q: '¿Por qué la obra debe sobrevivir a la plataforma que la certifica?',
@@ -663,7 +663,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'Comment les sauvegardes de clés sont-elles chiffrées ?',
-        a: 'Les fichiers .chkey.json sont chiffrés localement en AES-256-GCM avec dérivation PBKDF2-SHA256 (310 000 itérations).',
+        a: 'Les fichiers .chkey.json sont chiffrés localement en AES-256-GCM avec dérivation PBKDF2-SHA256 (600 000 itérations).',
       },
       {
         q: 'Pourquoi votre œuvre doit-elle survivre à la plateforme ?',
@@ -730,7 +730,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'Wie werden Schlüssel-Backups verschlüsselt?',
-        a: '.chkey.json-Backups werden lokal mit AES-256-GCM und 310.000 PBKDF2-SHA256-Iterationen geschützt.',
+        a: '.chkey.json-Backups werden lokal mit AES-256-GCM und 600.000 PBKDF2-SHA256-Iterationen geschützt.',
       },
       {
         q: 'Warum sollte das Kunstwerk die Plattform überdauern?',
@@ -797,7 +797,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'Como os backups de chave são criptografados?',
-        a: 'Os arquivos .chkey.json usam AES-256-GCM com derivação PBKDF2-SHA256 de 310.000 iterações.',
+        a: 'Os arquivos .chkey.json usam AES-256-GCM com derivação PBKDF2-SHA256 de 600.000 iterações.',
       },
       {
         q: 'Por que a obra deve durar mais que a plataforma certificadora?',
@@ -864,7 +864,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'Come vengono cifrati i backup delle chiavi?',
-        a: 'I file .chkey.json usano AES-256-GCM con derivazione PBKDF2-SHA256 a 310.000 iterazioni.',
+        a: 'I file .chkey.json usano AES-256-GCM con derivazione PBKDF2-SHA256 a 600.000 iterazioni.',
       },
       {
         q: 'Perché l’opera deve sopravvivere alla piattaforma che la certifica?',
@@ -931,7 +931,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'كيف يتم تشفير النسخ الاحتياطية للمفاتيح؟',
-        a: 'تُشفر ملفات .chkey.json محلياً بخوارزمية AES-256-GCM مع اشتقاق PBKDF2-SHA256 بـ 310,000 تكرار.',
+        a: 'تُشفر ملفات .chkey.json محلياً بخوارزمية AES-256-GCM مع اشتقاق PBKDF2-SHA256 بـ 600,000 تكرار.',
       },
       {
         q: 'لماذا يجب أن يعيش عملك الفني أطول من المنصة التي توثقه؟',

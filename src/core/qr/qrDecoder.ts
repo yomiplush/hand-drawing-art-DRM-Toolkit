@@ -1,5 +1,6 @@
 import jsQR from 'jsqr';
 import type { CanonicalRaster } from '../image/pngCodec';
+import type { ArtworkRegion } from '../manifest/types';
 
 export interface QrDecodeResult {
   rawText: string;
@@ -50,15 +51,19 @@ function downscaleNearest(
   width: number,
   height: number,
   maxDim: number,
+  cropX = 0,
+  cropY = 0,
+  cropW = width,
+  cropH = height,
 ): { data: Uint8ClampedArray; width: number; height: number } {
-  const scale = Math.min(1, maxDim / Math.max(width, height));
-  const targetW = Math.max(1, Math.round(width * scale));
-  const targetH = Math.max(1, Math.round(height * scale));
+  const scale = Math.min(1, maxDim / Math.max(cropW, cropH));
+  const targetW = Math.max(1, Math.round(cropW * scale));
+  const targetH = Math.max(1, Math.round(cropH * scale));
   const out = new Uint8ClampedArray(targetW * targetH * 4);
   for (let y = 0; y < targetH; y++) {
-    const sy = Math.min(height - 1, Math.floor((y / targetH) * height));
+    const sy = cropY + Math.min(cropH - 1, Math.floor((y / targetH) * cropH));
     for (let x = 0; x < targetW; x++) {
-      const sx = Math.min(width - 1, Math.floor((x / targetW) * width));
+      const sx = cropX + Math.min(cropW - 1, Math.floor((x / targetW) * cropW));
       const si = (sy * width + sx) * 4;
       const di = (y * targetW + x) * 4;
       const a = rgba[si + 3];
@@ -79,6 +84,31 @@ function tryJsQr(
 ): string | null {
   const res = jsQR(data, width, height, { inversionAttempts: 'attemptBoth' });
   return res?.data ?? null;
+}
+
+export function decodeQrFromRegion(
+  raster: CanonicalRaster,
+  region: ArtworkRegion,
+  paddingPx = 12,
+): QrDecodeResult | null {
+  const x0 = Math.max(0, region[0] - paddingPx);
+  const y0 = Math.max(0, region[1] - paddingPx);
+  const x1 = Math.min(raster.width, region[0] + region[2] + paddingPx);
+  const y1 = Math.min(raster.height, region[1] + region[3] + paddingPx);
+  const cw = x1 - x0;
+  const ch = y1 - y0;
+  if (cw < 21 || ch < 21) return null;
+
+  if (cw * ch <= 2_500_000) {
+    const flat = flattenOnWhite(raster.data, raster.width, raster.height, x0, y0, cw, ch);
+    const hit = tryJsQr(flat, cw, ch);
+    if (hit) return { rawText: hit, strategy: 'region-native' };
+  } else {
+    const scaled = downscaleNearest(raster.data, raster.width, raster.height, 1400, x0, y0, cw, ch);
+    const hit = tryJsQr(scaled.data, scaled.width, scaled.height);
+    if (hit) return { rawText: hit, strategy: 'region-downscaled' };
+  }
+  return null;
 }
 
 export function decodeQrFromCanonicalRaster(raster: CanonicalRaster): QrDecodeResult | null {
@@ -123,6 +153,29 @@ export function decodeQrFromCanonicalRaster(raster: CanonicalRaster): QrDecodeRe
     const flat = flattenOnWhite(data, width, height, crop.x, crop.y, crop.w, crop.h);
     const hit = tryJsQr(flat, crop.w, crop.h);
     if (hit) return { rawText: hit, strategy: `crop:${crop.name}` };
+  }
+
+  // 3. Overlapping 3x3 grid scan for arbitrary small in-image QRs inside large (>2.5 MP) artworks
+  if (width * height > 2_500_000) {
+    const tileW = Math.min(width, Math.max(640, Math.ceil(width * 0.45)));
+    const tileH = Math.min(height, Math.max(640, Math.ceil(height * 0.45)));
+    const xs = [0, Math.max(0, Math.floor((width - tileW) / 2)), Math.max(0, width - tileW)];
+    const ys = [0, Math.max(0, Math.floor((height - tileH) / 2)), Math.max(0, height - tileH)];
+    for (let gy = 0; gy < ys.length; gy++) {
+      for (let gx = 0; gx < xs.length; gx++) {
+        const tx = xs[gx];
+        const ty = ys[gy];
+        if (tileW * tileH <= 2_500_000) {
+          const flat = flattenOnWhite(data, width, height, tx, ty, tileW, tileH);
+          const hit = tryJsQr(flat, tileW, tileH);
+          if (hit) return { rawText: hit, strategy: `grid:${gx},${gy}` };
+        } else {
+          const scaled = downscaleNearest(data, width, height, 1200, tx, ty, tileW, tileH);
+          const hit = tryJsQr(scaled.data, scaled.width, scaled.height);
+          if (hit) return { rawText: hit, strategy: `grid-scaled:${gx},${gy}` };
+        }
+      }
+    }
   }
 
   return null;

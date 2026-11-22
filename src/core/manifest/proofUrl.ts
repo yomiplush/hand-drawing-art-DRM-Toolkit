@@ -1,4 +1,5 @@
 import { base64UrlDecode, base64UrlEncode } from '../crypto/sha256';
+import { parsePortableProofBundle } from './proofBundle';
 import { DEFAULT_VERIFY_BASE_URL, MAX_PROOF_BYTES } from './types';
 
 const MAX_PROOF_TOKEN_CHARS = Math.ceil((MAX_PROOF_BYTES * 4) / 3) + 16;
@@ -41,6 +42,17 @@ export function extractProofBytesFromInput(rawInput: string): Uint8Array {
   const trimmed = rawInput.trim();
   if (!trimmed) {
     throw new Error('Proof input is empty');
+  }
+
+  // Case 0: Portable Proof Bundle JSON (.chproof.json)
+  if (trimmed.startsWith('{')) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      throw new Error('Malformed JSON proof bundle');
+    }
+    return parsePortableProofBundle(parsed).proofBytes;
   }
 
   let token: string | null;

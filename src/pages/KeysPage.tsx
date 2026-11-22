@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import {
   AlertTriangle,
   Check,
+  CheckCircle2,
   Copy,
   Download,
+  Info,
   KeyRound,
   PlusCircle,
   Share2,
@@ -12,6 +14,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
+import { decryptKeyBackup } from '../core/crypto/keyBackup';
 import type { EncryptedKeyBackup } from '../core/crypto/keyBackup';
 import {
   addTrustedKey,
@@ -135,6 +138,48 @@ export function KeysPage() {
     }
   };
 
+  const handleVerifyBackupOnly = async () => {
+    setRestoreError(null);
+    setRestoreStatus(null);
+    try {
+      if (!restoreFile) {
+        throw new Error('Select a .chkey.json backup file first');
+      }
+      const text = await restoreFile.text();
+      const parsed = JSON.parse(text);
+      const decrypted = await decryptKeyBackup(parsed, restorePass);
+      const fpShort = decrypted.fingerprint.slice(0, 16);
+      const pubB64 = typeof parsed?.publicKey === 'string' ? parsed.publicKey : '';
+      decrypted.seed32.fill(0);
+
+      const existingAuthor = authorKeys.find(
+        (k) => k.fingerprintHex === decrypted.fingerprint || (pubB64 && k.publicKeyBase64Url === pubB64),
+      );
+      if (existingAuthor) {
+        setRestoreStatus(
+          `${t.keys.verifyBackupMatchExisting}: ${existingAuthor.label} (${existingAuthor.fingerprintShort})`,
+        );
+        return;
+      }
+
+      const existingTrusted = trustedKeys.find(
+        (tk) =>
+          tk.fingerprintHex === decrypted.fingerprint ||
+          (pubB64 && tk.publicKeyBase64Url === pubB64),
+      );
+      if (existingTrusted) {
+        setRestoreStatus(
+          `${t.keys.verifyBackupMatchTrusted}: ${existingTrusted.label} (${existingTrusted.fingerprintShort})`,
+        );
+        return;
+      }
+
+      setRestoreStatus(`${t.keys.verifyBackupValidNew} (${decrypted.label} · ${fpShort}…)`);
+    } catch (err) {
+      setRestoreError(err instanceof Error ? err.message : 'Backup verification failed');
+    }
+  };
+
   const handleDeleteAuthorKey = async (id: string) => {
     if (!window.confirm(t.keys.deleteConfirm)) return;
     await deleteAuthorKey(id);
@@ -177,15 +222,28 @@ export function KeysPage() {
         <p className="text-sm sm:text-base text-slate-300">{t.keys.subtitle}</p>
       </header>
 
-      <div
-        role="note"
-        className="rounded-xl border border-amber-400/35 bg-amber-500/10 p-4 flex items-start gap-3"
-      >
-        <AlertTriangle className="h-5 w-5 text-amber-300 shrink-0 mt-0.5" aria-hidden="true" />
-        <div className="space-y-1">
-          <h2 className="text-sm font-semibold text-amber-200">{t.keys.storageWarningTitle}</h2>
-          <p className="text-xs sm:text-sm text-amber-100/90 leading-relaxed">
-            {t.keys.storageWarningBody}
+      <div className="space-y-3">
+        <div
+          role="note"
+          className="rounded-xl border border-amber-400/35 bg-amber-500/10 p-4 flex items-start gap-3"
+        >
+          <AlertTriangle className="h-5 w-5 text-amber-300 shrink-0 mt-0.5" aria-hidden="true" />
+          <div className="space-y-1">
+            <h2 className="text-sm font-semibold text-amber-200">{t.keys.storageWarningTitle}</h2>
+            <p className="text-xs sm:text-sm text-amber-100/90 leading-relaxed">
+              {t.keys.storageWarningBody}
+            </p>
+          </div>
+        </div>
+
+        <div
+          role="note"
+          data-testid="keys-standalone-storage-note"
+          className="rounded-xl border border-sky-400/30 bg-sky-500/10 p-4 flex items-start gap-3"
+        >
+          <Info className="h-5 w-5 text-sky-300 shrink-0 mt-0.5" aria-hidden="true" />
+          <p className="text-xs sm:text-sm text-sky-100/90 leading-relaxed">
+            {t.keys.standaloneStorageNote}
           </p>
         </div>
       </div>
@@ -303,19 +361,31 @@ export function KeysPage() {
               </p>
             )}
             {restoreStatus && (
-              <p role="status" className="text-xs text-cyan-300">
+              <p role="status" data-testid="restore-status-msg" className="text-xs text-cyan-300">
                 {restoreStatus}
               </p>
             )}
 
-            <button
-              type="submit"
-              data-testid="restore-submit"
-              className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-4 py-2.5 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/25 transition-colors min-h-[44px]"
-            >
-              <Upload className="h-4 w-4" aria-hidden="true" />
-              <span>{t.keys.restoreBtn}</span>
-            </button>
+            <div className="flex flex-wrap gap-2.5">
+              <button
+                type="submit"
+                data-testid="restore-submit"
+                className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-4 py-2.5 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/25 transition-colors min-h-[44px] cursor-pointer"
+              >
+                <Upload className="h-4 w-4" aria-hidden="true" />
+                <span>{t.keys.restoreBtn}</span>
+              </button>
+
+              <button
+                type="button"
+                data-testid="verify-backup-btn"
+                onClick={() => void handleVerifyBackupOnly()}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/[0.16] bg-[#030b18]/75 px-4 py-2.5 text-sm font-medium text-slate-200 hover:border-white/[0.3] transition-colors min-h-[44px] cursor-pointer"
+              >
+                <CheckCircle2 className="h-4 w-4 text-emerald-300" aria-hidden="true" />
+                <span>{t.keys.verifyBackupBtn}</span>
+              </button>
+            </div>
           </form>
         </section>
       </div>
@@ -340,6 +410,14 @@ export function KeysPage() {
                         ? t.keys.modeNonExtractable
                         : t.keys.modeEncryptedFallback}
                     </span>
+                    {!k.hasBackupDownloaded && (
+                      <span
+                        data-testid="key-unbacked-badge"
+                        className="rounded-full border border-amber-400/40 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-medium text-amber-200"
+                      >
+                        {t.keys.unbackedBadge}
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs font-mono text-cyan-300 break-all">
                     {k.fingerprintShort} ({k.fingerprintHex.slice(0, 16)}…)
@@ -347,6 +425,11 @@ export function KeysPage() {
                   <div className="text-[11px] font-mono text-slate-400 break-all">
                     Ed25519 PK: {k.publicKeyBase64Url}
                   </div>
+                  {!k.encryptedBackup && (
+                    <div className="text-[11px] text-amber-200/85">
+                      {t.keys.noBackupExportNotice}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 shrink-0">

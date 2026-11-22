@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
+  AlertTriangle,
   Check,
   ChevronDown,
   Copy,
   Download,
   ExternalLink,
+  FileJson,
   FileSignature,
   Frame,
   Info,
@@ -16,6 +18,7 @@ import {
 import { ImageDropzone } from '../components/ImageDropzone';
 import { InImageQrStudioPanel } from '../components/InImageQrStudioPanel';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
+import { computePublicKeyFingerprint } from '../core/crypto/ed25519';
 import { bytesToHex } from '../core/crypto/sha256';
 import { hashCanonicalRasterHex } from '../core/image/canonicalRaster';
 import { clampInImageQrOptions } from '../core/image/inImageQr';
@@ -24,6 +27,7 @@ import { decodeImageFileToCanonicalRgba8 } from '../core/image/pngCodec';
 import type { CanonicalRaster } from '../core/image/pngCodec';
 import type { FrameTheme, QrPlacement } from '../core/image/qrBurner';
 import { utf8ByteLength } from '../core/manifest/cborCodec';
+import { createPortableProofBundle } from '../core/manifest/proofBundle';
 import {
   createInImageSignedArtworkPng,
   createSignedArtworkPng,
@@ -41,7 +45,11 @@ import {
 } from '../core/manifest/types';
 import type { ArtworkRegion, LicenseId, PolicySignal } from '../core/manifest/types';
 import type { QrErrorCorrectionLevel } from '../core/qr/qrGenerator';
-import { createAuthorKey, listAuthorKeys } from '../core/storage/keyStore';
+import {
+  createAuthorKey,
+  listAuthorKeys,
+  markAuthorKeyBackedUp,
+} from '../core/storage/keyStore';
 import type { AuthorKeyRecord } from '../core/storage/keyStore';
 import { useI18n } from '../i18n/context';
 
@@ -71,7 +79,9 @@ export function CreateCertificatePage() {
   const [keys, setKeys] = useState<AuthorKeyRecord[]>([]);
   const [selectedKeyId, setSelectedKeyId] = useState<string>('');
   const [keyPassphrase, setKeyPassphrase] = useState('');
+  const [quickPassphrase, setQuickPassphrase] = useState('');
   const [quickKeyBusy, setQuickKeyBusy] = useState(false);
+  const [quickKeyError, setQuickKeyError] = useState<string | null>(null);
 
   const [sourceFileName, setSourceFileName] = useState<string>('');
   const [sourceFormat, setSourceFormat] = useState<string>('');
@@ -147,21 +157,54 @@ export function CreateCertificatePage() {
     });
   }, [artworkRaster, qrX, qrY, qrBoxSize, qrOpacityPct, qrStyle, eccLevel]);
 
+  const estimatedProofTokenChars = useMemo(() => {
+    const extraBytes =
+      utf8ByteLength(authorName.trim()) +
+      utf8ByteLength(artworkTitle.trim()) +
+      utf8ByteLength(attributionName.trim());
+    return 310 + Math.ceil((extraBytes * 4) / 3);
+  }, [authorName, artworkTitle, attributionName]);
+
   const handleQuickCreateKey = async () => {
     setErrorMsg(null);
+    setQuickKeyError(null);
+    if (quickPassphrase && quickPassphrase.length < 8) {
+      setQuickKeyError('Backup passphrase must be at least 8 characters (or leave empty to skip backup)');
+      return;
+    }
     setQuickKeyBusy(true);
     try {
       const { record } = await createAuthorKey({
         label: authorName.trim() || 'Artist Key',
+        backupPassphrase: quickPassphrase || undefined,
       });
+      setQuickPassphrase('');
       const updated = await listAuthorKeys();
       setKeys(updated);
       setSelectedKeyId(record.id);
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to create local signing key');
+      setQuickKeyError(err instanceof Error ? err.message : 'Failed to create local signing key');
     } finally {
       setQuickKeyBusy(false);
     }
+  };
+
+  const handleDownloadSelectedKeyBackup = async () => {
+    if (!selectedKey?.encryptedBackup) return;
+    const backup = selectedKey.encryptedBackup;
+    const safeName = backup.label.replace(/[^a-zA-Z0-9_-]+/g, '-').toLowerCase() || 'artist';
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chm-${safeName}-${backup.fingerprint.slice(0, 8)}.chkey.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    await markAuthorKeyBackedUp(selectedKey.id);
+    const updated = await listAuthorKeys();
+    setKeys(updated);
   };
 
   const handleFileSelected = async (file: File) => {
@@ -288,6 +331,30 @@ export function CreateCertificatePage() {
       signedResult.mode === 'in-image'
         ? `${base}.in-image-qr.certified-handmade.png`
         : `${base}.certified-handmade.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadProofBundle = async () => {
+    if (!signedResult) return;
+    const fp =
+      selectedKey?.fingerprintHex ??
+      (await computePublicKeyFingerprint(signedResult.manifest.publicKey)).fullHex;
+    const bundle = createPortableProofBundle({
+      protocolVersion: signedResult.mode === 'in-image' ? 2 : 1,
+      artworkId: signedResult.manifest.artworkIdHex,
+      publicKeyFingerprint: fp,
+      proofBytes: signedResult.proofBytes,
+      verifyBaseUrl,
+    });
+    const base = sourceFileName.replace(/\.[^.]+$/, '') || 'artwork';
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${base}.chproof.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -422,6 +489,7 @@ export function CreateCertificatePage() {
               qrStyle={qrStyle}
               eccLevel={eccLevel}
               verifyBaseUrl={verifyBaseUrl}
+              estimatedProofTokenChars={estimatedProofTokenChars}
               onChangeX={setQrX}
               onChangeY={setQrY}
               onChangeBoxSize={setQrBoxSize}
@@ -602,6 +670,30 @@ export function CreateCertificatePage() {
                 </p>
               </div>
 
+              <div>
+                <label
+                  htmlFor="quickPassphrase"
+                  className="block text-xs font-medium text-slate-200 mb-1"
+                >
+                  {t.create.quickPassLabel}
+                </label>
+                <input
+                  id="quickPassphrase"
+                  type="password"
+                  value={quickPassphrase}
+                  onChange={(e) => setQuickPassphrase(e.target.value)}
+                  placeholder={t.create.quickPassPlaceholder}
+                  data-testid="create-quick-passphrase"
+                  className="w-full max-w-md rounded-lg border border-white/[0.16] bg-[#030b18]/80 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                />
+              </div>
+
+              {quickKeyError && (
+                <p role="alert" className="text-xs text-rose-300">
+                  {quickKeyError}
+                </p>
+              )}
+
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
@@ -626,42 +718,89 @@ export function CreateCertificatePage() {
               <p className="text-[11px] text-slate-300/80">{t.howTo.quickKeyTip}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="signingKey" className="block text-xs font-medium text-slate-300 mb-1">
-                  {t.create.selectKeyLabel}
-                </label>
-                <select
-                  id="signingKey"
-                  value={selectedKeyId}
-                  onChange={(e) => setSelectedKeyId(e.target.value)}
-                  data-testid="create-key-select"
-                  className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
-                >
-                  {keys.map((k) => (
-                    <option key={k.id} value={k.id}>
-                      {k.label} ({k.fingerprintShort})
-                    </option>
-                  ))}
-                </select>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="signingKey" className="block text-xs font-medium text-slate-300 mb-1">
+                    {t.create.selectKeyLabel}
+                  </label>
+                  <select
+                    id="signingKey"
+                    value={selectedKeyId}
+                    onChange={(e) => setSelectedKeyId(e.target.value)}
+                    data-testid="create-key-select"
+                    className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
+                  >
+                    {keys.map((k) => (
+                      <option key={k.id} value={k.id}>
+                        {k.label} ({k.fingerprintShort})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedKey?.storageMode === 'noble-encrypted-seed' && (
+                  <div>
+                    <label
+                      htmlFor="keyPassphrase"
+                      className="block text-xs font-medium text-slate-300 mb-1"
+                    >
+                      {t.create.passphrasePrompt}
+                    </label>
+                    <input
+                      id="keyPassphrase"
+                      type="password"
+                      required
+                      value={keyPassphrase}
+                      onChange={(e) => setKeyPassphrase(e.target.value)}
+                      className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
+                    />
+                  </div>
+                )}
               </div>
 
-              {selectedKey?.storageMode === 'noble-encrypted-seed' && (
-                <div>
-                  <label
-                    htmlFor="keyPassphrase"
-                    className="block text-xs font-medium text-slate-300 mb-1"
-                  >
-                    {t.create.passphrasePrompt}
-                  </label>
-                  <input
-                    id="keyPassphrase"
-                    type="password"
-                    required
-                    value={keyPassphrase}
-                    onChange={(e) => setKeyPassphrase(e.target.value)}
-                    className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
-                  />
+              {selectedKey && !selectedKey.hasBackupDownloaded && (
+                <div
+                  role="note"
+                  data-testid="create-key-backup-warning"
+                  className="rounded-lg border border-amber-400/35 bg-amber-500/10 p-3.5 space-y-2.5 text-xs text-amber-100"
+                >
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle
+                      className="h-4 w-4 text-amber-300 shrink-0 mt-0.5"
+                      aria-hidden="true"
+                    />
+                    <div className="space-y-1">
+                      <p className="font-semibold text-amber-200">
+                        {t.create.keyNotBackedUpWarning}
+                      </p>
+                      <p className="text-amber-100/90 leading-relaxed">
+                        {selectedKey.encryptedBackup
+                          ? t.create.quickBackupReadyBody
+                          : t.create.keyNonExtractableNoBackup}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2.5 pl-6">
+                    {selectedKey.encryptedBackup && (
+                      <button
+                        type="button"
+                        data-testid="create-download-pending-backup"
+                        onClick={() => void handleDownloadSelectedKeyBackup()}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-300 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-amber-200 cursor-pointer"
+                      >
+                        <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>{t.keys.downloadBackupBtn}</span>
+                      </button>
+                    )}
+                    <Link
+                      to="/keys"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300/40 bg-[#030b18]/60 px-3 py-1.5 text-xs font-medium text-amber-100 hover:bg-amber-500/20"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{t.create.goToKeys}</span>
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>
@@ -843,6 +982,16 @@ export function CreateCertificatePage() {
 
               <button
                 type="button"
+                onClick={() => void handleDownloadProofBundle()}
+                data-testid="download-proof-bundle"
+                className="inline-flex items-center gap-2 rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-4 py-2.5 text-sm font-medium text-slate-100 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
+              >
+                <FileJson className="h-4 w-4" aria-hidden="true" />
+                <span>{t.create.downloadProofBundle}</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={handleCopyProofUrl}
                 data-testid="copy-proof-url"
                 className="inline-flex items-center gap-2 rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-4 py-2.5 text-sm font-medium text-slate-100 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
@@ -861,6 +1010,17 @@ export function CreateCertificatePage() {
               </Link>
             </div>
           </div>
+
+          {!signedResult.qrVerifiedReadable && (
+            <div
+              role="alert"
+              data-testid="create-qr-readability-warn"
+              className="rounded-xl border border-amber-400/45 bg-amber-500/15 p-3.5 flex items-start gap-2.5 text-xs sm:text-sm text-amber-100"
+            >
+              <AlertTriangle className="h-4 w-4 text-amber-300 shrink-0 mt-0.5" aria-hidden="true" />
+              <span>{t.create.qrReadabilityPostWarn}</span>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
             <div className="rounded-xl border border-white/[0.09] bg-[#020813]/80 p-3 flex justify-center">

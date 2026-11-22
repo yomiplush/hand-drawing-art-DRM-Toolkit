@@ -34,6 +34,7 @@ export interface InImageQrStudioPanelProps {
   qrStyle: InImageQrStyle;
   eccLevel: QrErrorCorrectionLevel;
   verifyBaseUrl: string;
+  estimatedProofTokenChars?: number;
   onChangeX: (x: number) => void;
   onChangeY: (y: number) => void;
   onChangeBoxSize: (size: number) => void;
@@ -49,6 +50,7 @@ export function InImageQrStudioPanel({
   qrStyle,
   eccLevel,
   verifyBaseUrl,
+  estimatedProofTokenChars = 310,
   onChangeX,
   onChangeY,
   onChangeBoxSize,
@@ -68,7 +70,8 @@ export function InImageQrStudioPanel({
   });
 
   const cleanBase = (verifyBaseUrl || DEFAULT_VERIFY_BASE_URL).replace(/#.*$/, '');
-  const samplePreviewText = `${cleanBase}#proof=${'A'.repeat(260)}`;
+  const tokenLen = Math.max(260, Math.min(2800, Math.round(estimatedProofTokenChars)));
+  const samplePreviewText = `${cleanBase}#proof=${'A'.repeat(tokenLen)}`;
 
   const maxBoxSize = Math.min(artworkRaster.width, artworkRaster.height);
   const minBoxSize = Math.min(maxBoxSize, 64);
