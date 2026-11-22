@@ -10,6 +10,7 @@ import { ko, zhCN, zhTW } from '../../src/i18n/locales/eastAsia';
 import { ar, de, es, fr, it as itLocale, pt } from '../../src/i18n/locales/europeanAndArabic';
 import { ru, uk } from '../../src/i18n/locales/slavic';
 import { QR_STUDIO_I18N } from '../../src/i18n/qrStudio';
+import { SEO_I18N } from '../../src/i18n/seo';
 import { TUTORIAL_I18N } from '../../src/i18n/tutorial';
 import { VERIFY_MOBILE_I18N } from '../../src/i18n/verifyMobile';
 
@@ -168,6 +169,44 @@ describe('13-language license guide & simple how-to translations', () => {
       if (locale !== 'en') {
         expect(vm.proofStep2Title).not.toBe(VERIFY_MOBILE_I18N.en.proofStep2Title);
         expect(vm.pasteImageBtn).not.toBe(VERIFY_MOBILE_I18N.en.pasteImageBtn);
+      }
+    }
+  });
+
+  it('provides route SEO metadata and FAQ copy for all 13 languages', () => {
+    const routeKeys = [
+      'home',
+      'create',
+      'createStudio',
+      'verify',
+      'tutorial',
+      'keys',
+      'docs',
+      'privacy',
+    ] as const;
+
+    for (const locale of SUPPORTED_LOCALES) {
+      const seo = SEO_I18N[locale];
+      for (const routeKey of routeKeys) {
+        const meta = seo[routeKey];
+        expect(meta.title.trim().length).toBeGreaterThan(15);
+        expect(meta.description.trim().length).toBeGreaterThan(30);
+        if (locale === 'en' || locale === 'ja') {
+          expect(meta.description.trim().length).toBeGreaterThan(55);
+        }
+        expect(meta.keywords.trim().length).toBeGreaterThan(15);
+      }
+      expect(seo.homeFaqTitle.trim().length).toBeGreaterThan(5);
+      expect(seo.homeFaqSubtitle.trim().length).toBeGreaterThan(10);
+      expect(seo.homeFaqs).toHaveLength(5);
+      for (const item of seo.homeFaqs) {
+        expect(item.q.trim().length).toBeGreaterThan(10);
+        expect(item.a.trim().length).toBeGreaterThan(25);
+      }
+
+      if (locale !== 'en') {
+        expect(seo.home.title).not.toBe(SEO_I18N.en.home.title);
+        expect(seo.homeFaqTitle).not.toBe(SEO_I18N.en.homeFaqTitle);
       }
     }
   });

@@ -1,0 +1,31 @@
+# Certified Handmade
+
+> Hand-Drawing Artist Local DRM & Cryptographic Provenance Toolkit
+> 手描きアーティストのための完全ローカル・スタンドアローン暗号署名＆手描きDRMツール
+> "Your artwork should outlive the platform that certifies it." / 「あなたの作品は、それを証明するプラットフォームより長く生き続けるべきだ。」
+
+## Overview
+Certified Handmade (https://certified-handmade.com/) is a 100% local, standalone, open-source (MIT) progressive web application (PWA) for hand-drawing artists, illustrators, and creators. It creates and verifies self-contained cryptographic provenance certificates (Ed25519 + SHA-256 + RFC 8949 CBOR) and embeds scannable verification QR codes inside lossless PNG artwork — with zero backend server, zero accounts, zero tracking, and full offline functionality.
+
+## Core Architecture & Cryptography
+- **Local-First & Standalone PWA**: Runs entirely client-side inside the browser with `connect-src 'self'` CSP enforcement. Works completely offline after initial load via Service Worker precaching.
+- **Cryptographic Signing (`Ed25519` + `SHA-256`)**: Computes canonical RGBA8 pixel digests (`SHA-256`) bound to artist identity keys (`Ed25519`) and explicit copyright/license metadata (`ARR`, `CC BY 4.0`, `CC BY-NC 4.0`, `CC BY-ND 4.0`, `CC BY-NC-ND 4.0`, `CC BY-SA 4.0`, `CC0 1.0`, `Custom`), serialized as deterministic RFC 8949 CBOR inside URL `#proof=` fragments and PNG `tEXt` metadata (`chm-proof-v2`).
+- **Encrypted Key Management (`AES-256-GCM` + `PBKDF2-SHA256`)**: Artist signing keys are generated locally and exportable as passphrase-encrypted `.chkey.json` backups encrypted with AES-256-GCM (310,000 PBKDF2-SHA256 iterations).
+- **Manual In-Image QR Studio & Outer Frame Modes**: Burn cryptographic proof QR codes cleanly into an outer border frame (`/create`) or manually place a semi-transparent / corner-masked QR inside the PNG canvas (`/create?mode=studio`) with masked pixel integrity verification (`in-image-masked`).
+- **Local AI Container & Pixel/Spectral Forensics (`/verify`)**: Inspects image containers (PNG text chunks, JPEG EXIF/XMP/C2PA/JUMBF, WebP chunks) and pixel/spectral/DFT noise artifacts locally in-browser without uploading images, flagging known generative AI signatures and metadata trails while preserving strict scientific humility for unverified drawings.
+
+## Key Routes
+- `/` — Overview, manifesto, 3-step guide, core local-first principles, and FAQ
+- `/create` — Sign artwork, embed outer QR or switch to Manual In-Image QR Studio (`/create?mode=studio`)
+- `/verify` — Offline verification via signed PNG upload, QR camera scan, clipboard paste, PWA Web Share Target (`/share-target`), or `#proof=` URL fragment
+- `/tutorial` — Beginner step-by-step guide and license cheat sheet
+- `/keys` — Local Ed25519 key generation, public key sharing, and AES-256-GCM encrypted backup/restore
+- `/docs` — Cryptographic architecture, license guide, local forensics reference, and open-source specification (`SPEC.md`)
+- `/privacypolicy` — GDPR-compliant privacy notice (zero tracking, consent-gated UI language preference)
+
+## Links
+- Web App: https://certified-handmade.com/
+- Japanese Interface: https://certified-handmade.com/?hl=ja
+- English Interface: https://certified-handmade.com/?hl=en
+- Source Repository: https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit
+- Protocol Specification: https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit/blob/main/SPEC.md

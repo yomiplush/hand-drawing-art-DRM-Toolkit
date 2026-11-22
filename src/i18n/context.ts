@@ -5,6 +5,7 @@ import type { Translations } from './en';
 import type { HowToTranslations } from './howto';
 import type { LicenseGuideTranslations } from './licenses';
 import type { QrStudioTranslations } from './qrStudio';
+import type { SeoTranslations } from './seo';
 import type { TutorialTranslations } from './tutorial';
 import type { VerifyMobileTranslations } from './verifyMobile';
 
@@ -17,6 +18,7 @@ export type FullTranslations = Translations & {
   assessment: AssessmentTranslations;
   qrStudio: QrStudioTranslations;
   verifyMobile: VerifyMobileTranslations;
+  seo: SeoTranslations;
 };
 
 export interface LocaleOption {

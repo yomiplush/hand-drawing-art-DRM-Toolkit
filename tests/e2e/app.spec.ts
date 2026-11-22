@@ -171,6 +171,111 @@ test.describe('Certified Handmade E2E suite', () => {
     expect(externalRequests).toEqual([]);
   });
 
+  test('SEO head metadata, ?hl=ja crawler support without GDPR bypass, FAQ section, static route shells, and zero CSP errors', async ({
+    page,
+    request,
+  }) => {
+    const consoleErrors: string[] = [];
+    const pageErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') {
+        consoleErrors.push(msg.text());
+      }
+    });
+    page.on('pageerror', (err) => {
+      pageErrors.push(err.message);
+    });
+
+    // Home SEO metadata & FAQ section
+    await page.goto('/');
+    await expect(page).toHaveTitle(/Hand-Drawing Artist Local DRM/);
+    await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute(
+      'href',
+      'https://certified-handmade.com/',
+    );
+    await expect(page.locator('head meta[name="description"]')).toHaveAttribute(
+      'content',
+      /Ed25519/,
+    );
+    const faqSection = page.getByTestId('home-faq-section');
+    await expect(faqSection).toBeVisible();
+    await expect(faqSection).toContainText('Frequently Asked Questions');
+
+    await page.getByTestId('cookie-reject-btn').click();
+
+    // Dynamic head tags update cleanly across SPA routes
+    await page.goto('/create');
+    await expect(page).toHaveURL(/\/create$/);
+    await expect(page).toHaveTitle(/Create Hand-Drawn Art DRM Certificate/);
+    await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute(
+      'href',
+      'https://certified-handmade.com/create',
+    );
+
+    await page.goto('/create?mode=studio');
+    await expect(page).toHaveURL(/\/create\?mode=studio$/);
+    await expect(page).toHaveTitle(/Manual In-Image QR Studio/);
+
+    await page.goto('/verify');
+    await expect(page).toHaveTitle(/Verify Hand-Drawn Artwork/);
+    await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute(
+      'href',
+      'https://certified-handmade.com/verify',
+    );
+
+    await page.goto('/docs');
+    await expect(page).toHaveTitle(/Cryptographic Architecture, SPEC & AI Forensics/);
+    await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute(
+      'href',
+      'https://certified-handmade.com/docs',
+    );
+
+    // ?hl=ja renders Japanese immediately with self-referencing canonical, without persisting chm_locale when rejected
+    await page.goto('/?hl=ja');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
+    await expect(page).toHaveTitle(/手描きDRM/);
+    await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute(
+      'href',
+      'https://certified-handmade.com/?hl=ja',
+    );
+    await expect(page.getByTestId('home-manifesto')).toContainText(
+      'あなたの作品は、それを証明するプラットフォームより長く生き続けるべきだ。',
+    );
+    const leakedLocaleStorage = await page.evaluate(() => ({
+      lsLocale: localStorage.getItem('chm_locale'),
+      cookie: document.cookie,
+    }));
+    expect(leakedLocaleStorage.lsLocale).toBeNull();
+    expect(leakedLocaleStorage.cookie).not.toContain('chm_locale=');
+
+    // Crawler / AI-search assets & static SEO shells on dist/
+    const robotsRes = await request.get('/robots.txt');
+    expect(robotsRes.status()).toBe(200);
+    expect(await robotsRes.text()).toContain('Sitemap: https://certified-handmade.com/sitemap.xml');
+
+    const sitemapRes = await request.get('/sitemap.xml');
+    expect(sitemapRes.status()).toBe(200);
+    expect(await sitemapRes.text()).toContain('hreflang="ja"');
+
+    const llmsRes = await request.get('/llms.txt');
+    expect(llmsRes.status()).toBe(200);
+    expect(await llmsRes.text()).toContain('Ed25519');
+
+    const ogRes = await request.get('/og-card.png');
+    expect(ogRes.status()).toBe(200);
+
+    const distDir = path.resolve(process.cwd(), 'dist');
+    for (const slug of ['create', 'verify', 'tutorial', 'keys', 'docs', 'privacypolicy']) {
+      const htmlPath = path.join(distDir, `${slug}.html`);
+      expect(fs.existsSync(htmlPath)).toBe(true);
+      const html = fs.readFileSync(htmlPath, 'utf8');
+      expect(html).toContain(`<link rel="canonical" href="https://certified-handmade.com/${slug}" />`);
+    }
+
+    expect(consoleErrors).toEqual([]);
+    expect(pageErrors).toEqual([]);
+  });
+
   test('header GitHub & Sponsor Heart links, /qr-studio removal/redirect, and unified In-Image QR Studio inside /create', async ({
     page,
   }, testInfo) => {

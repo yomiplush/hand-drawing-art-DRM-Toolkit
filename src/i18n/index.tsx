@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { persistOptionalLocale, readOptionalLocale } from '../core/storage/consent';
+import {
+  isSupportedLocale,
+  persistOptionalLocale,
+  readOptionalLocale,
+} from '../core/storage/consent';
 import { ASSESSMENT_I18N } from './assessment';
 import { I18nContext, LOCALE_OPTIONS } from './context';
 import type { FullTranslations, Locale } from './context';
@@ -12,6 +16,7 @@ import { ko, zhCN, zhTW } from './locales/eastAsia';
 import { ar, de, es, fr, it, pt } from './locales/europeanAndArabic';
 import { ru, uk } from './locales/slavic';
 import { QR_STUDIO_I18N } from './qrStudio';
+import { SEO_I18N } from './seo';
 import { TUTORIAL_I18N } from './tutorial';
 import { VERIFY_MOBILE_I18N } from './verifyMobile';
 
@@ -31,7 +36,24 @@ const LOCALE_MAP: Record<Locale, Translations> = {
   ar,
 };
 
+function detectQueryLocale(): Locale | null {
+  if (typeof window === 'undefined' || !window.location.search) return null;
+  try {
+    const hl = new URLSearchParams(window.location.search).get('hl');
+    if (isSupportedLocale(hl)) {
+      return hl;
+    }
+  } catch {
+    // Ignore malformed query strings
+  }
+  return null;
+}
+
 function detectInitialLocale(): Locale {
+  // Read-only URL ?hl= query detection for localized crawler/shared URLs (never persists without consent)
+  const queryLocale = detectQueryLocale();
+  if (queryLocale) return queryLocale;
+
   const saved = readOptionalLocale();
   if (saved) return saved;
   if (typeof navigator !== 'undefined' && navigator.language) {
@@ -78,6 +100,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     assessment: ASSESSMENT_I18N[locale] ?? ASSESSMENT_I18N.en,
     qrStudio: QR_STUDIO_I18N[locale] ?? QR_STUDIO_I18N.en,
     verifyMobile: VERIFY_MOBILE_I18N[locale] ?? VERIFY_MOBILE_I18N.en,
+    seo: SEO_I18N[locale] ?? SEO_I18N.en,
   };
 
   return (

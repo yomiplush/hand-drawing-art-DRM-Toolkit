@@ -4,6 +4,7 @@ import { registerSW } from 'virtual:pwa-register';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
 import { Layout } from './components/Layout';
 import { Ps3WaveBackground } from './components/Ps3WaveBackground';
+import { SeoHead } from './components/SeoHead';
 import {
   getConsentStatus,
   resetConsentStatus,
@@ -88,6 +89,7 @@ function AppRoutes() {
 
   return (
     <>
+      <SeoHead />
       <Ps3WaveBackground />
 
       <Routes>

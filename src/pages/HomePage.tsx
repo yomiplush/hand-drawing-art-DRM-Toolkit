@@ -2,8 +2,10 @@ import { Link } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowRight,
+  ChevronDown,
   Compass,
   FileSignature,
+  HelpCircle,
   KeyRound,
   Lock,
   QrCode,
@@ -131,6 +133,37 @@ export function HomePage() {
               </div>
             );
           })}
+        </div>
+      </section>
+
+      <section className="space-y-4" data-testid="home-faq-section">
+        <div className="space-y-1">
+          <h2 className="inline-flex items-center gap-2 text-sm font-mono uppercase tracking-[0.14em] text-sky-300/90">
+            <HelpCircle className="h-4 w-4" aria-hidden="true" />
+            <span>{t.seo.homeFaqTitle}</span>
+          </h2>
+          <p className="text-sm text-slate-300/85">{t.seo.homeFaqSubtitle}</p>
+        </div>
+
+        <div className="space-y-2.5">
+          {t.seo.homeFaqs.map((faq, idx) => (
+            <details
+              key={faq.q}
+              open={idx === 0}
+              className="group rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md open:border-sky-400/25 transition-colors"
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm sm:text-base font-medium text-slate-100 hover:text-white">
+                <span>{faq.q}</span>
+                <ChevronDown
+                  className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180"
+                  aria-hidden="true"
+                />
+              </summary>
+              <div className="border-t border-white/[0.06] px-5 py-3.5 text-xs sm:text-sm text-slate-300/90 leading-relaxed">
+                {faq.a}
+              </div>
+            </details>
+          ))}
         </div>
       </section>
 
