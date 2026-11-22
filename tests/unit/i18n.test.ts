@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LICENSE_DEFINITIONS } from '../../src/core/manifest/types';
 import { SUPPORTED_LOCALES } from '../../src/core/storage/consent';
+import { ASSESSMENT_I18N } from '../../src/i18n/assessment';
 import { HOWTO_I18N } from '../../src/i18n/howto';
 import { LICENSE_I18N } from '../../src/i18n/licenses';
 import { TUTORIAL_I18N } from '../../src/i18n/tutorial';
@@ -67,6 +68,23 @@ describe('13-language license guide & simple how-to translations', () => {
         expect(tut.title).not.toBe(TUTORIAL_I18N.en.title);
         expect(tut.subtitle).not.toBe(TUTORIAL_I18N.en.subtitle);
         expect(tut.homeCta).not.toBe(TUTORIAL_I18N.en.homeCta);
+      }
+    }
+  });
+
+  it('provides local assessment badge & breakdown translations for all 13 languages', () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      const assess = ASSESSMENT_I18N[locale];
+      expect(assess.badgeNotAssessed.trim().length).toBeGreaterThan(3);
+      expect(assess.badgeLocalSignals.trim().length).toBeGreaterThan(3);
+      expect(assess.badgeAiMetadataDetected.trim().length).toBeGreaterThan(3);
+      expect(assess.badgeInconclusive.trim().length).toBeGreaterThan(3);
+      expect(assess.cardTitle.trim().length).toBeGreaterThan(5);
+      expect(assess.cardDisclaimer.trim().length).toBeGreaterThan(15);
+
+      if (locale !== 'en') {
+        expect(assess.cardTitle).not.toBe(ASSESSMENT_I18N.en.cardTitle);
+        expect(assess.badgeLocalSignals).not.toBe(ASSESSMENT_I18N.en.badgeLocalSignals);
       }
     }
   });

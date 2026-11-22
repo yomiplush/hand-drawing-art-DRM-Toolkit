@@ -140,12 +140,46 @@ export type HumanMadeAssessmentStatus =
   | 'experimental-available'
   | 'inconclusive';
 
+export type ContainerFormat = 'png' | 'jpeg' | 'webp' | 'other' | 'unknown';
+
+export type AssessmentSignalOutcome =
+  | 'no-image'
+  | 'insufficient-visual-signal'
+  | 'ai-metadata-detected'
+  | 'local-signals-clean';
+
+export interface HumanMadeAssessmentMetrics {
+  artworkWidth: number;
+  artworkHeight: number;
+  containerFormat: ContainerFormat;
+  isCertifiedHandmadeOutput: boolean;
+  hasC2paContainer: boolean;
+  aiMetadataSignals: string[];
+  creativeToolHints: string[];
+  opaqueRatio: number;
+  transparentRatio: number;
+  semiTransparentRatio: number;
+  edgeDensity: number;
+  meanGradient: number;
+  flatRegionRatio: number;
+  sampledColorBuckets: number;
+}
+
+export interface HumanMadeAssessmentResult {
+  status: HumanMadeAssessmentStatus;
+  modelId: string | null;
+  summaryKey: AssessmentSignalOutcome;
+  metrics: HumanMadeAssessmentMetrics | null;
+  notes: string[];
+}
+
 export interface VerificationResult {
   protocolVersion: number | null;
   signatureStatus: SignatureStatus;
   integrityStatus: ArtworkIntegrityStatus;
   identityStatus: AuthorIdentityStatus;
   assessmentStatus: HumanMadeAssessmentStatus;
+  assessment?: HumanMadeAssessmentResult;
   manifest: SignedManifest | null;
   publicKeyFingerprintHex: string | null;
   publicKeyFingerprintShort: string | null;

@@ -3,13 +3,13 @@ import { useLocation } from 'react-router-dom';
 import {
   AlertTriangle,
   Camera,
-  Cpu,
   FileImage,
   Link2,
   ShieldAlert,
   ShieldCheck,
   XCircle,
 } from 'lucide-react';
+import { AssessmentDetailsCard } from '../components/AssessmentDetailsCard';
 import { ImageDropzone } from '../components/ImageDropzone';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
 import { QrCameraScanner } from '../components/QrCameraScanner';
@@ -41,6 +41,7 @@ export function VerifyCertificatePage() {
     hasInitialHashProof ? window.location.hash : null,
   );
   const [attachedRaster, setAttachedRaster] = useState<CanonicalRaster | null>(null);
+  const [attachedRawBytes, setAttachedRawBytes] = useState<Uint8Array | null>(null);
   const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -50,13 +51,18 @@ export function VerifyCertificatePage() {
   const [trustSavedMsg, setTrustSavedMsg] = useState<string | null>(null);
 
   const runProofVerify = useCallback(
-    async (rawProof: string, raster: CanonicalRaster | null) => {
+    async (
+      rawProof: string,
+      raster: CanonicalRaster | null,
+      rawBytes: Uint8Array | null = null,
+    ) => {
       setErrorMsg(null);
       setTrustSavedMsg(null);
       setActiveProofRaw(rawProof);
       const res = await verifyProofAndArtwork({
         proofInput: rawProof,
         artworkRaster: raster,
+        rawFileBytes: rawBytes,
       });
       setResult(res);
     },
@@ -71,12 +77,14 @@ export function VerifyCertificatePage() {
     verifyProofAndArtwork({
       proofInput: hash,
       artworkRaster: null,
+      rawFileBytes: null,
     }).then((res) => {
       if (active) {
         setActiveTab('proof');
         setProofInput(window.location.href);
         setActiveProofRaw(hash);
         setAttachedRaster(null);
+        setAttachedRawBytes(null);
         setAttachedFileName(null);
         setQrInfoNote(null);
         setErrorMsg(null);
@@ -94,8 +102,10 @@ export function VerifyCertificatePage() {
     setQrInfoNote(null);
     setTrustSavedMsg(null);
     try {
-      const res = await verifyImageWithEmbeddedQr({ fileOrBytes: file });
+      const rawBytes = new Uint8Array(await file.arrayBuffer());
+      const res = await verifyImageWithEmbeddedQr({ fileOrBytes: rawBytes });
       setAttachedRaster(res.raster);
+      setAttachedRawBytes(rawBytes);
       setAttachedFileName(file.name);
       setActiveProofRaw(res.qrRawText);
       setProofInput(res.qrRawText);
@@ -112,11 +122,13 @@ export function VerifyCertificatePage() {
   const handleAttachArtworkForProof = async (file: File) => {
     setErrorMsg(null);
     try {
-      const { raster } = await decodeImageFileToCanonicalRgba8(file);
+      const rawBytes = new Uint8Array(await file.arrayBuffer());
+      const { raster } = await decodeImageFileToCanonicalRgba8(rawBytes);
       setAttachedRaster(raster);
+      setAttachedRawBytes(rawBytes);
       setAttachedFileName(file.name);
       if (activeProofRaw) {
-        await runProofVerify(activeProofRaw, raster);
+        await runProofVerify(activeProofRaw, raster, rawBytes);
       }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Failed to decode artwork image');
@@ -126,16 +138,16 @@ export function VerifyCertificatePage() {
   const handleManualProofSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setQrInfoNote(null);
-    await runProofVerify(proofInput, attachedRaster);
+    await runProofVerify(proofInput, attachedRaster, attachedRawBytes);
   };
 
   const handleCameraDetected = useCallback(
     (rawText: string) => {
       setProofInput(rawText);
       setQrInfoNote('QR detected from local camera stream');
-      void runProofVerify(rawText, attachedRaster);
+      void runProofVerify(rawText, attachedRaster, attachedRawBytes);
     },
-    [attachedRaster, runProofVerify],
+    [attachedRaster, attachedRawBytes, runProofVerify],
   );
 
   const handleTrustThisKey = async (e: React.FormEvent) => {
@@ -152,7 +164,7 @@ export function VerifyCertificatePage() {
     setTrustLabelInput('');
     setTrustSavedMsg(label);
     if (activeProofRaw) {
-      await runProofVerify(activeProofRaw, attachedRaster);
+      await runProofVerify(activeProofRaw, attachedRaster, attachedRawBytes);
     }
   };
 
@@ -322,9 +334,15 @@ export function VerifyCertificatePage() {
               integrityStatus={result.integrityStatus}
               identityStatus={result.identityStatus}
               assessmentStatus={result.assessmentStatus}
+              assessment={result.assessment}
               trustedKeyLabel={result.trustedKeyLabel}
             />
           </section>
+
+          <AssessmentDetailsCard
+            assessment={result.assessment}
+            testId="assessment-details-card"
+          />
 
           {result.errors.length > 0 && (
             <div
@@ -479,11 +497,6 @@ export function VerifyCertificatePage() {
                   {t.verify.trustedAlready} {trustSavedMsg}
                 </p>
               )}
-
-              <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/55 p-3 flex items-start gap-2.5 text-xs text-slate-400">
-                <Cpu className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" aria-hidden="true" />
-                <span>{t.verify.assessmentNote}</span>
-              </div>
             </section>
           )}
         </div>

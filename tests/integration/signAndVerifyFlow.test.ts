@@ -92,9 +92,20 @@ describe('End-to-end signing, QR burning, PNG encoding, QR decoding & verificati
     expect(unknownRes.verification.integrityStatus).toBe('matched');
     expect(unknownRes.verification.matchedMode).toBe('embedded-region');
     expect(unknownRes.verification.identityStatus).toBe('unknown');
-    expect(unknownRes.verification.assessmentStatus).toBe('not-assessed');
+    expect(unknownRes.verification.assessmentStatus).toBe('experimental-available');
+    expect(unknownRes.verification.assessment?.summaryKey).toBe('local-signals-clean');
+    expect(unknownRes.verification.assessment?.metrics?.artworkWidth).toBe(128);
+    expect(unknownRes.verification.assessment?.metrics?.isCertifiedHandmadeOutput).toBe(true);
     expect(unknownRes.verification.manifest?.authorName).toBe('YomiPlush');
     expect(unknownRes.verification.manifest?.license.licenseId).toBe('CC-BY-NC-SA-4.0');
+
+    // Proof URL without image -> not-assessed
+    const proofOnlyRes = await verifyProofAndArtwork({
+      proofInput: signed.proofUrl,
+      artworkRaster: null,
+      lookupTrustedKey: async () => undefined,
+    });
+    expect(proofOnlyRes.assessmentStatus).toBe('not-assessed');
 
     // Verify with trusted key store
     const trustedRecord: TrustedKeyRecord = {

@@ -10,6 +10,7 @@ import {
 import type {
   ArtworkIntegrityStatus,
   AuthorIdentityStatus,
+  HumanMadeAssessmentResult,
   HumanMadeAssessmentStatus,
   SignatureStatus,
 } from '../core/manifest/types';
@@ -20,6 +21,7 @@ interface StatusGridProps {
   integrityStatus: ArtworkIntegrityStatus;
   identityStatus: AuthorIdentityStatus;
   assessmentStatus: HumanMadeAssessmentStatus;
+  assessment?: HumanMadeAssessmentResult;
   trustedKeyLabel?: string | null;
 }
 
@@ -28,6 +30,7 @@ export function StatusDimensionsGrid({
   integrityStatus,
   identityStatus,
   assessmentStatus,
+  assessment,
   trustedKeyLabel,
 }: StatusGridProps) {
   const { t } = useI18n();
@@ -83,23 +86,34 @@ export function StatusDimensionsGrid({
     },
   }[identityStatus];
 
-  const assessCard = {
-    'not-assessed': {
+  const assessCard = (() => {
+    if (assessmentStatus === 'experimental-available') {
+      if (assessment?.summaryKey === 'ai-metadata-detected') {
+        return {
+          tone: 'border-amber-400/45 bg-amber-950/40 text-amber-100',
+          icon: AlertTriangle,
+          text: t.assessment.badgeAiMetadataDetected,
+        };
+      }
+      return {
+        tone: 'border-sky-300/35 bg-[#05162b]/75 text-sky-100',
+        icon: Cpu,
+        text: t.assessment.badgeLocalSignals,
+      };
+    }
+    if (assessmentStatus === 'inconclusive') {
+      return {
+        tone: 'border-white/[0.12] bg-[#051224]/70 text-slate-300',
+        icon: HelpCircle,
+        text: t.assessment.badgeInconclusive,
+      };
+    }
+    return {
       tone: 'border-white/[0.1] bg-[#051224]/70 text-slate-300',
       icon: Cpu,
-      text: t.verify.badges.assessNotAssessed,
-    },
-    'experimental-available': {
-      tone: 'border-sky-300/35 bg-[#05162b]/75 text-sky-100',
-      icon: Cpu,
-      text: t.verify.badges.assessExperimental,
-    },
-    inconclusive: {
-      tone: 'border-white/[0.12] bg-[#051224]/70 text-slate-300',
-      icon: HelpCircle,
-      text: t.verify.badges.assessInconclusive,
-    },
-  }[assessmentStatus];
+      text: t.assessment.badgeNotAssessed,
+    };
+  })();
 
   const cards = [
     { key: 'sig', title: t.verify.dimA, ...sigCard, testId: 'status-signature' },

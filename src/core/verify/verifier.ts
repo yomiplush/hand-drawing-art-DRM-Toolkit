@@ -25,11 +25,13 @@ export type TrustedKeyLookup = (publicKey32: Uint8Array) => Promise<TrustedKeyRe
 export async function verifyProofAndArtwork(params: {
   proofInput: string;
   artworkRaster?: CanonicalRaster | null;
+  rawFileBytes?: Uint8Array | null;
   lookupTrustedKey?: TrustedKeyLookup;
 }): Promise<VerificationResult> {
   const {
     proofInput,
     artworkRaster = null,
+    rawFileBytes = null,
     lookupTrustedKey = findTrustedKeyByPublicKey,
   } = params;
 
@@ -152,7 +154,17 @@ export async function verifyProofAndArtwork(params: {
     }
   }
 
-  const assessment = await defaultHumanMadeAssessor.assess(artworkRaster);
+  const assessmentRegion =
+    artworkRaster &&
+    matchedMode === 'embedded-region'
+      ? manifest.region
+      : null;
+
+  const assessment = await defaultHumanMadeAssessor.assess({
+    raster: artworkRaster,
+    region: assessmentRegion,
+    rawFileBytes,
+  });
 
   return {
     protocolVersion: manifest.version,
@@ -160,6 +172,7 @@ export async function verifyProofAndArtwork(params: {
     integrityStatus,
     identityStatus,
     assessmentStatus: assessment.status,
+    assessment,
     manifest,
     publicKeyFingerprintHex: fp.fullHex,
     publicKeyFingerprintShort: fp.shortDisplay,
@@ -184,7 +197,12 @@ export async function verifyImageWithEmbeddedQr(params: {
   raster: CanonicalRaster;
   verification: VerificationResult;
 }> {
-  const { raster, sourceFormat } = await decodeImageFileToCanonicalRgba8(params.fileOrBytes);
+  const rawBytes =
+    params.fileOrBytes instanceof Uint8Array
+      ? params.fileOrBytes
+      : new Uint8Array(await params.fileOrBytes.arrayBuffer());
+
+  const { raster, sourceFormat } = await decodeImageFileToCanonicalRgba8(rawBytes);
   const qr = decodeQrFromCanonicalRaster(raster);
   if (!qr) {
     throw new Error('No readable Certified Handmade QR code found in this image.');
@@ -192,6 +210,7 @@ export async function verifyImageWithEmbeddedQr(params: {
   const verification = await verifyProofAndArtwork({
     proofInput: qr.rawText,
     artworkRaster: raster,
+    rawFileBytes: rawBytes,
     lookupTrustedKey: params.lookupTrustedKey,
   });
   return {

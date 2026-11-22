@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { persistOptionalLocale, readOptionalLocale } from '../core/storage/consent';
+import { ASSESSMENT_I18N } from './assessment';
 import { I18nContext, LOCALE_OPTIONS } from './context';
 import type { FullTranslations, Locale } from './context';
 import { en } from './en';
@@ -72,6 +73,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     licenses: LICENSE_I18N[locale] ?? LICENSE_I18N.en,
     howTo: HOWTO_I18N[locale] ?? HOWTO_I18N.en,
     tutorial: TUTORIAL_I18N[locale] ?? TUTORIAL_I18N.en,
+    assessment: ASSESSMENT_I18N[locale] ?? ASSESSMENT_I18N.en,
   };
 
   return (

@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { SupportedLocale } from '../core/storage/consent';
+import type { AssessmentTranslations } from './assessment';
 import type { Translations } from './en';
 import type { HowToTranslations } from './howto';
 import type { LicenseGuideTranslations } from './licenses';
@@ -11,6 +12,7 @@ export type FullTranslations = Translations & {
   licenses: LicenseGuideTranslations;
   howTo: HowToTranslations;
   tutorial: TutorialTranslations;
+  assessment: AssessmentTranslations;
 };
 
 export interface LocaleOption {
