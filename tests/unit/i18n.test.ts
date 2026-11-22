@@ -4,6 +4,7 @@ import { SUPPORTED_LOCALES } from '../../src/core/storage/consent';
 import { ASSESSMENT_I18N } from '../../src/i18n/assessment';
 import { HOWTO_I18N } from '../../src/i18n/howto';
 import { LICENSE_I18N } from '../../src/i18n/licenses';
+import { QR_STUDIO_I18N } from '../../src/i18n/qrStudio';
 import { TUTORIAL_I18N } from '../../src/i18n/tutorial';
 
 describe('13-language license guide & simple how-to translations', () => {
@@ -85,6 +86,21 @@ describe('13-language license guide & simple how-to translations', () => {
       if (locale !== 'en') {
         expect(assess.cardTitle).not.toBe(ASSESSMENT_I18N.en.cardTitle);
         expect(assess.badgeLocalSignals).not.toBe(ASSESSMENT_I18N.en.badgeLocalSignals);
+      }
+    }
+  });
+
+  it('provides Manual In-Image QR Studio translations for all 13 languages', () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      const studio = QR_STUDIO_I18N[locale];
+      expect(studio.navLabel.trim().length).toBeGreaterThan(2);
+      expect(studio.title.trim().length).toBeGreaterThan(5);
+      expect(studio.subtitle.trim().length).toBeGreaterThan(15);
+      expect(studio.signInImageBtn.trim().length).toBeGreaterThan(5);
+
+      if (locale !== 'en') {
+        expect(studio.title).not.toBe(QR_STUDIO_I18N.en.title);
+        expect(studio.subtitle).not.toBe(QR_STUDIO_I18N.en.subtitle);
       }
     }
   });

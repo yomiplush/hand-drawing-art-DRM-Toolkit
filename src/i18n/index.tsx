@@ -11,6 +11,7 @@ import { LICENSE_I18N } from './licenses';
 import { ko, zhCN, zhTW } from './locales/eastAsia';
 import { ar, de, es, fr, it, pt } from './locales/europeanAndArabic';
 import { ru, uk } from './locales/slavic';
+import { QR_STUDIO_I18N } from './qrStudio';
 import { TUTORIAL_I18N } from './tutorial';
 
 const LOCALE_MAP: Record<Locale, Translations> = {
@@ -74,6 +75,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     howTo: HOWTO_I18N[locale] ?? HOWTO_I18N.en,
     tutorial: TUTORIAL_I18N[locale] ?? TUTORIAL_I18N.en,
     assessment: ASSESSMENT_I18N[locale] ?? ASSESSMENT_I18N.en,
+    qrStudio: QR_STUDIO_I18N[locale] ?? QR_STUDIO_I18N.en,
   };
 
   return (

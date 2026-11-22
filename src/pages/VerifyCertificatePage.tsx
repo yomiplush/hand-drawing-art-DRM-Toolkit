@@ -412,6 +412,13 @@ export function VerifyCertificatePage() {
                   value={`[${result.manifest.region.join(', ')}]`}
                   mono
                 />
+                {result.manifest.qrMask && (
+                  <DetailRow
+                    label={t.qrStudio.maskRegionLabel}
+                    value={`[${result.manifest.qrMask.join(', ')}]`}
+                    mono
+                  />
+                )}
                 <DetailRow
                   label={t.verify.fields.fingerprint}
                   value={`${result.publicKeyFingerprintShort ?? ''} (${result.publicKeyFingerprintHex ?? ''})`}

@@ -9,7 +9,10 @@ import {
 import { decodePngToCanonicalRgba8, encodeCanonicalRgba8ToPng } from '../../src/core/image';
 import type { CanonicalRaster } from '../../src/core/image';
 import type { FrameTheme, QrPlacement } from '../../src/core/image/qrBurner';
-import { createSignedArtworkPng } from '../../src/core/manifest/signArtwork';
+import {
+  createInImageSignedArtworkPng,
+  createSignedArtworkPng,
+} from '../../src/core/manifest/signArtwork';
 import type { AuthorKeyRecord, TrustedKeyRecord } from '../../src/core/storage/keyStore';
 import { verifyImageWithEmbeddedQr, verifyProofAndArtwork } from '../../src/core/verify/verifier';
 
@@ -133,6 +136,73 @@ describe('End-to-end signing, QR burning, PNG encoding, QR decoding & verificati
     expect(standaloneRes.signatureStatus).toBe('valid');
     expect(standaloneRes.integrityStatus).toBe('matched');
     expect(standaloneRes.matchedMode).toBe('full-artwork');
+  });
+
+  it('embeds semi-transparent in-image QR (Protocol v2), decodes it, and verifies pixels outside qrMask', async () => {
+    const authorKey = await makeTestAuthorKey(seedHex, 'YomiPlush');
+    const artwork = makePatternRaster(400, 320, false);
+
+    const signed = await createInImageSignedArtworkPng({
+      artworkRaster: artwork,
+      authorKey,
+      passphraseIfEncrypted: 'test-passphrase-123',
+      authorName: 'YomiPlush',
+      artworkTitle: 'Translucent Overlay',
+      license: {
+        licenseId: 'ARR',
+        commercialUse: 'disallow',
+        redistribution: 'disallow',
+        aiTraining: 'disallow',
+      },
+      qrOptions: {
+        x: 24,
+        y: 24,
+        boxSize: 180,
+        opacity: 0.65,
+        style: 'frosted-light',
+        eccLevel: 'Q',
+      },
+      issuedAt: 1795352786,
+    });
+
+    expect(signed.manifest.version).toBe(2);
+    expect(signed.manifest.qrMask).toEqual([24, 24, 180, 180]);
+
+    // Verify pixels outside qrMask remained bit-for-bit untouched
+    for (let i = 0; i < 4; i++) {
+      expect(signed.raster.data[i]).toBe(artwork.data[i]);
+    }
+
+    // Exported in-image QR PNG verifies end-to-end
+    const embeddedRes = await verifyImageWithEmbeddedQr({
+      fileOrBytes: signed.pngBytes,
+      lookupTrustedKey: async () => undefined,
+    });
+    expect(embeddedRes.verification.protocolVersion).toBe(2);
+    expect(embeddedRes.verification.signatureStatus).toBe('valid');
+    expect(embeddedRes.verification.integrityStatus).toBe('matched');
+    expect(embeddedRes.verification.matchedMode).toBe('in-image-masked');
+
+    // Clean original artwork ALSO verifies against proof URL!
+    const cleanOrigRes = await verifyProofAndArtwork({
+      proofInput: signed.proofUrl,
+      artworkRaster: artwork,
+      lookupTrustedKey: async () => undefined,
+    });
+    expect(cleanOrigRes.signatureStatus).toBe('valid');
+    expect(cleanOrigRes.integrityStatus).toBe('matched');
+    expect(cleanOrigRes.matchedMode).toBe('in-image-masked');
+
+    // Tampering 1 pixel outside qrMask triggers Mismatched!
+    const mutated = new Uint8Array(artwork.data);
+    mutated[0] ^= 0x01;
+    const tamperedRes = await verifyProofAndArtwork({
+      proofInput: signed.proofUrl,
+      artworkRaster: { width: artwork.width, height: artwork.height, data: mutated },
+      lookupTrustedKey: async () => undefined,
+    });
+    expect(tamperedRes.signatureStatus).toBe('valid');
+    expect(tamperedRes.integrityStatus).toBe('mismatched');
   });
 
   it('detects tampered artwork pixels while keeping signature valid', async () => {

@@ -9,6 +9,7 @@ import {
   FileSignature,
   Info,
   KeyRound,
+  QrCode,
   Sparkles,
 } from 'lucide-react';
 import { ImageDropzone } from '../components/ImageDropzone';
@@ -488,6 +489,26 @@ export function CreateCertificatePage() {
               )}
             </div>
           )}
+        </section>
+
+        <section className="rounded-xl border border-sky-400/25 bg-sky-500/[0.07] backdrop-blur-md p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="text-sm sm:text-base font-semibold text-sky-100 flex items-center gap-2">
+              <QrCode className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+              <span>{t.qrStudio.createBannerTitle}</span>
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              {t.qrStudio.createBannerDesc}
+            </p>
+          </div>
+          <Link
+            to="/qr-studio"
+            data-testid="create-open-qr-studio"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-sky-300/35 bg-sky-400/15 px-4 py-2.5 text-xs sm:text-sm font-semibold text-sky-100 hover:bg-sky-400/25 whitespace-nowrap shrink-0 min-h-[42px]"
+          >
+            <QrCode className="h-4 w-4" aria-hidden="true" />
+            <span>{t.qrStudio.createBannerBtn}</span>
+          </Link>
         </section>
 
         <details

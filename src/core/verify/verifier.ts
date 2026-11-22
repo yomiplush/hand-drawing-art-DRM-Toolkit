@@ -1,7 +1,11 @@
 import { defaultHumanMadeAssessor } from '../assessment';
 import { computePublicKeyFingerprint, verifyEd25519Signature } from '../crypto/ed25519';
 import { bytesToHex, constantTimeEqual } from '../crypto/sha256';
-import { hashArtworkRegion, hashCanonicalRaster } from '../image/canonicalRaster';
+import {
+  hashArtworkRegion,
+  hashCanonicalRaster,
+  hashMaskedArtworkRegion,
+} from '../image/canonicalRaster';
 import { decodeImageFileToCanonicalRgba8 } from '../image/pngCodec';
 import type { CanonicalRaster } from '../image/pngCodec';
 import {
@@ -124,7 +128,33 @@ export async function verifyProofAndArtwork(params: {
 
   if (artworkRaster) {
     const [rx, ry, rw, rh] = manifest.region;
-    if (artworkRaster.width === rw && artworkRaster.height === rh) {
+    if (manifest.qrMask) {
+      const matchesExactSize = artworkRaster.width === rw && artworkRaster.height === rh;
+      const fitsRegion = rx + rw <= artworkRaster.width && ry + rh <= artworkRaster.height;
+      if (matchesExactSize || fitsRegion) {
+        const targetRegion = matchesExactSize ? ([0, 0, rw, rh] as const) : manifest.region;
+        const { digest, hex } = await hashMaskedArtworkRegion(
+          artworkRaster,
+          targetRegion,
+          manifest.qrMask,
+        );
+        computedArtworkSha256Hex = hex;
+        if (constantTimeEqual(digest, manifest.sha256)) {
+          integrityStatus = 'matched';
+          matchedMode = 'in-image-masked';
+        } else {
+          integrityStatus = 'mismatched';
+          errors.push(
+            'Artwork SHA-256 digest (outside QR mask) does not match the signed manifest.',
+          );
+        }
+      } else {
+        integrityStatus = 'mismatched';
+        errors.push(
+          `Image dimensions (${artworkRaster.width}x${artworkRaster.height}) are smaller than declared region [${rx}, ${ry}, ${rw}x${rh}].`,
+        );
+      }
+    } else if (artworkRaster.width === rw && artworkRaster.height === rh) {
       const digest = await hashCanonicalRaster(artworkRaster);
       computedArtworkSha256Hex = bytesToHex(digest);
       if (constantTimeEqual(digest, manifest.sha256)) {

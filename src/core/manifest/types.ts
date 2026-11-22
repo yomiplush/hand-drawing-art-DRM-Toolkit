@@ -1,4 +1,5 @@
 export const PROTOCOL_VERSION = 1 as const;
+export const PROTOCOL_VERSION_MASKED = 2 as const;
 export const DOMAIN_SEPARATION_PREFIX = new Uint8Array([0x43, 0x48, 0x4d, 0x31, 0x00]); // "CHM1\0"
 export const DEFAULT_VERIFY_BASE_URL = 'https://certified-handmade.com/verify';
 
@@ -116,11 +117,12 @@ export interface LicenseDeclaration {
 export type ArtworkRegion = readonly [x: number, y: number, width: number, height: number];
 
 export interface UnsignedManifest {
-  version: typeof PROTOCOL_VERSION;
+  version: typeof PROTOCOL_VERSION | typeof PROTOCOL_VERSION_MASKED;
   artworkId: Uint8Array;
   publicKey: Uint8Array;
   sha256: Uint8Array;
   region: ArtworkRegion;
+  qrMask?: ArtworkRegion;
   issuedAt: number;
   license: LicenseDeclaration;
   authorName?: string;
@@ -184,7 +186,7 @@ export interface VerificationResult {
   publicKeyFingerprintHex: string | null;
   publicKeyFingerprintShort: string | null;
   trustedKeyLabel: string | null;
-  matchedMode: 'embedded-region' | 'full-artwork' | null;
+  matchedMode: 'embedded-region' | 'full-artwork' | 'in-image-masked' | null;
   computedArtworkSha256Hex: string | null;
   proofBytesLength: number | null;
   errors: string[];

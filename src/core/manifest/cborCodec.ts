@@ -10,6 +10,7 @@ import {
   MAX_PROOF_BYTES,
   MAX_TITLE_UTF8_BYTES,
   PROTOCOL_VERSION,
+  PROTOCOL_VERSION_MASKED,
   getLicenseByCode,
   getLicenseById,
 } from './types';
@@ -89,7 +90,7 @@ export function formatUuidHex(bytes16: Uint8Array): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
-function validateRegion(region: ArtworkRegion): void {
+function validateRegion(region: ArtworkRegion, label = 'Artwork region'): void {
   const [x, y, w, h] = region;
   if (
     !Number.isSafeInteger(x) ||
@@ -97,13 +98,24 @@ function validateRegion(region: ArtworkRegion): void {
     !Number.isSafeInteger(w) ||
     !Number.isSafeInteger(h)
   ) {
-    throw new Error('Artwork region coordinates must be integers');
+    throw new Error(`${label} coordinates must be integers`);
   }
   if (x < 0 || y < 0 || w < 1 || h < 1) {
-    throw new Error('Artwork region coordinates must be non-negative with positive dimensions');
+    throw new Error(`${label} coordinates must be non-negative with positive dimensions`);
   }
   if (x + w > MAX_OUTPUT_DIMENSION || y + h > MAX_OUTPUT_DIMENSION) {
-    throw new Error('Artwork region exceeds maximum allowed dimensions');
+    throw new Error(`${label} exceeds maximum allowed dimensions`);
+  }
+}
+
+function validateQrMask(qrMask: ArtworkRegion, region: ArtworkRegion): void {
+  validateRegion(qrMask, 'qrMask');
+  const [mx, my, mw, mh] = qrMask;
+  if (mw < 21 || mh < 21) {
+    throw new Error('qrMask dimensions must be at least 21x21 px');
+  }
+  if (mx + mw > region[2] || my + mh > region[3]) {
+    throw new Error('qrMask must fit inside artwork region bounds');
   }
 }
 
@@ -127,8 +139,11 @@ function encodeLicenseTuple(license: LicenseDeclaration): unknown[] {
 }
 
 export function encodeUnsignedPayload(manifest: UnsignedManifest): Uint8Array {
-  if (manifest.version !== PROTOCOL_VERSION) {
+  if (manifest.version !== PROTOCOL_VERSION && manifest.version !== PROTOCOL_VERSION_MASKED) {
     throw new Error(`Unsupported protocol version: ${manifest.version}`);
+  }
+  if (manifest.version === PROTOCOL_VERSION && manifest.qrMask !== undefined) {
+    throw new Error('qrMask requires protocol version 2');
   }
   if (manifest.artworkId.length !== 16) {
     throw new Error('artworkId must be 16 bytes');
@@ -140,6 +155,9 @@ export function encodeUnsignedPayload(manifest: UnsignedManifest): Uint8Array {
     throw new Error('sha256 must be 32 bytes');
   }
   validateRegion(manifest.region);
+  if (manifest.qrMask !== undefined) {
+    validateQrMask(manifest.qrMask, manifest.region);
+  }
   if (!Number.isSafeInteger(manifest.issuedAt) || manifest.issuedAt < 0) {
     throw new Error('issuedAt must be a non-negative integer Unix timestamp');
   }
@@ -173,6 +191,14 @@ export function encodeUnsignedPayload(manifest: UnsignedManifest): Uint8Array {
   if (artworkTitle !== undefined) {
     payloadMap.set(8, artworkTitle);
   }
+  if (manifest.qrMask !== undefined) {
+    payloadMap.set(9, [
+      manifest.qrMask[0],
+      manifest.qrMask[1],
+      manifest.qrMask[2],
+      manifest.qrMask[3],
+    ]);
+  }
 
   return cborEncode(payloadMap, rfc8949EncodeOptions);
 }
@@ -187,11 +213,12 @@ export function buildSigningMessage(payloadBytes: Uint8Array): Uint8Array {
 export function encodeSignedProofEnvelope(
   payloadBytes: Uint8Array,
   signature64: Uint8Array,
+  version: typeof PROTOCOL_VERSION | typeof PROTOCOL_VERSION_MASKED = PROTOCOL_VERSION,
 ): Uint8Array {
   if (signature64.length !== 64) {
     throw new Error('Ed25519 signature must be 64 bytes');
   }
-  const envelope = [PROTOCOL_VERSION, payloadBytes, signature64];
+  const envelope = [version, payloadBytes, signature64];
   const encoded = cborEncode(envelope, rfc8949EncodeOptions);
   if (encoded.length > MAX_PROOF_BYTES) {
     throw new Error(`Encoded proof (${encoded.length} bytes) exceeds maximum (${MAX_PROOF_BYTES} bytes)`);
@@ -239,7 +266,7 @@ export function decodeSignedProofEnvelope(proofBytes: Uint8Array): DecodedProofE
   if (typeof version !== 'number' || !Number.isSafeInteger(version)) {
     throw new Error('Proof version must be an integer');
   }
-  if (version !== PROTOCOL_VERSION) {
+  if (version !== PROTOCOL_VERSION && version !== PROTOCOL_VERSION_MASKED) {
     throw new UnsupportedProtocolVersionError(version);
   }
   if (!(payloadBytes instanceof Uint8Array) || payloadBytes.length === 0) {
@@ -260,7 +287,10 @@ export function decodeSignedProofEnvelope(proofBytes: Uint8Array): DecodedProofE
     throw new Error('Manifest payload must be a CBOR map');
   }
 
-  const allowedKeys = new Set([1, 2, 3, 4, 5, 6, 7, 8]);
+  const allowedKeys =
+    version === PROTOCOL_VERSION_MASKED
+      ? new Set([1, 2, 3, 4, 5, 6, 7, 8, 9])
+      : new Set([1, 2, 3, 4, 5, 6, 7, 8]);
   for (const key of decodedPayload.keys()) {
     if (typeof key !== 'number' || !allowedKeys.has(key)) {
       throw new Error(`Unknown or invalid manifest key: ${String(key)}`);
@@ -343,12 +373,28 @@ export function decodeSignedProofEnvelope(proofBytes: Uint8Array): DecodedProofE
     }
   }
 
+  let qrMask: ArtworkRegion | undefined;
+  if (decodedPayload.has(9)) {
+    const rawMask = decodedPayload.get(9);
+    if (!Array.isArray(rawMask) || rawMask.length !== 4) {
+      throw new Error('qrMask must be a 4-element array');
+    }
+    qrMask = [
+      rawMask[0] as number,
+      rawMask[1] as number,
+      rawMask[2] as number,
+      rawMask[3] as number,
+    ];
+    validateQrMask(qrMask, region);
+  }
+
   const unsignedManifest: UnsignedManifest = {
-    version: PROTOCOL_VERSION,
+    version: version === PROTOCOL_VERSION_MASKED ? PROTOCOL_VERSION_MASKED : PROTOCOL_VERSION,
     artworkId,
     publicKey,
     sha256,
     region,
+    qrMask,
     issuedAt,
     license: {
       licenseId: licDef.id,

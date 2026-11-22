@@ -4,6 +4,7 @@ import type { AssessmentTranslations } from './assessment';
 import type { Translations } from './en';
 import type { HowToTranslations } from './howto';
 import type { LicenseGuideTranslations } from './licenses';
+import type { QrStudioTranslations } from './qrStudio';
 import type { TutorialTranslations } from './tutorial';
 
 export type Locale = SupportedLocale;
@@ -13,6 +14,7 @@ export type FullTranslations = Translations & {
   howTo: HowToTranslations;
   tutorial: TutorialTranslations;
   assessment: AssessmentTranslations;
+  qrStudio: QrStudioTranslations;
 };
 
 export interface LocaleOption {

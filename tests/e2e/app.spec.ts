@@ -162,6 +162,66 @@ test.describe('Certified Handmade E2E suite', () => {
     expect(externalRequests).toEqual([]);
   });
 
+  test('header GitHub & Sponsor Heart links and Manual In-Image QR Studio end-to-end flow', async ({
+    page,
+  }, testInfo) => {
+    await page.goto('/');
+    await page.getByTestId('cookie-reject-btn').click();
+
+    // Top-right GitHub link + adjacent Sponsor Heart link to its right
+    const githubLink = page.getByTestId('header-github-link');
+    const sponsorLink = page.getByTestId('header-sponsor-link');
+    await expect(githubLink).toBeVisible();
+    await expect(sponsorLink).toBeVisible();
+    await expect(githubLink).toHaveAttribute(
+      'href',
+      'https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit',
+    );
+    await expect(sponsorLink).toHaveAttribute('href', 'https://github.com/sponsors/yomiplush');
+
+    const githubBox = await githubLink.boundingBox();
+    const sponsorBox = await sponsorLink.boundingBox();
+    expect(githubBox).not.toBeNull();
+    expect(sponsorBox).not.toBeNull();
+    expect(sponsorBox!.x).toBeGreaterThan(githubBox!.x);
+
+    // Navigate from /create cross-link banner into /qr-studio
+    await page.goto('/create');
+    await page.getByTestId('create-open-qr-studio').click();
+    await expect(page).toHaveURL(/\/qr-studio$/);
+
+    // Upload 320x240 artwork, 1-click create key, adjust preset/opacity, verify readability & sign
+    const artPath = testInfo.outputPath('studio-art.png');
+    fs.writeFileSync(artPath, buildTestArtworkPng(320, 240));
+    await page.getByTestId('qrstudio-image-input').setInputFiles(artPath);
+    await expect(page.getByTestId('qrstudio-preview-canvas')).toBeVisible();
+
+    await page.getByTestId('qrstudio-preset-topLeft').click();
+    await page.getByTestId('qrstudio-opacity-slider').fill('75');
+    await expect(page.getByTestId('qrstudio-readability-badge')).toContainText(
+      'Scannable in live preview',
+    );
+
+    await page.getByTestId('qrstudio-quick-keygen').click();
+    await expect(page.getByTestId('qrstudio-key-select')).toBeVisible();
+
+    await page.getByTestId('qrstudio-sign-button').click();
+    await expect(page.getByTestId('qrstudio-result-section')).toBeVisible();
+
+    const dlPromise = page.waitForEvent('download');
+    await page.getByTestId('qrstudio-download-png').click();
+    const dl = await dlPromise;
+    const studioPngPath = testInfo.outputPath('studio.in-image-qr.png');
+    await dl.saveAs(studioPngPath);
+
+    // Verify downloaded in-image QR PNG on /verify -> Valid + Matched + in-image-masked
+    await page.goto('/verify');
+    await page.getByTestId('verify-image-input').setInputFiles(studioPngPath);
+    await expect(page.getByTestId('status-signature')).toContainText('Valid');
+    await expect(page.getByTestId('status-integrity')).toContainText('Matched');
+    await expect(page.getByTestId('verification-results')).toContainText('in-image-masked');
+  });
+
   test('GDPR bottom popup, consent-gated locale persistence, and /#privacypolicy page', async ({
     page,
   }) => {

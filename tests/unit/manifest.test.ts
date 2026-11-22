@@ -12,7 +12,7 @@ import {
   generateArtworkId,
   sanitizeVerifyBaseUrl,
 } from '../../src/core/manifest';
-import { PROTOCOL_VERSION } from '../../src/core/manifest/types';
+import { PROTOCOL_VERSION, PROTOCOL_VERSION_MASKED } from '../../src/core/manifest/types';
 
 describe('Manifest deterministic CBOR encoding & proof URL handling', () => {
   const testSeed = hexToBytes('9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60');
@@ -57,6 +57,7 @@ describe('Manifest deterministic CBOR encoding & proof URL handling', () => {
     expect(decoded.manifest.license.licenseId).toBe('CC-BY-NC-4.0');
     expect(decoded.manifest.license.aiTraining).toBe('disallow');
     expect(decoded.manifest.region).toEqual([24, 24, 1200, 900]);
+    expect(decoded.manifest.qrMask).toBeUndefined();
 
     const ok = await verifyEd25519Signature(
       decoded.manifest.publicKey,
@@ -64,6 +65,49 @@ describe('Manifest deterministic CBOR encoding & proof URL handling', () => {
       decoded.signature,
     );
     expect(ok).toBe(true);
+  });
+
+  it('encodes, signs, and decodes a v2 in-image masked manifest with qrMask', async () => {
+    const artworkId = generateArtworkId();
+    const unsigned = {
+      version: PROTOCOL_VERSION_MASKED,
+      artworkId,
+      publicKey: testPk,
+      sha256: testHash,
+      region: [0, 0, 800, 600] as const,
+      qrMask: [580, 380, 180, 180] as const,
+      issuedAt: 1795352786,
+      license: {
+        licenseId: 'ARR' as const,
+        commercialUse: 'disallow' as const,
+        redistribution: 'disallow' as const,
+        aiTraining: 'disallow' as const,
+      },
+      authorName: 'YomiPlush',
+    };
+
+    const payloadBytes = encodeUnsignedPayload(unsigned);
+    const sig = signWithSeed(testSeed, buildSigningMessage(payloadBytes));
+    const proof = encodeSignedProofEnvelope(payloadBytes, sig, PROTOCOL_VERSION_MASKED);
+    const decoded = decodeSignedProofEnvelope(proof);
+
+    expect(decoded.version).toBe(2);
+    expect(decoded.manifest.region).toEqual([0, 0, 800, 600]);
+    expect(decoded.manifest.qrMask).toEqual([580, 380, 180, 180]);
+
+    // Rejects qrMask on v1 or out-of-bounds qrMask on v2
+    expect(() =>
+      encodeUnsignedPayload({
+        ...unsigned,
+        version: PROTOCOL_VERSION,
+      }),
+    ).toThrow();
+    expect(() =>
+      encodeUnsignedPayload({
+        ...unsigned,
+        qrMask: [700, 380, 180, 180],
+      }),
+    ).toThrow();
   });
 
   it('matches the normative SPEC.md v1 test vector', async () => {
@@ -88,7 +132,7 @@ describe('Manifest deterministic CBOR encoding & proof URL handling', () => {
   });
 
   it('rejects unsupported protocol versions explicitly', () => {
-    const fakeEnvelope = cborEncode([2, new Uint8Array([1, 2, 3]), new Uint8Array(64)], rfc8949EncodeOptions);
+    const fakeEnvelope = cborEncode([99, new Uint8Array([1, 2, 3]), new Uint8Array(64)], rfc8949EncodeOptions);
     expect(() => decodeSignedProofEnvelope(fakeEnvelope)).toThrow(UnsupportedProtocolVersionError);
   });
 
