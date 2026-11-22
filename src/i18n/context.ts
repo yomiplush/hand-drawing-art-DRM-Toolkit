@@ -1,8 +1,15 @@
 import { createContext, useContext } from 'react';
 import type { SupportedLocale } from '../core/storage/consent';
 import type { Translations } from './en';
+import type { HowToTranslations } from './howto';
+import type { LicenseGuideTranslations } from './licenses';
 
 export type Locale = SupportedLocale;
+
+export type FullTranslations = Translations & {
+  licenses: LicenseGuideTranslations;
+  howTo: HowToTranslations;
+};
 
 export interface LocaleOption {
   code: Locale;
@@ -30,7 +37,7 @@ export interface I18nContextValue {
   locale: Locale;
   setLocale: (next: Locale) => void;
   toggleLocale: () => void;
-  t: Translations;
+  t: FullTranslations;
 }
 
 export const I18nContext = createContext<I18nContextValue | null>(null);

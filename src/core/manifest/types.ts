@@ -17,6 +17,9 @@ export const LICENSE_DEFINITIONS = [
     isCreativeCommons: false,
     allowsCommercialDefault: 'disallow',
     allowsRedistributionDefault: 'disallow',
+    allowsDerivatives: false,
+    requiresAttribution: true,
+    requiresShareAlike: false,
   },
   {
     code: 1,
@@ -25,6 +28,9 @@ export const LICENSE_DEFINITIONS = [
     isCreativeCommons: true,
     allowsCommercialDefault: 'allow',
     allowsRedistributionDefault: 'allow',
+    allowsDerivatives: true,
+    requiresAttribution: false,
+    requiresShareAlike: false,
   },
   {
     code: 2,
@@ -33,6 +39,9 @@ export const LICENSE_DEFINITIONS = [
     isCreativeCommons: true,
     allowsCommercialDefault: 'allow',
     allowsRedistributionDefault: 'allow',
+    allowsDerivatives: true,
+    requiresAttribution: true,
+    requiresShareAlike: false,
   },
   {
     code: 3,
@@ -41,6 +50,9 @@ export const LICENSE_DEFINITIONS = [
     isCreativeCommons: true,
     allowsCommercialDefault: 'allow',
     allowsRedistributionDefault: 'allow',
+    allowsDerivatives: true,
+    requiresAttribution: true,
+    requiresShareAlike: true,
   },
   {
     code: 4,
@@ -49,6 +61,9 @@ export const LICENSE_DEFINITIONS = [
     isCreativeCommons: true,
     allowsCommercialDefault: 'disallow',
     allowsRedistributionDefault: 'allow',
+    allowsDerivatives: true,
+    requiresAttribution: true,
+    requiresShareAlike: false,
   },
   {
     code: 5,
@@ -57,6 +72,9 @@ export const LICENSE_DEFINITIONS = [
     isCreativeCommons: true,
     allowsCommercialDefault: 'disallow',
     allowsRedistributionDefault: 'allow',
+    allowsDerivatives: true,
+    requiresAttribution: true,
+    requiresShareAlike: true,
   },
   {
     code: 6,
@@ -65,6 +83,9 @@ export const LICENSE_DEFINITIONS = [
     isCreativeCommons: true,
     allowsCommercialDefault: 'allow',
     allowsRedistributionDefault: 'allow',
+    allowsDerivatives: false,
+    requiresAttribution: true,
+    requiresShareAlike: false,
   },
   {
     code: 7,
@@ -73,6 +94,9 @@ export const LICENSE_DEFINITIONS = [
     isCreativeCommons: true,
     allowsCommercialDefault: 'disallow',
     allowsRedistributionDefault: 'allow',
+    allowsDerivatives: false,
+    requiresAttribution: true,
+    requiresShareAlike: false,
   },
 ] as const;
 

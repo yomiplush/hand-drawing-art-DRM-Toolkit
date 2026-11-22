@@ -11,6 +11,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { ImageDropzone } from '../components/ImageDropzone';
+import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
 import { QrCameraScanner } from '../components/QrCameraScanner';
 import { StatusDimensionsGrid } from '../components/StatusBadge';
 import { base64UrlEncode, bytesToHex } from '../core/crypto/sha256';
@@ -419,7 +420,7 @@ export function VerifyCertificatePage() {
                 />
                 <DetailRow
                   label={t.verify.fields.license}
-                  value={result.manifest.license.licenseId}
+                  value={`${result.manifest.license.licenseId} — ${t.licenses.items[result.manifest.license.licenseId].name}`}
                 />
                 <DetailRow
                   label={t.verify.fields.attribution}
@@ -438,6 +439,11 @@ export function VerifyCertificatePage() {
                   value={result.manifest.license.aiTraining}
                 />
               </dl>
+
+              <LicenseSummaryCard
+                licenseId={result.manifest.license.licenseId}
+                testId="verify-license-summary"
+              />
 
               {result.signatureStatus === 'valid' && result.identityStatus === 'unknown' && (
                 <form

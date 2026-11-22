@@ -104,7 +104,9 @@ test.describe('Certified Handmade E2E suite', () => {
 
     await page.getByTestId('create-author-input').fill('YomiPlush');
     await page.getByTestId('create-title-input').fill('Moonlight E2E');
+    await expect(page.getByTestId('create-license-summary')).toBeVisible();
     await page.getByTestId('create-license-select').selectOption('CC-BY-NC-4.0');
+    await expect(page.getByTestId('create-license-summary')).toContainText('CC BY-NC 4.0');
     await page.getByTestId('create-sign-button').click();
 
     await expect(page.getByTestId('create-result-section')).toBeVisible();
@@ -122,6 +124,7 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.goto('/verify');
     await page.getByTestId('verify-image-input').setInputFiles(signedPngPath);
     await expect(page.getByTestId('verification-results')).toBeVisible();
+    await expect(page.getByTestId('verify-license-summary')).toContainText('CC BY-NC 4.0');
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
     await expect(page.getByTestId('status-identity')).toContainText('Unknown / Unverified Key');
@@ -190,6 +193,36 @@ test.describe('Certified Handmade E2E suite', () => {
 
     await page.getByTestId('policy-reset-btn').click();
     await expect(page.getByTestId('cookie-consent-banner')).toBeVisible();
+  });
+
+
+  test('beginner-friendly 1-click keygen on /create and multilingual license guide on /docs', async ({
+    page,
+  }, testInfo) => {
+    await page.goto('/');
+    await page.getByTestId('cookie-accept-btn').click();
+    await expect(page.getByTestId('home-howto-section')).toBeVisible();
+
+    // Switch to Japanese and verify beginner guide & 1-click keygen on /create
+    await page.getByTestId('lang-select').selectOption('ja');
+    await expect(page.getByTestId('home-howto-section')).toContainText('3ステップ');
+
+    await page.goto('/create');
+    await expect(page.getByTestId('create-license-summary')).toContainText('無断使用');
+    await page.getByTestId('create-quick-keygen').click();
+    await expect(page.getByTestId('create-key-select')).toBeVisible();
+
+    const artPath = testInfo.outputPath('quick-art.png');
+    fs.writeFileSync(artPath, buildTestArtworkPng(120, 90));
+    await page.getByTestId('create-image-input').setInputFiles(artPath);
+    await page.getByTestId('create-sign-button').click();
+    await expect(page.getByTestId('create-result-section')).toBeVisible();
+
+    // Check /docs license guide in multiple languages
+    await page.goto('/docs');
+    await expect(page.getByTestId('docs-licenses-section')).toContainText('CC BY-NC-ND 4.0');
+    await page.getByTestId('lang-select').selectOption('uk');
+    await expect(page.getByTestId('docs-licenses-section')).toContainText('Довідник ліцензій');
   });
 
   test('works offline via Service Worker on /verify#proof=...', async ({ page, context }, testInfo) => {

@@ -58,6 +58,28 @@ export function HomePage() {
         </div>
       </section>
 
+      <section className="space-y-4" data-testid="home-howto-section">
+        <div className="space-y-1">
+          <h2 className="text-sm font-mono uppercase tracking-[0.14em] text-sky-300/90">
+            {t.howTo.homeTitle}
+          </h2>
+          <p className="text-sm text-slate-300/85">{t.howTo.homeSubtitle}</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {t.howTo.steps.map((step, idx) => (
+            <div
+              key={step.title}
+              className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-2"
+            >
+              <div className="font-mono text-xs text-sky-300/80">STEP 0{idx + 1}</div>
+              <h3 className="text-base font-medium text-white">{step.title}</h3>
+              <p className="text-sm text-slate-300/85 leading-relaxed">{step.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <section className="space-y-4">
         <h2 className="text-sm font-mono uppercase tracking-[0.14em] text-slate-300">
           {t.home.principlesTitle}

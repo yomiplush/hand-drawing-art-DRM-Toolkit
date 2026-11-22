@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { persistOptionalLocale, readOptionalLocale } from '../core/storage/consent';
 import { I18nContext, LOCALE_OPTIONS } from './context';
-import type { Locale } from './context';
+import type { FullTranslations, Locale } from './context';
 import { en } from './en';
 import type { Translations } from './en';
+import { HOWTO_I18N } from './howto';
 import { ja } from './ja';
+import { LICENSE_I18N } from './licenses';
 import { ko, zhCN, zhTW } from './locales/eastAsia';
 import { ar, de, es, fr, it, pt } from './locales/europeanAndArabic';
 import { ru, uk } from './locales/slavic';
@@ -63,7 +65,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   }, [locale]);
 
   const toggleLocale = () => setLocale(locale === 'en' ? 'ja' : 'en');
-  const t = LOCALE_MAP[locale] ?? en;
+  const base = LOCALE_MAP[locale] ?? en;
+  const t: FullTranslations = {
+    ...base,
+    licenses: LICENSE_I18N[locale] ?? LICENSE_I18N.en,
+    howTo: HOWTO_I18N[locale] ?? HOWTO_I18N.en,
+  };
 
   return (
     <I18nContext.Provider value={{ locale, setLocale, toggleLocale, t }}>
