@@ -138,7 +138,7 @@ export const en = {
       },
       {
         title: 'Honest Distinction of Claims',
-        desc: 'Separates cryptographic signature validity, pixel integrity, local key trust, and experimental human-made assessment.',
+        desc: 'Separates cryptographic signature validity, pixel integrity, and local key trust without overclaiming.',
       },
     ],
     disclaimerTitle: 'Important Scope Notice',
@@ -229,11 +229,10 @@ export const en = {
     attachArtworkHint:
       'A QR code alone only proves that a manifest was signed. Load the artwork image file to verify whether its pixels match the signed SHA-256 digest.',
     attachArtworkBtn: 'Load Artwork File to Compare SHA-256',
-    statusDimensionsTitle: '4-Dimension Verification Status',
+    statusDimensionsTitle: '3-Dimension Verification Status',
     dimA: 'A. Cryptographic Signature',
     dimB: 'B. Artwork Integrity',
     dimC: 'C. Author Identity',
-    dimD: 'D. Human-Made Assessment',
     badges: {
       sigValid: 'Valid',
       sigInvalid: 'Invalid',
@@ -243,9 +242,6 @@ export const en = {
       intNotChecked: 'Not Checked',
       idTrusted: 'Locally Trusted Key',
       idUnknown: 'Unknown / Unverified Key',
-      assessNotAssessed: 'Not Assessed',
-      assessExperimental: 'Experimental Available',
-      assessInconclusive: 'Inconclusive',
     },
     banners: {
       invalid: 'Verification Failed: Signature or artwork integrity check did not pass.',
@@ -283,8 +279,6 @@ export const en = {
     trustKeyLabelInput: 'Local trust label (e.g. artist handle)',
     trustKeyBtn: 'Add to Local Trusted Keys',
     trustedAlready: 'Recognized as local trusted key:',
-    assessmentNote:
-      'No unverified AI-detection model is bundled. Certified Handmade refuses to display fabricated "human-made probability" percentages.',
   },
   keys: {
     title: 'Identity & Local Key Management',

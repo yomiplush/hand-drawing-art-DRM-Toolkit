@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   XCircle,
 } from 'lucide-react';
-import { AssessmentDetailsCard } from '../components/AssessmentDetailsCard';
 import { ImageDropzone } from '../components/ImageDropzone';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
 import { QrCameraScanner } from '../components/QrCameraScanner';
@@ -49,7 +48,6 @@ export function VerifyCertificatePage() {
     hasInitialHashProof ? window.location.hash : null,
   );
   const [attachedRaster, setAttachedRaster] = useState<CanonicalRaster | null>(null);
-  const [attachedRawBytes, setAttachedRawBytes] = useState<Uint8Array | null>(null);
   const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -62,18 +60,13 @@ export function VerifyCertificatePage() {
   const [trustSavedMsg, setTrustSavedMsg] = useState<string | null>(null);
 
   const runProofVerify = useCallback(
-    async (
-      rawProof: string,
-      raster: CanonicalRaster | null,
-      rawBytes: Uint8Array | null = null,
-    ) => {
+    async (rawProof: string, raster: CanonicalRaster | null) => {
       setErrorMsg(null);
       setTrustSavedMsg(null);
       setActiveProofRaw(rawProof);
       const res = await verifyProofAndArtwork({
         proofInput: rawProof,
         artworkRaster: raster,
-        rawFileBytes: rawBytes,
       });
       setResult(res);
     },
@@ -88,7 +81,6 @@ export function VerifyCertificatePage() {
     verifyProofAndArtwork({
       proofInput: hash,
       artworkRaster: null,
-      rawFileBytes: null,
     }).then((res) => {
       if (active) {
         setLaunchedWithHashProof(true);
@@ -96,7 +88,6 @@ export function VerifyCertificatePage() {
         setProofInput(window.location.href);
         setActiveProofRaw(hash);
         setAttachedRaster(null);
-        setAttachedRawBytes(null);
         setAttachedFileName(null);
         setQrInfoNote(null);
         setErrorMsg(null);
@@ -119,7 +110,6 @@ export function VerifyCertificatePage() {
       const rawBytes = new Uint8Array(await file.arrayBuffer());
       const res = await verifyImageWithEmbeddedQr({ fileOrBytes: rawBytes });
       setAttachedRaster(res.raster);
-      setAttachedRawBytes(rawBytes);
       setAttachedFileName(file.name);
       setActiveProofRaw(res.qrRawText);
       setProofInput(res.qrRawText);
@@ -141,10 +131,9 @@ export function VerifyCertificatePage() {
         const rawBytes = new Uint8Array(await file.arrayBuffer());
         const { raster } = await decodeImageFileToCanonicalRgba8(rawBytes);
         setAttachedRaster(raster);
-        setAttachedRawBytes(rawBytes);
         setAttachedFileName(file.name);
         if (activeProofRaw) {
-          await runProofVerify(activeProofRaw, raster, rawBytes);
+          await runProofVerify(activeProofRaw, raster);
         }
       } catch (err) {
         setErrorMsg(err instanceof Error ? err.message : 'Failed to decode artwork image');
@@ -186,7 +175,6 @@ export function VerifyCertificatePage() {
           if (!active) return;
           setActiveTab('image');
           setAttachedRaster(res.raster);
-          setAttachedRawBytes(rawBytes);
           setAttachedFileName(rawName);
           setActiveProofRaw(res.qrRawText);
           setProofInput(res.qrRawText);
@@ -199,13 +187,12 @@ export function VerifyCertificatePage() {
           const { raster } = await decodeImageFileToCanonicalRgba8(rawBytes);
           if (!active) return;
           setAttachedRaster(raster);
-          setAttachedRawBytes(rawBytes);
           setAttachedFileName(rawName);
           setErrorMsg(null);
           const hash = window.location.hash;
           if (hash && hash.includes('proof=')) {
             setActiveTab('proof');
-            await runProofVerify(hash, raster, rawBytes);
+            await runProofVerify(hash, raster);
           } else {
             setQrInfoNote(t.verifyMobile.sharedImageNoQrNote);
           }
@@ -303,7 +290,7 @@ export function VerifyCertificatePage() {
   const handleManualProofSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setQrInfoNote(null);
-    await runProofVerify(proofInput, attachedRaster, attachedRawBytes);
+    await runProofVerify(proofInput, attachedRaster);
   };
 
   const handleCameraDetected = useCallback(
@@ -312,9 +299,9 @@ export function VerifyCertificatePage() {
       setQrInfoNote(
         attachedRaster ? 'QR detected from local camera stream' : t.verifyMobile.cameraFollowUpHint,
       );
-      void runProofVerify(rawText, attachedRaster, attachedRawBytes);
+      void runProofVerify(rawText, attachedRaster);
     },
-    [attachedRaster, attachedRawBytes, runProofVerify, t.verifyMobile.cameraFollowUpHint],
+    [attachedRaster, runProofVerify, t.verifyMobile.cameraFollowUpHint],
   );
 
   const handleTrustThisKey = async (e: React.FormEvent) => {
@@ -331,7 +318,7 @@ export function VerifyCertificatePage() {
     setTrustLabelInput('');
     setTrustSavedMsg(label);
     if (activeProofRaw) {
-      await runProofVerify(activeProofRaw, attachedRaster, attachedRawBytes);
+      await runProofVerify(activeProofRaw, attachedRaster);
     }
   };
 
@@ -373,9 +360,9 @@ export function VerifyCertificatePage() {
       return (
         <div
           role="status"
-          className="rounded-xl border border-cyan-400/40 bg-cyan-500/10 p-4 flex items-center gap-3 text-cyan-100"
+          className="rounded-xl border border-sky-300/35 bg-sky-400/10 p-4 flex items-center gap-3 text-sky-100"
         >
-          <ShieldAlert className="h-5 w-5 text-amber-300 shrink-0" />
+          <ShieldAlert className="h-5 w-5 text-sky-300 shrink-0" />
           <span className="text-sm font-semibold">{t.verify.banners.validUnknownMatched}</span>
         </div>
       );
@@ -587,16 +574,9 @@ export function VerifyCertificatePage() {
               signatureStatus={result.signatureStatus}
               integrityStatus={result.integrityStatus}
               identityStatus={result.identityStatus}
-              assessmentStatus={result.assessmentStatus}
-              assessment={result.assessment}
               trustedKeyLabel={result.trustedKeyLabel}
             />
           </section>
-
-          <AssessmentDetailsCard
-            assessment={result.assessment}
-            testId="assessment-details-card"
-          />
 
           {result.errors.length > 0 && (
             <div

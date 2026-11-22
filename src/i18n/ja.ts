@@ -140,7 +140,7 @@ export const ja: Translations = {
       },
       {
         title: '証明範囲の誠実な分離',
-        desc: '暗号署名・画像ハッシュ一致・ローカル信頼鍵・実験的手描き判定を明確に分離し、誇張表示をしません。',
+        desc: '暗号署名・画像ハッシュ一致・ローカル信頼鍵を明確に分離し、誇張表示をしません。',
       },
     ],
     disclaimerTitle: '証明できる範囲についての重要な注意',
@@ -231,11 +231,10 @@ export const ja: Translations = {
     attachArtworkHint:
       'QRコード単体では「この鍵がマニフェストに署名した」ことしか分かりません。手元の画像ファイルを追加して、ピクセルのSHA-256が一致するか確認してください。',
     attachArtworkBtn: '画像ファイルを読み込んでハッシュ一致を検証',
-    statusDimensionsTitle: '4つの独立した検証ステータス',
+    statusDimensionsTitle: '3つの独立した検証ステータス',
     dimA: 'A. 暗号署名（Cryptographic Signature）',
     dimB: 'B. 作品一致（Artwork Integrity）',
     dimC: 'C. 作者鍵の信頼（Author Identity）',
-    dimD: 'D. 手描き判定（Human-Made Assessment）',
     badges: {
       sigValid: 'Valid（有効）',
       sigInvalid: 'Invalid（無効・改ざん検出）',
@@ -245,9 +244,6 @@ export const ja: Translations = {
       intNotChecked: 'Not Checked（画像未照合）',
       idTrusted: 'Locally Trusted Key（ローカル信頼済み鍵）',
       idUnknown: 'Unknown / Unverified Key（未確認の鍵）',
-      assessNotAssessed: 'Not Assessed（未評価）',
-      assessExperimental: 'Experimental Available（実験的評価あり）',
-      assessInconclusive: 'Inconclusive（判定不能）',
     },
     banners: {
       invalid: '検証失敗：署名の改ざん、不正データ、または画像ハッシュの不一致が検出されました。',
@@ -285,8 +281,6 @@ export const ja: Translations = {
     trustKeyLabelInput: 'ローカル信頼ラベル（例：作者名やハンドル）',
     trustKeyBtn: 'ローカル信頼済み鍵に登録',
     trustedAlready: 'ローカル信頼済み鍵として登録されています：',
-    assessmentNote:
-      '未検証のAI判定モデルは同梱されていません。根拠のない「手描き確率」を表示することはしません。',
   },
   keys: {
     title: '作者ID・ローカル鍵管理',

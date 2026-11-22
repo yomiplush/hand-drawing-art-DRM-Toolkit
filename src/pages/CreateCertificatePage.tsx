@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  AlertTriangle,
   Check,
   ChevronDown,
   Copy,
@@ -17,7 +16,6 @@ import {
 import { ImageDropzone } from '../components/ImageDropzone';
 import { InImageQrStudioPanel } from '../components/InImageQrStudioPanel';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
-import { defaultHumanMadeAssessor } from '../core/assessment';
 import { bytesToHex } from '../core/crypto/sha256';
 import { hashCanonicalRasterHex } from '../core/image/canonicalRaster';
 import { clampInImageQrOptions } from '../core/image/inImageQr';
@@ -41,12 +39,7 @@ import {
   MAX_AUTHOR_UTF8_BYTES,
   MAX_TITLE_UTF8_BYTES,
 } from '../core/manifest/types';
-import type {
-  ArtworkRegion,
-  HumanMadeAssessmentResult,
-  LicenseId,
-  PolicySignal,
-} from '../core/manifest/types';
+import type { ArtworkRegion, LicenseId, PolicySignal } from '../core/manifest/types';
 import type { QrErrorCorrectionLevel } from '../core/qr/qrGenerator';
 import { createAuthorKey, listAuthorKeys } from '../core/storage/keyStore';
 import type { AuthorKeyRecord } from '../core/storage/keyStore';
@@ -85,7 +78,6 @@ export function CreateCertificatePage() {
   const [artworkRaster, setArtworkRaster] = useState<CanonicalRaster | null>(null);
   const [artworkShaHex, setArtworkShaHex] = useState<string>('');
   const [artworkPreviewUrl, setArtworkPreviewUrl] = useState<string | null>(null);
-  const [preSignAssessment, setPreSignAssessment] = useState<HumanMadeAssessmentResult | null>(null);
 
   const [authorName, setAuthorName] = useState('');
   const [artworkTitle, setArtworkTitle] = useState('');
@@ -175,14 +167,10 @@ export function CreateCertificatePage() {
   const handleFileSelected = async (file: File) => {
     setErrorMsg(null);
     setSignedResult(null);
-    setPreSignAssessment(null);
     try {
       const rawFileBytes = new Uint8Array(await file.arrayBuffer());
       const { raster, sourceFormat: fmt } = await decodeImageFileToCanonicalRgba8(rawFileBytes);
-      const [shaHex, assessment] = await Promise.all([
-        hashCanonicalRasterHex(raster),
-        defaultHumanMadeAssessor.assess({ raster, rawFileBytes }),
-      ]);
+      const shaHex = await hashCanonicalRasterHex(raster);
       if (artworkPreviewUrl) URL.revokeObjectURL(artworkPreviewUrl);
       const url = URL.createObjectURL(file);
 
@@ -199,7 +187,6 @@ export function CreateCertificatePage() {
       setArtworkRaster(raster);
       setArtworkShaHex(shaHex);
       setArtworkPreviewUrl(url);
-      setPreSignAssessment(assessment);
       setQrBoxSize(defaultBox);
       setQrX(Math.max(0, raster.width - defaultBox - pad));
       setQrY(Math.max(0, raster.height - defaultBox - pad));
@@ -322,11 +309,6 @@ export function CreateCertificatePage() {
     ? `/verify#proof=${signedResult.proofUrl.split('#proof=')[1] ?? ''}`
     : '/verify';
 
-  const hasPreSignAiWarning =
-    preSignAssessment &&
-    (preSignAssessment.summaryKey === 'ai-metadata-detected' ||
-      preSignAssessment.summaryKey === 'ai-pixel-signals-detected');
-
   return (
     <div className="space-y-8">
       <header className="space-y-2 border-b border-white/[0.08] pb-5">
@@ -425,37 +407,6 @@ export function CreateCertificatePage() {
                 <div className="space-y-0.5">
                   <div className="text-xs text-slate-400">{t.create.artworkShaLabel}</div>
                   <div className="font-mono text-xs text-sky-300 break-all">{artworkShaHex}</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {hasPreSignAiWarning && preSignAssessment && (
-            <div
-              role="alert"
-              data-testid="create-pre-sign-ai-warning"
-              className="rounded-xl border border-amber-400/50 bg-amber-500/15 p-4 space-y-2 text-amber-100"
-            >
-              <div className="flex items-start gap-2.5">
-                <AlertTriangle className="h-5 w-5 text-amber-300 shrink-0 mt-0.5" aria-hidden="true" />
-                <div className="space-y-1.5 text-xs sm:text-sm">
-                  <div className="font-semibold text-amber-200">
-                    {t.assessment.preSignAiWarningTitle}
-                  </div>
-                  <p className="text-amber-100/90 leading-relaxed">
-                    {t.assessment.outcomes[preSignAssessment.summaryKey]}
-                  </p>
-                  {(preSignAssessment.metrics?.aiMetadataSignals.length ||
-                    preSignAssessment.metrics?.pixelAiSignals.length) ? (
-                    <ul className="list-disc ps-5 text-xs font-mono text-amber-200/90 space-y-0.5">
-                      {preSignAssessment.metrics?.aiMetadataSignals.map((sig) => (
-                        <li key={`meta-${sig}`}>{sig}</li>
-                      ))}
-                      {preSignAssessment.metrics?.pixelAiSignals.map((sig) => (
-                        <li key={`px-${sig}`}>{sig}</li>
-                      ))}
-                    </ul>
-                  ) : null}
                 </div>
               </div>
             </div>

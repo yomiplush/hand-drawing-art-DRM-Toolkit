@@ -49,11 +49,11 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         'In-Image QR Studio, Translucent QR Code Art, Hand-drawing DRM, Standalone PNG Signer, Masked Pixel Integrity',
     },
     verify: {
-      title: 'Verify Hand-Drawn Artwork, QR Proof & Local AI Forensics | Certified Handmade',
+      title: 'Verify Hand-Drawn Artwork, Ed25519 Signature & QR Proof | Certified Handmade',
       description:
-        'Verify Ed25519 artwork signatures, SHA-256 pixel integrity, #proof= URL fragments, and inspect AI generation metadata or spectral/pixel signals 100% locally offline.',
+        'Verify Ed25519 artwork signatures, SHA-256 canonical pixel integrity, #proof= URL fragments, and locally trusted artist keys 100% locally offline via PNG upload, camera QR, or clipboard.',
       keywords:
-        'Verify Artwork DRM, QR Proof Verifier, Local AI Image Forensics, Ed25519 Signature Check, Offline Verification',
+        'Verify Artwork DRM, QR Proof Verifier, Ed25519 Signature Check, SHA-256 Pixel Integrity, Offline Verification',
     },
     tutorial: {
       title: 'Step-by-Step Guide to Local Hand-Drawing Art DRM | Certified Handmade',
@@ -70,11 +70,11 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         'Ed25519 Artist Key, AES-256-GCM Key Backup, Local Key Management, Standalone Cryptography, PBKDF2-SHA256',
     },
     docs: {
-      title: 'Cryptographic Architecture, SPEC & AI Forensics Docs | Certified Handmade',
+      title: 'Cryptographic Architecture, SPEC & License Docs | Certified Handmade',
       description:
-        'Technical reference for Certified Handmade: RFC 8949 CBOR proof schema, RGBA8 canonical SHA-256 digests, AES-256-GCM backups, license definitions, and local AI signal inspection.',
+        'Technical reference for Certified Handmade: RFC 8949 CBOR proof schema, RGBA8 canonical SHA-256 digests, Protocol v1/v2 QR masks, AES-256-GCM backups, and license definitions.',
       keywords:
-        'Art DRM Specification, RFC 8949 CBOR, Ed25519 Provenance Spec, AES-256-GCM Encryption, Local AI Detection Docs',
+        'Art DRM Specification, RFC 8949 CBOR, Ed25519 Provenance Spec, AES-256-GCM Encryption, Cryptographic Art Docs',
     },
     privacy: {
       title: 'Privacy Policy & GDPR Local-Only Architecture | Certified Handmade',
@@ -93,7 +93,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'Does it really run 100% locally and standalone offline without any server upload?',
-        a: 'Yes. Every operation—key generation, SHA-256 hashing, Ed25519 signing, AES-256-GCM key backup encryption, QR encoding/decoding, and AI metadata/pixel inspection—runs inside your browser with Content-Security-Policy connect-src \'self\'. Once installed or cached as a PWA, it works completely offline.',
+        a: 'Yes. Every operation—key generation, SHA-256 hashing, Ed25519 signing, AES-256-GCM key backup encryption, and QR encoding/decoding—runs inside your browser with Content-Security-Policy connect-src \'self\'. Once installed or cached as a PWA, it works completely offline.',
       },
       {
         q: 'How are my artist keys and backups encrypted?',
@@ -104,8 +104,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         a: 'Platforms and startups shut down, change terms, or break links. Certified Handmade encodes compact RFC 8949 CBOR proofs inside standard PNG tEXt chunks and self-contained QR/#proof= links under an open MIT specification (SPEC.md), so anyone can verify your work decades from now even if the website disappears.',
       },
       {
-        q: 'Can it check for AI-generated image metadata and pixel signals locally?',
-        a: 'Yes. In /verify, the local forensics engine inspects PNG/JPEG/WebP container metadata (such as C2PA/JUMBF, EXIF, XMP, and generator parameters) as well as pixel and spectral noise signatures entirely on-device—never treating absence of AI tags alone as absolute proof.',
+        q: 'How do Outer QR Border (v1) and Translucent In-Image QR Studio (v2) verify pixels without breaking hashes?',
+        a: 'In Protocol v1, the QR code sits strictly outside the artwork rectangle [x, y, w, h]. In Protocol v2 (In-Image QR Studio), a masked rectangle qrMask excludes only the translucent QR area before SHA-256 hashing—so both the signed PNG and the clean original illustration verify bit-for-bit.',
       },
     ],
   },
@@ -115,7 +115,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       description:
         '手描きアーティストのためのオープンソース・完全ローカル駆動・スタンドアローン手描きDRMツール。サーバー送信ゼロでEd25519電子署名・SHA-256ピクセルハッシュ・AES-256-GCM暗号化バックアップを作成し、PNGへのQRコード埋め込みとオフライン検証を実現。',
       keywords:
-        '手描き, 手描きDRM, イラストDRM, 暗号化, ローカル駆動, スタンドアローン, 完全ローカル, オフラインPWA, Hand-drawing Artist, DRM, Ed25519, SHA-256, AES-256-GCM, 電子署名, AI生成判定',
+        '手描き, 手描きDRM, イラストDRM, 暗号化, ローカル駆動, スタンドアローン, 完全ローカル, オフラインPWA, Hand-drawing Artist, DRM, Ed25519, SHA-256, AES-256-GCM, 電子署名',
     },
     create: {
       title: '手描き証明書を作成・PNGへQRコード埋め込み | Certified Handmade 手描きDRM',
@@ -132,11 +132,11 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         '半透明QRコード, 画像内QRスタジオ, 手描きDRM, イラスト透かしQR, ローカル処理',
     },
     verify: {
-      title: '手描き証明書をオフライン検証・ローカルAI生成シグナル解析 | Certified Handmade',
+      title: '手描き証明書・Ed25519署名・QRコードをオフライン検証 | Certified Handmade',
       description:
-        '署名付きPNG・カメラQRスキャン・クリップボード貼り付け・#proof= URLからEd25519署名とピクセル改ざんをローカル検証。PNG/JPEG/WebPのAI生成メタデータや周波数ノイズも完全ローカル解析。',
+        '署名付きPNG・カメラQRスキャン・クリップボード貼り付け・#proof= URLからEd25519暗号署名、SHA-256ピクセル改ざんの有無、ローカル信頼済み作者鍵を完全オフラインで検証。',
       keywords:
-        '手描き検証, DRM検証, AIイラスト判定, メタデータ解析, ローカル駆動, オフライン検証, QRスキャン',
+        '手描き検証, DRM検証, Ed25519署名検証, ピクセル整合性, ローカル駆動, オフライン検証, QRスキャン',
     },
     tutorial: {
       title: 'はじめての手描きDRM ステップバイステップガイド | Certified Handmade',
@@ -153,11 +153,11 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         'Ed25519 署名鍵, AES-256-GCM 暗号化バックアップ, ローカル鍵管理, スタンドアローンDRM',
     },
     docs: {
-      title: '暗号仕様・SPEC・ライセンス＆ローカルAI解析ドキュメント | Certified Handmade',
+      title: '暗号仕様・SPEC・ライセンス＆アーキテクチャドキュメント | Certified Handmade',
       description:
-        'Certified Handmade技術資料：RFC 8949 CBOR証明フォーマット、RGBA8正規化SHA-256検証、AES-256-GCM暗号化、ライセンス一覧、ローカルAI生成メタデータ/周波数シグナル解析仕様。',
+        'Certified Handmade技術資料：RFC 8949 CBOR証明フォーマット、RGBA8正規化SHA-256検証、プロトコルv1/v2マスク仕様、AES-256-GCM暗号化、ライセンス一覧を公開。',
       keywords:
-        '手描きDRM 仕様, RFC 8949 CBOR, AES-256-GCM, Ed25519 暗号署名, ローカルAI検出',
+        '手描きDRM 仕様, RFC 8949 CBOR, AES-256-GCM, Ed25519 暗号署名, プロトコル仕様',
     },
     privacy: {
       title: 'プライバシーポリシー & GDPR完全ローカル処理方針 | Certified Handmade',
@@ -175,7 +175,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: '本当に画像や秘密鍵をサーバーへ送信せず、完全オフラインで動作しますか？',
-        a: 'はい。鍵生成、SHA-256計算、Ed25519署名、AES-256-GCM暗号化バックアップ、QR生成/読取、AI生成メタデータ・ピクセル解析まですべてブラウザ内で完結します。CSP（connect-src \'self\'）により外部通信を遮断しており、PWAとして端末に保存すればインターネット接続なしでも動作します。',
+        a: 'はい。鍵生成、SHA-256計算、Ed25519署名、AES-256-GCM暗号化バックアップ、QR生成・読取まですべてブラウザ内で完結します。CSP（connect-src \'self\'）により外部通信を遮断しており、PWAとして端末に保存すればインターネット接続なしでも動作します。',
       },
       {
         q: '秘密鍵の暗号化バックアップにはどの暗号方式が使われていますか？',
@@ -186,8 +186,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         a: 'WebサービスやSNSは終了や仕様変更で検証リンクが失われるリスクがあります。本ツールは公開仕様（SPEC.md / MIT）に基づくRFC 8949 CBORバイナリ証明をPNG内部（tEXtチャンク）とQR/#proof= URLに自己保持するため、仮に本サイトが将来無くなっても互換仕様で半永久的に検証できます。',
       },
       {
-        q: 'ChatGPTや画像生成AIの絵かどうかもローカルで判定できますか？',
-        a: '検証ページ（/verify）では、C2PA/JUMBF・EXIF・XMP・PNGチャンク等のAI生成メタデータ検査に加え、端末内でピクセル統計・周波数帯域（DFT等）シグナルのローカル解析を実行します。ただしメタデータ欠如だけでは断定しない誠実な証拠基準を採用しています。',
+        q: '外枠QR（v1）と半透明インイメージQRスタジオ（v2）の違いは何ですか？',
+        a: '外枠QR（v1）は作品領域の外側の余白にQRを配置します。一方インイメージQRスタジオ（v2）では画像内の半透明QR領域だけをqrMaskで除外してSHA-256ハッシュを計算するため、QR入りPNGでも未加工の元イラストでも1ビット単位で一致検証できます。',
       },
     ],
   },
@@ -209,9 +209,9 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: '图内QR工作室, 半透明二维码, 手绘DRM, 独立签名',
     },
     verify: {
-      title: '离线验证手绘证明与本地 AI 图像取证 | Certified Handmade',
-      description: '本地校验 Ed25519 签名、像素完整性、#proof= 链接及 AI 生成元数据与频谱像素信号。',
-      keywords: '作品验真, AI图像检测, 离线验证, Ed25519校验',
+      title: '离线验证手绘证明、Ed25519 签名与像素完整性 | Certified Handmade',
+      description: '在本地离线校验 Ed25519 签名、SHA-256 像素完整性、#proof= 链接及本地受信任作者密钥。',
+      keywords: '作品验真, Ed25519校验, SHA-256像素验证, 离线验证, 二维码校验',
     },
     tutorial: {
       title: '手绘 DRM 新手分步教程 | Certified Handmade',
@@ -224,9 +224,9 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'Ed25519密钥, AES-256-GCM加密备份, 本地密钥管理',
     },
     docs: {
-      title: '加密架构、协议规范与本地 AI 取证文档 | Certified Handmade',
-      description: '技术文档：RFC 8949 CBOR 架构、SHA-256 像素摘要、加密备份与本地 AI 信号分析说明。',
-      keywords: 'DRM规范, RFC 8949 CBOR, AES-256-GCM, 本地AI检测',
+      title: '加密架构、协议规范与许可指南文档 | Certified Handmade',
+      description: '技术文档：RFC 8949 CBOR 架构、SHA-256 像素摘要、Protocol v1/v2 掩码机制与加密备份说明。',
+      keywords: 'DRM规范, RFC 8949 CBOR, AES-256-GCM, 加密架构',
     },
     privacy: {
       title: '隐私政策与 GDPR 纯本地架构说明 | Certified Handmade',
@@ -253,8 +253,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         a: '证明载荷基于开放的 MIT 规范（SPEC.md）以 RFC 8949 CBOR 格式自包含存储，即使未来本站不再运行，任何兼容工具仍可验证您的作品。',
       },
       {
-        q: '可以在本地检查 AI 生成图像的痕迹吗？',
-        a: '可以。验证页会在本地扫描 PNG/JPEG/WebP 元数据（如 C2PA、EXIF、XMP）以及像素/频谱噪声信号，同时避免仅凭缺少标签就作出武断结论。',
+        q: '外框二维码 (v1) 与图内半透明二维码工作室 (v2) 有何区别？',
+        a: 'v1 将二维码放在作品外框边距；v2（图内 QR 工作室）会在计算 SHA-256 前通过 qrMask 排除半透明二维码区域，使带二维码 PNG 与原始未修改作品都能精确验证通过。',
       },
     ],
   },
@@ -276,9 +276,9 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: '圖內QR工作室, 半透明QR碼, 手繪DRM, 獨立簽章',
     },
     verify: {
-      title: '離線驗證手繪證明與本地 AI 影像鑑識 | Certified Handmade',
-      description: '於裝置本地驗證 Ed25519 簽章、像素完整性、#proof= 連結，並檢查 AI 生成中繼資料與像素頻譜訊號。',
-      keywords: '作品驗證, AI影像偵測, 離線驗證, Ed25519簽章',
+      title: '離線驗證手繪證明、Ed25519 簽章與像素完整性 | Certified Handmade',
+      description: '於裝置本地離線驗證 Ed25519 簽章、SHA-256 像素完整性、#proof= 連結與本地信任的創作者金鑰。',
+      keywords: '作品驗證, Ed25519簽章, SHA-256驗證, 離線驗證',
     },
     tutorial: {
       title: '手繪 DRM 新手步驟教學 | Certified Handmade',
@@ -291,9 +291,9 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'Ed25519金鑰, AES-256-GCM加密備份, 本地金鑰管理',
     },
     docs: {
-      title: '加密架構、協議規格與本地 AI 鑑識文件 | Certified Handmade',
-      description: '技術參考：RFC 8949 CBOR 結構、SHA-256 像素摘要、AES-256-GCM 備份與本地 AI 訊號檢查說明。',
-      keywords: 'DRM規格, RFC 8949 CBOR, AES-256-GCM, 本地AI檢測',
+      title: '加密架構、協議規格與授權文件 | Certified Handmade',
+      description: '技術參考：RFC 8949 CBOR 結構、SHA-256 像素摘要、Protocol v1/v2 遮罩設計與 AES-256-GCM 備份說明。',
+      keywords: 'DRM規格, RFC 8949 CBOR, AES-256-GCM, 加密架構',
     },
     privacy: {
       title: '隱私權政策與 GDPR 純本地處理聲明 | Certified Handmade',
@@ -320,8 +320,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         a: '依循開放 MIT 規格（SPEC.md）以 RFC 8949 CBOR 自包含格式儲存證明，即使本網站未來下線，相容工具依然能獨立驗證。',
       },
       {
-        q: '可以在本機檢測 AI 生成影像訊號嗎？',
-        a: '可以。驗證頁面會在不洩漏檔案的前提下，掃描容器詮釋資料（C2PA/EXIF/XMP）及像素頻譜特徵，同時維持審慎客觀的判讀標準。',
+        q: '外框 QR（v1）與圖內半透明 QR 工作室（v2）有什麼差別？',
+        a: 'v1 會將 QR 碼置於作品外框邊距；v2（圖內 QR 工作室）在計算 SHA-256 前僅透過 qrMask 排除半透明 QR 區域，因此匯出的 PNG 與原始插畫檔案都能精確比對驗證。',
       },
     ],
   },
@@ -343,9 +343,9 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: '인이미지 QR 스튜디오, 반투명 QR, 손그림 DRM',
     },
     verify: {
-      title: '오프라인 작품 검증 및 로컬 AI 포렌식 분석 | Certified Handmade',
-      description: 'Ed25519 서명, 픽셀 무결성, #proof= URL과 AI 생성 메타데이터 및 주파수 픽셀 신호를 100% 로컬에서 검증합니다.',
-      keywords: '작품 검증, AI 이미지 분석, 오프라인 검증, Ed25519',
+      title: '오프라인 작품 검증, Ed25519 서명 및 QR 확인 | Certified Handmade',
+      description: 'Ed25519 서명, SHA-256 픽셀 무결성, #proof= URL 및 로컬 신뢰 작가 키를 100% 로컬 오프라인에서 검증합니다.',
+      keywords: '작품 검증, Ed25519 서명, 픽셀 무결성, 오프라인 검증',
     },
     tutorial: {
       title: '초보자를 위한 로컬 손그림 DRM 튜토리얼 | Certified Handmade',
@@ -358,9 +358,9 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'Ed25519 키, AES-256-GCM 백업, 로컬 키 관리',
     },
     docs: {
-      title: '암호화 아키텍처, SPEC 및 로컬 AI 포렌식 문서 | Certified Handmade',
-      description: '기술 문서: RFC 8949 CBOR 증명 스키마, SHA-256 무결성 검증, AES-256-GCM 백업 및 AI 신호 분석 규격.',
-      keywords: 'DRM 규격, RFC 8949 CBOR, AES-256-GCM, 로컬 AI 분석',
+      title: '암호화 아키텍처, SPEC 및 라이선스 문서 | Certified Handmade',
+      description: '기술 문서: RFC 8949 CBOR 증명 스키마, SHA-256 무결성 검증, Protocol v1/v2 마스크 규격 및 AES-256-GCM 백업.',
+      keywords: 'DRM 규격, RFC 8949 CBOR, AES-256-GCM, 암호화 아키텍처',
     },
     privacy: {
       title: '개인정보 처리방침 및 GDPR 로컬 전용 안내 | Certified Handmade',
@@ -387,8 +387,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         a: '공개 MIT 사양(SPEC.md) 기반의 RFC 8949 CBOR 포맷으로 증명이 자체 포함되므로, 향후 플랫폼이 사라져도 호환 도구로 검증할 수 있습니다.',
       },
       {
-        q: 'AI 생성 이미지 신호도 로컬에서 판별할 수 있나요?',
-        a: '네. 검증 페이지에서 PNG/JPEG/WebP 메타데이터(C2PA, EXIF, XMP)와 픽셀·스펙트럼 노이즈 신호를 기기 내에서 분석합니다.',
+        q: '외곽 여백 QR(v1)과 인이미지 반투명 QR 스튜디오(v2)는 어떻게 다른가요?',
+        a: 'v1은 작품 바깥 여백에 QR을 배치하며, v2(인이미지 스튜디오)는 SHA-256 계산 시 qrMask 영역만 제외해 QR이 삽입된 PNG와 원본 그림 모두 비트 단위로 무결성 검증이 가능합니다.',
       },
     ],
   },
@@ -410,9 +410,9 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'QR студия, полупрозрачный QR, DRM для рисунков',
     },
     verify: {
-      title: 'Офлайн-проверка подписи и локальный AI-анализ изображений | Certified Handmade',
-      description: 'Проверяйте подпись Ed25519, целостность пикселей, ссылки #proof= и метаданные/пиксельные сигналы ИИ полностью локально.',
-      keywords: 'проверка подлинности, AI форензика, офлайн проверка, Ed25519',
+      title: 'Офлайн-проверка подписи Ed25519, QR и целостности PNG | Certified Handmade',
+      description: 'Проверяйте подпись Ed25519, целостность пикселей SHA-256, ссылки #proof= и доверенные ключи полностью локально.',
+      keywords: 'проверка подлинности, Ed25519, SHA-256, офлайн проверка',
     },
     tutorial: {
       title: 'Пошаговое руководство по локальному DRM для художников | Certified Handmade',
@@ -425,8 +425,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'ключи Ed25519, шифрование AES-256-GCM, локальное хранение ключей',
     },
     docs: {
-      title: 'Спецификация, криптография и AI-форензика | Certified Handmade',
-      description: 'Техническая документация: RFC 8949 CBOR, SHA-256 хеш пикселей RGBA8, AES-256-GCM и локальный анализ ИИ-сигналов.',
+      title: 'Спецификация, криптография и лицензии | Certified Handmade',
+      description: 'Техническая документация: RFC 8949 CBOR, SHA-256 хеш пикселей RGBA8, маски Protocol v1/v2 и AES-256-GCM.',
       keywords: 'спецификация DRM, RFC 8949 CBOR, AES-256-GCM, Ed25519',
     },
     privacy: {
@@ -454,8 +454,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         a: 'Открытый формат RFC 8949 CBOR (SPEC.md) хранит всё необходимое внутри самого файла и QR, позволяя проверять подпись даже без этого сайта.',
       },
       {
-        q: 'Можно ли проверять признаки генерации ИИ локально?',
-        a: 'Да, на странице /verify проверяются метаданные контейнера (C2PA, EXIF, XMP) и спектрально-пиксельные артефакты локально на устройстве.',
+        q: 'Чем внешняя рамка QR (v1) отличается от студии QR внутри изображения (v2)?',
+        a: 'В v1 QR размещается на внешней рамке, а в v2 (Студия QR) маска qrMask исключает только зону полупрозрачного QR перед расчётом SHA-256 — поэтому проверяются и PNG с QR, и оригинал.',
       },
     ],
   },
@@ -477,9 +477,9 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'QR студія, напівпрозорий QR, DRM для малюнків',
     },
     verify: {
-      title: 'Офлайн-перевірка підпису та локальна AI-форензика | Certified Handmade',
-      description: 'Перевіряйте підпис Ed25519, цілісність пікселів, посилання #proof= і сигнали генерації ШІ повністю локально.',
-      keywords: 'перевірка автентичності, AI форензика, офлайн перевірка, Ed25519',
+      title: 'Офлайн-перевірка підпису Ed25519, QR та цілісності PNG | Certified Handmade',
+      description: 'Перевіряйте підпис Ed25519, цілісність пікселів SHA-256, посилання #proof= і довірені ключі повністю локально.',
+      keywords: 'перевірка автентичності, Ed25519, SHA-256, офлайн перевірка',
     },
     tutorial: {
       title: 'Покроковий туторіал з локального DRM для художників | Certified Handmade',
@@ -492,8 +492,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'ключі Ed25519, шифрування AES-256-GCM, локальне керування ключами',
     },
     docs: {
-      title: 'Криптоархітектура, SPEC та AI-форензика | Certified Handmade',
-      description: 'Технічна документація: схема RFC 8949 CBOR, хеш RGBA8 SHA-256, AES-256-GCM і локальний аналіз ШІ-сигналів.',
+      title: 'Криптоархітектура, SPEC та довідник ліцензій | Certified Handmade',
+      description: 'Технічна документація: схема RFC 8949 CBOR, хеш RGBA8 SHA-256, маски Protocol v1/v2 та AES-256-GCM.',
       keywords: 'специфікація DRM, RFC 8949 CBOR, AES-256-GCM, Ed25519',
     },
     privacy: {
@@ -521,8 +521,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         a: 'Відкритий формат RFC 8949 CBOR (SPEC.md) є самодостатнім, тому підпис можна перевірити через роки навіть за відсутності цього сайту.',
       },
       {
-        q: 'Чи можна локально перевіряти сліди генерації ШІ?',
-        a: 'Так. Сторінка /verify локально аналізує метадані контейнера (C2PA, EXIF, XMP) та піксельно-спектральні сигнали без передачі файлів.',
+        q: 'Чим зовнішня рамка QR (v1) відрізняється від студії QR у зображенні (v2)?',
+        a: 'У v1 QR розташовано на зовнішньому полі, а у v2 (Студія QR) маска qrMask виключає лише область напівпрозорого QR перед обчисленням SHA-256, тому перевіряються і PNG з QR, і оригінал.',
       },
     ],
   },
@@ -544,9 +544,9 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'Estudio QR, QR translúcido, DRM ilustración',
     },
     verify: {
-      title: 'Verificar Obra, Prueba QR y Forense IA Local | Certified Handmade',
-      description: 'Verifica firmas Ed25519, integridad de píxeles, enlaces #proof= y metadatos o señales espectrales de IA sin conexión.',
-      keywords: 'verificar obra, forense IA local, verificación offline, Ed25519',
+      title: 'Verificar Obra, Firma Ed25519 y Prueba QR | Certified Handmade',
+      description: 'Verifica firmas Ed25519, integridad de píxeles SHA-256, enlaces #proof= y claves locales de confianza sin conexión.',
+      keywords: 'verificar obra, firma Ed25519, integridad SHA-256, verificación offline',
     },
     tutorial: {
       title: 'Guía Paso a Paso de DRM Local para Artistas | Certified Handmade',
@@ -559,8 +559,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'claves Ed25519, cifrado AES-256-GCM, gestión local de claves',
     },
     docs: {
-      title: 'Arquitectura Criptográfica, SPEC y Forense IA | Certified Handmade',
-      description: 'Referencia técnica: esquema RFC 8949 CBOR, hash RGBA8 SHA-256, AES-256-GCM y detección local de señales IA.',
+      title: 'Arquitectura Criptográfica, SPEC y Guía de Licencias | Certified Handmade',
+      description: 'Referencia técnica: esquema RFC 8949 CBOR, hash RGBA8 SHA-256, máscaras Protocol v1/v2 y cifrado AES-256-GCM.',
       keywords: 'especificación DRM, RFC 8949 CBOR, AES-256-GCM, Ed25519',
     },
     privacy: {
@@ -577,7 +577,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: '¿Funciona realmente 100% local y sin conexión?',
-        a: 'Sí. Toda la criptografía y el análisis se ejecutan en el navegador bajo CSP connect-src \'self\' y funcionan offline como PWA.',
+        a: 'Sí. Toda la criptografía se ejecuta en el navegador bajo CSP connect-src \'self\' y funciona offline como PWA.',
       },
       {
         q: '¿Cómo se cifran las copias de seguridad de las claves?',
@@ -588,8 +588,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         a: 'Al usar RFC 8949 CBOR bajo especificación abierta MIT (SPEC.md), cualquier herramienta compatible podrá verificar tu obra incluso si este sitio cierra.',
       },
       {
-        q: '¿Analiza señales de imágenes generadas por IA localmente?',
-        a: 'Sí, en /verify inspecciona metadatos C2PA/EXIF/XMP y patrones espectrales de píxeles en el dispositivo sin subir nada.',
+        q: '¿En qué se diferencian el marco QR exterior (v1) y el Estudio QR en imagen (v2)?',
+        a: 'En v1 el QR va en el margen exterior; en v2 (Estudio QR) una máscara qrMask excluye solo el QR translúcido antes del SHA-256, permitiendo verificar tanto el PNG firmado como el original.',
       },
     ],
   },
@@ -611,9 +611,9 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'Studio QR, QR translucide, DRM dessin',
     },
     verify: {
-      title: 'Vérifier une Œuvre, QR et Analyse IA Locale | Certified Handmade',
-      description: 'Vérifiez signatures Ed25519, intégrité des pixels, liens #proof= et signaux IA hors-ligne en local.',
-      keywords: 'vérifier œuvre, forensique IA locale, vérification hors-ligne',
+      title: 'Vérifier une Œuvre, Signature Ed25519 et Preuve QR | Certified Handmade',
+      description: 'Vérifiez signatures Ed25519, intégrité SHA-256 des pixels, liens #proof= et clés locales de confiance hors-ligne.',
+      keywords: 'vérifier œuvre, signature Ed25519, intégrité SHA-256, vérification hors-ligne',
     },
     tutorial: {
       title: 'Tutoriel Pas à Pas du DRM Artistique Local | Certified Handmade',
@@ -626,8 +626,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'clés Ed25519, chiffrement AES-256-GCM, gestion locale des clés',
     },
     docs: {
-      title: 'Architecture Cryptographique, SPEC et Forensique IA | Certified Handmade',
-      description: 'Documentation technique : schéma RFC 8949 CBOR, condensé SHA-256 RGBA8, AES-256-GCM et analyse IA locale.',
+      title: 'Architecture Cryptographique, SPEC et Licences | Certified Handmade',
+      description: 'Documentation technique : schéma RFC 8949 CBOR, condensé SHA-256 RGBA8, masques Protocol v1/v2 et AES-256-GCM.',
       keywords: 'spécification DRM, RFC 8949 CBOR, AES-256-GCM, Ed25519',
     },
     privacy: {
@@ -655,8 +655,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         a: 'Le format ouvert RFC 8949 CBOR (SPEC.md) est autonome : la preuve reste vérifiable même si le site disparaît un jour.',
       },
       {
-        q: 'Peut-on inspecter les traces de génération IA localement ?',
-        a: 'Oui, /verify inspecte localement les métadonnées C2PA/EXIF/XMP et les signaux spectraux de pixels sans téléversement.',
+        q: 'Quelle différence entre la bordure QR (v1) et le Studio QR dans l’image (v2) ?',
+        a: 'En v1 le QR est placé dans la marge extérieure ; en v2 (Studio QR) un masque qrMask exclut uniquement le QR translucide avant le calcul SHA-256, permettant de vérifier le PNG signé comme l’original.',
       },
     ],
   },
@@ -678,9 +678,9 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'QR Studio, transparenter QR-Code, Kunst-DRM',
     },
     verify: {
-      title: 'Werk offline prüfen & lokale KI-Forensik | Certified Handmade',
-      description: 'Prüfen Sie Ed25519-Signaturen, Pixelintegrität, #proof=-Links und KI-Metadaten/Spektralsignale vollständig lokal.',
-      keywords: 'Werk prüfen, lokale KI-Forensik, Offline-Verifizierung',
+      title: 'Werk, Ed25519-Signatur & QR-Nachweis offline prüfen | Certified Handmade',
+      description: 'Prüfen Sie Ed25519-Signaturen, SHA-256-Pixelintegrität, #proof=-Links und lokal vertraute Schlüssel komplett offline.',
+      keywords: 'Werk prüfen, Ed25519 Signatur, Pixelintegrität, Offline-Verifizierung',
     },
     tutorial: {
       title: 'Schritt-für-Schritt-Anleitung für lokales Kunst-DRM | Certified Handmade',
@@ -693,8 +693,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'Ed25519 Schlüssel, AES-256-GCM Backup, lokale Schlüsselverwaltung',
     },
     docs: {
-      title: 'Kryptografie-Architektur, SPEC & KI-Forensik-Doku | Certified Handmade',
-      description: 'Technische Spezifikation: RFC 8949 CBOR, RGBA8 SHA-256, AES-256-GCM und lokale KI-Signalanalyse.',
+      title: 'Kryptografie-Architektur, SPEC & Lizenz-Doku | Certified Handmade',
+      description: 'Technische Spezifikation: RFC 8949 CBOR, RGBA8 SHA-256, Protocol v1/v2 Masken und AES-256-GCM.',
       keywords: 'DRM Spezifikation, RFC 8949 CBOR, AES-256-GCM, Ed25519',
     },
     privacy: {
@@ -722,8 +722,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         a: 'Dank offenem RFC 8949 CBOR-Schema (SPEC.md) bleibt der Nachweis dauerhaft prüfbar, selbst wenn diese Website nicht mehr existiert.',
       },
       {
-        q: 'Kann auch lokal auf KI-Generierungssignale geprüft werden?',
-        a: 'Ja, unter /verify werden Container-Metadaten (C2PA, EXIF, XMP) und Pixel-/Spektralsignale lokal auf Ihrem Gerät analysiert.',
+        q: 'Wie unterscheiden sich Außenrand-QR (v1) und das In-Image QR-Studio (v2)?',
+        a: 'In v1 liegt der QR außerhalb der Grafik; in v2 (In-Image Studio) schließt eine qrMask vor dem SHA-256 nur den halbtransparenten QR-Bereich aus, sodass sowohl signiertes PNG als auch Original prüfbar bleiben.',
       },
     ],
   },
@@ -745,9 +745,9 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'Estúdio QR, QR translúcido, DRM desenho',
     },
     verify: {
-      title: 'Verificar Arte, Prova QR e Forense IA Local | Certified Handmade',
-      description: 'Valide assinaturas Ed25519, integridade de pixels, links #proof= e sinais/metadados de IA 100% offline.',
-      keywords: 'verificar obra, forense IA local, verificação offline',
+      title: 'Verificar Arte, Assinatura Ed25519 e Prova QR | Certified Handmade',
+      description: 'Valide assinaturas Ed25519, integridade de pixels SHA-256, links #proof= e chaves confiáveis 100% offline.',
+      keywords: 'verificar obra, assinatura Ed25519, integridade SHA-256, verificação offline',
     },
     tutorial: {
       title: 'Guia Passo a Passo de DRM Artístico Local | Certified Handmade',
@@ -760,8 +760,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'chaves Ed25519, backup AES-256-GCM, gestão local de chaves',
     },
     docs: {
-      title: 'Arquitetura Criptográfica, SPEC e Forense IA | Certified Handmade',
-      description: 'Documentação técnica: esquema RFC 8949 CBOR, hash SHA-256 RGBA8, AES-256-GCM e inspeção local de IA.',
+      title: 'Arquitetura Criptográfica, SPEC e Licenças | Certified Handmade',
+      description: 'Documentação técnica: esquema RFC 8949 CBOR, hash SHA-256 RGBA8, máscaras Protocol v1/v2 e AES-256-GCM.',
       keywords: 'especificação DRM, RFC 8949 CBOR, AES-256-GCM',
     },
     privacy: {
@@ -789,8 +789,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         a: 'O padrão aberto RFC 8949 CBOR (SPEC.md) torna a prova autossuficiente mesmo que este site deixe de existir.',
       },
       {
-        q: 'É possível inspecionar sinais de IA localmente?',
-        a: 'Sim, /verify analisa metadados C2PA/EXIF/XMP e padrões espectrais localmente sem enviar arquivos.',
+        q: 'Qual a diferença entre a borda QR (v1) e o Estúdio QR na imagem (v2)?',
+        a: 'Na v1 o QR fica na margem externa; na v2 (Estúdio QR) uma máscara qrMask exclui apenas a área translúcida antes do SHA-256, verificando tanto o PNG assinado quanto o original.',
       },
     ],
   },
@@ -812,9 +812,9 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'Studio QR, QR traslucido, DRM disegno',
     },
     verify: {
-      title: 'Verifica Opera, Prova QR e Forense IA Locale | Certified Handmade',
-      description: 'Verifica firme Ed25519, integrità dei pixel, link #proof= e segnali o metadati IA interamente offline.',
-      keywords: 'verifica opera, forense IA locale, verifica offline',
+      title: 'Verifica Opera, Firma Ed25519 e Prova QR | Certified Handmade',
+      description: 'Verifica firme Ed25519, integrità SHA-256 dei pixel, link #proof= e chiavi fidate locali interamente offline.',
+      keywords: 'verifica opera, firma Ed25519, integrità SHA-256, verifica offline',
     },
     tutorial: {
       title: 'Guida Passo-Passo al DRM Locale per Artisti | Certified Handmade',
@@ -827,8 +827,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'chiavi Ed25519, cifratura AES-256-GCM, gestione chiavi locale',
     },
     docs: {
-      title: 'Architettura Crittografica, SPEC e Forense IA | Certified Handmade',
-      description: 'Riferimento tecnico: schema RFC 8949 CBOR, digest SHA-256 RGBA8, AES-256-GCM e analisi locale IA.',
+      title: 'Architettura Crittografica, SPEC e Licenze | Certified Handmade',
+      description: 'Riferimento tecnico: schema RFC 8949 CBOR, digest SHA-256 RGBA8, maschere Protocol v1/v2 e AES-256-GCM.',
       keywords: 'specifica DRM, RFC 8949 CBOR, AES-256-GCM',
     },
     privacy: {
@@ -856,8 +856,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         a: 'Lo standard aperto RFC 8949 CBOR (SPEC.md) rende la prova verificabile anche se questo sito dovesse chiudere.',
       },
       {
-        q: 'È possibile rilevare segnali di immagini IA in locale?',
-        a: 'Sì, /verify esamina metadati C2PA/EXIF/XMP e segnali spettrali localmente sul dispositivo.',
+        q: 'Qual è la differenza tra bordo QR esterno (v1) e Studio QR nell’immagine (v2)?',
+        a: 'In v1 il QR sta sul margine esterno; in v2 (Studio QR) una maschera qrMask esclude solo l’area QR traslucida prima dell’hash SHA-256, verificando sia il PNG firmato che l’originale.',
       },
     ],
   },
@@ -879,9 +879,9 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'استوديو QR, رمز QR شفاف, حماية الرسم اليدوي',
     },
     verify: {
-      title: 'التحقق من العمل الفني وفحص إشارات الذكاء الاصطناعي محلياً | Certified Handmade',
-      description: 'تحقق من توقيع Ed25519 وسلامة البكسل وروابط #proof= وإشارات الذكاء الاصطناعي محلياً دون اتصال.',
-      keywords: 'التحقق من الرسم, فحص AI محلي, تحقق بدون إنترنت',
+      title: 'التحقق من العمل الفني وتوقيع Ed25519 ورمز QR محلياً | Certified Handmade',
+      description: 'تحقق من توقيع Ed25519 وسلامة البكسل SHA-256 وروابط #proof= ومفاتيح الثقة المحلية دون اتصال.',
+      keywords: 'التحقق من الرسم, توقيع Ed25519, سلامة SHA-256, تحقق بدون إنترنت',
     },
     tutorial: {
       title: 'دليل خطوة بخطوة لحماية الرسم اليدوي محلياً | Certified Handmade',
@@ -894,8 +894,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords: 'مفاتيح Ed25519, تشفير AES-256-GCM, إدارة المفاتيح المحلية',
     },
     docs: {
-      title: 'البنية التشفيرية ومواصفات SPEC وفحص الذكاء الاصطناعي | Certified Handmade',
-      description: 'المرجع التقني: مخطط RFC 8949 CBOR وتجزئة SHA-256 وتشفيرات AES-256-GCM وفحص إشارات AI.',
+      title: 'البنية التشفيرية ومواصفات SPEC ودليل الرخص | Certified Handmade',
+      description: 'المرجع التقني: مخطط RFC 8949 CBOR وتجزئة SHA-256 وأقنعة Protocol v1/v2 وتشفير AES-256-GCM.',
       keywords: 'مواصفات DRM, RFC 8949 CBOR, AES-256-GCM',
     },
     privacy: {
@@ -923,8 +923,8 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         a: 'لأن الصيغة المفتوحة RFC 8949 CBOR (SPEC.md) تحفظ الإثبات بشكل ذاتي، ما يسمح بالتحقق حتى لو توقف الموقع مستقبلاً.',
       },
       {
-        q: 'هل يمكن فحص إشارات الصور المولدة بالذكاء الاصطناعي محلياً؟',
-        a: 'نعم، يفحص /verify البيانات الوصفية C2PA/EXIF/XMP والإشارات الطيفية على جهازك دون رفع الصور.',
+        q: 'ما الفرق بين الإطار الخارجي لـ QR (v1) واستوديو QR داخل الصورة (v2)؟',
+        a: 'يضع الإصدار v1 الرمز في الهامش الخارجي، بينما يستبعد استوديو QR (v2) منطقة الرمز الشفاف عبر qrMask قبل حساب SHA-256، ليتحقق كل من PNG الموقّع والرسم الأصلي بدقة البت.',
       },
     ],
   },

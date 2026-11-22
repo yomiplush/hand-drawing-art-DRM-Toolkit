@@ -126,7 +126,7 @@ test.describe('Certified Handmade E2E suite', () => {
     const verifyHref = await page.getByTestId('open-local-verify').getAttribute('href');
     expect(verifyHref).toContain('/verify#proof=');
 
-    // 3. Upload signed PNG on /verify -> reads QR + matches embedded artwork region + runs local signal assessment
+    // 3. Upload signed PNG on /verify -> reads QR + matches embedded artwork region (3 crisp dimensions, no Dimension D)
     await page.goto('/verify');
     await page.getByTestId('verify-image-input').setInputFiles(signedPngPath);
     await expect(page.getByTestId('verification-results')).toBeVisible();
@@ -134,11 +134,8 @@ test.describe('Certified Handmade E2E suite', () => {
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
     await expect(page.getByTestId('status-identity')).toContainText('Unknown / Unverified Key');
-    await expect(page.getByTestId('status-assessment')).toContainText('Local Signals Checked');
-    await expect(page.getByTestId('assessment-details-card')).toContainText('160 × 120 px');
-    await expect(page.getByTestId('assessment-details-card')).toContainText(
-      'No AI generator metadata tags found',
-    );
+    await expect(page.getByTestId('status-assessment')).toHaveCount(0);
+    await expect(page.getByTestId('assessment-details-card')).toHaveCount(0);
 
     // Trust this key locally from /verify
     await page.getByTestId('verify-trust-label-input').fill('YomiPlush Official');
@@ -147,16 +144,14 @@ test.describe('Certified Handmade E2E suite', () => {
       'Locally Trusted Key (YomiPlush Official)',
     );
 
-    // 4. Direct navigation to /verify#proof=... (without image first -> Not Assessed, then attach original PNG -> Local Signals Checked, then tampered PNG)
+    // 4. Direct navigation to /verify#proof=... (without image first -> Not Checked, then attach original PNG -> Matched, then tampered PNG)
     await page.goto(verifyHref!);
     await expect(page.getByTestId('verify-proof-artwork-cta')).toBeVisible();
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
     await expect(page.getByTestId('status-integrity')).toContainText('Not Checked');
-    await expect(page.getByTestId('status-assessment')).toContainText('Not Assessed');
 
     await page.getByTestId('verify-attach-artwork-input').setInputFiles(artPath);
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
-    await expect(page.getByTestId('status-assessment')).toContainText('Local Signals Checked');
 
     // Tamper 1 pixel in artwork and verify Mismatched detection
     const decodedArt = decodePng(fs.readFileSync(artPath));
@@ -224,7 +219,7 @@ test.describe('Certified Handmade E2E suite', () => {
     );
 
     await page.goto('/docs');
-    await expect(page).toHaveTitle(/Cryptographic Architecture, SPEC & AI Forensics/);
+    await expect(page).toHaveTitle(/Cryptographic Architecture, SPEC & License Docs/);
     await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute(
       'href',
       'https://certified-handmade.com/docs',
@@ -391,7 +386,6 @@ test.describe('Certified Handmade E2E suite', () => {
 
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
-    await expect(page.getByTestId('status-assessment')).toContainText('Local Signals Checked');
 
     // Simulate PWA Share Target handoff (?shared=1 via Cache Storage 'chm-share-target-v1')
     await page.evaluate(async (bytes) => {
@@ -554,7 +548,6 @@ test.describe('Certified Handmade E2E suite', () => {
 
     await page.getByTestId('verify-attach-artwork-input').setInputFiles(artPath);
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
-    await expect(page.getByTestId('status-assessment')).toContainText('Local Signals Checked');
 
     await context.setOffline(false);
   });
