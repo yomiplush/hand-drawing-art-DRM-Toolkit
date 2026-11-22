@@ -1,0 +1,230 @@
+import { computePublicKeyFingerprint } from '../crypto/ed25519';
+import { hashCanonicalRaster } from '../image/canonicalRaster';
+import { assertArtworkInputBounds, encodeCanonicalRgba8ToPng } from '../image/pngCodec';
+import type { CanonicalRaster } from '../image/pngCodec';
+import { burnQrIntoRaster, computeBurnLayout } from '../image/qrBurner';
+import type { BurnLayout, QrBurnOptions } from '../image/qrBurner';
+import { generateQrMatrix } from '../qr/qrGenerator';
+import { signWithAuthorKey } from '../storage/keyStore';
+import type { AuthorKeyRecord } from '../storage/keyStore';
+import {
+  buildSigningMessage,
+  encodeSignedProofEnvelope,
+  encodeUnsignedPayload,
+  formatUuidHex,
+  generateArtworkId,
+} from './cborCodec';
+import { buildProofUrl } from './proofUrl';
+import { DEFAULT_VERIFY_BASE_URL, PROTOCOL_VERSION } from './types';
+import type { ArtworkRegion, LicenseDeclaration, SignedManifest, UnsignedManifest } from './types';
+
+export interface SignedArtworkResult {
+  pngBytes: Uint8Array;
+  raster: CanonicalRaster;
+  layout: BurnLayout;
+  manifest: SignedManifest;
+  proofBytes: Uint8Array;
+  proofUrl: string;
+  qrVersion: number;
+  qrModules: number;
+}
+
+export async function createSignedArtworkPng(params: {
+  artworkRaster: CanonicalRaster;
+  authorKey: AuthorKeyRecord;
+  passphraseIfEncrypted?: string;
+  authorName?: string;
+  artworkTitle?: string;
+  license: LicenseDeclaration;
+  burnOptions: QrBurnOptions;
+  verifyBaseUrl?: string;
+  issuedAt?: number;
+}): Promise<SignedArtworkResult> {
+  const {
+    artworkRaster,
+    authorKey,
+    passphraseIfEncrypted,
+    authorName,
+    artworkTitle,
+    license,
+    burnOptions,
+    verifyBaseUrl = DEFAULT_VERIFY_BASE_URL,
+    issuedAt = Math.floor(Date.now() / 1000),
+  } = params;
+
+  assertArtworkInputBounds(artworkRaster);
+
+  const sha256 = await hashCanonicalRaster(artworkRaster);
+  const artworkId = generateArtworkId();
+  const artworkIdHex = formatUuidHex(artworkId);
+  const dummySig = new Uint8Array(64);
+
+  // Converge QR module size and artwork region coordinates (max 3 iterations)
+  let currentRegion: ArtworkRegion = [
+    burnOptions.marginPx,
+    burnOptions.marginPx,
+    artworkRaster.width,
+    artworkRaster.height,
+  ];
+  let qrModules = 45;
+
+  for (let pass = 0; pass < 3; pass++) {
+    const prelimManifest: UnsignedManifest = {
+      version: PROTOCOL_VERSION,
+      artworkId,
+      publicKey: authorKey.publicKey,
+      sha256,
+      region: currentRegion,
+      issuedAt,
+      license,
+      authorName,
+      artworkTitle,
+    };
+    const prelimPayload = encodeUnsignedPayload(prelimManifest);
+    const prelimProof = encodeSignedProofEnvelope(prelimPayload, dummySig);
+    const prelimUrl = buildProofUrl(prelimProof, verifyBaseUrl);
+    const prelimQr = generateQrMatrix(prelimUrl, 'M');
+    const prelimLayout = computeBurnLayout(
+      artworkRaster.width,
+      artworkRaster.height,
+      prelimQr.size,
+      burnOptions,
+    );
+
+    const sameRegion =
+      prelimLayout.artRegion[0] === currentRegion[0] &&
+      prelimLayout.artRegion[1] === currentRegion[1] &&
+      prelimLayout.artRegion[2] === currentRegion[2] &&
+      prelimLayout.artRegion[3] === currentRegion[3];
+
+    qrModules = prelimQr.size;
+    currentRegion = prelimLayout.artRegion;
+    if (sameRegion && pass > 0) {
+      break;
+    }
+  }
+
+  const unsignedManifest: UnsignedManifest = {
+    version: PROTOCOL_VERSION,
+    artworkId,
+    publicKey: authorKey.publicKey,
+    sha256,
+    region: currentRegion,
+    issuedAt,
+    license,
+    authorName,
+    artworkTitle,
+  };
+
+  const payloadBytes = encodeUnsignedPayload(unsignedManifest);
+  const signingMessage = buildSigningMessage(payloadBytes);
+  const signature = await signWithAuthorKey(authorKey, signingMessage, passphraseIfEncrypted);
+  const proofBytes = encodeSignedProofEnvelope(payloadBytes, signature);
+  const proofUrl = buildProofUrl(proofBytes, verifyBaseUrl);
+  const qrMatrix = generateQrMatrix(proofUrl, 'M');
+
+  // Verify layout matches converged module count
+  const convergedLayout = computeBurnLayout(
+    artworkRaster.width,
+    artworkRaster.height,
+    qrMatrix.size,
+    burnOptions,
+  );
+  if (
+    convergedLayout.artRegion[0] !== currentRegion[0] ||
+    convergedLayout.artRegion[1] !== currentRegion[1] ||
+    qrMatrix.size !== qrModules
+  ) {
+    // Re-sign once with exact converged region if boundary crossed
+    unsignedManifest.region = convergedLayout.artRegion;
+    const retryPayload = encodeUnsignedPayload(unsignedManifest);
+    const retryMsg = buildSigningMessage(retryPayload);
+    const retrySig = await signWithAuthorKey(authorKey, retryMsg, passphraseIfEncrypted);
+    const retryProof = encodeSignedProofEnvelope(retryPayload, retrySig);
+    const retryUrl = buildProofUrl(retryProof, verifyBaseUrl);
+    const retryQr = generateQrMatrix(retryUrl, 'M');
+    return finalizeSignedPng({
+      artworkRaster,
+      unsignedManifest,
+      signature: retrySig,
+      proofBytes: retryProof,
+      proofUrl: retryUrl,
+      qrMatrix: retryQr,
+      artworkIdHex,
+      burnOptions,
+    });
+  }
+
+  return finalizeSignedPng({
+    artworkRaster,
+    unsignedManifest,
+    signature,
+    proofBytes,
+    proofUrl,
+    qrMatrix,
+    artworkIdHex,
+    burnOptions,
+  });
+}
+
+async function finalizeSignedPng(params: {
+  artworkRaster: CanonicalRaster;
+  unsignedManifest: UnsignedManifest;
+  signature: Uint8Array;
+  proofBytes: Uint8Array;
+  proofUrl: string;
+  qrMatrix: ReturnType<typeof generateQrMatrix>;
+  artworkIdHex: string;
+  burnOptions: QrBurnOptions;
+}): Promise<SignedArtworkResult> {
+  const {
+    artworkRaster,
+    unsignedManifest,
+    signature,
+    proofBytes,
+    proofUrl,
+    qrMatrix,
+    artworkIdHex,
+    burnOptions,
+  } = params;
+
+  const fp = await computePublicKeyFingerprint(unsignedManifest.publicKey);
+  const titleLine = unsignedManifest.artworkTitle
+    ? unsignedManifest.artworkTitle
+    : unsignedManifest.authorName
+      ? `By ${unsignedManifest.authorName}`
+      : `Artwork ${artworkIdHex.slice(0, 8).toUpperCase()}`;
+
+  const labelLines = burnOptions.labelLines ?? [
+    'CERTIFIED HANDMADE · PROVENANCE',
+    titleLine,
+    `KEY ${fp.shortDisplay}`,
+    `LIC ${unsignedManifest.license.licenseId} · ID ${artworkIdHex.slice(0, 13)}`,
+  ];
+
+  const { raster, layout } = burnQrIntoRaster(artworkRaster, qrMatrix, {
+    ...burnOptions,
+    labelLines,
+  });
+
+  const pngBytes = encodeCanonicalRgba8ToPng(raster, {
+    Software: 'Certified Handmade v1',
+    'CHM-Protocol': '1',
+    'CHM-Artwork-ID': artworkIdHex,
+  });
+
+  return {
+    pngBytes,
+    raster,
+    layout,
+    manifest: {
+      ...unsignedManifest,
+      artworkIdHex,
+      signature,
+    },
+    proofBytes,
+    proofUrl,
+    qrVersion: qrMatrix.version,
+    qrModules: qrMatrix.size,
+  };
+}
