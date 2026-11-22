@@ -76,6 +76,9 @@ export function SeoHead() {
     } else if (pathname === '/keys') {
       canonicalPath = '/keys';
       meta = t.seo.keys;
+    } else if (pathname === '/exchange') {
+      canonicalPath = '/exchange';
+      meta = t.seo.exchange ?? t.seo.keys;
     } else if (pathname === '/docs') {
       canonicalPath = '/docs';
       meta = t.seo.docs;

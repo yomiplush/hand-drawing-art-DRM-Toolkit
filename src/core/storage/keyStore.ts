@@ -1,3 +1,4 @@
+import { parsePublicKeyExchangeInput } from '@yomiplush/chm-exchange/core';
 import {
   computePublicKeyFingerprint,
   generateEd25519KeyMaterial,
@@ -8,7 +9,7 @@ import {
 } from '../crypto/ed25519';
 import { decryptKeyBackup, encryptKeyBackup } from '../crypto/keyBackup';
 import type { EncryptedKeyBackup } from '../crypto/keyBackup';
-import { base64UrlDecode, base64UrlEncode } from '../crypto/sha256';
+import { base64UrlEncode } from '../crypto/sha256';
 
 const DB_NAME = 'certified-handmade-store';
 const DB_VERSION = 1;
@@ -281,34 +282,15 @@ export async function addTrustedKey(params: {
   label: string;
   note?: string;
 }): Promise<TrustedKeyRecord> {
-  let publicKeyBytes: Uint8Array;
-  let defaultLabel = params.label.trim();
-  const trimmed = params.publicKeyInput.trim();
+  const imported = parsePublicKeyExchangeInput(params.publicKeyInput);
+  const resolvedLabel = params.label.trim() || imported.displayName || 'Trusted Artist';
 
-  if (trimmed.startsWith('{')) {
-    const parsed = JSON.parse(trimmed) as Partial<PublicKeyExportBundle>;
-    if (parsed.format !== 'certified-handmade-public-key' || typeof parsed.publicKey !== 'string') {
-      throw new Error('Invalid Certified Handmade public key bundle JSON');
-    }
-    publicKeyBytes = base64UrlDecode(parsed.publicKey);
-    if (!defaultLabel && typeof parsed.label === 'string') {
-      defaultLabel = parsed.label.trim();
-    }
-  } else {
-    publicKeyBytes = base64UrlDecode(trimmed);
-  }
-
-  if (publicKeyBytes.length !== 32) {
-    throw new Error('Ed25519 public key must decode to exactly 32 bytes');
-  }
-
-  const fp = await computePublicKeyFingerprint(publicKeyBytes);
   const record: TrustedKeyRecord = {
-    publicKeyBase64Url: base64UrlEncode(publicKeyBytes),
-    publicKey: publicKeyBytes,
-    fingerprintHex: fp.fullHex,
-    fingerprintShort: fp.shortDisplay,
-    label: defaultLabel.slice(0, 64) || 'Trusted Artist',
+    publicKeyBase64Url: imported.publicKeyBase64Url,
+    publicKey: imported.publicKeyBytes,
+    fingerprintHex: imported.fingerprintHex,
+    fingerprintShort: imported.fingerprintShort,
+    label: resolvedLabel.slice(0, 64) || 'Trusted Artist',
     note: params.note?.trim().slice(0, 200) || undefined,
     addedAt: new Date().toISOString(),
   };

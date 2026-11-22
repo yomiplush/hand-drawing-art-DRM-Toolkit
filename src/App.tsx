@@ -15,6 +15,7 @@ import { I18nProvider } from './i18n';
 import { useI18n } from './i18n/context';
 import { CreateCertificatePage } from './pages/CreateCertificatePage';
 import { DocsPage } from './pages/DocsPage';
+import { ExchangePage } from './pages/ExchangePage';
 import { HomePage } from './pages/HomePage';
 import { KeysPage } from './pages/KeysPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
@@ -111,6 +112,7 @@ function AppRoutes() {
           <Route path="/qr-studio" element={<Navigate to="/create?mode=studio" replace />} />
           <Route path="/verify" element={<VerifyCertificatePage />} />
           <Route path="/keys" element={<KeysPage />} />
+          <Route path="/exchange" element={<ExchangePage />} />
           <Route path="/docs" element={<DocsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

@@ -18,6 +18,7 @@ export interface SeoTranslations {
   verify: SeoPageMeta;
   tutorial: SeoPageMeta;
   keys: SeoPageMeta;
+  exchange?: SeoPageMeta;
   docs: SeoPageMeta;
   privacy: SeoPageMeta;
   homeFaqTitle: string;
@@ -61,6 +62,13 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         'Beginner-friendly standalone guide: generate an encrypted Ed25519 signing key, embed a verification QR into your hand-drawn PNG, and choose ARR or Creative Commons licenses.',
       keywords:
         'Art DRM Tutorial, Hand-drawing Artist Guide, Ed25519 Key Setup, Artwork Licensing Guide, Local-First Signing',
+    },
+    exchange: {
+      title: 'CHM Public-Key Exchange — Share & Verify Ed25519 Keys | Certified Handmade',
+      description:
+        'Share your Ed25519 artist public key via portable #key= URLs, QR codes, or JSON, and verify SHA-256 fingerprints locally offline without servers.',
+      keywords:
+        'CHM-Exchange, Ed25519 Public-Key Exchange, Artist Fingerprint Verification, QR Key Sharing, Offline Trust',
     },
     keys: {
       title: 'Local Signing Keys & AES-256-GCM Encrypted Backup | Certified Handmade',
@@ -144,6 +152,13 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         '初心者向けチュートリアル：ローカル暗号鍵の作成、手描きイラストへのQR証明書埋め込み、ARR（無断利用禁止）やクリエイティブ・コモンズライセンスの選び方をわかりやすく解説。',
       keywords:
         '手描きDRM 使い方, イラスト保護, 暗号鍵作成, ライセンス解説, スタンドアローン',
+    },
+    exchange: {
+      title: 'CHM 公開鍵エクスチェンジ — Ed25519 公開鍵の共有・ローカル検証 | Certified Handmade',
+      description:
+        'Ed25519作者公開鍵を #key= URL・QRコード・JSONで安全に共有し、サーバー送信なしでSHA-256フィンガープリントをローカル検証・信頼登録できます。',
+      keywords:
+        'CHM-Exchange, Ed25519 公開鍵交換, フィンガープリント検証, QR公開鍵共有, 完全ローカル',
     },
     keys: {
       title: 'ローカル署名鍵管理＆AES-256-GCM暗号化バックアップ | Certified Handmade',
