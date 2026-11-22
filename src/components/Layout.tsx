@@ -10,6 +10,7 @@ import {
   KeyRound,
   Menu,
   RefreshCw,
+  Share2,
   ShieldCheck,
   WifiOff,
   X,
@@ -58,6 +59,7 @@ export function Layout({
     { to: '/create', label: t.nav.create, icon: FileSignature, end: false },
     { to: '/verify', label: t.nav.verify, icon: ShieldCheck, end: false },
     { to: '/keys', label: t.nav.keys, icon: KeyRound, end: false },
+    { to: '/exchange', label: t.nav.exchange, icon: Share2, end: false },
     { to: '/docs', label: t.nav.docs, icon: BookOpen, end: false },
   ];
 
@@ -258,6 +260,9 @@ export function Layout({
               className="hover:text-white transition-colors"
             >
               {t.tutorial.navLabel}
+            </Link>
+            <Link to="/exchange" className="hover:text-white transition-colors">
+              {t.nav.exchange}
             </Link>
             <Link to="/docs" className="hover:text-white transition-colors">
               {t.nav.docs}

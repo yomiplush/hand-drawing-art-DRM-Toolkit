@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   AlertTriangle,
   Camera,
@@ -7,6 +7,7 @@ import {
   ClipboardPaste,
   FileImage,
   Link2,
+  Share2,
   ShieldAlert,
   ShieldCheck,
   XCircle,
@@ -738,6 +739,17 @@ export function VerifyCertificatePage() {
                   {t.verify.trustedAlready} {trustSavedMsg}
                 </p>
               )}
+
+              <div className="pt-1">
+                <Link
+                  to={`/exchange?inspect=${encodeURIComponent(base64UrlEncode(result.manifest.publicKey))}`}
+                  data-testid="verify-inspect-exchange-link"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/35 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20 min-h-[38px]"
+                >
+                  <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{t.verify.inspectInExchangeBtn}</span>
+                </Link>
+              </div>
             </section>
           )}
         </div>

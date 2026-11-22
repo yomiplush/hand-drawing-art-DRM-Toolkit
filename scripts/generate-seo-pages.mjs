@@ -64,6 +64,17 @@ const ROUTES = [
       'Generate Ed25519 signing keys exclusively on your device and export passphrase-encrypted .chkey.json backups with 310,000 PBKDF2-SHA256 iterations.',
   },
   {
+    slug: 'exchange',
+    title: 'CHM Public-Key Exchange — Share & Verify Ed25519 Artist Keys | Certified Handmade',
+    description:
+      'Share your Ed25519 artist public key via portable #key= URLs, QR codes, or JSON and verify SHA-256 fingerprints locally offline with CHM-Exchange.',
+    keywords:
+      'CHM-Exchange, Ed25519 Public-Key Exchange, Artist Fingerprint Verification, QR Key Sharing, 公開鍵交換, フィンガープリント',
+    heading: 'CHM Public-Key Exchange',
+    summary:
+      'Generate portable #key= exchange URLs, downloadable QR PNGs, and JSON public-key bundles, and confirm local trust explicitly offline.',
+  },
+  {
     slug: 'docs',
     title: 'Cryptographic Architecture, SPEC & License Docs | Certified Handmade',
     description:
@@ -142,7 +153,7 @@ for (const route of ROUTES) {
   );
   html = html.replace(
     /<main[\s\S]*?<\/main>/,
-    `<main style="max-width:56rem;margin:0 auto;padding:2rem 1.25rem;font-family:system-ui,-apple-system,sans-serif;line-height:1.6;color:#e2e8f0"><h1>${escapeHtml(route.heading)}</h1><p>${escapeHtml(route.summary)}</p><nav aria-label="Primary pages"><a href="/">Home</a> · <a href="/create">Create</a> · <a href="/verify">Verify</a> · <a href="/tutorial">Tutorial</a> · <a href="/keys">Keys</a> · <a href="/docs">Docs</a></nav></main>`,
+    `<main style="max-width:56rem;margin:0 auto;padding:2rem 1.25rem;font-family:system-ui,-apple-system,sans-serif;line-height:1.6;color:#e2e8f0"><h1>${escapeHtml(route.heading)}</h1><p>${escapeHtml(route.summary)}</p><nav aria-label="Primary pages"><a href="/">Home</a> · <a href="/create">Create</a> · <a href="/verify">Verify</a> · <a href="/tutorial">Tutorial</a> · <a href="/keys">Keys</a> · <a href="/exchange">Exchange</a> · <a href="/docs">Docs</a></nav></main>`,
   );
 
   const outPath = path.join(distDir, `${route.slug}.html`);

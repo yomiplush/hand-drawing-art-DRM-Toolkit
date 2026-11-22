@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   AlertTriangle,
   Check,
@@ -6,6 +7,7 @@ import {
   Download,
   KeyRound,
   PlusCircle,
+  Share2,
   ShieldCheck,
   Trash2,
   Upload,
@@ -375,6 +377,15 @@ export function KeysPage() {
                     <span>{t.keys.exportPublicBtn}</span>
                   </button>
 
+                  <Link
+                    to={`/exchange?identity=${encodeURIComponent(k.id)}`}
+                    data-testid="keys-share-exchange-link"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/35 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20 min-h-[38px]"
+                  >
+                    <Share2 className="h-3.5 w-3.5" />
+                    <span>{t.keys.shareViaExchangeBtn}</span>
+                  </Link>
+
                   {k.encryptedBackup && (
                     <button
                       type="button"
@@ -402,12 +413,22 @@ export function KeysPage() {
       </section>
 
       <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-5">
-        <div className="space-y-1">
-          <h2 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-emerald-400" aria-hidden="true" />
-            <span>{t.keys.trustedTitle}</span>
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-400">{t.keys.trustedSubtitle}</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <h2 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-emerald-400" aria-hidden="true" />
+              <span>{t.keys.trustedTitle}</span>
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-400">{t.keys.trustedSubtitle}</p>
+          </div>
+          <Link
+            to="/exchange?tab=trusted"
+            data-testid="keys-open-exchange-link"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/35 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20 self-start sm:self-center shrink-0 min-h-[38px]"
+          >
+            <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>{t.keys.openExchangeTrustedBtn}</span>
+          </Link>
         </div>
 
         <form onSubmit={handleAddTrusted} className="grid grid-cols-1 md:grid-cols-3 gap-3">
