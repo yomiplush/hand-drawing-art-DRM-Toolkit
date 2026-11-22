@@ -13,6 +13,7 @@ import { ar, de, es, fr, it, pt } from './locales/europeanAndArabic';
 import { ru, uk } from './locales/slavic';
 import { QR_STUDIO_I18N } from './qrStudio';
 import { TUTORIAL_I18N } from './tutorial';
+import { VERIFY_MOBILE_I18N } from './verifyMobile';
 
 const LOCALE_MAP: Record<Locale, Translations> = {
   en,
@@ -76,6 +77,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     tutorial: TUTORIAL_I18N[locale] ?? TUTORIAL_I18N.en,
     assessment: ASSESSMENT_I18N[locale] ?? ASSESSMENT_I18N.en,
     qrStudio: QR_STUDIO_I18N[locale] ?? QR_STUDIO_I18N.en,
+    verifyMobile: VERIFY_MOBILE_I18N[locale] ?? VERIFY_MOBILE_I18N.en,
   };
 
   return (

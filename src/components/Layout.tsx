@@ -9,7 +9,6 @@ import {
   Home,
   KeyRound,
   Menu,
-  QrCode,
   RefreshCw,
   ShieldCheck,
   WifiOff,
@@ -57,7 +56,6 @@ export function Layout({
     { to: '/', label: t.nav.home, icon: Home, end: true },
     { to: '/tutorial', label: t.tutorial.navLabel, icon: Compass, end: false },
     { to: '/create', label: t.nav.create, icon: FileSignature, end: false },
-    { to: '/qr-studio', label: t.qrStudio.navLabel, icon: QrCode, end: false },
     { to: '/verify', label: t.nav.verify, icon: ShieldCheck, end: false },
     { to: '/keys', label: t.nav.keys, icon: KeyRound, end: false },
     { to: '/docs', label: t.nav.docs, icon: BookOpen, end: false },
@@ -260,9 +258,6 @@ export function Layout({
               className="hover:text-white transition-colors"
             >
               {t.tutorial.navLabel}
-            </Link>
-            <Link to="/qr-studio" className="hover:text-white transition-colors">
-              {t.qrStudio.navLabel}
             </Link>
             <Link to="/docs" className="hover:text-white transition-colors">
               {t.nav.docs}

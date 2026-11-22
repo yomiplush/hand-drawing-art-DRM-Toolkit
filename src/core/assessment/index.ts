@@ -5,12 +5,14 @@ import type {
   HumanMadeAssessmentResult,
 } from '../manifest/types';
 import { scanImageContainerMetadata } from './metadataScanner';
+import { analyzePixelForensics } from './pixelForensics';
 
 export type { HumanMadeAssessmentMetrics, HumanMadeAssessmentResult };
 
 export interface AssessmentInput {
   raster?: CanonicalRaster | null;
   region?: ArtworkRegion | null;
+  qrMask?: ArtworkRegion | null;
   rawFileBytes?: Uint8Array | null;
 }
 
@@ -48,6 +50,11 @@ function resolveRegion(
   return [0, 0, raster.width, raster.height];
 }
 
+function inMask(x: number, y: number, qrMask?: ArtworkRegion | null): boolean {
+  if (!qrMask) return false;
+  return x >= qrMask[0] && x < qrMask[0] + qrMask[2] && y >= qrMask[1] && y < qrMask[1] + qrMask[3];
+}
+
 function lumaAt(data: Uint8Array, width: number, x: number, y: number): number {
   const i = (y * width + x) * 4;
   return 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
@@ -56,6 +63,7 @@ function lumaAt(data: Uint8Array, width: number, x: number, y: number): number {
 function analyzeRasterSignals(
   raster: CanonicalRaster,
   region?: ArtworkRegion | null,
+  qrMask?: ArtworkRegion | null,
 ): {
   artworkWidth: number;
   artworkHeight: number;
@@ -86,6 +94,8 @@ function analyzeRasterSignals(
 
   for (let y = ry; y < ry + rh; y += step) {
     for (let x = rx; x < rx + rw; x += step) {
+      if (inMask(x, y, qrMask)) continue;
+
       const idx = (y * strideW + x) * 4;
       const r = data[idx];
       const g = data[idx + 1];
@@ -106,7 +116,7 @@ function analyzeRasterSignals(
         colorBuckets.add(bucket);
       }
 
-      if (x + step < rx + rw && y + step < ry + rh) {
+      if (x + step < rx + rw && y + step < ry + rh && !inMask(x + step, y + step, qrMask)) {
         const c = lumaAt(data, strideW, x, y);
         const dx = Math.abs(c - lumaAt(data, strideW, x + step, y));
         const dy = Math.abs(c - lumaAt(data, strideW, x, y + step));
@@ -136,16 +146,17 @@ function analyzeRasterSignals(
 }
 
 /**
- * 100% local, zero-cost, zero-external-API heuristic + container metadata assessor.
+ * 100% local, zero-cost, zero-external-API forensic signal + container metadata assessor.
  * Never claims definitive proof of human-only authorship from pixels alone; reports
- * observable local container metadata and raster statistics transparently.
+ * observable container metadata, generative pixel/spectral artifacts, and raster statistics transparently.
  */
 export const localHeuristicAssessor: HumanMadeAssessor = {
-  id: 'local-heuristic-metadata-v1',
+  id: 'local-heuristic-forensics-v2',
   isModelBundled: false,
   async assess(input?: CanonicalRaster | AssessmentInput | null): Promise<HumanMadeAssessmentResult> {
     const raster = isAssessmentInput(input) ? (input.raster ?? null) : (input ?? null);
     const region = isAssessmentInput(input) ? (input.region ?? null) : null;
+    const qrMask = isAssessmentInput(input) ? (input.qrMask ?? null) : null;
     const rawFileBytes = isAssessmentInput(input) ? (input.rawFileBytes ?? null) : null;
 
     if (!raster) {
@@ -160,9 +171,11 @@ export const localHeuristicAssessor: HumanMadeAssessor = {
       };
     }
 
-    const [meta, pixelSignals] = await Promise.all([
+    const resolvedRegion = resolveRegion(raster, region);
+    const [meta, pixelSignals, forensics] = await Promise.all([
       scanImageContainerMetadata(rawFileBytes),
-      Promise.resolve(analyzeRasterSignals(raster, region)),
+      Promise.resolve(analyzeRasterSignals(raster, resolvedRegion, qrMask)),
+      Promise.resolve(analyzePixelForensics(raster, resolvedRegion, qrMask)),
     ]);
 
     const metrics: HumanMadeAssessmentMetrics = {
@@ -172,6 +185,12 @@ export const localHeuristicAssessor: HumanMadeAssessor = {
       isCertifiedHandmadeOutput: meta.isCertifiedHandmadeOutput,
       hasC2paContainer: meta.hasC2paContainer,
       aiMetadataSignals: meta.aiMetadataSignals,
+      pixelAiSignals: forensics.pixelAiSignals,
+      aiSignalScore: forensics.aiSignalScore,
+      smoothNoiseLuma: forensics.smoothNoiseLuma,
+      smoothNoiseChroma: forensics.smoothNoiseChroma,
+      upsampleGridAnomaly: forensics.upsampleGridAnomaly,
+      stealthWatermarkDetected: forensics.stealthWatermarkDetected,
       creativeToolHints: meta.creativeToolHints,
       opaqueRatio: pixelSignals.opaqueRatio,
       transparentRatio: pixelSignals.transparentRatio,
@@ -185,10 +204,26 @@ export const localHeuristicAssessor: HumanMadeAssessor = {
     const notes: string[] = [];
     if (meta.aiMetadataSignals.length > 0) {
       notes.push(`Detected AI generator metadata markers: ${meta.aiMetadataSignals.join(', ')}`);
+      if (forensics.pixelAiSignals.length > 0) {
+        notes.push(`Also observed pixel/spectral AI signals: ${forensics.pixelAiSignals.join('; ')}`);
+      }
       return {
         status: 'experimental-available',
-        modelId: 'local-heuristic-metadata-v1',
+        modelId: 'local-heuristic-forensics-v2',
         summaryKey: 'ai-metadata-detected',
+        metrics,
+        notes,
+      };
+    }
+
+    if (forensics.stealthWatermarkDetected || forensics.aiSignalScore >= 2) {
+      notes.push(
+        `Detected pixel/spectral signals commonly produced by AI generators: ${forensics.pixelAiSignals.join('; ')}`,
+      );
+      return {
+        status: 'experimental-available',
+        modelId: 'local-heuristic-forensics-v2',
+        summaryKey: 'ai-pixel-signals-detected',
         metrics,
         notes,
       };
@@ -204,7 +239,7 @@ export const localHeuristicAssessor: HumanMadeAssessor = {
       );
       return {
         status: 'inconclusive',
-        modelId: 'local-heuristic-metadata-v1',
+        modelId: 'local-heuristic-forensics-v2',
         summaryKey: 'insufficient-visual-signal',
         metrics,
         notes,
@@ -212,11 +247,11 @@ export const localHeuristicAssessor: HumanMadeAssessor = {
     }
 
     notes.push(
-      'No automated AI generator metadata markers found; local raster signals inspected (reference only, not cryptographic proof of hand-drawn origin).',
+      'No AI generator metadata or multi-signal diffusion/upsampling anomaly detected (reference only, not proof of hand-drawn origin).',
     );
     return {
       status: 'experimental-available',
-      modelId: 'local-heuristic-metadata-v1',
+      modelId: 'local-heuristic-forensics-v2',
       summaryKey: 'local-signals-clean',
       metrics,
       notes,

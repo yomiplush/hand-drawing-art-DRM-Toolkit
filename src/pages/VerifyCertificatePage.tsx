@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 import {
   AlertTriangle,
   Camera,
+  ChevronDown,
+  ClipboardPaste,
   FileImage,
   Link2,
   ShieldAlert,
@@ -24,6 +26,9 @@ import { useI18n } from '../i18n/context';
 
 type InputTab = 'image' | 'camera' | 'proof';
 
+const SHARE_TARGET_CACHE_NAME = 'chm-share-target-v1';
+const SHARE_TARGET_CACHE_KEY = '/__shared-artwork__';
+
 export function VerifyCertificatePage() {
   const { t } = useI18n();
   const location = useLocation();
@@ -33,6 +38,9 @@ export function VerifyCertificatePage() {
 
   const [activeTab, setActiveTab] = useState<InputTab>(() =>
     hasInitialHashProof ? 'proof' : 'image',
+  );
+  const [launchedWithHashProof, setLaunchedWithHashProof] = useState<boolean>(
+    () => hasInitialHashProof,
   );
   const [proofInput, setProofInput] = useState(() =>
     hasInitialHashProof ? window.location.href : '',
@@ -46,6 +54,9 @@ export function VerifyCertificatePage() {
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [qrInfoNote, setQrInfoNote] = useState<string | null>(null);
+
+  const [pasteBusy, setPasteBusy] = useState(false);
+  const [pasteFeedback, setPasteFeedback] = useState<string | null>(null);
 
   const [trustLabelInput, setTrustLabelInput] = useState('');
   const [trustSavedMsg, setTrustSavedMsg] = useState<string | null>(null);
@@ -80,6 +91,7 @@ export function VerifyCertificatePage() {
       rawFileBytes: null,
     }).then((res) => {
       if (active) {
+        setLaunchedWithHashProof(true);
         setActiveTab('proof');
         setProofInput(window.location.href);
         setActiveProofRaw(hash);
@@ -88,6 +100,7 @@ export function VerifyCertificatePage() {
         setAttachedFileName(null);
         setQrInfoNote(null);
         setErrorMsg(null);
+        setPasteFeedback(null);
         setTrustSavedMsg(null);
         setResult(res);
       }
@@ -97,9 +110,10 @@ export function VerifyCertificatePage() {
     };
   }, [location.hash]);
 
-  const handleSignedImageUpload = async (file: File) => {
+  const handleSignedImageUpload = useCallback(async (file: File) => {
     setErrorMsg(null);
     setQrInfoNote(null);
+    setPasteFeedback(null);
     setTrustSavedMsg(null);
     try {
       const rawBytes = new Uint8Array(await file.arrayBuffer());
@@ -117,21 +131,172 @@ export function VerifyCertificatePage() {
       setResult(null);
       setErrorMsg(err instanceof Error ? err.message : 'Failed to verify image');
     }
-  };
+  }, []);
 
-  const handleAttachArtworkForProof = async (file: File) => {
-    setErrorMsg(null);
-    try {
-      const rawBytes = new Uint8Array(await file.arrayBuffer());
-      const { raster } = await decodeImageFileToCanonicalRgba8(rawBytes);
-      setAttachedRaster(raster);
-      setAttachedRawBytes(rawBytes);
-      setAttachedFileName(file.name);
-      if (activeProofRaw) {
-        await runProofVerify(activeProofRaw, raster, rawBytes);
+  const handleAttachArtworkForProof = useCallback(
+    async (file: File) => {
+      setErrorMsg(null);
+      setPasteFeedback(null);
+      try {
+        const rawBytes = new Uint8Array(await file.arrayBuffer());
+        const { raster } = await decodeImageFileToCanonicalRgba8(rawBytes);
+        setAttachedRaster(raster);
+        setAttachedRawBytes(rawBytes);
+        setAttachedFileName(file.name);
+        if (activeProofRaw) {
+          await runProofVerify(activeProofRaw, raster, rawBytes);
+        }
+      } catch (err) {
+        setErrorMsg(err instanceof Error ? err.message : 'Failed to decode artwork image');
       }
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to decode artwork image');
+    },
+    [activeProofRaw, runProofVerify],
+  );
+
+  // Consume shared artwork from PWA Web Share Target (?shared=1 via Cache Storage)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || window.location.search);
+    if (params.get('shared') !== '1') return;
+    if (typeof window === 'undefined' || !('caches' in window)) return;
+
+    let active = true;
+    const cleanUrl = `${window.location.pathname}${window.location.hash}`;
+    window.history.replaceState(null, '', cleanUrl);
+
+    (async () => {
+      try {
+        const cache = await window.caches.open(SHARE_TARGET_CACHE_NAME);
+        const cached = await cache.match(SHARE_TARGET_CACHE_KEY);
+        await cache.delete(SHARE_TARGET_CACHE_KEY);
+        if (!cached || !active) return;
+
+        const blob = await cached.blob();
+        const rawHeaderName = cached.headers.get('X-Shared-Filename') || 'shared-artwork.png';
+        let rawName = rawHeaderName;
+        try {
+          rawName = decodeURIComponent(rawHeaderName);
+        } catch {
+          rawName = rawHeaderName;
+        }
+        const rawBytes = new Uint8Array(await blob.arrayBuffer());
+        if (!active) return;
+
+        try {
+          const res = await verifyImageWithEmbeddedQr({ fileOrBytes: rawBytes });
+          if (!active) return;
+          setActiveTab('image');
+          setAttachedRaster(res.raster);
+          setAttachedRawBytes(rawBytes);
+          setAttachedFileName(rawName);
+          setActiveProofRaw(res.qrRawText);
+          setProofInput(res.qrRawText);
+          setQrInfoNote(
+            `${t.verifyMobile.sharedImageVerifiedNote} (${res.qrStrategy}) · ${res.imageWidth}×${res.imageHeight} px`,
+          );
+          setErrorMsg(null);
+          setResult(res.verification);
+        } catch {
+          const { raster } = await decodeImageFileToCanonicalRgba8(rawBytes);
+          if (!active) return;
+          setAttachedRaster(raster);
+          setAttachedRawBytes(rawBytes);
+          setAttachedFileName(rawName);
+          setErrorMsg(null);
+          const hash = window.location.hash;
+          if (hash && hash.includes('proof=')) {
+            setActiveTab('proof');
+            await runProofVerify(hash, raster, rawBytes);
+          } else {
+            setQrInfoNote(t.verifyMobile.sharedImageNoQrNote);
+          }
+        }
+      } catch (err) {
+        if (active) {
+          setErrorMsg(err instanceof Error ? err.message : 'Failed to load shared image');
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    location.search,
+    runProofVerify,
+    t.verifyMobile.sharedImageNoQrNote,
+    t.verifyMobile.sharedImageVerifiedNote,
+  ]);
+
+  const processClipboardImageFile = useCallback(
+    async (file: File) => {
+      if ((activeTab === 'proof' || activeTab === 'camera') && activeProofRaw) {
+        await handleAttachArtworkForProof(file);
+      } else {
+        setActiveTab('image');
+        await handleSignedImageUpload(file);
+      }
+    },
+    [activeProofRaw, activeTab, handleAttachArtworkForProof, handleSignedImageUpload],
+  );
+
+  // Support Ctrl+V / OS image paste anywhere on /verify
+  useEffect(() => {
+    const onWindowPaste = (event: ClipboardEvent) => {
+      const items = event.clipboardData?.items;
+      let imageFile: File | null = null;
+      if (items) {
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (item.kind === 'file' && item.type.startsWith('image/')) {
+            imageFile = item.getAsFile();
+            if (imageFile) break;
+          }
+        }
+      }
+      if (!imageFile && event.clipboardData?.files?.length) {
+        for (let i = 0; i < event.clipboardData.files.length; i++) {
+          const f = event.clipboardData.files[i];
+          if (f.type.startsWith('image/')) {
+            imageFile = f;
+            break;
+          }
+        }
+      }
+      if (!imageFile) return;
+      event.preventDefault();
+      void processClipboardImageFile(imageFile);
+    };
+
+    window.addEventListener('paste', onWindowPaste);
+    return () => {
+      window.removeEventListener('paste', onWindowPaste);
+    };
+  }, [processClipboardImageFile]);
+
+  const handlePasteButtonClick = async () => {
+    setPasteFeedback(null);
+    if (!navigator.clipboard || typeof navigator.clipboard.read !== 'function') {
+      setPasteFeedback(t.verifyMobile.pasteUnsupported);
+      return;
+    }
+    setPasteBusy(true);
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imageType = item.types.find((type) => type.startsWith('image/'));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const ext = imageType.split('/')[1]?.replace(/[^a-z0-9]/gi, '') || 'png';
+          const file = new File([blob], `clipboard-artwork.${ext}`, { type: imageType });
+          await processClipboardImageFile(file);
+          return;
+        }
+      }
+      setPasteFeedback(t.verifyMobile.pasteNoImage);
+    } catch {
+      setPasteFeedback(t.verifyMobile.pasteUnsupported);
+    } finally {
+      setPasteBusy(false);
     }
   };
 
@@ -144,10 +309,12 @@ export function VerifyCertificatePage() {
   const handleCameraDetected = useCallback(
     (rawText: string) => {
       setProofInput(rawText);
-      setQrInfoNote('QR detected from local camera stream');
+      setQrInfoNote(
+        attachedRaster ? 'QR detected from local camera stream' : t.verifyMobile.cameraFollowUpHint,
+      );
       void runProofVerify(rawText, attachedRaster, attachedRawBytes);
     },
-    [attachedRaster, attachedRawBytes, runProofVerify],
+    [attachedRaster, attachedRawBytes, runProofVerify, t.verifyMobile.cameraFollowUpHint],
   );
 
   const handleTrustThisKey = async (e: React.FormEvent) => {
@@ -231,6 +398,33 @@ export function VerifyCertificatePage() {
         : 'bg-[#051224]/60 text-slate-300 border border-white/[0.09] hover:border-white/[0.18]'
     }`;
 
+  const showTopProofStep2Cta =
+    Boolean(result?.manifest) && (activeTab === 'proof' || activeTab === 'camera');
+
+  const proofForm = (
+    <form onSubmit={handleManualProofSubmit} className="space-y-3">
+      <label htmlFor="proofInput" className="block text-xs font-medium text-slate-300">
+        {t.verify.proofInputLabel}
+      </label>
+      <textarea
+        id="proofInput"
+        rows={3}
+        value={proofInput}
+        onChange={(e) => setProofInput(e.target.value)}
+        placeholder={t.verify.proofInputPlaceholder}
+        data-testid="verify-proof-textarea"
+        className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 p-3 text-xs font-mono text-white placeholder:text-slate-500"
+      />
+      <button
+        type="submit"
+        data-testid="verify-proof-submit"
+        className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-white min-h-[44px] cursor-pointer"
+      >
+        <span>{t.verify.verifyProofBtn}</span>
+      </button>
+    </form>
+  );
+
   return (
     <div className="space-y-8">
       <header className="space-y-2 border-b border-white/[0.08] pb-5">
@@ -275,39 +469,51 @@ export function VerifyCertificatePage() {
         </div>
 
         {activeTab === 'image' && (
-          <ImageDropzone
-            onFileSelected={handleSignedImageUpload}
-            title={t.verify.imageDropText}
-            subtitle={t.verify.imageDropSub}
-            testId="verify-image-input"
-          />
+          <div className="space-y-3">
+            <ImageDropzone
+              onFileSelected={handleSignedImageUpload}
+              title={t.verify.imageDropText}
+              subtitle={t.verify.imageDropSub}
+              testId="verify-image-input"
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled={pasteBusy}
+                onClick={() => void handlePasteButtonClick()}
+                data-testid="verify-paste-image-btn"
+                className="inline-flex items-center gap-2 rounded-lg border border-sky-300/35 bg-sky-500/15 px-4 py-2.5 text-sm font-medium text-sky-100 hover:bg-sky-500/25 disabled:opacity-50 min-h-[44px] cursor-pointer"
+              >
+                <ClipboardPaste className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{pasteBusy ? t.verifyMobile.pasteBusy : t.verifyMobile.pasteImageBtn}</span>
+              </button>
+              <span className="text-xs text-slate-400">{t.verifyMobile.pasteHint}</span>
+            </div>
+            {pasteFeedback && (
+              <p role="status" className="text-xs text-amber-200">
+                {pasteFeedback}
+              </p>
+            )}
+          </div>
         )}
 
         {activeTab === 'camera' && <QrCameraScanner onDetected={handleCameraDetected} />}
 
-        {activeTab === 'proof' && (
-          <form onSubmit={handleManualProofSubmit} className="space-y-3">
-            <label htmlFor="proofInput" className="block text-xs font-medium text-slate-300">
-              {t.verify.proofInputLabel}
-            </label>
-            <textarea
-              id="proofInput"
-              rows={3}
-              value={proofInput}
-              onChange={(e) => setProofInput(e.target.value)}
-              placeholder={t.verify.proofInputPlaceholder}
-              data-testid="verify-proof-textarea"
-              className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 p-3 text-xs font-mono text-white placeholder:text-slate-500"
-            />
-            <button
-              type="submit"
-              data-testid="verify-proof-submit"
-              className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-white min-h-[44px]"
-            >
-              <span>{t.verify.verifyProofBtn}</span>
-            </button>
-          </form>
-        )}
+        {activeTab === 'proof' &&
+          (launchedWithHashProof ? (
+            <details className="group rounded-lg border border-white/[0.1] bg-[#030b18]/55 p-3">
+              <summary className="flex items-center justify-between gap-2 cursor-pointer text-xs sm:text-sm font-medium text-slate-200 list-none select-none">
+                <span>{t.verifyMobile.rawProofToggle}</span>
+                <ChevronDown
+                  className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180 shrink-0"
+                  aria-hidden="true"
+                />
+              </summary>
+              <div className="pt-3 mt-3 border-t border-white/[0.08]">{proofForm}</div>
+            </details>
+          ) : (
+            proofForm
+          ))}
 
         {qrInfoNote && <p className="text-xs font-mono text-cyan-300">{qrInfoNote}</p>}
 
@@ -320,6 +526,54 @@ export function VerifyCertificatePage() {
           </div>
         )}
       </section>
+
+      {showTopProofStep2Cta && (
+        <section
+          data-testid="verify-proof-artwork-cta"
+          className="rounded-xl border border-sky-400/40 bg-sky-500/10 backdrop-blur-md p-5 space-y-3"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base sm:text-lg font-semibold text-white">
+              {t.verifyMobile.proofStep2Title}
+            </h2>
+            {attachedFileName && (
+              <span className="rounded-full border border-sky-300/40 bg-sky-400/15 px-3 py-1 text-xs font-mono text-sky-100">
+                {t.verifyMobile.attachedReadyBadge}: {attachedFileName}
+              </span>
+            )}
+          </div>
+          <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+            {t.verifyMobile.proofStep2Desc}
+          </p>
+          <ImageDropzone
+            onFileSelected={handleAttachArtworkForProof}
+            title={
+              attachedFileName
+                ? `${t.verify.attachArtworkBtn} (${attachedFileName})`
+                : t.verify.attachArtworkBtn
+            }
+            testId="verify-attach-artwork-input"
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              disabled={pasteBusy}
+              onClick={() => void handlePasteButtonClick()}
+              data-testid="verify-paste-image-btn"
+              className="inline-flex items-center gap-2 rounded-lg border border-sky-300/40 bg-[#051224]/80 px-4 py-2.5 text-sm font-semibold text-sky-100 hover:bg-sky-500/20 disabled:opacity-50 min-h-[44px] cursor-pointer"
+            >
+              <ClipboardPaste className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{pasteBusy ? t.verifyMobile.pasteBusy : t.verifyMobile.pasteImageBtn}</span>
+            </button>
+            <span className="text-xs text-slate-300">{t.verifyMobile.pasteHint}</span>
+          </div>
+          {pasteFeedback && (
+            <p role="status" className="text-xs text-amber-200">
+              {pasteFeedback}
+            </p>
+          )}
+        </section>
+      )}
 
       {result && (
         <div className="space-y-6" data-testid="verification-results">
@@ -359,7 +613,7 @@ export function VerifyCertificatePage() {
             {t.verify.trustReminder}
           </div>
 
-          {result.manifest && (
+          {result.manifest && !showTopProofStep2Cta && (
             <section className="rounded-xl border border-white/[0.12] bg-[#051224]/65 backdrop-blur-md p-5 space-y-3">
               <h3 className="text-sm sm:text-base font-semibold text-white">
                 {t.verify.attachArtworkTitle}

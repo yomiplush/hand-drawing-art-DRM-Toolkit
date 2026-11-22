@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Cpu, HelpCircle } from 'lucide-react';
+import { AlertTriangle, Cpu, HelpCircle } from 'lucide-react';
 import type { HumanMadeAssessmentResult } from '../core/manifest/types';
 import { useI18n } from '../i18n/context';
 
@@ -21,10 +21,11 @@ export function AssessmentDetailsCard({
   const summaryKey = assessment?.summaryKey ?? 'no-image';
   const metrics = assessment?.metrics ?? null;
 
-  const isWarning = summaryKey === 'ai-metadata-detected';
+  const isWarning =
+    summaryKey === 'ai-metadata-detected' || summaryKey === 'ai-pixel-signals-detected';
   const isClean = summaryKey === 'local-signals-clean';
 
-  const BannerIcon = isWarning ? AlertTriangle : isClean ? CheckCircle2 : HelpCircle;
+  const BannerIcon = isWarning ? AlertTriangle : isClean ? Cpu : HelpCircle;
   const bannerTone = isWarning
     ? 'border-amber-400/40 bg-amber-500/15 text-amber-100'
     : isClean
@@ -60,6 +61,14 @@ export function AssessmentDetailsCard({
       : a.values.noAiTags;
   })();
 
+  const pixelForensicsSummary = (() => {
+    if (!metrics) return '-';
+    if (metrics.pixelAiSignals.length > 0) {
+      return `${a.values.pixelAiTagsDetectedPrefix} ${metrics.pixelAiSignals.join(' · ')}`;
+    }
+    return a.values.noPixelAiTags;
+  })();
+
   return (
     <section
       data-testid={testId}
@@ -80,6 +89,11 @@ export function AssessmentDetailsCard({
           <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3 sm:col-span-2">
             <dt className="text-xs text-slate-400">{a.labels.metadataScan}</dt>
             <dd className="mt-0.5 text-slate-100 break-words">{metadataSummary}</dd>
+          </div>
+
+          <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3 sm:col-span-2">
+            <dt className="text-xs text-slate-400">{a.labels.pixelForensicsScan}</dt>
+            <dd className="mt-0.5 text-slate-100 break-words">{pixelForensicsSummary}</dd>
           </div>
 
           <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3">

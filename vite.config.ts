@@ -11,6 +11,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'prompt',
       injectRegister: null,
       includeAssets: ['favicon.svg', 'pwa-192x192.png', 'pwa-512x512.png', '_redirects', '_headers'],
@@ -44,12 +47,25 @@ export default defineConfig({
             purpose: 'any',
           },
         ],
+        share_target: {
+          action: '/share-target',
+          method: 'POST',
+          enctype: 'multipart/form-data',
+          params: {
+            title: 'title',
+            text: 'text',
+            url: 'url',
+            files: [
+              {
+                name: 'image',
+                accept: ['image/*', '.png', '.jpg', '.jpeg', '.webp'],
+              },
+            ],
+          },
+        },
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,wasm,json}'],
-        cleanupOutdatedCaches: true,
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/assets\//],
       },
     }),
   ],

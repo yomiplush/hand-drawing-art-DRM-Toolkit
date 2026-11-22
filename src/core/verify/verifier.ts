@@ -186,13 +186,19 @@ export async function verifyProofAndArtwork(params: {
 
   const assessmentRegion =
     artworkRaster &&
-    matchedMode === 'embedded-region'
+    (matchedMode === 'embedded-region' || matchedMode === 'in-image-masked')
       ? manifest.region
+      : null;
+
+  const assessmentQrMask =
+    artworkRaster && matchedMode === 'in-image-masked' && manifest.qrMask
+      ? manifest.qrMask
       : null;
 
   const assessment = await defaultHumanMadeAssessor.assess({
     raster: artworkRaster,
     region: assessmentRegion,
+    qrMask: assessmentQrMask,
     rawFileBytes,
   });
 

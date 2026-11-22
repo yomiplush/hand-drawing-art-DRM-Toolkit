@@ -120,6 +120,7 @@ export const ja: Translations = {
     heroTitle: '人間の手描き作品のための暗号学的来歴表明・QR認証ツールキット',
     heroSubtitle:
       'ブラウザ内で作品をEd25519署名し、非可逆劣化のないPNG余白へ自己完結型の検証QRコードを焼き込みます。誰のサーバーにも頼らず、オフラインでも権利表明と画像一致を検証できます。',
+    manifesto: 'あなたの作品は、それを証明するプラットフォームより長く生き続けるべきだ。',
     ctaCreate: '署名付きPNGを作成',
     ctaVerify: '作品 / QRを検証',
     ctaKeys: '署名鍵を管理',

@@ -12,7 +12,7 @@ export interface MetadataScanResult {
 const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const MAX_CHUNKS = 256;
 const MAX_DECOMPRESS_INPUT = 512 * 1024;
-const MAX_TEXT_INSPECT = 64 * 1024;
+const MAX_TEXT_INSPECT = 128 * 1024;
 
 function matchesBytesAt(bytes: Uint8Array, offset: number, sig: number[]): boolean {
   if (bytes.length < offset + sig.length) return false;
@@ -52,11 +52,40 @@ function decodeLatin1(bytes: Uint8Array): string {
 
 function decodeUtf8Safe(bytes: Uint8Array): string {
   const sliced = bytes.length > MAX_TEXT_INSPECT ? bytes.subarray(0, MAX_TEXT_INSPECT) : bytes;
+  let utf8: string;
   try {
-    return new TextDecoder('utf-8', { fatal: false }).decode(sliced);
+    utf8 = new TextDecoder('utf-8', { fatal: false }).decode(sliced);
   } catch {
-    return decodeLatin1(sliced);
+    utf8 = decodeLatin1(sliced);
   }
+  // Also scan UTF-16LE / UTF-16BE blocks (common in EXIF UserComment: "UNICODE\0...")
+  if (sliced.length >= 16 && utf8.includes('UNICODE')) {
+    let byteStart = 0;
+    for (let i = 0; i + 8 <= sliced.length; i++) {
+      if (
+        sliced[i] === 0x55 &&
+        sliced[i + 1] === 0x4e &&
+        sliced[i + 2] === 0x49 &&
+        sliced[i + 3] === 0x43 &&
+        sliced[i + 4] === 0x4f &&
+        sliced[i + 5] === 0x44 &&
+        sliced[i + 6] === 0x45 &&
+        sliced[i + 7] === 0x00
+      ) {
+        byteStart = i + 8;
+        break;
+      }
+    }
+    const u16Slice = sliced.subarray(byteStart);
+    try {
+      const u16le = new TextDecoder('utf-16le', { fatal: false }).decode(u16Slice);
+      const u16be = new TextDecoder('utf-16be', { fatal: false }).decode(u16Slice);
+      return `${utf8}\n${u16le}\n${u16be}`;
+    } catch {
+      // Ignore UTF-16 decoding failure
+    }
+  }
+  return utf8;
 }
 
 async function tryInflateDeflate(compressed: Uint8Array): Promise<Uint8Array | null> {
@@ -131,25 +160,25 @@ function classifyTextEntry(
     state.isCertifiedHandmadeOutput = true;
   }
 
-  // Known AI generation chunk keys & payloads
-  if (keyLower === 'parameters' && /steps:\s*\d+|sampler:|cfg scale:|negative prompt:/i.test(value)) {
-    state.aiSignals.add('Stable Diffusion (A1111/Forge parameters)');
+  // Known AI generation chunk keys & payloads across all major generators
+  if (
+    (keyLower === 'parameters' || /steps:\s*\d+/i.test(value)) &&
+    /steps:\s*\d+|sampler:|cfg scale:|negative prompt:|schedule type:/i.test(value)
+  ) {
+    state.aiSignals.add('Stable Diffusion / Flux (A1111/Forge/SwarmUI parameters)');
   } else if (
     (keyLower === 'prompt' || keyLower === 'workflow') &&
     /"class_type"|"inputs"|"nodes"/i.test(value)
   ) {
     state.aiSignals.add('ComfyUI workflow/prompt metadata');
-  } else if (
-    keyLower === 'software' &&
-    /^novelai$/i.test(value.trim())
-  ) {
+  } else if (keyLower === 'software' && /^novelai$/i.test(value.trim())) {
     state.aiSignals.add('NovelAI software metadata');
-  } else if (keyLower === 'source' && /novelai|stable\s*diffusion/i.test(value)) {
+  } else if (keyLower === 'source' && /novelai|stable\s*diffusion|flux/i.test(value)) {
     state.aiSignals.add('AI generator source metadata');
   }
 
-  if (/stable\s*diffusion|automatic1111|sd-metadata|invokeai|fooocus/i.test(combined)) {
-    state.aiSignals.add('Stable Diffusion metadata marker');
+  if (/stable\s*diffusion|automatic1111|sd-metadata|invokeai|fooocus|swarmui|civitai|\bsdx?l\b|\bflux[.\-_ ]?(1|dev|schnell|pro)/i.test(combined)) {
+    state.aiSignals.add('Stable Diffusion / Flux metadata marker');
   }
   if (/comfyui/i.test(combined)) {
     state.aiSignals.add('ComfyUI metadata marker');
@@ -157,15 +186,28 @@ function classifyTextEntry(
   if (/novelai/i.test(combined)) {
     state.aiSignals.add('NovelAI metadata marker');
   }
-  if (/midjourney/i.test(combined)) {
-    state.aiSignals.add('Midjourney metadata marker');
+  if (/midjourney|\bniji\b/i.test(combined)) {
+    state.aiSignals.add('Midjourney / Niji metadata marker');
   }
-  if (/dall-?e|openai.*image|chatgpt.*image/i.test(combined)) {
-    state.aiSignals.add('DALL-E / OpenAI metadata marker');
+  if (/dall-?e|openai|chatgpt|gpt-4o|gpt-image|truepic/i.test(combined)) {
+    state.aiSignals.add('OpenAI / ChatGPT / DALL-E metadata marker');
   }
-  if (/trainedalgorithmicmedia|compositewithtrainedalgorithmicmedia/i.test(combined)) {
+  if (/made\s*with\s*google\s*ai|google\s*generative\s*ai|\bimagen\b|\bgemini\b|synthid/i.test(combined)) {
+    state.aiSignals.add('Google Gemini / Imagen metadata marker');
+  }
+  if (/adobe\s*firefly|\bfirefly\b/i.test(combined)) {
+    state.aiSignals.add('Adobe Firefly metadata marker');
+  }
+  if (/\bgrok\b|\bxai\b.*aurora|ideogram|recraft|leonardo\.ai|bing\s*image\s*creator|microsoft\s*designer|pixai|seaart/i.test(combined)) {
+    state.aiSignals.add('Generative AI platform metadata marker');
+  }
+  if (
+    /trainedalgorithmicmedia|compositewithtrainedalgorithmicmedia|c2pa\.ai_generative_training|c2pa\.actions/i.test(
+      combined,
+    )
+  ) {
     state.hasC2paContainer = true;
-    state.aiSignals.add('C2PA trainedAlgorithmicMedia assertion');
+    state.aiSignals.add('C2PA / IPTC trainedAlgorithmicMedia assertion');
   }
 
   for (const tool of CREATIVE_TOOL_PATTERNS) {
@@ -219,6 +261,10 @@ export async function scanImageContainerMetadata(
         state.hasC2paContainer = true;
         const rawText = decodeUtf8Safe(chunkData);
         classifyTextEntry(type, rawText, state);
+        inspectedTextCount++;
+      } else if (type === 'eXIf') {
+        const rawText = decodeUtf8Safe(chunkData);
+        classifyTextEntry('EXIF', rawText, state);
         inspectedTextCount++;
       } else if (type === 'tEXt') {
         const nul = chunkData.indexOf(0);
@@ -278,7 +324,7 @@ export async function scanImageContainerMetadata(
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     let offset = 2;
     let markerCount = 0;
-    while (offset + 4 <= bytes.length && markerCount < 64) {
+    while (offset + 4 <= bytes.length && markerCount < 128) {
       if (bytes[offset] !== 0xff) break;
       const marker = bytes[offset + 1];
       if (marker === 0xda || marker === 0xd9) break; // SOS / EOI
@@ -291,6 +337,10 @@ export async function scanImageContainerMetadata(
       if ((marker >= 0xe0 && marker <= 0xef) || marker === 0xfe) {
         const segBytes = bytes.subarray(offset + 4, offset + 2 + segLen);
         const text = decodeUtf8Safe(segBytes);
+        // APP11 (0xeb) is standard JPEG JUMBF/C2PA box
+        if (marker === 0xeb && /jumb|c2pa/i.test(text)) {
+          state.hasC2paContainer = true;
+        }
         classifyTextEntry(`APP${(marker - 0xe0).toString(16)}`, text, state);
         inspectedTextCount++;
       }
@@ -312,7 +362,10 @@ export async function scanImageContainerMetadata(
       const dataStart = offset + 8;
       const dataEnd = dataStart + size;
       if (dataEnd > bytes.length) break;
-      if (fourcc === 'EXIF' || fourcc === 'XMP ') {
+      if (fourcc === 'EXIF' || fourcc === 'XMP ' || fourcc === 'C2PA' || fourcc === 'JUMB') {
+        if (fourcc === 'C2PA' || fourcc === 'JUMB') {
+          state.hasC2paContainer = true;
+        }
         const text = decodeUtf8Safe(bytes.subarray(dataStart, dataEnd));
         classifyTextEntry(fourcc.trim(), text, state);
         inspectedTextCount++;

@@ -148,6 +148,7 @@ export type AssessmentSignalOutcome =
   | 'no-image'
   | 'insufficient-visual-signal'
   | 'ai-metadata-detected'
+  | 'ai-pixel-signals-detected'
   | 'local-signals-clean';
 
 export interface HumanMadeAssessmentMetrics {
@@ -157,6 +158,12 @@ export interface HumanMadeAssessmentMetrics {
   isCertifiedHandmadeOutput: boolean;
   hasC2paContainer: boolean;
   aiMetadataSignals: string[];
+  pixelAiSignals: string[];
+  aiSignalScore: number;
+  smoothNoiseLuma: number;
+  smoothNoiseChroma: number;
+  upsampleGridAnomaly: number;
+  stealthWatermarkDetected: boolean;
   creativeToolHints: string[];
   opaqueRatio: number;
   transparentRatio: number;
