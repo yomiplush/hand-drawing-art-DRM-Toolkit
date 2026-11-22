@@ -1,7 +1,6 @@
 import {
   AlertTriangle,
   CheckCircle2,
-  Cpu,
   HelpCircle,
   ShieldAlert,
   ShieldCheck,
@@ -10,8 +9,6 @@ import {
 import type {
   ArtworkIntegrityStatus,
   AuthorIdentityStatus,
-  HumanMadeAssessmentResult,
-  HumanMadeAssessmentStatus,
   SignatureStatus,
 } from '../core/manifest/types';
 import { useI18n } from '../i18n/context';
@@ -20,8 +17,6 @@ interface StatusGridProps {
   signatureStatus: SignatureStatus;
   integrityStatus: ArtworkIntegrityStatus;
   identityStatus: AuthorIdentityStatus;
-  assessmentStatus: HumanMadeAssessmentStatus;
-  assessment?: HumanMadeAssessmentResult;
   trustedKeyLabel?: string | null;
 }
 
@@ -29,8 +24,6 @@ export function StatusDimensionsGrid({
   signatureStatus,
   integrityStatus,
   identityStatus,
-  assessmentStatus,
-  assessment,
   trustedKeyLabel,
 }: StatusGridProps) {
   const { t } = useI18n();
@@ -86,51 +79,14 @@ export function StatusDimensionsGrid({
     },
   }[identityStatus];
 
-  const assessCard = (() => {
-    if (assessmentStatus === 'experimental-available') {
-      if (assessment?.summaryKey === 'ai-metadata-detected') {
-        return {
-          tone: 'border-amber-400/45 bg-amber-950/40 text-amber-100',
-          icon: AlertTriangle,
-          text: t.assessment.badgeAiMetadataDetected,
-        };
-      }
-      if (assessment?.summaryKey === 'ai-pixel-signals-detected') {
-        return {
-          tone: 'border-amber-400/45 bg-amber-950/40 text-amber-100',
-          icon: AlertTriangle,
-          text: t.assessment.badgeAiPixelSignalsDetected,
-        };
-      }
-      return {
-        tone: 'border-sky-300/35 bg-[#05162b]/75 text-sky-100',
-        icon: Cpu,
-        text: t.assessment.badgeLocalSignals,
-      };
-    }
-    if (assessmentStatus === 'inconclusive') {
-      return {
-        tone: 'border-white/[0.12] bg-[#051224]/70 text-slate-300',
-        icon: HelpCircle,
-        text: t.assessment.badgeInconclusive,
-      };
-    }
-    return {
-      tone: 'border-white/[0.1] bg-[#051224]/70 text-slate-300',
-      icon: Cpu,
-      text: t.assessment.badgeNotAssessed,
-    };
-  })();
-
   const cards = [
     { key: 'sig', title: t.verify.dimA, ...sigCard, testId: 'status-signature' },
     { key: 'int', title: t.verify.dimB, ...intCard, testId: 'status-integrity' },
     { key: 'id', title: t.verify.dimC, ...idCard, testId: 'status-identity' },
-    { key: 'assess', title: t.verify.dimD, ...assessCard, testId: 'status-assessment' },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       {cards.map((card) => {
         const Icon = card.icon;
         return (

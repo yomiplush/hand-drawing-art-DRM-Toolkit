@@ -1,4 +1,3 @@
-import { defaultHumanMadeAssessor } from '../assessment';
 import { computePublicKeyFingerprint, verifyEd25519Signature } from '../crypto/ed25519';
 import { bytesToHex, constantTimeEqual } from '../crypto/sha256';
 import {
@@ -29,13 +28,11 @@ export type TrustedKeyLookup = (publicKey32: Uint8Array) => Promise<TrustedKeyRe
 export async function verifyProofAndArtwork(params: {
   proofInput: string;
   artworkRaster?: CanonicalRaster | null;
-  rawFileBytes?: Uint8Array | null;
   lookupTrustedKey?: TrustedKeyLookup;
 }): Promise<VerificationResult> {
   const {
     proofInput,
     artworkRaster = null,
-    rawFileBytes = null,
     lookupTrustedKey = findTrustedKeyByPublicKey,
   } = params;
 
@@ -51,7 +48,6 @@ export async function verifyProofAndArtwork(params: {
       signatureStatus: 'invalid',
       integrityStatus: 'not-checked',
       identityStatus: 'unknown',
-      assessmentStatus: 'not-assessed',
       manifest: null,
       publicKeyFingerprintHex: null,
       publicKeyFingerprintShort: null,
@@ -74,7 +70,6 @@ export async function verifyProofAndArtwork(params: {
         signatureStatus: 'unsupported',
         integrityStatus: 'not-checked',
         identityStatus: 'unknown',
-        assessmentStatus: 'not-assessed',
         manifest: null,
         publicKeyFingerprintHex: null,
         publicKeyFingerprintShort: null,
@@ -91,7 +86,6 @@ export async function verifyProofAndArtwork(params: {
       signatureStatus: 'invalid',
       integrityStatus: 'not-checked',
       identityStatus: 'unknown',
-      assessmentStatus: 'not-assessed',
       manifest: null,
       publicKeyFingerprintHex: null,
       publicKeyFingerprintShort: null,
@@ -184,31 +178,11 @@ export async function verifyProofAndArtwork(params: {
     }
   }
 
-  const assessmentRegion =
-    artworkRaster &&
-    (matchedMode === 'embedded-region' || matchedMode === 'in-image-masked')
-      ? manifest.region
-      : null;
-
-  const assessmentQrMask =
-    artworkRaster && matchedMode === 'in-image-masked' && manifest.qrMask
-      ? manifest.qrMask
-      : null;
-
-  const assessment = await defaultHumanMadeAssessor.assess({
-    raster: artworkRaster,
-    region: assessmentRegion,
-    qrMask: assessmentQrMask,
-    rawFileBytes,
-  });
-
   return {
     protocolVersion: manifest.version,
     signatureStatus,
     integrityStatus,
     identityStatus,
-    assessmentStatus: assessment.status,
-    assessment,
     manifest,
     publicKeyFingerprintHex: fp.fullHex,
     publicKeyFingerprintShort: fp.shortDisplay,
@@ -246,7 +220,6 @@ export async function verifyImageWithEmbeddedQr(params: {
   const verification = await verifyProofAndArtwork({
     proofInput: qr.rawText,
     artworkRaster: raster,
-    rawFileBytes: rawBytes,
     lookupTrustedKey: params.lookupTrustedKey,
   });
   return {

@@ -50,7 +50,7 @@
     />
     <meta
       name="twitter:description"
-      content="100% local, standalone open-source DRM &amp; QR provenance for hand-drawing artists. Ed25519, SHA-256, AES-256-GCM &amp; local AI forensics."
+      content="100% local, standalone open-source DRM &amp; QR provenance for hand-drawing artists. Ed25519, SHA-256, AES-256-GCM &amp; offline verification."
     />
     <meta name="twitter:image" content="https://certified-handmade.com/og-card.png" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -88,7 +88,7 @@
               "Ed25519 digital signatures & SHA-256 RGBA8 canonical pixel hashing",
               "AES-256-GCM & PBKDF2-SHA256 encrypted key backups (.chkey.json)",
               "Lossless PNG outer QR frame & manual translucent In-Image QR Studio",
-              "Standalone offline PWA & local AI metadata/pixel forensics"
+              "Standalone offline PWA & 3-axis cryptographic provenance verification"
             ],
             "keywords": "Hand-drawing Artist, Hand-drawn Art DRM, DRM, Encryption, Local-First, Standalone, 手描き, 手描きDRM, 暗号化, ローカル駆動, スタンドアローン"
           },
@@ -109,7 +109,7 @@
                 "name": "Does it really run 100% locally and standalone offline without any server upload?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Yes. Key generation, SHA-256 hashing, Ed25519 signing, AES-256-GCM key backup encryption, QR processing, and AI metadata/pixel inspection all run in your browser with connect-src 'self' CSP enforcement and full offline PWA support."
+                  "text": "Yes. Key generation, SHA-256 hashing, Ed25519 signing, AES-256-GCM key backup encryption, and QR processing all run in your browser with connect-src 'self' CSP enforcement and full offline PWA support."
                 }
               },
               {
@@ -117,7 +117,7 @@
                 "name": "手描きDRMは本当に完全ローカル駆動・スタンドアローンで動作しますか？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "はい。Ed25519電子署名、SHA-256ピクセルハッシュ、AES-256-GCM暗号化バックアップ、QR埋め込み・検証、ローカルAIメタデータ/周波数シグナル解析まですべて端末内で完結し、オフラインPWAとして動作します。"
+                  "text": "はい。Ed25519電子署名、SHA-256ピクセルハッシュ、AES-256-GCM暗号化バックアップ、QR埋め込み・オフライン検証まですべて端末内で完結し、オフラインPWAとして動作します。"
                 }
               }
             ]
@@ -134,7 +134,7 @@
         <p>Open-source, 100% local-first &amp; standalone cryptographic DRM toolkit for hand-drawing artists (手描きアーティストのための完全ローカル駆動・スタンドアローン手描きDRMツール). Sign lossless PNG illustrations with Ed25519, SHA-256, and AES-256-GCM encryption—zero server uploads, offline PWA ready.</p>
         <nav aria-label="Primary pages">
           <a href="/create">Create Certificate &amp; In-Image QR Studio</a> ·
-          <a href="/verify">Verify Artwork &amp; Local AI Forensics</a> ·
+          <a href="/verify">Verify Artwork &amp; QR Proof</a> ·
           <a href="/tutorial">Step-by-Step Tutorial</a> ·
           <a href="/keys">Encrypted Signing Keys (AES-256-GCM)</a> ·
           <a href="/docs">Cryptographic Spec &amp; Docs</a> ·

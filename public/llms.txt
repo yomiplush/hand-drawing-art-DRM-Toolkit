@@ -12,7 +12,7 @@ Certified Handmade (https://certified-handmade.com/) is a 100% local, standalone
 - **Cryptographic Signing (`Ed25519` + `SHA-256`)**: Computes canonical RGBA8 pixel digests (`SHA-256`) bound to artist identity keys (`Ed25519`) and explicit copyright/license metadata (`ARR`, `CC BY 4.0`, `CC BY-NC 4.0`, `CC BY-ND 4.0`, `CC BY-NC-ND 4.0`, `CC BY-SA 4.0`, `CC0 1.0`, `Custom`), serialized as deterministic RFC 8949 CBOR inside URL `#proof=` fragments and PNG `tEXt` metadata (`chm-proof-v2`).
 - **Encrypted Key Management (`AES-256-GCM` + `PBKDF2-SHA256`)**: Artist signing keys are generated locally and exportable as passphrase-encrypted `.chkey.json` backups encrypted with AES-256-GCM (310,000 PBKDF2-SHA256 iterations).
 - **Manual In-Image QR Studio & Outer Frame Modes**: Burn cryptographic proof QR codes cleanly into an outer border frame (`/create`) or manually place a semi-transparent / corner-masked QR inside the PNG canvas (`/create?mode=studio`) with masked pixel integrity verification (`in-image-masked`).
-- **Local AI Container & Pixel/Spectral Forensics (`/verify`)**: Inspects image containers (PNG text chunks, JPEG EXIF/XMP/C2PA/JUMBF, WebP chunks) and pixel/spectral/DFT noise artifacts locally in-browser without uploading images, flagging known generative AI signatures and metadata trails while preserving strict scientific humility for unverified drawings.
+- **3-Axis Honest Verification (`/verify`)**: Independently reports A. Cryptographic Signature (`Valid`/`Invalid`), B. Artwork Pixel Integrity (`Matched`/`Mismatched`/`Not Checked`), and C. Author Key Trust (`Locally Trusted Key`/`Unknown`) offline without overclaiming automated "human-made" proof.
 
 ## Key Routes
 - `/` — Overview, manifesto, 3-step guide, core local-first principles, and FAQ
@@ -20,7 +20,7 @@ Certified Handmade (https://certified-handmade.com/) is a 100% local, standalone
 - `/verify` — Offline verification via signed PNG upload, QR camera scan, clipboard paste, PWA Web Share Target (`/share-target`), or `#proof=` URL fragment
 - `/tutorial` — Beginner step-by-step guide and license cheat sheet
 - `/keys` — Local Ed25519 key generation, public key sharing, and AES-256-GCM encrypted backup/restore
-- `/docs` — Cryptographic architecture, license guide, local forensics reference, and open-source specification (`SPEC.md`)
+- `/docs` — Cryptographic architecture, license guide, protocol reference, and open-source specification (`SPEC.md`)
 - `/privacypolicy` — GDPR-compliant privacy notice (zero tracking, consent-gated UI language preference)
 
 ## Links

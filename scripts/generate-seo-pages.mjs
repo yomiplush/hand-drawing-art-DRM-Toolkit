@@ -32,12 +32,12 @@ const ROUTES = [
   },
   {
     slug: 'verify',
-    title: 'Verify Hand-Drawn Artwork, QR Proof & Local AI Forensics | Certified Handmade',
+    title: 'Verify Hand-Drawn Artwork, Ed25519 Signature & QR Proof | Certified Handmade',
     description:
-      'Verify Ed25519 artwork signatures, SHA-256 pixel integrity, #proof= URL fragments, and inspect AI generation metadata or spectral/pixel signals 100% locally offline.',
+      'Verify Ed25519 artwork signatures, SHA-256 canonical pixel integrity, #proof= URL fragments, and locally trusted artist keys 100% locally offline via PNG upload, camera QR, or clipboard.',
     keywords:
-      'Verify Artwork DRM, QR Proof Verifier, Local AI Image Forensics, Ed25519 Signature Check, Offline Verification, 手描き検証, AIイラスト判定',
-    heading: 'Verify Hand-Drawn Artwork & Local AI Forensics',
+      'Verify Artwork DRM, QR Proof Verifier, Ed25519 Signature Check, SHA-256 Pixel Integrity, Offline Verification, 手描き検証, ピクセル整合性',
+    heading: 'Verify Hand-Drawn Artwork & QR Proof',
     summary:
       'Inspect signed PNG artwork, scan verification QR codes, paste images from clipboard, or verify #proof= links completely offline with zero external requests.',
   },
@@ -65,14 +65,14 @@ const ROUTES = [
   },
   {
     slug: 'docs',
-    title: 'Cryptographic Architecture, SPEC & AI Forensics Docs | Certified Handmade',
+    title: 'Cryptographic Architecture, SPEC & License Docs | Certified Handmade',
     description:
-      'Technical reference for Certified Handmade: RFC 8949 CBOR proof schema, RGBA8 canonical SHA-256 digests, AES-256-GCM backups, license definitions, and local AI signal inspection.',
+      'Technical reference for Certified Handmade: RFC 8949 CBOR proof schema, RGBA8 canonical SHA-256 digests, Protocol v1/v2 QR masks, AES-256-GCM backups, and license definitions.',
     keywords:
-      'Art DRM Specification, RFC 8949 CBOR, Ed25519 Provenance Spec, AES-256-GCM Encryption, Local AI Detection Docs, 暗号仕様, 手描きDRM',
-    heading: 'Cryptographic Specification, License Guide & Local AI Docs',
+      'Art DRM Specification, RFC 8949 CBOR, Ed25519 Provenance Spec, AES-256-GCM Encryption, Cryptographic Art Docs, 暗号仕様, 手描きDRM',
+    heading: 'Cryptographic Specification & License Guide',
     summary:
-      'Explore the open MIT specification (SPEC.md), RFC 8949 CBOR payload layout, license guide, and honest local container/pixel forensics documentation.',
+      'Explore the open MIT specification (SPEC.md), RFC 8949 CBOR payload layout, Protocol v1/v2 pixel integrity verification, and license guide.',
   },
   {
     slug: 'privacypolicy',

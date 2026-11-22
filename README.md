@@ -2,11 +2,11 @@
 
 **Your Art. Your Rights. Your Freedom.**
 
-Certified Handmade is a 100% free, open-source, offline-first web application (PWA) for declaring cryptographic provenance, authorship signatures, and usage rights on human-made digital art—and burning a self-contained verification QR code into a lossless PNG margin.
+Certified Handmade is a 100% free, open-source, offline-first web application (PWA) for declaring cryptographic provenance, authorship signatures, and usage rights on human-made digital art—and burning a self-contained verification QR code into a lossless PNG margin or translucent in-image overlay.
 
+- **Website:** https://certified-handmade.com/
 - **Repository:** https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit
 - **License:** MIT (see [`LICENSE`](./LICENSE))
-- **Planned Official Domain:** `https://certified-handmade.com` (not yet assigned; configurable in the UI)
 
 ---
 
@@ -29,18 +29,17 @@ All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding
    - Generates Ed25519 keypairs inside the browser (non-extractable Web Crypto `CryptoKey` in IndexedDB where supported, with audited `@noble/ed25519` fallback).
    - Passphrase-encrypted private key backups (`.chkey.json` using PBKDF2-SHA256 + AES-256-GCM) and restore flow.
    - Public key export and a personal **Locally Trusted Keys** list (no central CA).
-2. **Certificate Creation & Lossless QR Burning (`/create`)**
+2. **Certificate Creation, Outer QR Border & In-Image QR Studio (`/create`)**
    - Normalizes PNG (lossless via `fast-png`, preserving exact straight RGBA8 including `alpha = 0`), JPEG, and WebP inputs into Canonical Artwork Raster (`RGBA8`).
-   - Encodes artwork SHA-256, region `[x, y, width, height]`, declared timestamp, license (`All Rights Reserved`, `CC0-1.0`, `CC BY / BY-SA / BY-NC / BY-NC-SA / BY-ND / BY-NC-ND 4.0`), and non-binding intent flags (including AI training preference) into deterministic RFC 8949 CBOR signed with Ed25519.
-   - Solves the image-hash / QR circular dependency by placing the QR code strictly **outside** the signed artwork region `[x, y, width, height]` inside a lossless PNG margin.
+   - Encodes artwork SHA-256, region `[x, y, width, height]`, optional `qrMask`, declared timestamp, license (`All Rights Reserved`, `CC0-1.0`, `CC BY / BY-SA / BY-NC / BY-NC-SA / BY-ND / BY-NC-ND 4.0`), and non-binding intent flags (including AI training preference) into deterministic RFC 8949 CBOR signed with Ed25519.
+   - Solves the image-hash / QR circular dependency via Protocol v1 (placing the QR code strictly outside `[x, y, width, height]`) or Protocol v2 (masking `qrMask` in the Manual In-Image QR Studio).
 3. **Independent Verification (`/verify`)**
-   - Accepts `/verify#proof=...` URL fragments directly (fragment data is never sent in HTTP requests), pasted proof tokens, uploaded signed PNGs, or live local camera QR scanning (`getUserMedia`).
-   - Displays **four independent statuses** without conflating them:
+   - Accepts `/verify#proof=...` URL fragments directly (fragment data is never sent in HTTP requests), pasted proof tokens, clipboard images, PWA Web Share Target handoffs, uploaded signed PNGs, or live local camera QR scanning (`getUserMedia`).
+   - Displays **three independent statuses** without conflating them:
      - **A. Cryptographic Signature:** `Valid` / `Invalid` / `Unsupported`
      - **B. Artwork Integrity:** `Matched` / `Mismatched` / `Not Checked`
      - **C. Author Identity:** `Locally Trusted Key` / `Unknown / Unverified Key`
-     - **D. Human-Made Assessment:** `Not Assessed` (modular Phase 5 hook for future local ONNX inference; never outputs fabricated probabilities)
-4. **Bilingual UI (English / 日本語)** & Responsive Touch-First Design (Desktop, iPad Safari, iPhone Safari, Android Chrome).
+4. **13-Language UI** & Responsive Touch-First Design (Desktop, iPad Safari, iPhone Safari, Android Chrome).
 5. **Offline PWA:** Once loaded once and cached by the Service Worker, signing and verifying run completely offline.
 
 ---
