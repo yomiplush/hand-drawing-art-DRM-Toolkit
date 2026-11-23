@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useId, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  AlertTriangle,
   Camera,
   ChevronDown,
   ClipboardPaste,
@@ -9,14 +8,13 @@ import {
   Info,
   Link2,
   Share2,
-  ShieldAlert,
-  ShieldCheck,
-  XCircle,
 } from 'lucide-react';
 import { ImageDropzone } from '../components/ImageDropzone';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
 import { QrCameraScanner } from '../components/QrCameraScanner';
 import { StatusDimensionsGrid } from '../components/StatusBadge';
+import { AdvancedSettings } from '../components/ui/AdvancedSettings';
+import { HelpIconButton } from '../components/ui/HelpIconButton';
 import { base64UrlEncode, bytesToHex } from '../core/crypto/sha256';
 import { decodeImageFileToCanonicalRgba8 } from '../core/image/pngCodec';
 import type { CanonicalRaster } from '../core/image/pngCodec';
@@ -326,7 +324,10 @@ export function VerifyCertificatePage() {
     if (!result?.manifest) return;
     const pubB64 = base64UrlEncode(result.manifest.publicKey);
     const label =
-      trustLabelInput.trim() || result.manifest.authorName || result.publicKeyFingerprintShort || 'Artist';
+      trustLabelInput.trim() ||
+      result.manifest.authorName ||
+      result.publicKeyFingerprintShort ||
+      'Artist';
     await addTrustedKey({
       publicKeyInput: pubB64,
       label,
@@ -339,67 +340,11 @@ export function VerifyCertificatePage() {
     }
   };
 
-  const renderOverallBanner = (res: VerificationResult) => {
-    if (res.signatureStatus === 'unsupported') {
-      return (
-        <div
-          role="alert"
-          className="rounded-xl border border-amber-400/40 bg-amber-500/15 p-4 flex items-center gap-3 text-amber-100"
-        >
-          <AlertTriangle className="h-5 w-5 text-amber-300 shrink-0" />
-          <span className="text-sm font-semibold">{t.verify.banners.unsupported}</span>
-        </div>
-      );
-    }
-    if (res.signatureStatus === 'invalid' || res.integrityStatus === 'mismatched') {
-      return (
-        <div
-          role="alert"
-          className="rounded-xl border border-rose-500/50 bg-rose-500/15 p-4 flex items-center gap-3 text-rose-100"
-        >
-          <XCircle className="h-5 w-5 text-rose-300 shrink-0" />
-          <span className="text-sm font-semibold">{t.verify.banners.invalid}</span>
-        </div>
-      );
-    }
-    if (res.integrityStatus === 'matched' && res.identityStatus === 'locally-trusted') {
-      return (
-        <div
-          role="status"
-          className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-4 flex items-center gap-3 text-emerald-100"
-        >
-          <ShieldCheck className="h-5 w-5 text-emerald-300 shrink-0" />
-          <span className="text-sm font-semibold">{t.verify.banners.validTrustedMatched}</span>
-        </div>
-      );
-    }
-    if (res.integrityStatus === 'matched') {
-      return (
-        <div
-          role="status"
-          className="rounded-xl border border-sky-300/35 bg-sky-400/10 p-4 flex items-center gap-3 text-sky-100"
-        >
-          <ShieldAlert className="h-5 w-5 text-sky-300 shrink-0" />
-          <span className="text-sm font-semibold">{t.verify.banners.validUnknownMatched}</span>
-        </div>
-      );
-    }
-    return (
-      <div
-        role="status"
-        className="rounded-xl border border-amber-400/35 bg-amber-500/10 p-4 flex items-center gap-3 text-amber-100"
-      >
-        <AlertTriangle className="h-5 w-5 text-amber-300 shrink-0" />
-        <span className="text-sm font-semibold">{t.verify.banners.validNotChecked}</span>
-      </div>
-    );
-  };
-
   const tabClass = (tab: InputTab) =>
-    `inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors min-h-[44px] ${
+    `inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors min-h-[44px] cursor-pointer ${
       activeTab === tab
-        ? 'bg-white/[0.12] text-white border border-white/[0.2]'
-        : 'bg-[#051224]/60 text-slate-300 border border-white/[0.09] hover:border-white/[0.18]'
+        ? 'bg-white/[0.12] text-white border border-white/[0.22]'
+        : 'bg-[#030b18]/65 text-slate-300 border border-white/[0.09] hover:border-white/[0.2]'
     }`;
 
   const showTopProofStep2Cta =
@@ -443,13 +388,27 @@ export function VerifyCertificatePage() {
   );
 
   return (
-    <div className="space-y-8">
-      <header className="space-y-2 border-b border-white/[0.08] pb-5">
-        <h1 className="text-2xl sm:text-3xl font-semibold text-white">{t.verify.title}</h1>
-        <p className="text-sm sm:text-base text-slate-300">{t.verify.subtitle}</p>
+    <div className="space-y-6 max-w-3xl mx-auto">
+      <header className="flex items-start justify-between gap-4 border-b border-white/[0.08] pb-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl sm:text-3xl font-semibold text-white">
+            {t.home.ctaVerify}
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-400">{t.minimal.verify.dropHint}</p>
+        </div>
+
+        <HelpIconButton
+          label={t.minimal.verify.helpLabel}
+          title={t.minimal.verify.helpLabel}
+          closeLabel={t.minimal.home.closeHelp}
+          testId="verify-help-btn"
+        >
+          <p>{t.minimal.verify.helpBody}</p>
+          <p className="text-xs text-slate-400">{t.verify.trustReminder}</p>
+        </HelpIconButton>
       </header>
 
-      <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-5">
+      <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-5 space-y-4">
         <div className="flex flex-wrap gap-2" role="tablist">
           <button
             type="button"
@@ -458,8 +417,8 @@ export function VerifyCertificatePage() {
             onClick={() => setActiveTab('image')}
             className={tabClass('image')}
           >
-            <FileImage className="h-4 w-4" aria-hidden="true" />
-            <span>{t.verify.inputTabImage}</span>
+            <FileImage className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>{t.minimal.verify.tabImage}</span>
           </button>
 
           <button
@@ -469,8 +428,8 @@ export function VerifyCertificatePage() {
             onClick={() => setActiveTab('camera')}
             className={tabClass('camera')}
           >
-            <Camera className="h-4 w-4" aria-hidden="true" />
-            <span>{t.verify.inputTabCamera}</span>
+            <Camera className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>{t.minimal.verify.tabCamera}</span>
           </button>
 
           <button
@@ -481,8 +440,8 @@ export function VerifyCertificatePage() {
             data-testid="verify-tab-proof"
             className={tabClass('proof')}
           >
-            <Link2 className="h-4 w-4" aria-hidden="true" />
-            <span>{t.verify.inputTabProof}</span>
+            <Link2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>{t.minimal.verify.tabProof}</span>
           </button>
         </div>
 
@@ -520,7 +479,7 @@ export function VerifyCertificatePage() {
         {activeTab === 'proof' &&
           (launchedWithHashProof ? (
             <details className="group rounded-lg border border-white/[0.1] bg-[#030b18]/55 p-3">
-              <summary className="flex items-center justify-between gap-2 cursor-pointer text-xs sm:text-sm font-medium text-slate-200 list-none select-none">
+              <summary className="flex items-center justify-between gap-2 cursor-pointer text-xs sm:text-sm font-medium text-slate-200 list-none select-none min-h-[44px]">
                 <span>{t.verifyMobile.rawProofToggle}</span>
                 <ChevronDown
                   className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180 shrink-0"
@@ -533,7 +492,7 @@ export function VerifyCertificatePage() {
             proofForm
           ))}
 
-        {qrInfoNote && <p className="text-xs font-mono text-cyan-300">{qrInfoNote}</p>}
+        {qrInfoNote && <p className="text-xs font-mono text-sky-300">{qrInfoNote}</p>}
 
         {errorMsg && (
           <div
@@ -594,20 +553,14 @@ export function VerifyCertificatePage() {
       )}
 
       {result && (
-        <div className="space-y-6" data-testid="verification-results">
-          {renderOverallBanner(result)}
-
-          <section className="space-y-3">
-            <h2 className="text-base sm:text-lg font-semibold text-white">
-              {t.verify.statusDimensionsTitle}
-            </h2>
-            <StatusDimensionsGrid
-              signatureStatus={result.signatureStatus}
-              integrityStatus={result.integrityStatus}
-              identityStatus={result.identityStatus}
-              trustedKeyLabel={result.trustedKeyLabel}
-            />
-          </section>
+        <div className="space-y-5" data-testid="verification-results">
+          <StatusDimensionsGrid
+            signatureStatus={result.signatureStatus}
+            integrityStatus={result.integrityStatus}
+            identityStatus={result.identityStatus}
+            trustedKeyLabel={result.trustedKeyLabel}
+            matchedMode={result.matchedMode}
+          />
 
           {result.errors.length > 0 && (
             <div
@@ -628,7 +581,7 @@ export function VerifyCertificatePage() {
             >
               <Info className="h-5 w-5 text-sky-300 shrink-0 mt-0.5" aria-hidden="true" />
               <div className="space-y-1">
-                <h3 className="font-semibold text-sky-200">{t.verify.qrMaskNoticeTitle}</h3>
+                <h2 className="font-semibold text-sky-200">{t.verify.qrMaskNoticeTitle}</h2>
                 <p className="text-sky-100/90 leading-relaxed">{t.verify.qrMaskNoticeBody}</p>
                 <p className="font-mono text-xs text-sky-200">
                   qrMask: [{result.manifest.qrMask.join(', ')}]
@@ -637,15 +590,93 @@ export function VerifyCertificatePage() {
             </div>
           )}
 
-          <div className="rounded-xl border border-white/[0.1] bg-[#051224]/65 backdrop-blur-md p-4 text-xs sm:text-sm text-slate-300">
-            {t.verify.trustReminder}
-          </div>
+          {result.manifest && (
+            <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-5 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm sm:text-base font-semibold text-white">
+                  {t.minimal.verify.declaredSummaryTitle}
+                </h2>
+                <span className="text-xs font-mono text-slate-400">
+                  {result.publicKeyFingerprintShort ?? ''}
+                </span>
+              </div>
+
+              {(result.manifest.authorName || result.manifest.artworkTitle) && (
+                <div className="flex flex-wrap gap-4 text-xs sm:text-sm text-slate-200">
+                  {result.manifest.authorName && (
+                    <div>
+                      <span className="text-slate-400">{t.verify.fields.authorName}: </span>
+                      <span className="font-medium text-white">{result.manifest.authorName}</span>
+                    </div>
+                  )}
+                  {result.manifest.artworkTitle && (
+                    <div>
+                      <span className="text-slate-400">{t.verify.fields.artworkTitle}: </span>
+                      <span className="font-medium text-white">{result.manifest.artworkTitle}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <LicenseSummaryCard
+                licenseId={result.manifest.license.licenseId}
+                compact
+                testId="verify-license-summary"
+              />
+
+              {result.signatureStatus === 'valid' && result.identityStatus === 'unknown' && (
+                <form
+                  onSubmit={handleTrustThisKey}
+                  className="rounded-xl border border-white/[0.1] bg-[#030b18]/65 p-4 space-y-3"
+                >
+                  <p className="text-xs sm:text-sm font-medium text-slate-200">
+                    {t.verify.trustKeyPrompt}
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={trustLabelInput}
+                      onChange={(e) => setTrustLabelInput(e.target.value)}
+                      placeholder={t.verify.trustKeyLabelInput}
+                      maxLength={64}
+                      data-testid="verify-trust-label-input"
+                      className="flex-1 rounded-lg border border-white/[0.14] bg-[#030b18] px-3 py-2 text-sm text-white min-h-[44px]"
+                    />
+                    <button
+                      type="submit"
+                      data-testid="verify-trust-btn"
+                      className="rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-4 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/30 min-h-[44px] cursor-pointer"
+                    >
+                      {t.verify.trustKeyBtn}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {trustSavedMsg && (
+                <p role="status" className="text-xs text-emerald-300">
+                  {t.verify.trustedAlready} {trustSavedMsg}
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                <Link
+                  to={`/exchange?inspect=${encodeURIComponent(base64UrlEncode(result.manifest.publicKey))}`}
+                  data-testid="verify-inspect-exchange-link"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-sky-300/35 bg-sky-400/10 px-3.5 py-2 text-xs sm:text-sm font-medium text-sky-200 hover:bg-sky-400/20 min-h-[44px]"
+                >
+                  <Share2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span>{t.verify.inspectInExchangeBtn}</span>
+                </Link>
+              </div>
+            </section>
+          )}
 
           {result.manifest && !showTopProofStep2Cta && (
-            <section className="rounded-xl border border-white/[0.12] bg-[#051224]/65 backdrop-blur-md p-5 space-y-3">
-              <h3 className="text-sm sm:text-base font-semibold text-white">
+            <section className="rounded-xl border border-white/[0.1] bg-[#051224]/65 backdrop-blur-md p-5 space-y-3">
+              <h2 className="text-sm sm:text-base font-semibold text-white">
                 {t.verify.attachArtworkTitle}
-              </h3>
+              </h2>
               <p className="text-xs text-slate-400">{t.verify.attachArtworkHint}</p>
               <ImageDropzone
                 onFileSelected={handleAttachArtworkForProof}
@@ -659,12 +690,13 @@ export function VerifyCertificatePage() {
             </section>
           )}
 
-          {result.manifest && (
-            <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
-              <h2 className="text-base sm:text-lg font-semibold text-white">
-                {t.verify.detailsTitle}
-              </h2>
+          <p className="text-xs text-slate-400 px-1">{t.verify.trustReminder}</p>
 
+          {result.manifest && (
+            <AdvancedSettings
+              label={t.minimal.verify.detailsLabel}
+              testId="verify-manifest-details"
+            >
               <dl className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs sm:text-sm">
                 <DetailRow
                   label={t.verify.fields.protocolVersion}
@@ -746,58 +778,7 @@ export function VerifyCertificatePage() {
                   value={result.manifest.license.aiTraining}
                 />
               </dl>
-
-              <LicenseSummaryCard
-                licenseId={result.manifest.license.licenseId}
-                testId="verify-license-summary"
-              />
-
-              {result.signatureStatus === 'valid' && result.identityStatus === 'unknown' && (
-                <form
-                  onSubmit={handleTrustThisKey}
-                  className="rounded-xl border border-white/[0.1] bg-[#030b18]/65 p-4 space-y-3"
-                >
-                  <p className="text-xs sm:text-sm font-medium text-slate-200">
-                    {t.verify.trustKeyPrompt}
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      value={trustLabelInput}
-                      onChange={(e) => setTrustLabelInput(e.target.value)}
-                      placeholder={t.verify.trustKeyLabelInput}
-                      maxLength={64}
-                      data-testid="verify-trust-label-input"
-                      className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
-                    />
-                    <button
-                      type="submit"
-                      data-testid="verify-trust-btn"
-                      className="rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-4 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/30 min-h-[42px]"
-                    >
-                      {t.verify.trustKeyBtn}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {trustSavedMsg && (
-                <p role="status" className="text-xs text-emerald-300">
-                  {t.verify.trustedAlready} {trustSavedMsg}
-                </p>
-              )}
-
-              <div className="pt-1">
-                <Link
-                  to={`/exchange?inspect=${encodeURIComponent(base64UrlEncode(result.manifest.publicKey))}`}
-                  data-testid="verify-inspect-exchange-link"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/35 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20 min-h-[38px]"
-                >
-                  <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>{t.verify.inspectInExchangeBtn}</span>
-                </Link>
-              </div>
-            </section>
+            </AdvancedSettings>
           )}
         </div>
       )}
