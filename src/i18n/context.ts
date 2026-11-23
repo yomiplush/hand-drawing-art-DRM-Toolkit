@@ -3,6 +3,7 @@ import type { SupportedLocale } from '../core/storage/consent';
 import type { Translations } from './en';
 import type { HowToTranslations } from './howto';
 import type { LicenseGuideTranslations } from './licenses';
+import type { MinimalUiTranslations } from './minimalUi';
 import type { QrStudioTranslations } from './qrStudio';
 import type { SeoTranslations } from './seo';
 import type { TutorialTranslations } from './tutorial';
@@ -17,6 +18,7 @@ export type FullTranslations = Translations & {
   qrStudio: QrStudioTranslations;
   verifyMobile: VerifyMobileTranslations;
   seo: SeoTranslations;
+  minimal: MinimalUiTranslations;
 };
 
 export interface LocaleOption {

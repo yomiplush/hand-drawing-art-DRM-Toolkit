@@ -14,6 +14,7 @@ import { LICENSE_I18N } from './licenses';
 import { ko, zhCN, zhTW } from './locales/eastAsia';
 import { ar, de, es, fr, it, pt } from './locales/europeanAndArabic';
 import { ru, uk } from './locales/slavic';
+import { MINIMAL_UI_I18N } from './minimalUi';
 import { QR_STUDIO_I18N } from './qrStudio';
 import { SEO_I18N } from './seo';
 import { TUTORIAL_I18N } from './tutorial';
@@ -99,6 +100,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     qrStudio: QR_STUDIO_I18N[locale] ?? QR_STUDIO_I18N.en,
     verifyMobile: VERIFY_MOBILE_I18N[locale] ?? VERIFY_MOBILE_I18N.en,
     seo: SEO_I18N[locale] ?? SEO_I18N.en,
+    minimal: MINIMAL_UI_I18N[locale] ?? MINIMAL_UI_I18N.en,
   };
 
   return (
