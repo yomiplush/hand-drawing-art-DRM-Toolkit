@@ -57,10 +57,27 @@ export function extractProofBytesFromInput(rawInput: string): Uint8Array {
 
   let token: string | null;
 
-  // Case 1: URL containing #proof=...
+  // Case 1: URL containing #proof=... (also tolerate %23proof%3D or ?proof= from mobile link wrappers)
   if (trimmed.includes('#')) {
     const hashIdx = trimmed.indexOf('#');
     const fragment = trimmed.slice(hashIdx + 1);
+    const params = new URLSearchParams(fragment);
+    token = params.get('proof');
+    if (!token) {
+      throw new Error('URL fragment does not contain a "proof" parameter');
+    }
+  } else if (trimmed.includes('?proof=')) {
+    const qIdx = trimmed.indexOf('?');
+    const query = trimmed.slice(qIdx + 1);
+    const params = new URLSearchParams(query);
+    token = params.get('proof');
+    if (!token) {
+      throw new Error('URL query does not contain a "proof" parameter');
+    }
+  } else if (trimmed.includes('%23proof%3D') || trimmed.includes('%23proof=')) {
+    const decoded = decodeURIComponent(trimmed);
+    const hashIdx = decoded.indexOf('#');
+    const fragment = hashIdx >= 0 ? decoded.slice(hashIdx + 1) : decoded;
     const params = new URLSearchParams(fragment);
     token = params.get('proof');
     if (!token) {

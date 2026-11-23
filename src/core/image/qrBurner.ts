@@ -10,7 +10,7 @@ export interface QrBurnOptions {
   placement: QrPlacement;
   marginPx: number;
   modulePx?: number; // If omitted/0, automatically calculated
-  quietZoneModules?: number;
+  quietZoneModules?: number; // Defaults to 1 (minimal white border)
   theme: FrameTheme;
   showLabel: boolean;
   labelLines?: string[];
@@ -41,11 +41,16 @@ export interface BurnLayout {
   } | null;
 }
 
-export function chooseDefaultModulePx(artWidth: number, artHeight: number, qrModules: number): number {
+export function chooseDefaultModulePx(
+  artWidth: number,
+  artHeight: number,
+  qrModules: number,
+  quietZoneModules = 1,
+): number {
   const refDim = Math.max(artWidth, artHeight);
   // Target QR width ~14%-22% of larger image dimension, clamped cleanly
   const targetQrPx = Math.max(140, Math.min(420, Math.round(refDim * 0.18)));
-  const totalModules = qrModules + 8; // including 4-module quiet zone each side
+  const totalModules = qrModules + quietZoneModules * 2;
   const mod = Math.max(2, Math.min(8, Math.round(targetQrPx / totalModules)));
   return mod;
 }
@@ -56,15 +61,18 @@ export function computeBurnLayout(
   qrModules: number,
   options: QrBurnOptions,
 ): BurnLayout {
-  const margin = Math.max(8, Math.min(120, Math.round(options.marginPx)));
-  const quietZoneModules = Math.max(4, options.quietZoneModules ?? 4);
+  const margin = Math.max(4, Math.min(120, Math.round(options.marginPx)));
+  const quietZoneModules =
+    options.quietZoneModules !== undefined && Number.isFinite(options.quietZoneModules)
+      ? Math.max(1, Math.min(4, Math.round(options.quietZoneModules)))
+      : 1;
   const modulePx =
     options.modulePx && options.modulePx >= 2
       ? Math.min(12, Math.round(options.modulePx))
-      : chooseDefaultModulePx(artWidth, artHeight, qrModules);
+      : chooseDefaultModulePx(artWidth, artHeight, qrModules, quietZoneModules);
 
   const qrSize = (qrModules + quietZoneModules * 2) * modulePx;
-  const barInnerPad = Math.max(12, Math.round(margin * 0.6));
+  const barInnerPad = Math.max(4, Math.round(margin * 0.5));
   const barHeight = qrSize + barInnerPad * 2;
 
   const minContentWidth = qrSize + barInnerPad * 2;

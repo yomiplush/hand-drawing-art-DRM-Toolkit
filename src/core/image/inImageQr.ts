@@ -10,6 +10,7 @@ export interface InImageQrOptions {
   opacity: number; // 0.15 .. 1.0
   style: InImageQrStyle;
   eccLevel: QrErrorCorrectionLevel;
+  quietZoneModules?: number; // Defaults to 1 (minimal border)
 }
 
 export interface ClampedInImageQrOptions {
@@ -22,7 +23,7 @@ export interface ClampedInImageQrOptions {
   quietZoneModules: number;
 }
 
-const DEFAULT_QUIET_ZONE_MODULES = 2;
+const DEFAULT_QUIET_ZONE_MODULES = 1;
 
 export function clampInImageQrOptions(
   artWidth: number,
@@ -45,6 +46,11 @@ export function clampInImageQrOptions(
   const rawOpacity = Number.isFinite(options.opacity) ? options.opacity : 0.72;
   const opacity = Math.max(0.15, Math.min(1, rawOpacity));
 
+  const quietZoneModules =
+    options.quietZoneModules !== undefined && Number.isFinite(options.quietZoneModules)
+      ? Math.max(0, Math.min(4, Math.round(options.quietZoneModules)))
+      : DEFAULT_QUIET_ZONE_MODULES;
+
   return {
     x,
     y,
@@ -52,7 +58,7 @@ export function clampInImageQrOptions(
     opacity,
     style: options.style,
     eccLevel: options.eccLevel,
-    quietZoneModules: DEFAULT_QUIET_ZONE_MODULES,
+    quietZoneModules,
   };
 }
 

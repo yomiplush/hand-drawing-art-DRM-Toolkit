@@ -120,6 +120,7 @@ export function InImageQrStudioPanel({
       opacity: clampedOptions.opacity,
       style: clampedOptions.style,
       eccLevel: clampedOptions.eccLevel,
+      quietZoneModules: clampedOptions.quietZoneModules,
     });
 
     if (typeof document !== 'undefined') {
@@ -331,12 +332,14 @@ export interface InImageAdvancedControlsProps {
   qrOpacityPct: number;
   qrStyle: InImageQrStyle;
   eccLevel: QrErrorCorrectionLevel;
+  qrQuietZone?: number;
   onChangeX: (x: number) => void;
   onChangeY: (y: number) => void;
   onChangeBoxSize: (size: number) => void;
   onChangeOpacityPct: (pct: number) => void;
   onChangeStyle: (style: InImageQrStyle) => void;
   onChangeEcc: (ecc: QrErrorCorrectionLevel) => void;
+  onChangeQuietZone?: (quietZone: number) => void;
 }
 
 export function InImageAdvancedControls({
@@ -348,12 +351,14 @@ export function InImageAdvancedControls({
   qrOpacityPct,
   qrStyle,
   eccLevel,
+  qrQuietZone = 1,
   onChangeX,
   onChangeY,
   onChangeBoxSize,
   onChangeOpacityPct,
   onChangeStyle,
   onChangeEcc,
+  onChangeQuietZone,
 }: InImageAdvancedControlsProps) {
   const { t } = useI18n();
   const maxBoxSize = artworkRaster ? Math.min(artworkRaster.width, artworkRaster.height) : 480;
@@ -473,6 +478,25 @@ export function InImageAdvancedControls({
             <option value="H">{t.qrStudio.eccOptions.H}</option>
           </select>
         </div>
+
+        {onChangeQuietZone && (
+          <div className="sm:col-span-2">
+            <label htmlFor="qrQuietZone" className="block text-xs text-slate-300 mb-1">
+              {t.minimal.create.quietZoneLabel}
+            </label>
+            <select
+              id="qrQuietZone"
+              value={qrQuietZone}
+              onChange={(e) => onChangeQuietZone(Number(e.target.value))}
+              data-testid="qrstudio-quietzone-select"
+              className="w-full rounded-lg border border-white/[0.14] bg-[#061224] px-3 py-2 text-xs sm:text-sm text-white min-h-[44px]"
+            >
+              <option value={0}>{t.minimal.create.quietZoneNone}</option>
+              <option value={1}>{t.minimal.create.quietZoneMinimal}</option>
+              <option value={2}>{t.minimal.create.quietZoneCompact}</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {clampedOptions && (

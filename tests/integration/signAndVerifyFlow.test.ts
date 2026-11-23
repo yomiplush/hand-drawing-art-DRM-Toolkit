@@ -8,8 +8,10 @@ import {
 } from '../../src/core/crypto';
 import { decodePngToCanonicalRgba8, encodeCanonicalRgba8ToPng } from '../../src/core/image';
 import type { CanonicalRaster } from '../../src/core/image';
+import { computeBurnLayout } from '../../src/core/image/qrBurner';
 import type { FrameTheme, QrPlacement } from '../../src/core/image/qrBurner';
 import { createPortableProofBundle } from '../../src/core/manifest/proofBundle';
+import { extractProofBytesFromInput } from '../../src/core/manifest/proofUrl';
 import {
   createInImageSignedArtworkPng,
   createSignedArtworkPng,
@@ -110,6 +112,15 @@ describe('End-to-end signing, QR burning, PNG encoding, QR decoding & verificati
     expect(proofOnlyRes.signatureStatus).toBe('valid');
     expect(proofOnlyRes.integrityStatus).toBe('not-checked');
 
+    // Mobile link wrappers (?proof= and URL-encoded %23proof%3D) decode cleanly
+    const tokenOnly = signed.proofUrl.split('#proof=')[1];
+    expect(extractProofBytesFromInput(`https://certified-handmade.com/verify?proof=${tokenOnly}`)).toEqual(
+      signed.proofBytes,
+    );
+    expect(
+      extractProofBytesFromInput(`https://certified-handmade.com/verify%23proof%3D${tokenOnly}`),
+    ).toEqual(signed.proofBytes);
+
     // Portable .chproof.json bundle works identically offline
     const bundleJson = JSON.stringify(
       createPortableProofBundle({
@@ -153,6 +164,87 @@ describe('End-to-end signing, QR burning, PNG encoding, QR decoding & verificati
     expect(standaloneRes.signatureStatus).toBe('valid');
     expect(standaloneRes.integrityStatus).toBe('matched');
     expect(standaloneRes.matchedMode).toBe('full-artwork');
+  });
+
+  it('uses minimal quietZoneModules=1 by default for v1 & supports zero white border in v2', async () => {
+    const authorKey = await makeTestAuthorKey(seedHex, 'MinimalBorderArtist');
+    const artwork = makePatternRaster(320, 240, false);
+
+    const defaultLayout = computeBurnLayout(320, 240, 69, {
+      placement: 'bottom-right',
+      theme: 'dark-slate',
+      marginPx: 12,
+      showLabel: false,
+    });
+    const legacyLayout = computeBurnLayout(320, 240, 69, {
+      placement: 'bottom-right',
+      theme: 'dark-slate',
+      marginPx: 24,
+      quietZoneModules: 4,
+      showLabel: false,
+    });
+    expect(defaultLayout.qrBox.quietZoneModules).toBe(1);
+    expect(defaultLayout.qrBox.size).toBeLessThan(legacyLayout.qrBox.size);
+
+    for (const theme of ['dark-slate', 'pure-white', 'transparent-margin'] as const) {
+      const signedV1 = await createSignedArtworkPng({
+        artworkRaster: artwork,
+        authorKey,
+        passphraseIfEncrypted: 'test-passphrase-123',
+        license: {
+          licenseId: 'ARR',
+          commercialUse: 'disallow',
+          redistribution: 'disallow',
+          aiTraining: 'disallow',
+        },
+        burnOptions: {
+          placement: 'bottom-right',
+          theme,
+          marginPx: 8,
+          quietZoneModules: 1,
+          showLabel: false,
+        },
+        issuedAt: 1795352786,
+      });
+      expect(signedV1.qrVerifiedReadable, theme).toBe(true);
+      const verifiedV1 = await verifyImageWithEmbeddedQr({
+        fileOrBytes: signedV1.pngBytes,
+        lookupTrustedKey: async () => undefined,
+      });
+      expect(verifiedV1.verification.signatureStatus, theme).toBe('valid');
+      expect(verifiedV1.verification.integrityStatus, theme).toBe('matched');
+    }
+
+    for (const quietZoneModules of [0, 1]) {
+      const signedV2 = await createInImageSignedArtworkPng({
+        artworkRaster: artwork,
+        authorKey,
+        passphraseIfEncrypted: 'test-passphrase-123',
+        license: {
+          licenseId: 'ARR',
+          commercialUse: 'disallow',
+          redistribution: 'disallow',
+          aiTraining: 'disallow',
+        },
+        qrOptions: {
+          x: 20,
+          y: 20,
+          boxSize: 160,
+          opacity: 0.72,
+          style: 'frosted-light',
+          eccLevel: 'Q',
+          quietZoneModules,
+        },
+        issuedAt: 1795352786,
+      });
+      expect(signedV2.qrVerifiedReadable, `v2-qz-${quietZoneModules}`).toBe(true);
+      const verifiedV2 = await verifyImageWithEmbeddedQr({
+        fileOrBytes: signedV2.pngBytes,
+        lookupTrustedKey: async () => undefined,
+      });
+      expect(verifiedV2.verification.signatureStatus, `v2-qz-${quietZoneModules}`).toBe('valid');
+      expect(verifiedV2.verification.integrityStatus, `v2-qz-${quietZoneModules}`).toBe('matched');
+    }
   });
 
   it('embeds semi-transparent in-image QR (Protocol v2), decodes it, and verifies pixels outside qrMask', async () => {
@@ -243,7 +335,7 @@ describe('End-to-end signing, QR burning, PNG encoding, QR decoding & verificati
         y: 20,
         boxSize: 160,
         opacity: 0.08,
-        style: 'transparent-tint',
+        style: 'modules-dark',
         eccLevel: 'M',
       },
       issuedAt: 1795352786,
