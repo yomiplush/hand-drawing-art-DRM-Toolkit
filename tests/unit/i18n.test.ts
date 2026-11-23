@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LICENSE_DEFINITIONS } from '../../src/core/manifest/types';
 import { SUPPORTED_LOCALES } from '../../src/core/storage/consent';
+import { ARTWORK_DETAILS_I18N } from '../../src/i18n/artworkDetails';
 import { en } from '../../src/i18n/en';
 import { HOWTO_I18N } from '../../src/i18n/howto';
 import { ja } from '../../src/i18n/ja';
@@ -175,6 +176,25 @@ describe('13-language license guide & simple how-to translations', () => {
       if (locale !== 'en') {
         expect(mui.home.tagline).not.toBe(MINIMAL_UI_I18N.en.home.tagline);
         expect(mui.home.createCta).not.toBe(MINIMAL_UI_I18N.en.home.createCta);
+      }
+    }
+  });
+
+  it('provides Artwork Details & Creation Evidence copy for all 13 languages', () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      const ad = ARTWORK_DETAILS_I18N[locale];
+      expect(ad.disclosureTitle.trim().length).toBeGreaterThan(4);
+      expect(ad.disclosureHint.trim().length).toBeGreaterThan(10);
+      expect(ad.methodHandDrawnNoAi.trim().length).toBeGreaterThan(4);
+      expect(ad.methodPreferNotToDisclose.trim().length).toBeGreaterThan(3);
+      expect(ad.verifyStandaloneError.trim().length).toBeGreaterThan(10);
+      expect(ad.verifyExtValidBadge.trim().length).toBeGreaterThan(5);
+      expect(ad.verifyEvidenceStatusVerified.trim().length).toBeGreaterThan(3);
+      expect(ad.verifyEvidenceStatusUnavailable.trim().length).toBeGreaterThanOrEqual(3);
+      if (locale !== 'en') {
+        expect(ad.disclosureTitle).not.toBe(ARTWORK_DETAILS_I18N.en.disclosureTitle);
+        expect(ad.methodHandDrawnNoAi).not.toBe(ARTWORK_DETAILS_I18N.en.methodHandDrawnNoAi);
+        expect(ad.verifyStandaloneError).not.toBe(ARTWORK_DETAILS_I18N.en.verifyStandaloneError);
       }
     }
   });

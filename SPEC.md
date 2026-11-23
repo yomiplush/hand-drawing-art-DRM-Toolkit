@@ -337,8 +337,8 @@ To let two parties test offline whether someone currently possesses the private 
 
 To prevent single-implementation lock-in and support long-term auditability, the repository provides two standalone offline CLI verifiers importing **zero modules from `src/`**:
 
-- **Go CLI (`tools/chm-verify/`):** Standard-library-only Go binary verifying `#proof=`, `.chproof.json`, lossless PNG `CAR-v1` `v1`/`v2` integrity (including `qrMask`), and `.chnotice.json` / `chm-notice:` tokens.
-- **Node.js CLI (`tools/chm-verify.mjs`):** Minimal Node.js verifier supporting PNG embedded-QR extraction, `--proof`, `--artwork`, `--notice`, and `--json`.
+- **Go CLI (`tools/chm-verify/`):** Standard-library-only Go binary verifying `#proof=`, `.chproof.json`, `.chmevidence` + local evidence files, lossless PNG `CAR-v1` `v1`/`v2` integrity (including `qrMask`), and `.chnotice.json` / `chm-notice:` tokens.
+- **Node.js CLI (`tools/chm-verify.mjs`):** Minimal Node.js verifier supporting PNG embedded-QR extraction, `--proof`, `--artwork`, `--evidence`, `--evidence-file`, `--notice`, and `--json`.
 
 ---
 
@@ -367,3 +367,79 @@ All envelopes use strict deterministic RFC 8949 CBOR maps (ascending integer key
 ### 13.3 Separation of Future Delegated Signing (Not Implemented in v1)
 
 In `v1`, allowed permissions in pairing requests and enrollment certificates are restricted to `["device-identity"]`. Any non-v1 or elevated permission (such as delegated artwork signing or delegated device approval) MUST be rejected by `v1` validators. Supporting delegated artwork signing in a future `v2+` extension requires explicit scoped capability chains and verifier awareness inside `CHM1\0` and is intentionally omitted from `v1`.
+
+---
+
+## 14. Metadata & Creation Evidence Extension (`.chmevidence`, `CHM-EVIDENCE1\0`)
+
+To keep embedded QR codes compact, fast to scan, and 100% backward compatible with Protocol `v1` and `v2`, extended artwork metadata, creator profile links, creation method/environment declarations, and local evidence file SHA-256 descriptors live in an **optional, independent, domain-separated extension file** (`.chmevidence`) rather than inside the QR URI.
+
+### 14.1 Compact QR Policy & Zero Bloat
+
+- Primary `CHM1\0` proof payloads (`proofBytes`) and embedded QR codes **MUST NOT** be inflated by long titles, descriptions, profile URLs, creation notes, or evidence lists.
+- With or without `.chmevidence`, a signed artwork's QR byte size and QR matrix version remain bit-for-bit identical (for example, the normative `v1` URL remains `334` characters at QR Version `14` / `73×73` modules).
+- Existing QR-only verifiers continue to verify the embedded QR (`Mode A`) without requiring `.chmevidence`.
+
+### 14.2 Domain-Separated Envelope & Transport Format
+
+- **Domain Separation Prefix:**
+  ```
+  evidenceSigningMessage = 0x43 0x48 0x4D 0x2D 0x45 0x56 0x49 0x44 0x45 0x4E 0x43 0x45 0x31 0x00 || payloadBytes
+                           ("C"  "H"  "M"  "-"  "E"  "V"  "I"  "D"  "E"  "N"  "C"  "E"  "1"  "\0")
+  signature              = Ed25519_Sign(privateKey, evidenceSigningMessage)   // 64 bytes
+  ```
+- **Signed Evidence Envelope (`evidenceBytes`):** Deterministic RFC 8949 CBOR 3-element array:
+  ```
+  evidenceEnvelope = [ 1, payloadBytes, signature64 ]
+  ```
+  Maximum encoded envelope size: `32,768` bytes (`MAX_EVIDENCE_CBOR_BYTES`).
+- **Transport Representations:**
+  1. Portable JSON container (`.chmevidence`):
+     ```json
+     {
+       "format": "certified-handmade-evidence",
+       "version": 1,
+       "artworkId": "<UUID>",
+       "proofSha256": "<64-char hex SHA-256(proofBytes)>",
+       "publicKeyFingerprint": "<64-char hex SHA-256(publicKey)>",
+       "createdAt": "<ISO-8601 UTC>",
+       "evidenceBase64Url": "<unpadded base64url(evidenceBytes)>"
+     }
+     ```
+  2. Compact token: `chm-evidence:<unpadded base64url(evidenceBytes)>` (or bare base64url CBOR envelope).
+
+### 14.3 Extension Payload Map (`payloadBytes`, Keys `1..11`)
+
+Encoded as deterministic RFC 8949 CBOR map with ascending integer keys:
+
+| Key | Name | CBOR Type | Constraints |
+| --- | --- | --- | --- |
+| `1` | `evidenceId` | `bstr` (16 bytes) | Random RFC 4122 UUIDv4 bytes |
+| `2` | `publicKey` | `bstr` (32 bytes) | Ed25519 public key (MUST match primary proof `key 2`) |
+| `3` | `proofSha256` | `bstr` (32 bytes) | `SHA-256(proofBytes)` of primary `CHM1\0` envelope |
+| `4` | `artworkId` | `bstr` (16 bytes) | MUST match primary proof `key 1` (`artworkId`) |
+| `5` | `artworkSha256` | `bstr` (32 bytes) | MUST match primary proof `key 3` (`sha256`) |
+| `6` | `createdAt` | `uint` | Self-declared Unix epoch seconds |
+| `7` | `artworkMetadata` | `map` (optional, non-empty) | `1`: `title` (`tstr`, `<=256` B), `2`: `artistName` (`tstr`, `<=128` B), `3`: `description` (`tstr` multiline, `<=4000` B) |
+| `8` | `creatorProfile` | `map` (optional, non-empty) | `1`: `displayName` (`<=128` B), `2`: `website` (`http:`/`https:`, `<=512` B), `3`: `links` (`1..12` entries of `[url]` or `[url, label<=64 B]`) |
+| `9` | `creationMethod` | `uint` (optional) | `1`=`hand-drawn-no-ai`, `2`=`hand-drawn-ai-assisted`, `3`=`ai-generated`, `4`=`other`, `5`=`prefer-not-to-disclose` |
+| `10` | `creationEnvironment` | `map` (optional, non-empty) | `1`: `software` (`<=128` B), `2`: `hardware` (`<=128` B), `3`: `inputDevice` (`<=128` B), `4`: `notes` (multiline, `<=1000` B) |
+| `11` | `evidenceRecords` | `array` (optional, `1..24`) | Each item map: `1`: `sha256` (`bstr` 32 B, required), `2`: `byteLength` (`uint`, required), `3`: `label` (`<=128` B, basename only), `4`: `category` (`uint` `1..6`), `5`: `mimeType` (`<=96` B) |
+
+- **Evidence Categories (`key 4` inside record map):** `1`=`sketch`, `2`=`wip`, `3`=`intermediate`, `4`=`timelapse`, `5`=`project-file`, `6`=`other`.
+- **String & URL Sanitization:** Reject ASCII control chars (except `\n`/`\t` in multiline fields `description` and `notes`; `\r` forbidden after normalization), C1 controls (`U+007F..U+009F`), Unicode bidi overrides (`U+202A..U+202E`, `U+2066..U+2069`), invalid UTF-8, and non-`http:`/`https:` URLs or URLs containing embedded `username:password@` credentials or whitespace. Only basenames (no local filesystem paths) are written into `evidenceRecords[].label`.
+
+### 14.4 Exact Cryptographic Proof Binding & Verification Modes
+
+1. **No Standalone Validity:** A `.chmevidence` artifact MUST NEVER be accepted as a standalone artwork certificate. Verifiers MUST reject `.chmevidence` when no primary CHM proof is present.
+2. **Binding Verification (Anti-Replay & Anti-Substitution):** Verifiers MUST verify the Ed25519 signature over `"CHM-EVIDENCE1\0" || payloadBytes` AND verify constant-time equality of ALL four binding fields against the primary proof:
+   - `evidence.publicKey === proof.publicKey`
+   - `evidence.artworkId === proof.artworkId`
+   - `evidence.artworkSha256 === proof.sha256`
+   - `evidence.proofSha256 === SHA-256(proofBytes)`
+   Any mismatch MUST fail verification with status `binding-mismatch`.
+3. **Three Verification Modes:**
+   - **Mode A (QR / Proof Only):** Verifies primary proof + artwork integrity (`CAR-v1`) as before. Extended metadata stays absent rather than failing.
+   - **Mode B (Proof + `.chmevidence`):** Verifies Mode A plus `.chmevidence` canonical CBOR, `"CHM-EVIDENCE1\0"` Ed25519 signature, and exact 4-field binding. When local evidence files are not supplied, records are reported strictly as **`unavailable`** — NEVER as `invalid`.
+   - **Mode C (Proof + `.chmevidence` + Local Evidence Files):** Streams each supplied local file (`<= 512 MiB`) to compute `SHA-256` and `byteLength` locally, matching against `evidenceRecords`. Supplied files matching no record MUST be flagged as mismatched.
+4. **Honest Claims:** Profile URLs are signed self-declarations without external API checks; creation method is displayed explicitly as **`declared by creator`**. Implementations MUST NEVER compute or display a numerical "Human-Made Confidence" score or infer AI usage from missing evidence.

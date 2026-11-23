@@ -18,23 +18,42 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 )
 
 const (
-	MaxProofBytes      = 2048
-	MaxNoticeBytes     = 2048
-	MaxInputChars      = 32768
-	MaxOutputDimension = 10240
-	MaxTotalPixels     = 33554432
-	MaxPngFileBytes    = 50 * 1024 * 1024
+	MaxProofBytes        = 2048
+	MaxNoticeBytes       = 2048
+	MaxInputChars        = 32768
+	MaxEvidenceBytes     = 32768
+	MaxEvidenceChars     = 131072
+	MaxEvidenceFileBytes = 512 * 1024 * 1024
+	MaxOutputDimension   = 10240
+	MaxTotalPixels       = 33554432
+	MaxPngFileBytes      = 50 * 1024 * 1024
+
+	MaxExtTitleBytes       = 256
+	MaxExtArtistBytes      = 128
+	MaxExtDescriptionBytes = 4000
+	MaxCreatorDisplayBytes = 128
+	MaxProfileURLBytes     = 512
+	MaxProfileLabelBytes   = 64
+	MaxProfileLinks        = 12
+	MaxEnvFieldBytes       = 128
+	MaxEnvNotesBytes       = 1000
+	MaxEvidenceRecords     = 24
+	MaxEvidenceLabelBytes  = 128
+	MaxEvidenceMimeBytes   = 96
 )
 
 var (
-	domainProofPrefix  = []byte{'C', 'H', 'M', '1', 0x00}
-	domainNoticePrefix = []byte{'C', 'H', 'M', '-', 'N', 'O', 'T', 'I', 'C', 'E', '1', 0x00}
+	domainProofPrefix    = []byte{'C', 'H', 'M', '1', 0x00}
+	domainNoticePrefix   = []byte{'C', 'H', 'M', '-', 'N', 'O', 'T', 'I', 'C', 'E', '1', 0x00}
+	domainEvidencePrefix = []byte{'C', 'H', 'M', '-', 'E', 'V', 'I', 'D', 'E', 'N', 'C', 'E', '1', 0x00}
 )
 
 var licenseNames = map[uint64]string{
@@ -64,6 +83,31 @@ var noticeReasonNames = map[uint64]string{
 	2: "key-superseded",
 	3: "retired",
 	4: "other",
+}
+
+var creationMethodNames = map[uint64]string{
+	1: "hand-drawn-no-ai",
+	2: "hand-drawn-ai-assisted",
+	3: "ai-generated",
+	4: "other",
+	5: "prefer-not-to-disclose",
+}
+
+var evidenceCategoryNames = map[uint64]string{
+	1: "sketch",
+	2: "wip",
+	3: "intermediate",
+	4: "timelapse",
+	5: "project-file",
+	6: "other",
+}
+
+type stringSliceFlag []string
+
+func (s *stringSliceFlag) String() string { return strings.Join(*s, ",") }
+func (s *stringSliceFlag) Set(val string) error {
+	*s = append(*s, val)
+	return nil
 }
 
 type errUsage struct{ msg string }
@@ -334,29 +378,174 @@ func sanitizeTextValid(s string, maxBytes int) error {
 	return nil
 }
 
+func isDisallowedEvidenceRune(r rune, allowMultiline bool) bool {
+	if r >= 0x202a && r <= 0x202e {
+		return true
+	}
+	if r >= 0x2066 && r <= 0x2069 {
+		return true
+	}
+	if r == 0x7f || (r >= 0x80 && r <= 0x9f) {
+		return true
+	}
+	if r < 0x20 {
+		if allowMultiline && (r == '\t' || r == '\n') {
+			return false
+		}
+		return true
+	}
+	return false
+}
+
+func validateEvidenceText(s string, maxBytes int, allowMultiline bool, field string) error {
+	trimmed := strings.TrimSpace(s)
+	if trimmed == "" {
+		return fmt.Errorf("%s cannot be empty", field)
+	}
+	if trimmed != s {
+		return fmt.Errorf("%s contains non-canonical leading/trailing whitespace", field)
+	}
+	if allowMultiline && strings.ContainsRune(s, '\r') {
+		return fmt.Errorf("%s contains non-canonical CR line endings", field)
+	}
+	if len(s) > maxBytes {
+		return fmt.Errorf("%s exceeds %d UTF-8 bytes", field, maxBytes)
+	}
+	for _, r := range s {
+		if isDisallowedEvidenceRune(r, allowMultiline) {
+			return fmt.Errorf("%s contains disallowed control or bidi characters", field)
+		}
+	}
+	return nil
+}
+
+func validateEvidenceProfileURL(s string, field string) error {
+	trimmed := strings.TrimSpace(s)
+	if trimmed == "" || trimmed != s {
+		return fmt.Errorf("%s must be a non-empty trimmed URL", field)
+	}
+	if len(s) > MaxProfileURLBytes {
+		return fmt.Errorf("%s exceeds %d UTF-8 bytes", field, MaxProfileURLBytes)
+	}
+	for _, r := range s {
+		if isDisallowedEvidenceRune(r, false) || unicode.IsSpace(r) {
+			return fmt.Errorf("%s contains disallowed whitespace or control characters", field)
+		}
+	}
+	u, err := url.Parse(s)
+	if err != nil {
+		return fmt.Errorf("%s must be a valid https:// or http:// URL", field)
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if (scheme != "https" && scheme != "http") || !strings.Contains(s, "://") {
+		return fmt.Errorf("%s must use https:// or http://", field)
+	}
+	if u.User != nil {
+		return fmt.Errorf("%s must not contain credentials", field)
+	}
+	if u.Hostname() == "" {
+		return fmt.Errorf("%s must include a valid hostname", field)
+	}
+	return nil
+}
+
+type ExtendedArtworkMetadata struct {
+	Title       string `json:"title,omitempty"`
+	ArtistName  string `json:"artistName,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+type CreatorProfileLink struct {
+	URL   string `json:"url"`
+	Label string `json:"label,omitempty"`
+}
+
+type CreatorProfileData struct {
+	DisplayName string               `json:"displayName,omitempty"`
+	Website     string               `json:"website,omitempty"`
+	Links       []CreatorProfileLink `json:"links,omitempty"`
+}
+
+type CreationEnvironmentData struct {
+	Software    string `json:"software,omitempty"`
+	Hardware    string `json:"hardware,omitempty"`
+	InputDevice string `json:"inputDevice,omitempty"`
+	Notes       string `json:"notes,omitempty"`
+}
+
+type EvidenceRecordCheck struct {
+	Index           int     `json:"index"`
+	Sha256Hex       string  `json:"sha256Hex"`
+	ByteLength      uint64  `json:"byteLength"`
+	Label           string  `json:"label,omitempty"`
+	Category        string  `json:"category,omitempty"`
+	MimeType        string  `json:"mimeType,omitempty"`
+	Status          string  `json:"status"`
+	MatchedFileName *string `json:"matchedFileName"`
+}
+
+type MismatchedSuppliedEvidence struct {
+	FileName          string `json:"fileName"`
+	ByteLength        uint64 `json:"byteLength"`
+	ComputedSha256Hex string `json:"computedSha256Hex"`
+}
+
+type EvidenceExtensionSummary struct {
+	Status                    string                       `json:"status"`
+	SignatureValid            bool                         `json:"signatureValid"`
+	ProofBindingValid         bool                         `json:"proofBindingValid"`
+	PublicKeyMatchesProof     bool                         `json:"publicKeyMatchesProof"`
+	ArtworkIDMatchesProof     bool                         `json:"artworkIdMatchesProof"`
+	ArtworkSha256MatchesProof bool                         `json:"artworkSha256MatchesProof"`
+	ProofSha256MatchesProof   bool                         `json:"proofSha256MatchesProof"`
+	EvidenceBytesLength       int                          `json:"evidenceBytesLength"`
+	EvidenceID                string                       `json:"evidenceId"`
+	ProofSha256Hex            string                       `json:"proofSha256Hex"`
+	IssuedAtUnix              uint64                       `json:"issuedAtUnix"`
+	IssuedAtISO               string                       `json:"issuedAtIso"`
+	ArtworkMetadata           *ExtendedArtworkMetadata     `json:"artworkMetadata"`
+	CreatorProfile            *CreatorProfileData          `json:"creatorProfile"`
+	CreationMethod            *string                      `json:"creationMethod"`
+	CreationEnvironment       *CreationEnvironmentData     `json:"creationEnvironment"`
+	RecordChecks              []EvidenceRecordCheck        `json:"recordChecks"`
+	VerifiedRecordCount       int                          `json:"verifiedRecordCount"`
+	UnavailableRecordCount    int                          `json:"unavailableRecordCount"`
+	MismatchedSuppliedFiles   []MismatchedSuppliedEvidence `json:"mismatchedSuppliedFiles"`
+	Errors                    []string                     `json:"errors"`
+	Warnings                  []string                     `json:"warnings"`
+}
+
 type ProofSummary struct {
-	ProtocolVersion           uint64   `json:"protocolVersion"`
-	SignatureValid            bool     `json:"signatureValid"`
-	IntegrityStatus           string   `json:"integrityStatus"`
-	MatchedMode               string   `json:"matchedMode,omitempty"`
-	ArtworkID                 string   `json:"artworkId"`
-	PublicKeyFingerprintHex   string   `json:"publicKeyFingerprintHex"`
-	PublicKeyFingerprintShort string   `json:"publicKeyFingerprintShort"`
-	DeclaredSha256Hex         string   `json:"declaredSha256Hex"`
-	ComputedSha256Hex         string   `json:"computedSha256Hex,omitempty"`
-	Region                    [4]int   `json:"region"`
-	QrMask                    *[4]int  `json:"qrMask,omitempty"`
-	QrMaskCoveragePct         *float64 `json:"qrMaskCoveragePct,omitempty"`
-	IssuedAtUnix              uint64   `json:"issuedAtUnix"`
-	IssuedAtISO               string   `json:"issuedAtIso"`
-	License                   string   `json:"license"`
-	CommercialUse             string   `json:"commercialUse"`
-	Redistribution            string   `json:"redistribution"`
-	AiTraining                string   `json:"aiTraining"`
-	AttributionName           string   `json:"attributionName,omitempty"`
-	AuthorName                string   `json:"authorName,omitempty"`
-	ArtworkTitle              string   `json:"artworkTitle,omitempty"`
-	Errors                    []string `json:"errors,omitempty"`
+	ProtocolVersion           uint64                    `json:"protocolVersion"`
+	SignatureValid            bool                      `json:"signatureValid"`
+	IntegrityStatus           string                    `json:"integrityStatus"`
+	MatchedMode               string                    `json:"matchedMode,omitempty"`
+	ArtworkID                 string                    `json:"artworkId"`
+	PublicKeyFingerprintHex   string                    `json:"publicKeyFingerprintHex"`
+	PublicKeyFingerprintShort string                    `json:"publicKeyFingerprintShort"`
+	DeclaredSha256Hex         string                    `json:"declaredSha256Hex"`
+	ComputedSha256Hex         string                    `json:"computedSha256Hex,omitempty"`
+	Region                    [4]int                    `json:"region"`
+	QrMask                    *[4]int                   `json:"qrMask,omitempty"`
+	QrMaskCoveragePct         *float64                  `json:"qrMaskCoveragePct,omitempty"`
+	IssuedAtUnix              uint64                    `json:"issuedAtUnix"`
+	IssuedAtISO               string                    `json:"issuedAtIso"`
+	License                   string                    `json:"license"`
+	CommercialUse             string                    `json:"commercialUse"`
+	Redistribution            string                    `json:"redistribution"`
+	AiTraining                string                    `json:"aiTraining"`
+	AttributionName           string                    `json:"attributionName,omitempty"`
+	AuthorName                string                    `json:"authorName,omitempty"`
+	ArtworkTitle              string                    `json:"artworkTitle,omitempty"`
+	EvidenceExtension         *EvidenceExtensionSummary `json:"evidenceExtension,omitempty"`
+	Errors                    []string                  `json:"errors,omitempty"`
+}
+
+type proofRawData struct {
+	proofBytes    []byte
+	publicKey     []byte
+	artworkID     []byte
+	artworkSha256 []byte
 }
 
 func extractProofBytes(rawInput string) ([]byte, error) {
@@ -446,79 +635,85 @@ func parseUintSlice4(val any, label string) ([4]int, error) {
 }
 
 func verifyProof(proofInput string, artworkPath string) (ProofSummary, error) {
+	summary, _, err := verifyProofWithRaw(proofInput, artworkPath)
+	return summary, err
+}
+
+func verifyProofWithRaw(proofInput string, artworkPath string) (ProofSummary, proofRawData, error) {
 	var summary ProofSummary
+	var rawData proofRawData
 	summary.IntegrityStatus = "not-checked"
 
 	proofBytes, err := extractProofBytes(proofInput)
 	if err != nil {
-		return summary, err
+		return summary, rawData, err
 	}
 	outerRaw, err := decodeCanonicalCBOR(proofBytes)
 	if err != nil {
-		return summary, fmt.Errorf("invalid proof envelope CBOR: %w", err)
+		return summary, rawData, fmt.Errorf("invalid proof envelope CBOR: %w", err)
 	}
 	outer, ok := outerRaw.([]any)
 	if !ok || len(outer) != 3 {
-		return summary, errors.New("proof envelope must be a 3-element CBOR array")
+		return summary, rawData, errors.New("proof envelope must be a 3-element CBOR array")
 	}
 	ver, ok := outer[0].(uint64)
 	if !ok {
-		return summary, errors.New("proof version must be an unsigned integer")
+		return summary, rawData, errors.New("proof version must be an unsigned integer")
 	}
 	if ver != 1 && ver != 2 {
-		return summary, errUnsupported{msg: fmt.Sprintf("unsupported protocol version: %d", ver)}
+		return summary, rawData, errUnsupported{msg: fmt.Sprintf("unsupported protocol version: %d", ver)}
 	}
 	payloadBytes, ok := outer[1].([]byte)
 	if !ok || len(payloadBytes) == 0 {
-		return summary, errors.New("manifest payload must be a non-empty byte string")
+		return summary, rawData, errors.New("manifest payload must be a non-empty byte string")
 	}
 	sig, ok := outer[2].([]byte)
 	if !ok || len(sig) != ed25519.SignatureSize {
-		return summary, errors.New("signature must be a 64-byte byte string")
+		return summary, rawData, errors.New("signature must be a 64-byte byte string")
 	}
 
 	payloadRaw, err := decodeCanonicalCBOR(payloadBytes)
 	if err != nil {
-		return summary, fmt.Errorf("invalid manifest payload CBOR: %w", err)
+		return summary, rawData, fmt.Errorf("invalid manifest payload CBOR: %w", err)
 	}
 	entries, ok := payloadRaw.([]cborMapEntry)
 	if !ok {
-		return summary, errors.New("manifest payload must be a CBOR map")
+		return summary, rawData, errors.New("manifest payload must be a CBOR map")
 	}
 
 	fields := make(map[uint64]any, len(entries))
 	for _, e := range entries {
 		k, ok := e.key.(uint64)
 		if !ok || k < 1 || k > 9 || (ver == 1 && k == 9) {
-			return summary, fmt.Errorf("invalid or disallowed manifest field key: %v", e.key)
+			return summary, rawData, fmt.Errorf("invalid or disallowed manifest field key: %v", e.key)
 		}
 		fields[k] = e.value
 	}
 
 	artworkID, ok := fields[1].([]byte)
 	if !ok || len(artworkID) != 16 {
-		return summary, errors.New("artworkId must be 16 bytes")
+		return summary, rawData, errors.New("artworkId must be 16 bytes")
 	}
 	pubKey, ok := fields[2].([]byte)
 	if !ok || len(pubKey) != ed25519.PublicKeySize {
-		return summary, errors.New("publicKey must be 32 bytes")
+		return summary, rawData, errors.New("publicKey must be 32 bytes")
 	}
 	shaBytes, ok := fields[3].([]byte)
 	if !ok || len(shaBytes) != 32 {
-		return summary, errors.New("sha256 must be 32 bytes")
+		return summary, rawData, errors.New("sha256 must be 32 bytes")
 	}
 	region, err := parseUintSlice4(fields[4], "region")
 	if err != nil {
-		return summary, err
+		return summary, rawData, err
 	}
 	issuedAt, ok := fields[5].(uint64)
 	if !ok {
-		return summary, errors.New("issuedAt must be an unsigned integer")
+		return summary, rawData, errors.New("issuedAt must be an unsigned integer")
 	}
 
 	licArr, ok := fields[6].([]any)
 	if !ok || (len(licArr) != 4 && len(licArr) != 5) {
-		return summary, errors.New("license must be a 4 or 5-element array")
+		return summary, rawData, errors.New("license must be a 4 or 5-element array")
 	}
 	licCode, ok1 := licArr[0].(uint64)
 	commCode, ok2 := licArr[1].(uint64)
@@ -529,17 +724,17 @@ func verifyProof(proofInput string, artworkPath string) (ProofSummary, error) {
 	redName, rok := policyNames[redCode]
 	aiName, aok := policyNames[aiCode]
 	if !ok1 || !ok2 || !ok3 || !ok4 || !lok || !cok || !rok || !aok {
-		return summary, errors.New("invalid license or policy code")
+		return summary, rawData, errors.New("invalid license or policy code")
 	}
 
 	var attrib string
 	if len(licArr) == 5 {
 		s, ok := licArr[4].(string)
 		if !ok {
-			return summary, errors.New("attributionName must be a string")
+			return summary, rawData, errors.New("attributionName must be a string")
 		}
 		if err := sanitizeTextValid(s, 48); err != nil {
-			return summary, fmt.Errorf("attributionName: %w", err)
+			return summary, rawData, fmt.Errorf("attributionName: %w", err)
 		}
 		attrib = s
 	}
@@ -548,10 +743,10 @@ func verifyProof(proofInput string, artworkPath string) (ProofSummary, error) {
 	if rawAuthor, exists := fields[7]; exists {
 		s, ok := rawAuthor.(string)
 		if !ok {
-			return summary, errors.New("authorName must be a string")
+			return summary, rawData, errors.New("authorName must be a string")
 		}
 		if err := sanitizeTextValid(s, 48); err != nil {
-			return summary, fmt.Errorf("authorName: %w", err)
+			return summary, rawData, fmt.Errorf("authorName: %w", err)
 		}
 		authorName = s
 	}
@@ -560,10 +755,10 @@ func verifyProof(proofInput string, artworkPath string) (ProofSummary, error) {
 	if rawTitle, exists := fields[8]; exists {
 		s, ok := rawTitle.(string)
 		if !ok {
-			return summary, errors.New("artworkTitle must be a string")
+			return summary, rawData, errors.New("artworkTitle must be a string")
 		}
 		if err := sanitizeTextValid(s, 64); err != nil {
-			return summary, fmt.Errorf("artworkTitle: %w", err)
+			return summary, rawData, fmt.Errorf("artworkTitle: %w", err)
 		}
 		artworkTitle = s
 	}
@@ -572,13 +767,13 @@ func verifyProof(proofInput string, artworkPath string) (ProofSummary, error) {
 	if rawMask, exists := fields[9]; exists {
 		m, err := parseUintSlice4(rawMask, "qrMask")
 		if err != nil {
-			return summary, err
+			return summary, rawData, err
 		}
 		if m[2] < 21 || m[3] < 21 {
-			return summary, errors.New("qrMask dimensions must be at least 21x21")
+			return summary, rawData, errors.New("qrMask dimensions must be at least 21x21")
 		}
 		if m[0]+m[2] > region[2] || m[1]+m[3] > region[3] {
-			return summary, errors.New("qrMask exceeds region bounds")
+			return summary, rawData, errors.New("qrMask exceeds region bounds")
 		}
 		qrMask = &m
 		cov := float64(m[2]*m[3]) / float64(region[2]*region[3]) * 100.0
@@ -629,6 +824,531 @@ func verifyProof(proofInput string, artworkPath string) (ProofSummary, error) {
 				summary.Errors = append(summary.Errors, "artwork SHA-256 digest does not match signed manifest")
 			}
 		}
+	}
+
+	rawData = proofRawData{
+		proofBytes:    proofBytes,
+		publicKey:     pubKey,
+		artworkID:     artworkID,
+		artworkSha256: shaBytes,
+	}
+
+	return summary, rawData, nil
+}
+
+func extractEvidenceBytes(rawInput string) ([]byte, error) {
+	trimmed := strings.TrimSpace(rawInput)
+	if trimmed == "" || len(trimmed) > MaxEvidenceChars {
+		return nil, errors.New("evidence extension input is empty or exceeds size limit")
+	}
+
+	token := trimmed
+	if strings.HasPrefix(trimmed, "{") {
+		var bundle struct {
+			Format            string `json:"format"`
+			Version           int    `json:"version"`
+			EvidenceBase64Url string `json:"evidenceBase64Url"`
+		}
+		if err := json.Unmarshal([]byte(trimmed), &bundle); err != nil {
+			return nil, fmt.Errorf("malformed .chmevidence JSON: %w", err)
+		}
+		if bundle.Format != "certified-handmade-evidence" {
+			return nil, errors.New("unsupported evidence extension format")
+		}
+		if bundle.Version != 1 {
+			return nil, errUnsupported{msg: fmt.Sprintf("unsupported evidence extension version: %d", bundle.Version)}
+		}
+		token = bundle.EvidenceBase64Url
+	} else if strings.HasPrefix(trimmed, "chm-evidence:") {
+		token = strings.TrimSpace(strings.TrimPrefix(trimmed, "chm-evidence:"))
+	}
+
+	if token == "" {
+		return nil, errors.New("missing evidenceBase64Url token")
+	}
+	evidenceBytes, err := decodeStrictBase64Url(token)
+	if err != nil {
+		return nil, err
+	}
+	if len(evidenceBytes) == 0 || len(evidenceBytes) > MaxEvidenceBytes {
+		return nil, fmt.Errorf("evidence extension bytes out of bounds (%d)", len(evidenceBytes))
+	}
+	return evidenceBytes, nil
+}
+
+func mapEntriesToUintMap(val any, minKey, maxKey uint64, label string) (map[uint64]any, error) {
+	entries, ok := val.([]cborMapEntry)
+	if !ok {
+		return nil, fmt.Errorf("%s must be a CBOR map", label)
+	}
+	out := make(map[uint64]any, len(entries))
+	for _, e := range entries {
+		k, ok := e.key.(uint64)
+		if !ok || k < minKey || k > maxKey {
+			return nil, fmt.Errorf("unknown or invalid %s key: %v", label, e.key)
+		}
+		out[k] = e.value
+	}
+	return out, nil
+}
+
+type hashedEvidenceFile struct {
+	fileName   string
+	byteLength uint64
+	digest     []byte
+	hex        string
+}
+
+func hashEvidenceFileStreamed(path string) (hashedEvidenceFile, error) {
+	var out hashedEvidenceFile
+	st, err := os.Stat(path)
+	if err != nil {
+		return out, errUsage{msg: fmt.Sprintf("evidence file not found: %s (%v)", path, err)}
+	}
+	if !st.Mode().IsRegular() {
+		return out, errUsage{msg: fmt.Sprintf("evidence path is not a regular file: %s", path)}
+	}
+	if st.Size() > MaxEvidenceFileBytes {
+		return out, fmt.Errorf("evidence file exceeds %d byte limit: %s", MaxEvidenceFileBytes, path)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return out, errUsage{msg: fmt.Sprintf("failed to open evidence file %s: %v", path, err)}
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	buf := make([]byte, 256*1024)
+	n, err := io.CopyBuffer(h, io.LimitReader(f, MaxEvidenceFileBytes+1), buf)
+	if err != nil {
+		return out, errUsage{msg: fmt.Sprintf("failed to hash evidence file %s: %v", path, err)}
+	}
+	if n > MaxEvidenceFileBytes {
+		return out, fmt.Errorf("evidence file exceeded %d byte limit: %s", MaxEvidenceFileBytes, path)
+	}
+	sum := h.Sum(nil)
+	return hashedEvidenceFile{
+		fileName:   filepath.Base(path),
+		byteLength: uint64(n),
+		digest:     sum,
+		hex:        hex.EncodeToString(sum),
+	}, nil
+}
+
+func verifyEvidenceExtension(rawInput string, proof proofRawData, suppliedPaths []string) (EvidenceExtensionSummary, error) {
+	summary := EvidenceExtensionSummary{
+		RecordChecks:            []EvidenceRecordCheck{},
+		MismatchedSuppliedFiles: []MismatchedSuppliedEvidence{},
+		Errors:                  []string{},
+		Warnings:                []string{},
+	}
+
+	evidenceBytes, err := extractEvidenceBytes(rawInput)
+	if err != nil {
+		return summary, err
+	}
+	summary.EvidenceBytesLength = len(evidenceBytes)
+
+	outerRaw, err := decodeCanonicalCBOR(evidenceBytes)
+	if err != nil {
+		return summary, fmt.Errorf("invalid evidence extension envelope CBOR: %w", err)
+	}
+	outer, ok := outerRaw.([]any)
+	if !ok || len(outer) != 3 {
+		return summary, errors.New("evidence extension envelope must be a 3-element CBOR array")
+	}
+	ver, ok := outer[0].(uint64)
+	if !ok {
+		return summary, errors.New("evidence extension version must be an integer")
+	}
+	if ver != 1 {
+		return summary, errUnsupported{msg: fmt.Sprintf("unsupported evidence extension version: %d", ver)}
+	}
+	payloadBytes, ok := outer[1].([]byte)
+	if !ok || len(payloadBytes) == 0 {
+		return summary, errors.New("evidence extension payload must be non-empty bytes")
+	}
+	sig, ok := outer[2].([]byte)
+	if !ok || len(sig) != ed25519.SignatureSize {
+		return summary, errors.New("evidence extension signature must be 64 bytes")
+	}
+
+	payloadRaw, err := decodeCanonicalCBOR(payloadBytes)
+	if err != nil {
+		return summary, fmt.Errorf("invalid evidence extension payload CBOR: %w", err)
+	}
+	fields, err := mapEntriesToUintMap(payloadRaw, 1, 11, "evidencePayload")
+	if err != nil {
+		return summary, err
+	}
+
+	evidenceID, ok := fields[1].([]byte)
+	if !ok || len(evidenceID) != 16 {
+		return summary, errors.New("evidenceId must be 16 bytes")
+	}
+	pubKey, ok := fields[2].([]byte)
+	if !ok || len(pubKey) != ed25519.PublicKeySize {
+		return summary, errors.New("evidence publicKey must be 32 bytes")
+	}
+	proofSha, ok := fields[3].([]byte)
+	if !ok || len(proofSha) != 32 {
+		return summary, errors.New("evidence proofSha256 must be 32 bytes")
+	}
+	artworkID, ok := fields[4].([]byte)
+	if !ok || len(artworkID) != 16 {
+		return summary, errors.New("evidence artworkId must be 16 bytes")
+	}
+	artworkSha, ok := fields[5].([]byte)
+	if !ok || len(artworkSha) != 32 {
+		return summary, errors.New("evidence artworkSha256 must be 32 bytes")
+	}
+	issuedAt, ok := fields[6].(uint64)
+	if !ok {
+		return summary, errors.New("evidence issuedAt must be an unsigned integer")
+	}
+
+	summary.EvidenceID = formatUUID(evidenceID)
+	summary.ProofSha256Hex = hex.EncodeToString(proofSha)
+	summary.IssuedAtUnix = issuedAt
+	summary.IssuedAtISO = time.Unix(int64(issuedAt), 0).UTC().Format(time.RFC3339)
+
+	if rawMeta, exists := fields[7]; exists {
+		m, err := mapEntriesToUintMap(rawMeta, 1, 3, "artworkMetadata")
+		if err != nil {
+			return summary, err
+		}
+		if len(m) == 0 {
+			return summary, errors.New("artworkMetadata must be a non-empty CBOR map")
+		}
+		meta := &ExtendedArtworkMetadata{}
+		if v, ok := m[1]; ok {
+			s, ok := v.(string)
+			if !ok {
+				return summary, errors.New("artworkMetadata.title must be a string")
+			}
+			if err := validateEvidenceText(s, MaxExtTitleBytes, false, "artworkMetadata.title"); err != nil {
+				return summary, err
+			}
+			meta.Title = s
+		}
+		if v, ok := m[2]; ok {
+			s, ok := v.(string)
+			if !ok {
+				return summary, errors.New("artworkMetadata.artistName must be a string")
+			}
+			if err := validateEvidenceText(s, MaxExtArtistBytes, false, "artworkMetadata.artistName"); err != nil {
+				return summary, err
+			}
+			meta.ArtistName = s
+		}
+		if v, ok := m[3]; ok {
+			s, ok := v.(string)
+			if !ok {
+				return summary, errors.New("artworkMetadata.description must be a string")
+			}
+			if err := validateEvidenceText(s, MaxExtDescriptionBytes, true, "artworkMetadata.description"); err != nil {
+				return summary, err
+			}
+			meta.Description = s
+		}
+		summary.ArtworkMetadata = meta
+	}
+
+	if rawProf, exists := fields[8]; exists {
+		m, err := mapEntriesToUintMap(rawProf, 1, 3, "creatorProfile")
+		if err != nil {
+			return summary, err
+		}
+		if len(m) == 0 {
+			return summary, errors.New("creatorProfile must be a non-empty CBOR map")
+		}
+		prof := &CreatorProfileData{}
+		if v, ok := m[1]; ok {
+			s, ok := v.(string)
+			if !ok {
+				return summary, errors.New("creatorProfile.displayName must be a string")
+			}
+			if err := validateEvidenceText(s, MaxCreatorDisplayBytes, false, "creatorProfile.displayName"); err != nil {
+				return summary, err
+			}
+			prof.DisplayName = s
+		}
+		if v, ok := m[2]; ok {
+			s, ok := v.(string)
+			if !ok {
+				return summary, errors.New("creatorProfile.website must be a string")
+			}
+			if err := validateEvidenceProfileURL(s, "creatorProfile.website"); err != nil {
+				return summary, err
+			}
+			prof.Website = s
+		}
+		if v, ok := m[3]; ok {
+			arr, ok := v.([]any)
+			if !ok || len(arr) == 0 || len(arr) > MaxProfileLinks {
+				return summary, errors.New("creatorProfile.links must be a non-empty bounded array")
+			}
+			links := make([]CreatorProfileLink, 0, len(arr))
+			for idx, rawEntry := range arr {
+				entry, ok := rawEntry.([]any)
+				if !ok || (len(entry) != 1 && len(entry) != 2) {
+					return summary, fmt.Errorf("creatorProfile.links[%d] must be a 1 or 2-element array", idx)
+				}
+				u, ok := entry[0].(string)
+				if !ok {
+					return summary, fmt.Errorf("creatorProfile.links[%d][0] must be a URL string", idx)
+				}
+				if err := validateEvidenceProfileURL(u, fmt.Sprintf("creatorProfile.links[%d].url", idx)); err != nil {
+					return summary, err
+				}
+				link := CreatorProfileLink{URL: u}
+				if len(entry) == 2 {
+					lbl, ok := entry[1].(string)
+					if !ok {
+						return summary, fmt.Errorf("creatorProfile.links[%d][1] must be a string", idx)
+					}
+					if err := validateEvidenceText(lbl, MaxProfileLabelBytes, false, fmt.Sprintf("creatorProfile.links[%d].label", idx)); err != nil {
+						return summary, err
+					}
+					link.Label = lbl
+				}
+				links = append(links, link)
+			}
+			prof.Links = links
+		}
+		summary.CreatorProfile = prof
+	}
+
+	if rawMethod, exists := fields[9]; exists {
+		code, ok := rawMethod.(uint64)
+		name, valid := creationMethodNames[code]
+		if !ok || !valid {
+			return summary, errors.New("creationMethod contains an invalid code")
+		}
+		summary.CreationMethod = &name
+	}
+
+	if rawEnv, exists := fields[10]; exists {
+		m, err := mapEntriesToUintMap(rawEnv, 1, 4, "creationEnvironment")
+		if err != nil {
+			return summary, err
+		}
+		if len(m) == 0 {
+			return summary, errors.New("creationEnvironment must be a non-empty CBOR map")
+		}
+		env := &CreationEnvironmentData{}
+		if v, ok := m[1]; ok {
+			s, ok := v.(string)
+			if !ok {
+				return summary, errors.New("creationEnvironment.software must be a string")
+			}
+			if err := validateEvidenceText(s, MaxEnvFieldBytes, false, "creationEnvironment.software"); err != nil {
+				return summary, err
+			}
+			env.Software = s
+		}
+		if v, ok := m[2]; ok {
+			s, ok := v.(string)
+			if !ok {
+				return summary, errors.New("creationEnvironment.hardware must be a string")
+			}
+			if err := validateEvidenceText(s, MaxEnvFieldBytes, false, "creationEnvironment.hardware"); err != nil {
+				return summary, err
+			}
+			env.Hardware = s
+		}
+		if v, ok := m[3]; ok {
+			s, ok := v.(string)
+			if !ok {
+				return summary, errors.New("creationEnvironment.inputDevice must be a string")
+			}
+			if err := validateEvidenceText(s, MaxEnvFieldBytes, false, "creationEnvironment.inputDevice"); err != nil {
+				return summary, err
+			}
+			env.InputDevice = s
+		}
+		if v, ok := m[4]; ok {
+			s, ok := v.(string)
+			if !ok {
+				return summary, errors.New("creationEnvironment.notes must be a string")
+			}
+			if err := validateEvidenceText(s, MaxEnvNotesBytes, true, "creationEnvironment.notes"); err != nil {
+				return summary, err
+			}
+			env.Notes = s
+		}
+		summary.CreationEnvironment = env
+	}
+
+	type parsedEvidenceRec struct {
+		sha256     []byte
+		sha256Hex  string
+		byteLength uint64
+		label      string
+		category   string
+		mimeType   string
+	}
+	var parsedRecords []parsedEvidenceRec
+	if rawRecords, exists := fields[11]; exists {
+		arr, ok := rawRecords.([]any)
+		if !ok || len(arr) == 0 || len(arr) > MaxEvidenceRecords {
+			return summary, errors.New("evidenceRecords must be a non-empty bounded array")
+		}
+		parsedRecords = make([]parsedEvidenceRec, 0, len(arr))
+		for idx, item := range arr {
+			m, err := mapEntriesToUintMap(item, 1, 5, fmt.Sprintf("evidenceRecords[%d]", idx))
+			if err != nil {
+				return summary, err
+			}
+			recSha, ok := m[1].([]byte)
+			if !ok || len(recSha) != 32 {
+				return summary, fmt.Errorf("evidenceRecords[%d].sha256 must be 32 bytes", idx)
+			}
+			byteLength, ok := m[2].(uint64)
+			if !ok {
+				return summary, fmt.Errorf("evidenceRecords[%d].byteLength must be a non-negative integer", idx)
+			}
+			var label, catName, mime string
+			if v, has := m[3]; has {
+				s, ok := v.(string)
+				if !ok {
+					return summary, fmt.Errorf("evidenceRecords[%d].label must be a string", idx)
+				}
+				if err := validateEvidenceText(s, MaxEvidenceLabelBytes, false, fmt.Sprintf("evidenceRecords[%d].label", idx)); err != nil {
+					return summary, err
+				}
+				label = s
+			}
+			if v, has := m[4]; has {
+				code, ok := v.(uint64)
+				name, valid := evidenceCategoryNames[code]
+				if !ok || !valid {
+					return summary, fmt.Errorf("evidenceRecords[%d].category is invalid", idx)
+				}
+				catName = name
+			}
+			if v, has := m[5]; has {
+				s, ok := v.(string)
+				if !ok {
+					return summary, fmt.Errorf("evidenceRecords[%d].mimeType must be a string", idx)
+				}
+				if err := validateEvidenceText(s, MaxEvidenceMimeBytes, false, fmt.Sprintf("evidenceRecords[%d].mimeType", idx)); err != nil {
+					return summary, err
+				}
+				mime = s
+			}
+			parsedRecords = append(parsedRecords, parsedEvidenceRec{
+				sha256:     recSha,
+				sha256Hex:  hex.EncodeToString(recSha),
+				byteLength: byteLength,
+				label:      label,
+				category:   catName,
+				mimeType:   mime,
+			})
+		}
+	}
+
+	signingMsg := make([]byte, len(domainEvidencePrefix)+len(payloadBytes))
+	copy(signingMsg, domainEvidencePrefix)
+	copy(signingMsg[len(domainEvidencePrefix):], payloadBytes)
+	sigValid := ed25519.Verify(ed25519.PublicKey(pubKey), signingMsg, sig)
+
+	expectedProofSum := sha256.Sum256(proof.proofBytes)
+	pubMatch := subtle.ConstantTimeCompare(pubKey, proof.publicKey) == 1
+	idMatch := subtle.ConstantTimeCompare(artworkID, proof.artworkID) == 1
+	artShaMatch := subtle.ConstantTimeCompare(artworkSha, proof.artworkSha256) == 1
+	proofShaMatch := subtle.ConstantTimeCompare(proofSha, expectedProofSum[:]) == 1
+	bindingValid := pubMatch && idMatch && artShaMatch && proofShaMatch
+
+	summary.SignatureValid = sigValid
+	summary.PublicKeyMatchesProof = pubMatch
+	summary.ArtworkIDMatchesProof = idMatch
+	summary.ArtworkSha256MatchesProof = artShaMatch
+	summary.ProofSha256MatchesProof = proofShaMatch
+	summary.ProofBindingValid = bindingValid
+
+	if !sigValid {
+		summary.Errors = append(summary.Errors, "Evidence extension Ed25519 signature verification failed")
+	}
+	if !pubMatch {
+		summary.Errors = append(summary.Errors, "Evidence extension publicKey does not match primary proof")
+	}
+	if !idMatch {
+		summary.Errors = append(summary.Errors, "Evidence extension artworkId does not match primary proof")
+	}
+	if !artShaMatch {
+		summary.Errors = append(summary.Errors, "Evidence extension artworkSha256 does not match primary proof")
+	}
+	if !proofShaMatch {
+		summary.Errors = append(summary.Errors, "Evidence extension proofSha256 does not match primary proof")
+	}
+
+	if !sigValid {
+		summary.Status = "invalid"
+	} else if !bindingValid {
+		summary.Status = "binding-mismatch"
+	} else {
+		summary.Status = "valid"
+	}
+
+	hashedSupplied := make([]hashedEvidenceFile, 0, len(suppliedPaths))
+	for _, p := range suppliedPaths {
+		h, err := hashEvidenceFileStreamed(p)
+		if err != nil {
+			return summary, err
+		}
+		hashedSupplied = append(hashedSupplied, h)
+	}
+
+	matchedIndices := make(map[int]bool, len(hashedSupplied))
+	for idx, rec := range parsedRecords {
+		matchIdx := -1
+		for sIdx, sup := range hashedSupplied {
+			if sup.byteLength == rec.byteLength && subtle.ConstantTimeCompare(sup.digest, rec.sha256) == 1 {
+				matchIdx = sIdx
+				break
+			}
+		}
+		if matchIdx >= 0 {
+			matchedIndices[matchIdx] = true
+			name := hashedSupplied[matchIdx].fileName
+			summary.RecordChecks = append(summary.RecordChecks, EvidenceRecordCheck{
+				Index:           idx,
+				Sha256Hex:       rec.sha256Hex,
+				ByteLength:      rec.byteLength,
+				Label:           rec.label,
+				Category:        rec.category,
+				MimeType:        rec.mimeType,
+				Status:          "verified",
+				MatchedFileName: &name,
+			})
+			summary.VerifiedRecordCount++
+		} else {
+			summary.RecordChecks = append(summary.RecordChecks, EvidenceRecordCheck{
+				Index:           idx,
+				Sha256Hex:       rec.sha256Hex,
+				ByteLength:      rec.byteLength,
+				Label:           rec.label,
+				Category:        rec.category,
+				MimeType:        rec.mimeType,
+				Status:          "unavailable",
+				MatchedFileName: nil,
+			})
+			summary.UnavailableRecordCount++
+		}
+	}
+
+	for sIdx, sup := range hashedSupplied {
+		if !matchedIndices[sIdx] {
+			summary.MismatchedSuppliedFiles = append(summary.MismatchedSuppliedFiles, MismatchedSuppliedEvidence{
+				FileName:          sup.fileName,
+				ByteLength:        sup.byteLength,
+				ComputedSha256Hex: sup.hex,
+			})
+		}
+	}
+	if len(summary.MismatchedSuppliedFiles) > 0 {
+		summary.Warnings = append(summary.Warnings, fmt.Sprintf("%d supplied local evidence file(s) did not match any record in .chmevidence", len(summary.MismatchedSuppliedFiles)))
 	}
 
 	return summary, nil
@@ -940,7 +1660,7 @@ func verifyNotice(rawInput string) (NoticeSummary, error) {
 }
 
 func readInputOrFile(arg string) (string, error) {
-	if _, err := os.Stat(arg); err == nil {
+	if st, err := os.Stat(arg); err == nil && !st.IsDir() {
 		bs, err := os.ReadFile(arg)
 		if err != nil {
 			return "", errUsage{msg: fmt.Sprintf("failed to read file %s: %v", arg, err)}
@@ -955,6 +1675,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	proofFlag := fs.String("proof", "", "Verification URL, #proof= token, or .chproof.json file path")
 	artworkFlag := fs.String("artwork", "", "Optional lossless PNG artwork path to verify pixel SHA-256")
+	evidenceFlag := fs.String("evidence", "", "Optional .chmevidence extension file or chm-evidence: token")
+	var evidenceFileFlags stringSliceFlag
+	fs.Var(&evidenceFileFlags, "evidence-file", "Optional local evidence file path to SHA-256 verify against .chmevidence (repeatable)")
 	noticeFlag := fs.String("notice", "", "Optional chm-notice: token or .chnotice.json file path")
 	jsonFlag := fs.Bool("json", false, "Emit machine-readable JSON output")
 
@@ -964,12 +1687,18 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	proofInput := *proofFlag
 	noticeInput := *noticeFlag
+	evidenceInput := *evidenceFlag
 	if proofInput == "" && noticeInput == "" && fs.NArg() > 0 {
 		proofInput = fs.Arg(0)
 	}
 
+	if evidenceInput != "" && proofInput == "" && noticeInput == "" {
+		fmt.Fprintln(stderr, "VERIFICATION FAILED: Standalone .chmevidence cannot verify an artwork without the original proof (--proof).")
+		return 1
+	}
+
 	if proofInput == "" && noticeInput == "" {
-		fmt.Fprintln(stderr, "Usage: chm-verify --proof <url|token|.chproof.json> [--artwork <image.png>] [--json]")
+		fmt.Fprintln(stderr, "Usage: chm-verify --proof <url|token|.chproof.json> [--artwork <image.png>] [--evidence <.chmevidence>] [--evidence-file <path>...] [--json]")
 		fmt.Fprintln(stderr, "       chm-verify --notice <token|.chnotice.json> [--json]")
 		return 2
 	}
@@ -1017,7 +1746,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 2
 	}
-	summary, err := verifyProof(rawProof, *artworkFlag)
+	summary, rawData, err := verifyProofWithRaw(rawProof, *artworkFlag)
 	if err != nil {
 		var uErr errUsage
 		if errors.As(err, &uErr) {
@@ -1026,6 +1755,25 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 		fmt.Fprintf(stderr, "VERIFICATION FAILED: %v\n", err)
 		return 1
+	}
+
+	if evidenceInput != "" {
+		rawEvidence, err := readInputOrFile(evidenceInput)
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 2
+		}
+		extSummary, err := verifyEvidenceExtension(rawEvidence, rawData, evidenceFileFlags)
+		if err != nil {
+			var uErr errUsage
+			if errors.As(err, &uErr) {
+				fmt.Fprintln(stderr, uErr.msg)
+				return 2
+			}
+			fmt.Fprintf(stderr, "EVIDENCE EXTENSION FAILED: %v\n", err)
+			return 1
+		}
+		summary.EvidenceExtension = &extSummary
 	}
 
 	if *jsonFlag {
@@ -1050,10 +1798,38 @@ func run(args []string, stdout, stderr io.Writer) int {
 		if summary.QrMask != nil && summary.QrMaskCoveragePct != nil {
 			fmt.Fprintf(stdout, "Excluded qrMask: [%d, %d, %d, %d] (%.1f%% of artwork)\n", summary.QrMask[0], summary.QrMask[1], summary.QrMask[2], summary.QrMask[3], *summary.QrMaskCoveragePct)
 		}
+		if summary.EvidenceExtension != nil {
+			ext := summary.EvidenceExtension
+			fmt.Fprintf(stdout, "Evidence Extension (.chmevidence): %s (%d bytes)\n", strings.ToUpper(ext.Status), ext.EvidenceBytesLength)
+			if ext.ArtworkMetadata != nil && ext.ArtworkMetadata.Title != "" {
+				fmt.Fprintf(stdout, "Extended Title: %s\n", ext.ArtworkMetadata.Title)
+			}
+			if ext.ArtworkMetadata != nil && ext.ArtworkMetadata.ArtistName != "" {
+				fmt.Fprintf(stdout, "Extended Artist: %s\n", ext.ArtworkMetadata.ArtistName)
+			}
+			if ext.CreatorProfile != nil && ext.CreatorProfile.Website != "" {
+				fmt.Fprintf(stdout, "Creator Website (self-declared): %s\n", ext.CreatorProfile.Website)
+			}
+			if ext.CreationMethod != nil {
+				fmt.Fprintf(stdout, "Creation Method: %s (declared by creator; not independently proved)\n", *ext.CreationMethod)
+			}
+			if len(ext.RecordChecks) > 0 {
+				fmt.Fprintf(stdout, "Evidence Records: %d verified, %d unavailable\n", ext.VerifiedRecordCount, ext.UnavailableRecordCount)
+			}
+			for _, w := range ext.Warnings {
+				fmt.Fprintf(stderr, "Evidence Warning: %s\n", w)
+			}
+			for _, e := range ext.Errors {
+				fmt.Fprintf(stderr, "Evidence Error: %s\n", e)
+			}
+		}
 		fmt.Fprintln(stdout, "Trust Note: Independent CLI checks cryptography and PNG pixel hashes only; confirm key ownership out-of-band.")
 	}
 
 	if !summary.SignatureValid || summary.IntegrityStatus == "mismatched" {
+		return 1
+	}
+	if summary.EvidenceExtension != nil && (summary.EvidenceExtension.Status != "valid" || len(summary.EvidenceExtension.MismatchedSuppliedFiles) > 0) {
 		return 1
 	}
 	return 0

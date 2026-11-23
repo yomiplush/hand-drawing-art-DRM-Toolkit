@@ -4,6 +4,7 @@ import {
   persistOptionalLocale,
   readOptionalLocale,
 } from '../core/storage/consent';
+import { ARTWORK_DETAILS_I18N } from './artworkDetails';
 import { I18nContext, LOCALE_OPTIONS } from './context';
 import type { FullTranslations, Locale } from './context';
 import { DEVICE_PAIRING_I18N } from './devicePairing';
@@ -105,6 +106,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     minimal: MINIMAL_UI_I18N[locale] ?? MINIMAL_UI_I18N.en,
     hardening: HARDENING_I18N[locale] ?? HARDENING_I18N.en,
     devices: DEVICE_PAIRING_I18N[locale] ?? DEVICE_PAIRING_I18N.en,
+    artworkDetails: ARTWORK_DETAILS_I18N[locale] ?? ARTWORK_DETAILS_I18N.en,
   };
 
   return (

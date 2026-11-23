@@ -3,8 +3,11 @@ package main
 import (
 	"bytes"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
 	"image"
 	"image/color"
 	"image/png"
@@ -191,5 +194,255 @@ func TestNoticeVerificationAndForgedNoticeRejection(t *testing.T) {
 	stderr.Reset()
 	if code := run([]string{"--notice", badToken}, &stdout, &stderr); code != 1 {
 		t.Fatalf("expected exit 1 for forged replacement signature, got %d", code)
+	}
+}
+
+func cborWriteMajorUint(b *bytes.Buffer, major byte, n uint64) {
+	prefix := major << 5
+	switch {
+	case n < 24:
+		b.WriteByte(prefix | byte(n))
+	case n < 256:
+		b.WriteByte(prefix | 24)
+		b.WriteByte(byte(n))
+	case n < 65536:
+		b.WriteByte(prefix | 25)
+		var buf [2]byte
+		binary.BigEndian.PutUint16(buf[:], uint16(n))
+		b.Write(buf[:])
+	case n <= 0xffffffff:
+		b.WriteByte(prefix | 26)
+		var buf [4]byte
+		binary.BigEndian.PutUint32(buf[:], uint32(n))
+		b.Write(buf[:])
+	default:
+		b.WriteByte(prefix | 27)
+		var buf [8]byte
+		binary.BigEndian.PutUint64(buf[:], n)
+		b.Write(buf[:])
+	}
+}
+
+func cborWriteBytes(b *bytes.Buffer, raw []byte) {
+	cborWriteMajorUint(b, 2, uint64(len(raw)))
+	b.Write(raw)
+}
+
+func cborWriteText(b *bytes.Buffer, s string) {
+	cborWriteMajorUint(b, 3, uint64(len(s)))
+	b.WriteString(s)
+}
+
+func TestEvidenceExtensionModesAndSecurity(t *testing.T) {
+	tmp := t.TempDir()
+
+	_, rawData, err := verifyProofWithRaw(normativeV1Token, "")
+	if err != nil {
+		t.Fatalf("verifyProofWithRaw failed: %v", err)
+	}
+	seed, _ := hex.DecodeString("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+	priv := ed25519.NewKeyFromSeed(seed)
+	if !bytes.Equal(priv.Public().(ed25519.PublicKey), rawData.publicKey) {
+		t.Fatalf("normative seed public key mismatch")
+	}
+
+	sketchBytes := []byte("ROUGH-SKETCH-LAYER-DATA-FOR-CHM-EVIDENCE-PARITY")
+	sketchPath := filepath.Join(tmp, "rough-sketch.kra")
+	if err := os.WriteFile(sketchPath, sketchBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sketchSum := sha256.Sum256(sketchBytes)
+
+	wrongPath := filepath.Join(tmp, "wrong.kra")
+	if err := os.WriteFile(wrongPath, []byte("DIFFERENT-FILE"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	proofSum := sha256.Sum256(rawData.proofBytes)
+	evidenceID := bytes.Repeat([]byte{0x44}, 16)
+
+	// Build canonical CBOR payload (keys 1..11)
+	var payload bytes.Buffer
+	cborWriteMajorUint(&payload, 5, 11)
+
+	cborWriteMajorUint(&payload, 0, 1)
+	cborWriteBytes(&payload, evidenceID)
+
+	cborWriteMajorUint(&payload, 0, 2)
+	cborWriteBytes(&payload, rawData.publicKey)
+
+	cborWriteMajorUint(&payload, 0, 3)
+	cborWriteBytes(&payload, proofSum[:])
+
+	cborWriteMajorUint(&payload, 0, 4)
+	cborWriteBytes(&payload, rawData.artworkID)
+
+	cborWriteMajorUint(&payload, 0, 5)
+	cborWriteBytes(&payload, rawData.artworkSha256)
+
+	cborWriteMajorUint(&payload, 0, 6)
+	cborWriteMajorUint(&payload, 0, 1795352800)
+
+	// key 7: artworkMetadata {1: title, 2: artistName, 3: description}
+	cborWriteMajorUint(&payload, 0, 7)
+	cborWriteMajorUint(&payload, 5, 3)
+	cborWriteMajorUint(&payload, 0, 1)
+	cborWriteText(&payload, "月光のアトリエ 🎨")
+	cborWriteMajorUint(&payload, 0, 2)
+	cborWriteText(&payload, "Studio Yomi")
+	cborWriteMajorUint(&payload, 0, 3)
+	cborWriteText(&payload, "Line 1\nHand-drawn test study")
+
+	// key 8: creatorProfile {1: displayName, 2: website, 3: [[url, label]]}
+	cborWriteMajorUint(&payload, 0, 8)
+	cborWriteMajorUint(&payload, 5, 3)
+	cborWriteMajorUint(&payload, 0, 1)
+	cborWriteText(&payload, "YomiPlush")
+	cborWriteMajorUint(&payload, 0, 2)
+	cborWriteText(&payload, "https://certified-handmade.com")
+	cborWriteMajorUint(&payload, 0, 3)
+	cborWriteMajorUint(&payload, 4, 1)
+	cborWriteMajorUint(&payload, 4, 2)
+	cborWriteText(&payload, "https://social.example/@yomi")
+	cborWriteText(&payload, "Mastodon")
+
+	// key 9: creationMethod = 1 (hand-drawn-no-ai)
+	cborWriteMajorUint(&payload, 0, 9)
+	cborWriteMajorUint(&payload, 0, 1)
+
+	// key 10: creationEnvironment {1: software, 2: hardware, 3: inputDevice}
+	cborWriteMajorUint(&payload, 0, 10)
+	cborWriteMajorUint(&payload, 5, 3)
+	cborWriteMajorUint(&payload, 0, 1)
+	cborWriteText(&payload, "Krita")
+	cborWriteMajorUint(&payload, 0, 2)
+	cborWriteText(&payload, "Linux workstation")
+	cborWriteMajorUint(&payload, 0, 3)
+	cborWriteText(&payload, "Wacom pen")
+
+	// key 11: evidenceRecords [{1: sha256, 2: byteLength, 3: label, 4: 1 (sketch)}]
+	cborWriteMajorUint(&payload, 0, 11)
+	cborWriteMajorUint(&payload, 4, 1)
+	cborWriteMajorUint(&payload, 5, 4)
+	cborWriteMajorUint(&payload, 0, 1)
+	cborWriteBytes(&payload, sketchSum[:])
+	cborWriteMajorUint(&payload, 0, 2)
+	cborWriteMajorUint(&payload, 0, uint64(len(sketchBytes)))
+	cborWriteMajorUint(&payload, 0, 3)
+	cborWriteText(&payload, "rough-sketch.kra")
+	cborWriteMajorUint(&payload, 0, 4)
+	cborWriteMajorUint(&payload, 0, 1)
+
+	signingMsg := append([]byte{}, domainEvidencePrefix...)
+	signingMsg = append(signingMsg, payload.Bytes()...)
+	sig := ed25519.Sign(priv, signingMsg)
+
+	var env bytes.Buffer
+	cborWriteMajorUint(&env, 4, 3)
+	cborWriteMajorUint(&env, 0, 1)
+	cborWriteBytes(&env, payload.Bytes())
+	cborWriteBytes(&env, sig)
+
+	token := base64.RawURLEncoding.EncodeToString(env.Bytes())
+	bundleJSON, _ := json.Marshal(map[string]any{
+		"format":            "certified-handmade-evidence",
+		"version":           1,
+		"evidenceBase64Url": token,
+	})
+	evPath := filepath.Join(tmp, "art.chmevidence")
+	if err := os.WriteFile(evPath, bundleJSON, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. Mode B: proof + .chmevidence without supplied evidence files -> exit 0, unavailable=1
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--proof", normativeV1Token, "--evidence", evPath, "--json"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Mode B failed (%d): stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+	}
+	var modeBReport ProofSummary
+	if err := json.Unmarshal(stdout.Bytes(), &modeBReport); err != nil {
+		t.Fatal(err)
+	}
+	if modeBReport.EvidenceExtension == nil || modeBReport.EvidenceExtension.Status != "valid" || modeBReport.EvidenceExtension.UnavailableRecordCount != 1 || modeBReport.EvidenceExtension.VerifiedRecordCount != 0 {
+		t.Fatalf("unexpected Mode B summary: %+v", modeBReport.EvidenceExtension)
+	}
+
+	// 2. Mode C valid: proof + .chmevidence + matching sketch -> exit 0, verified=1
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"--proof", normativeV1Token, "--evidence", evPath, "--evidence-file", sketchPath, "--json"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Mode C valid failed (%d): stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+	}
+	var modeCReport ProofSummary
+	if err := json.Unmarshal(stdout.Bytes(), &modeCReport); err != nil {
+		t.Fatal(err)
+	}
+	if modeCReport.EvidenceExtension == nil || modeCReport.EvidenceExtension.Status != "valid" || modeCReport.EvidenceExtension.VerifiedRecordCount != 1 || modeCReport.EvidenceExtension.UnavailableRecordCount != 0 {
+		t.Fatalf("unexpected Mode C summary: %+v", modeCReport.EvidenceExtension)
+	}
+
+	// 3. Mode C mismatch: wrong evidence file supplied -> exit 1
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"--proof", normativeV1Token, "--evidence", evPath, "--evidence-file", wrongPath, "--json"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("expected exit 1 for mismatched evidence file, got %d", code)
+	}
+	var mismatchReport ProofSummary
+	if err := json.Unmarshal(stdout.Bytes(), &mismatchReport); err != nil {
+		t.Fatal(err)
+	}
+	if mismatchReport.EvidenceExtension == nil || len(mismatchReport.EvidenceExtension.MismatchedSuppliedFiles) != 1 {
+		t.Fatalf("expected 1 mismatched file, got %+v", mismatchReport.EvidenceExtension)
+	}
+
+	// 4. Cross-proof binding mismatch against normativeV2Token -> exit 1, status=binding-mismatch
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"--proof", normativeV2Token, "--evidence", evPath, "--json"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("expected exit 1 for cross-proof mismatch, got %d", code)
+	}
+	var replayReport ProofSummary
+	if err := json.Unmarshal(stdout.Bytes(), &replayReport); err != nil {
+		t.Fatal(err)
+	}
+	if replayReport.EvidenceExtension == nil || replayReport.EvidenceExtension.Status != "binding-mismatch" {
+		t.Fatalf("expected binding-mismatch, got %+v", replayReport.EvidenceExtension)
+	}
+
+	// 5. Tampered signature -> exit 1, status=invalid
+	badEnv := append([]byte{}, env.Bytes()...)
+	badEnv[len(badEnv)-1] ^= 0x01
+	badToken := "chm-evidence:" + base64.RawURLEncoding.EncodeToString(badEnv)
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"--proof", normativeV1Token, "--evidence", badToken, "--json"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("expected exit 1 for tampered evidence signature, got %d", code)
+	}
+	var sigFailReport ProofSummary
+	if err := json.Unmarshal(stdout.Bytes(), &sigFailReport); err != nil {
+		t.Fatal(err)
+	}
+	if sigFailReport.EvidenceExtension == nil || sigFailReport.EvidenceExtension.Status != "invalid" {
+		t.Fatalf("expected invalid signature status, got %+v", sigFailReport.EvidenceExtension)
+	}
+
+	// 6. Standalone --evidence without primary proof -> exit 1
+	stdout.Reset()
+	stderr.Reset()
+	if code := run([]string{"--evidence", evPath}, &stdout, &stderr); code != 1 {
+		t.Fatalf("expected exit 1 for standalone --evidence, got %d", code)
+	}
+
+	// 7. Non-canonical CBOR in evidence envelope -> exit 1
+	nonCanonEv := base64.RawURLEncoding.EncodeToString([]byte{0x83, 0x18, 0x01, 0x41, 0x01, 0x58, 64})
+	stdout.Reset()
+	stderr.Reset()
+	if code := run([]string{"--proof", normativeV1Token, "--evidence", nonCanonEv}, &stdout, &stderr); code != 1 {
+		t.Fatalf("expected exit 1 for non-canonical CBOR evidence, got %d", code)
 	}
 }

@@ -157,6 +157,7 @@ export interface VerificationResult {
   integrityStatus: ArtworkIntegrityStatus;
   identityStatus: AuthorIdentityStatus;
   manifest: SignedManifest | null;
+  proofBytes?: Uint8Array | null;
   publicKeyFingerprintHex: string | null;
   publicKeyFingerprintShort: string | null;
   trustedKeyLabel: string | null;
@@ -168,6 +169,121 @@ export interface VerificationResult {
   matchedMode: 'embedded-region' | 'full-artwork' | 'in-image-masked' | null;
   computedArtworkSha256Hex: string | null;
   proofBytesLength: number | null;
+  errors: string[];
+  warnings: string[];
+}
+
+export type CreationMethod =
+  | 'hand-drawn-no-ai'
+  | 'hand-drawn-ai-assisted'
+  | 'ai-generated'
+  | 'other'
+  | 'prefer-not-to-disclose';
+
+export type EvidenceCategory =
+  | 'sketch'
+  | 'wip'
+  | 'intermediate'
+  | 'timelapse'
+  | 'project-file'
+  | 'other';
+
+export interface ExtendedArtworkMetadata {
+  title?: string;
+  artistName?: string;
+  description?: string;
+}
+
+export interface CreatorProfileLink {
+  url: string;
+  label?: string;
+}
+
+export interface CreatorProfileData {
+  displayName?: string;
+  website?: string;
+  links?: CreatorProfileLink[];
+}
+
+export interface CreationEnvironmentData {
+  software?: string;
+  hardware?: string;
+  inputDevice?: string;
+  notes?: string;
+}
+
+export interface EvidenceHashRecord {
+  sha256: Uint8Array;
+  byteLength: number;
+  label?: string;
+  category?: EvidenceCategory;
+  mimeType?: string;
+}
+
+export interface UnsignedEvidenceExtension {
+  version: 1;
+  evidenceId: Uint8Array;
+  publicKey: Uint8Array;
+  proofSha256: Uint8Array;
+  artworkId: Uint8Array;
+  artworkSha256: Uint8Array;
+  issuedAt: number;
+  artworkMetadata?: ExtendedArtworkMetadata;
+  creatorProfile?: CreatorProfileData;
+  creationMethod?: CreationMethod;
+  creationEnvironment?: CreationEnvironmentData;
+  evidenceRecords?: EvidenceHashRecord[];
+}
+
+export interface SignedEvidenceExtension extends UnsignedEvidenceExtension {
+  evidenceIdHex: string;
+  artworkIdHex: string;
+  proofSha256Hex: string;
+  artworkSha256Hex: string;
+  signature: Uint8Array;
+}
+
+export type EvidenceExtensionStatus =
+  | 'none'
+  | 'valid'
+  | 'invalid'
+  | 'binding-mismatch'
+  | 'unsupported'
+  | 'missing-primary-proof';
+
+export type EvidenceRecordVerificationState = 'verified' | 'unavailable';
+
+export interface EvidenceRecordCheckResult {
+  index: number;
+  sha256Hex: string;
+  byteLength: number;
+  label?: string;
+  category?: EvidenceCategory;
+  mimeType?: string;
+  status: EvidenceRecordVerificationState;
+  matchedFileName?: string;
+}
+
+export interface MismatchedSuppliedEvidenceFile {
+  fileName: string;
+  byteLength: number;
+  computedSha256Hex: string;
+}
+
+export interface EvidenceVerificationSummary {
+  status: EvidenceExtensionStatus;
+  signatureValid: boolean;
+  proofBindingValid: boolean;
+  publicKeyMatchesProof: boolean;
+  artworkIdMatchesProof: boolean;
+  artworkSha256MatchesProof: boolean;
+  proofSha256MatchesProof: boolean;
+  extension: SignedEvidenceExtension | null;
+  evidenceBytesLength: number | null;
+  recordChecks: EvidenceRecordCheckResult[];
+  verifiedRecordCount: number;
+  unavailableRecordCount: number;
+  mismatchedSuppliedFiles: MismatchedSuppliedEvidenceFile[];
   errors: string[];
   warnings: string[];
 }

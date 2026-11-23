@@ -6,6 +6,7 @@ import {
   Copy,
   Download,
   ExternalLink,
+  FileCheck2,
   FileJson,
   FileSignature,
   Frame,
@@ -15,6 +16,11 @@ import {
   QrCode,
   Sparkles,
 } from 'lucide-react';
+import {
+  ArtworkDetailsPanel,
+  createEmptyArtworkDetailsDraft,
+} from '../components/ArtworkDetailsPanel';
+import type { ArtworkDetailsDraft } from '../components/ArtworkDetailsPanel';
 import { ImageDropzone } from '../components/ImageDropzone';
 import {
   InImageAdvancedControls,
@@ -32,6 +38,14 @@ import { decodeImageFileToCanonicalRgba8 } from '../core/image/pngCodec';
 import type { CanonicalRaster } from '../core/image/pngCodec';
 import type { FrameTheme, QrPlacement } from '../core/image/qrBurner';
 import { utf8ByteLength } from '../core/manifest/cborCodec';
+import {
+  createSignedEvidenceExtension,
+  hasEvidenceExtensionDetails,
+} from '../core/manifest/evidenceExtension';
+import type {
+  EvidenceExtensionDetailsInput,
+  PortableEvidenceBundle,
+} from '../core/manifest/evidenceExtension';
 import { createPortableProofBundle } from '../core/manifest/proofBundle';
 import {
   createInImageSignedArtworkPng,
@@ -51,9 +65,12 @@ import {
 import type { ArtworkRegion, LicenseId, PolicySignal } from '../core/manifest/types';
 import type { QrErrorCorrectionLevel } from '../core/qr/qrGenerator';
 import {
+  clearCreatorProfileDefaults,
   createAuthorKey,
   listAuthorKeys,
+  loadCreatorProfileDefaults,
   markAuthorKeyBackedUp,
+  saveCreatorProfileDefaults,
 } from '../core/storage/keyStore';
 import type { AuthorKeyRecord } from '../core/storage/keyStore';
 import { useI18n } from '../i18n/context';
@@ -78,6 +95,55 @@ function triggerPngDownload(pngBytes: Uint8Array, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function triggerJsonDownload(payload: unknown, filename: string) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function buildExtensionDetailsInput(draft: ArtworkDetailsDraft): EvidenceExtensionDetailsInput {
+  return {
+    artworkMetadata: {
+      title: draft.extTitle || undefined,
+      artistName: draft.extArtistName || undefined,
+      description: draft.extDescription || undefined,
+    },
+    creatorProfile: {
+      displayName: draft.creatorDisplayName || undefined,
+      website: draft.creatorWebsite || undefined,
+      links: draft.creatorLinks
+        .filter((l) => l.url.trim().length > 0)
+        .map((l) => ({
+          url: l.url,
+          label: l.label || undefined,
+        })),
+    },
+    creationMethod: draft.creationMethod || undefined,
+    creationEnvironment: {
+      software: draft.envSoftware || undefined,
+      hardware: draft.envHardware || undefined,
+      inputDevice: draft.envInputDevice || undefined,
+      notes: draft.envNotes || undefined,
+    },
+    evidenceRecords:
+      draft.evidenceItems.length > 0
+        ? draft.evidenceItems.map((item) => ({
+            sha256: item.sha256,
+            byteLength: item.byteLength,
+            label: item.label || undefined,
+            category: item.category,
+            mimeType: item.mimeType || undefined,
+          }))
+        : undefined,
+  };
+}
+
 export function CreateCertificatePage() {
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -88,6 +154,7 @@ export function CreateCertificatePage() {
 
   const setQrMode = (nextMode: QrCreationMode) => {
     setSignedResult(null);
+    setSignedEvidence(null);
     setErrorMsg(null);
     if (nextMode === 'in-image') {
       setSearchParams({ mode: 'studio' }, { replace: true });
@@ -117,6 +184,12 @@ export function CreateCertificatePage() {
   const [redistribution, setRedistribution] = useState<PolicySignal>('unspecified');
   const [aiTraining, setAiTraining] = useState<PolicySignal>('disallow');
 
+  // Optional extended Artwork Details & Evidence Extension (.chmevidence)
+  const [detailsDraft, setDetailsDraft] = useState<ArtworkDetailsDraft>(
+    createEmptyArtworkDetailsDraft,
+  );
+  const [profileSavedIndicator, setProfileSavedIndicator] = useState(false);
+
   // Outer Margin Frame options (Protocol v1)
   const [placement, setPlacement] = useState<QrPlacement>('bottom-right');
   const [theme, setTheme] = useState<FrameTheme>('dark-slate');
@@ -140,6 +213,11 @@ export function CreateCertificatePage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [signedResult, setSignedResult] = useState<UnifiedSignResult | null>(null);
+  const [signedEvidence, setSignedEvidence] = useState<{
+    evidenceBytes: Uint8Array;
+    bundle: PortableEvidenceBundle;
+    saved: boolean;
+  } | null>(null);
   const [signedPreviewUrl, setSignedPreviewUrl] = useState<string | null>(null);
   const [copiedUrl, setCopiedUrl] = useState(false);
 
@@ -147,6 +225,16 @@ export function CreateCertificatePage() {
     void listAuthorKeys().then((list) => {
       setKeys(list);
       if (list.length > 0) setSelectedKeyId(list[0].id);
+    });
+    void loadCreatorProfileDefaults().then((savedProfile) => {
+      if (!savedProfile) return;
+      setDetailsDraft((prev) => ({
+        ...prev,
+        creatorDisplayName: prev.creatorDisplayName || savedProfile.displayName || '',
+        creatorWebsite: prev.creatorWebsite || savedProfile.website || '',
+        creatorLinks:
+          prev.creatorLinks.length > 0 ? prev.creatorLinks : (savedProfile.links ?? []),
+      }));
     });
   }, []);
 
@@ -195,11 +283,34 @@ export function CreateCertificatePage() {
       : `${base}.certified-handmade.png`;
   };
 
+  const handleSaveProfileDefaults = async () => {
+    await saveCreatorProfileDefaults({
+      displayName: detailsDraft.creatorDisplayName,
+      website: detailsDraft.creatorWebsite,
+      links: detailsDraft.creatorLinks,
+    });
+    setProfileSavedIndicator(true);
+    window.setTimeout(() => setProfileSavedIndicator(false), 3000);
+  };
+
+  const handleClearProfileDefaults = async () => {
+    await clearCreatorProfileDefaults();
+    setProfileSavedIndicator(false);
+    setDetailsDraft((prev) => ({
+      ...prev,
+      creatorDisplayName: '',
+      creatorWebsite: '',
+      creatorLinks: [],
+    }));
+  };
+
   const handleQuickCreateKey = async () => {
     setErrorMsg(null);
     setQuickKeyError(null);
     if (quickPassphrase && quickPassphrase.length < 8) {
-      setQuickKeyError('Backup passphrase must be at least 8 characters (or leave empty to skip backup)');
+      setQuickKeyError(
+        'Backup passphrase must be at least 8 characters (or leave empty to skip backup)',
+      );
       return;
     }
     setQuickKeyBusy(true);
@@ -223,15 +334,7 @@ export function CreateCertificatePage() {
     if (!selectedKey?.encryptedBackup) return;
     const backup = selectedKey.encryptedBackup;
     const safeName = backup.label.replace(/[^a-zA-Z0-9_-]+/g, '-').toLowerCase() || 'artist';
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `chm-${safeName}-${backup.fingerprint.slice(0, 8)}.chkey.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    triggerJsonDownload(backup, `chm-${safeName}-${backup.fingerprint.slice(0, 8)}.chkey.json`);
     await markAuthorKeyBackedUp(selectedKey.id);
     const updated = await listAuthorKeys();
     setKeys(updated);
@@ -240,6 +343,7 @@ export function CreateCertificatePage() {
   const handleFileSelected = async (file: File) => {
     setErrorMsg(null);
     setSignedResult(null);
+    setSignedEvidence(null);
     try {
       const rawFileBytes = new Uint8Array(await file.arrayBuffer());
       const { raster, sourceFormat: fmt } = await decodeImageFileToCanonicalRgba8(rawFileBytes);
@@ -279,6 +383,9 @@ export function CreateCertificatePage() {
 
     setBusy(true);
     try {
+      const detailsInput = buildExtensionDetailsInput(detailsDraft);
+      const needsExtension = hasEvidenceExtensionDetails(detailsInput);
+
       let res: UnifiedSignResult;
       if (qrMode === 'in-image' && clampedStudioOptions) {
         const studioRes = await createInImageSignedArtworkPng({
@@ -333,6 +440,30 @@ export function CreateCertificatePage() {
         res = { ...marginRes, mode: 'outer-frame' };
       }
 
+      let nextExtensionState: {
+        evidenceBytes: Uint8Array;
+        bundle: PortableEvidenceBundle;
+        saved: boolean;
+      } | null = null;
+      if (needsExtension) {
+        const fpHex =
+          selectedKey.fingerprintHex ??
+          (await computePublicKeyFingerprint(res.manifest.publicKey)).fullHex;
+        const extRes = await createSignedEvidenceExtension({
+          proofBytes: res.proofBytes,
+          manifest: res.manifest,
+          authorKey: selectedKey,
+          passphraseIfEncrypted: keyPassphrase || undefined,
+          publicKeyFingerprintHex: fpHex,
+          details: detailsInput,
+        });
+        nextExtensionState = {
+          evidenceBytes: extRes.evidenceBytes,
+          bundle: extRes.bundle,
+          saved: false,
+        };
+      }
+
       if (signedPreviewUrl) URL.revokeObjectURL(signedPreviewUrl);
       const pngCopy = new Uint8Array(res.pngBytes.byteLength);
       pngCopy.set(res.pngBytes);
@@ -340,6 +471,7 @@ export function CreateCertificatePage() {
       const previewUrl = URL.createObjectURL(blob);
       setSignedPreviewUrl(previewUrl);
       setSignedResult(res);
+      setSignedEvidence(nextExtensionState);
       triggerPngDownload(res.pngBytes, buildDownloadFilename(res.mode));
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Signing failed');
@@ -366,15 +498,14 @@ export function CreateCertificatePage() {
       verifyBaseUrl,
     });
     const base = sourceFileName.replace(/\.[^.]+$/, '') || 'artwork';
-    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${base}.chproof.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    triggerJsonDownload(bundle, `${base}.chproof.json`);
+  };
+
+  const handleDownloadEvidenceExtension = () => {
+    if (!signedEvidence) return;
+    const base = sourceFileName.replace(/\.[^.]+$/, '') || 'artwork';
+    triggerJsonDownload(signedEvidence.bundle, `${base}.chmevidence`);
+    setSignedEvidence((prev) => (prev ? { ...prev, saved: true } : null));
   };
 
   const handleCopyProofUrl = async () => {
@@ -439,7 +570,7 @@ export function CreateCertificatePage() {
               <div className="flex justify-center bg-[#020813] rounded-lg p-2 border border-white/[0.08] shrink-0">
                 <img
                   src={artworkPreviewUrl}
-                  alt={artworkTitle || sourceFileName}
+                  alt={artworkTitle || detailsDraft.extTitle || sourceFileName}
                   className="max-h-36 max-w-[180px] object-contain rounded"
                 />
               </div>
@@ -806,6 +937,14 @@ export function CreateCertificatePage() {
               <span>{t.licenses.signalGuideBody}</span>
             </div>
           </AdvancedSettings>
+
+          <ArtworkDetailsPanel
+            draft={detailsDraft}
+            onChange={setDetailsDraft}
+            onSaveProfileDefaults={handleSaveProfileDefaults}
+            onClearProfileDefaults={handleClearProfileDefaults}
+            profileSavedIndicator={profileSavedIndicator}
+          />
         </section>
 
         {/* Step 3 — QR Placement */}
@@ -884,7 +1023,7 @@ export function CreateCertificatePage() {
 
               <img
                 src={artworkPreviewUrl}
-                alt={artworkTitle || sourceFileName}
+                alt={artworkTitle || detailsDraft.extTitle || sourceFileName}
                 className="max-h-52 object-contain rounded border border-white/[0.08]"
               />
 
@@ -1146,6 +1285,24 @@ export function CreateCertificatePage() {
                 <span>{t.create.downloadPng}</span>
               </button>
 
+              {signedEvidence && (
+                <button
+                  type="button"
+                  onClick={handleDownloadEvidenceExtension}
+                  data-testid="download-evidence-extension"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-sky-300/50 bg-sky-500/20 px-4 py-2.5 text-sm font-semibold text-sky-100 hover:bg-sky-500/30 min-h-[44px] cursor-pointer"
+                >
+                  <FileCheck2 className="h-4 w-4 shrink-0 text-sky-300" aria-hidden="true" />
+                  <span>{t.artworkDetails.downloadEvidenceBtn}</span>
+                  {signedEvidence.saved && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/25 border border-emerald-400/40 px-2 py-0.5 text-[11px] text-emerald-200">
+                      <Check className="h-3 w-3" aria-hidden="true" />
+                      {t.artworkDetails.evidenceSavedBadge}
+                    </span>
+                  )}
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={handleCopyProofUrl}
@@ -1171,6 +1328,17 @@ export function CreateCertificatePage() {
             </div>
           </div>
 
+          {signedEvidence && !signedEvidence.saved && (
+            <div
+              role="note"
+              data-testid="create-evidence-save-reminder"
+              className="rounded-xl border border-amber-400/45 bg-amber-500/15 p-3.5 flex items-start gap-2.5 text-xs sm:text-sm text-amber-100"
+            >
+              <AlertTriangle className="h-4 w-4 text-amber-300 shrink-0 mt-0.5" aria-hidden="true" />
+              <span>{t.artworkDetails.evidenceSaveReminder}</span>
+            </div>
+          )}
+
           {!signedResult.qrVerifiedReadable && (
             <div
               role="alert"
@@ -1186,7 +1354,7 @@ export function CreateCertificatePage() {
             label={t.minimal.create.technicalDetailsLabel}
             testId="create-result-technical"
           >
-            <div>
+            <div className="flex flex-wrap gap-2.5">
               <button
                 type="button"
                 onClick={() => void handleDownloadProofBundle()}
@@ -1224,20 +1392,35 @@ export function CreateCertificatePage() {
                 </dd>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3">
                   <dt className="text-xs text-slate-400">{t.create.proofSizeLabel}</dt>
-                  <dd className="font-mono text-white mt-0.5">
+                  <dd className="font-mono text-white mt-0.5" data-testid="create-result-proof-bytes">
                     {signedResult.proofBytes.length} bytes
                   </dd>
                 </div>
                 <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3">
                   <dt className="text-xs text-slate-400">{t.create.qrVersionLabel}</dt>
-                  <dd className="font-mono text-white mt-0.5">
+                  <dd className="font-mono text-white mt-0.5" data-testid="create-result-qr-version">
                     v{signedResult.qrVersion} ({signedResult.qrModules}×{signedResult.qrModules})
                   </dd>
                 </div>
+                {signedEvidence && (
+                  <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3">
+                    <dt className="text-xs text-slate-400">.chmevidence</dt>
+                    <dd
+                      className="font-mono text-sky-200 mt-0.5"
+                      data-testid="create-result-evidence-bytes"
+                    >
+                      {signedEvidence.evidenceBytes.length} bytes
+                    </dd>
+                  </div>
+                )}
               </div>
+
+              {signedEvidence && (
+                <p className="text-[11px] text-slate-400">{t.artworkDetails.compactQrNote}</p>
+              )}
             </dl>
           </AdvancedSettings>
         </section>
