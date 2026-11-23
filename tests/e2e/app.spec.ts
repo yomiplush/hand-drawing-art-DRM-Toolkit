@@ -772,6 +772,75 @@ test.describe('Certified Handmade E2E suite', () => {
     );
   });
 
+  test('/keys responsive layout without horizontal overflow on Android, iPhone, iPad, and PC', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await page.getByTestId('cookie-reject-btn').click();
+    await page.goto('/keys');
+
+    // Generate key, trust one unconfirmed key, expand QR & panels
+    await page.getByTestId('keygen-label').fill('Responsive Artist Studio Primary Key 2026');
+    await page.getByTestId('keygen-passphrase').fill('responsive-test-passphrase-2026');
+    await page.getByTestId('keygen-submit').click();
+    await expect(page.getByTestId('author-key-card')).toHaveCount(1);
+
+    const pubLine = await page
+      .getByTestId('author-key-card')
+      .first()
+      .getByText(/^Ed25519 PK:/)
+      .innerText();
+    const pubB64 = pubLine.replace(/^Ed25519 PK:\s*/, '').trim();
+
+    await page.getByTestId('trusted-pub-input').fill(pubB64);
+    await page.getByTestId('trusted-label-input').fill('Unconfirmed Responsive Check');
+    await page.getByTestId('trusted-save-unconfirmed-btn').click();
+    await expect(page.getByTestId('trusted-key-card')).toHaveCount(1);
+
+    await page.locator('[data-testid="author-key-card"] button', { hasText: 'Fingerprint QR' }).click();
+    await page.locator('[data-testid="keys-notices-panel"] > button').click();
+    await page.getByTestId('notice-create-btn').click();
+    await expect(page.getByTestId('stored-notice-item')).toHaveCount(1);
+    await page.locator('[data-testid="keys-challenge-panel"] > button').click();
+
+    const viewports = [
+      { name: 'android-360', width: 360, height: 800 },
+      { name: 'iphone-375', width: 375, height: 667 },
+      { name: 'ipad-768', width: 768, height: 1024 },
+      { name: 'laptop-1024', width: 1024, height: 768 },
+      { name: 'desktop-1280', width: 1280, height: 800 },
+    ];
+
+    for (const locale of ['en', 'ja']) {
+      await page.getByTestId('lang-select').selectOption(locale);
+      for (const vp of viewports) {
+        await page.setViewportSize({ width: vp.width, height: vp.height });
+        await page.waitForTimeout(80);
+        const metrics = await page.evaluate(() => {
+          const docW = document.documentElement.clientWidth;
+          const scrollW = document.documentElement.scrollWidth;
+          const card = document.querySelector('[data-testid="author-key-card"]');
+          const fpEl = document.querySelector('[data-testid^="author-key-fp-"]');
+          const trustedCard = document.querySelector('[data-testid="trusted-key-card"]');
+          const noticeItem = document.querySelector('[data-testid="stored-notice-item"]');
+          return {
+            docW,
+            scrollW,
+            cardRight: card ? card.getBoundingClientRect().right : 0,
+            fpWidth: fpEl ? fpEl.getBoundingClientRect().width : 0,
+            trustedRight: trustedCard ? trustedCard.getBoundingClientRect().right : 0,
+            noticeRight: noticeItem ? noticeItem.getBoundingClientRect().right : 0,
+          };
+        });
+        expect(metrics.scrollW, `${locale} ${vp.name} scrollWidth`).toBeLessThanOrEqual(metrics.docW + 1);
+        expect(metrics.cardRight, `${locale} ${vp.name} author-key-card`).toBeLessThanOrEqual(vp.width + 1);
+        expect(metrics.trustedRight, `${locale} ${vp.name} trusted-key-card`).toBeLessThanOrEqual(vp.width + 1);
+        expect(metrics.noticeRight, `${locale} ${vp.name} stored-notice-item`).toBeLessThanOrEqual(vp.width + 1);
+        expect(metrics.fpWidth, `${locale} ${vp.name} fingerprint width`).toBeGreaterThanOrEqual(240);
+      }
+    }
+  });
+
   test('respects prefers-reduced-motion cleanly', async ({ browser }) => {
     const context = await browser.newContext({ reducedMotion: 'reduce' });
     const page = await context.newPage();

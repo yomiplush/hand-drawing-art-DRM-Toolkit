@@ -33,6 +33,7 @@
 
   html,
   body {
+    overflow-x: clip;
     background-color: #020813;
     color: #e2e8f0;
     font-family:
