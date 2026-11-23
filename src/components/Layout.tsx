@@ -168,7 +168,7 @@ export function Layout({
                   value={locale}
                   onChange={(e) => setLocale(e.target.value as Locale)}
                   data-testid="lang-select"
-                  className="appearance-none rounded-lg border border-white/[0.12] bg-[#061224]/80 max-w-[92px] sm:max-w-none ps-8 pe-6 py-2 text-xs sm:text-sm font-medium text-slate-100 hover:border-white/[0.25] transition-colors min-h-[44px] cursor-pointer"
+                  className="appearance-none rounded-lg border border-white/[0.12] bg-[#061224]/80 max-w-[92px] sm:max-w-[150px] md:max-w-none truncate ps-8 pe-6 py-2 text-xs sm:text-sm font-medium text-slate-100 hover:border-white/[0.25] transition-colors min-h-[44px] cursor-pointer"
                 >
                   {LOCALE_OPTIONS.map((opt) => (
                     <option key={opt.code} value={opt.code} className="bg-[#061224] text-slate-100">
@@ -325,7 +325,7 @@ export function Layout({
         )}
       </header>
 
-      <main className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 py-8 sm:py-12">
+      <main className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 py-8 sm:py-12 min-w-0">
         <Outlet />
       </main>
 

@@ -95,7 +95,7 @@ export function HelpIconButton({
             data-testid={panelTestId}
             className="w-full basis-full mt-2 rounded-lg border border-sky-400/25 bg-[#030b18]/80 px-3.5 py-2.5 text-xs sm:text-sm text-slate-200 leading-relaxed flex items-start justify-between gap-2"
           >
-            <div className="space-y-1">{children}</div>
+            <div className="space-y-1 min-w-0">{children}</div>
             <button
               type="button"
               onClick={() => {
@@ -114,7 +114,7 @@ export function HelpIconButton({
   }
 
   return (
-    <div ref={containerRef} className="relative inline-block">
+    <div ref={containerRef} className="relative inline-block shrink-0">
       <button
         ref={triggerRef}
         type="button"
@@ -141,7 +141,7 @@ export function HelpIconButton({
           aria-labelledby={title ? titleId : undefined}
           aria-label={!title ? label : undefined}
           data-testid={panelTestId}
-          className="fixed inset-x-4 top-20 z-50 sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-2 sm:w-[26rem] md:w-[30rem] max-h-[75vh] overflow-y-auto rounded-2xl border border-sky-400/30 bg-[#041021]/95 backdrop-blur-xl shadow-2xl shadow-black/80 p-5 space-y-4 text-start"
+          className="fixed inset-x-4 top-20 z-50 sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-2 sm:w-[26rem] md:w-[30rem] max-w-[calc(100vw-2rem)] max-h-[75vh] overflow-y-auto rounded-2xl border border-sky-400/30 bg-[#041021]/95 backdrop-blur-xl shadow-2xl shadow-black/80 p-5 space-y-4 text-start"
         >
           <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] pb-3">
             {title ? (
