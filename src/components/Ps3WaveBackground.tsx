@@ -87,9 +87,11 @@ export function Ps3WaveBackground() {
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
-    const reducedMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const motionQuery =
+      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
+        : null;
+    let reducedMotion = motionQuery?.matches ?? false;
 
     let width = window.innerWidth;
     let height = window.innerHeight;
@@ -204,12 +206,10 @@ export function Ps3WaveBackground() {
     };
 
     const tick = (now: number) => {
-      if (hidden) return;
+      if (hidden || reducedMotion) return;
       const elapsedSec = (now - startTime) * 0.001;
       drawFrame(elapsedSec);
-      if (!reducedMotion) {
-        rafId = window.requestAnimationFrame(tick);
-      }
+      rafId = window.requestAnimationFrame(tick);
     };
 
     const onVisibility = () => {
@@ -219,6 +219,21 @@ export function Ps3WaveBackground() {
         rafId = window.requestAnimationFrame(tick);
       } else if (hidden && rafId) {
         window.cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
+    };
+
+    const onMotionChange = (e: MediaQueryListEvent) => {
+      reducedMotion = e.matches;
+      if (reducedMotion) {
+        if (rafId) {
+          window.cancelAnimationFrame(rafId);
+          rafId = 0;
+        }
+        drawFrame(0);
+      } else if (!hidden && !rafId) {
+        startTime = performance.now();
+        rafId = window.requestAnimationFrame(tick);
       }
     };
 
@@ -230,10 +245,12 @@ export function Ps3WaveBackground() {
 
     window.addEventListener('resize', resize);
     document.addEventListener('visibilitychange', onVisibility);
+    motionQuery?.addEventListener?.('change', onMotionChange);
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId);
       window.removeEventListener('resize', resize);
       document.removeEventListener('visibilitychange', onVisibility);
+      motionQuery?.removeEventListener?.('change', onMotionChange);
     };
   }, []);
 
