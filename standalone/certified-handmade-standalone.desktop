@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Certified Handmade (Standalone)
+Comment=Offline-first Ed25519 art provenance & QR verification toolkit
+Exec=certified-handmade-linux-amd64
+Terminal=true
+Categories=Graphics;Security;Utility;
+StartupNotify=false
