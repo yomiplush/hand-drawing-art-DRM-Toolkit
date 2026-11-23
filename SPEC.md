@@ -1,7 +1,7 @@
 # Certified Handmade Protocol Specification (`SPEC.md`)
 
-**Protocol Version:** `1`  
-**Status:** Implemented MVP Specification  
+**Protocol Versions:** `1` (Outer QR Border) · `2` (In-Image Masked QR Overlay)  
+**Status:** Implemented Specification (`v1` & `v2`)  
 **Goal:** Enable anyone, anywhere, forever—even without the original website or any central server—to independently verify signed artwork manifests and pixel integrity using standard cryptographic primitives.
 
 ---
@@ -12,7 +12,7 @@
 2. **Digital Signature:** Pure Ed25519 (RFC 8032)
 3. **Binary Serialization:** Deterministic CBOR (RFC 8949 Section 4.2)
 4. **Transport Encoding:** Unpadded Base64url (RFC 4648 Section 5, without `=` padding)
-5. **Encrypted Key Backup (optional client backup format):** PBKDF2-HMAC-SHA256 (`600,000` iterations, 16-byte salt) + AES-256-GCM (12-byte IV, 128-bit tag, AAD-bound public key)
+5. **Encrypted Key Backup (`.chkey.json`, optional client backup format):** PBKDF2-HMAC-SHA256 (`600,000` iterations, 16-byte salt) + AES-256-GCM (12-byte IV, 128-bit tag, AAD-bound 32-byte Ed25519 public key)
 
 ---
 
@@ -31,20 +31,48 @@ To eliminate browser `<canvas>` premultiplied-alpha corruption and color-profile
 3. **Non-PNG Inputs (JPEG, WebP):**
    - Decoded once on import with EXIF orientation applied (`imageOrientation: 'from-image'`, `premultiplyAlpha: 'none'`, `colorSpaceConversion: 'none'`), converted to RGBA8, and exported exclusively as lossless RGBA8 PNG so all downstream verification uses deterministic PNG decoding.
 4. **Artwork Digest:**
-   - `artworkSha256 = SHA-256(rgba8Bytes)` where `rgba8Bytes.length === width * height * 4`.
-   - Dimension confusion (e.g., `100×200` vs `200×100`) is prevented because `region = [x, y, width, height]` is bound inside the signed manifest.
+   - **Protocol v1:** `artworkSha256 = SHA-256(rgba8Bytes)` where `rgba8Bytes` is the cropped `region = [artX, artY, artW, artH]` (`artW * artH * 4` bytes).
+   - **Protocol v2:** Extract the cropped `region = [artX, artY, artW, artH]` RGBA8 bytes, overwrite every byte inside `qrMask = [mx, my, mw, mh]` (coordinates relative to `region`) with `0x00`, and compute `artworkSha256 = SHA-256(maskedRgba8Bytes)` (see Section 3.2).
+   - Dimension confusion (e.g., `100×200` vs `200×100`) is prevented because `region = [x, y, width, height]` (and `qrMask` in v2) is bound inside the signed manifest.
 
 ---
 
 ## 3. Solving the QR / Image Hash Circular Dependency
 
+Burning a QR code into a PNG modifies the image file bytes. Certified Handmade provides two mutually compatible, non-circular protocol modes:
+
+### 3.1 Protocol v1 — Outer QR Border (Default)
+
 1. Layout calculation determines the output canvas `(outWidth, outHeight)` and the artwork rectangle `region = [artX, artY, artW, artH]` **before** final signing (converging QR module count via at most 3 deterministic passes).
-2. `artworkSha256` hashes **only** the `artW × artH` artwork pixels.
+2. `artworkSha256` hashes **only** the untouched `artW × artH` artwork pixels inside `region`.
 3. The Ed25519 signature binds `region = [artX, artY, artW, artH]` and `artworkSha256`.
-4. The QR code and optional provenance label are rendered **strictly outside** `[artX, artY, artW, artH]` into the surrounding margin of the lossless output PNG.
+4. The QR code (ECC level `M`) and optional provenance label are rendered **strictly outside** `[artX, artY, artW, artH]` into the surrounding margin of the lossless output PNG.
 5. During verification:
-   - If uploaded image dimensions equal `(artW, artH)`, the verifier hashes `[0, 0, artW, artH]`.
-   - Otherwise, if `artX + artW <= imgW && artY + artH <= imgH`, the verifier extracts `[artX, artY, artW, artH]` and computes `SHA-256`.
+   - If uploaded image dimensions equal `(artW, artH)` (`full-artwork` match mode), the verifier hashes `[0, 0, artW, artH]`.
+   - Otherwise, if `artX + artW <= imgW && artY + artH <= imgH` (`embedded-region` match mode), the verifier extracts `[artX, artY, artW, artH]` and computes `SHA-256`.
+
+### 3.2 Protocol v2 — In-Image QR Overlay (`qrMask`)
+
+When an artist embeds a translucent or styled QR code directly on top of the illustration without adding an outer border:
+
+1. `region` MUST cover `[0, 0, artW, artH]` (or an explicit bounded rectangle `region`).
+2. `qrMask = [mx, my, mw, mh]` defines the exact bounding rectangle (in pixels relative to `region`) into which the QR code overlay is composited. Constraints enforced by encoder and verifier:
+   - `mx >= 0`, `my >= 0`, `mw >= 21`, `mh >= 21`
+   - `mx + mw <= region[2]` (`artW`) and `my + mh <= region[3]` (`artH`)
+   - All coordinates are non-negative safe integers within `MAX_OUTPUT_DIMENSION` (`10240`).
+3. **Masked Hash Computation (`hashMaskedArtworkRegion`):**
+   - Extract the canonical straight-RGBA8 slice for `region` (`w = region[2]`, `h = region[3]`, `stride = w * 4`).
+   - For each row `r` from `0` to `mh - 1`:
+     fill bytes `[ (my + r) * stride + mx * 4 .. (my + r) * stride + (mx + mw) * 4 )` with `0x00`.
+   - Compute `artworkSha256 = SHA-256(maskedBytes)`.
+4. **QR Compositing:** Pixels inside `[mx, my, mw, mh]` are straight-alpha blended with the QR pattern (ECC level `M`, `Q`, or `H`, minimum 2-module quiet zone inside the box). Pixels **outside** `qrMask` remain bit-for-bit identical to the input artwork.
+5. **Security Boundary of `qrMask`:**
+   - **Pixels inside `qrMask` are NOT covered by `artworkSha256`** and may be altered without breaking hash verification.
+   - Every pixel **outside** `qrMask` is protected byte-for-byte by `artworkSha256`.
+   - Verifiers MUST clearly notify users of the `qrMask` bounds (`[mx, my, mw, mh]`) whenever verifying a Protocol v2 manifest.
+6. During verification:
+   - If `imgW === region[2] && imgH === region[3]`, apply `hashMaskedArtworkRegion` over `[0, 0, region[2], region[3]]`.
+   - Otherwise, if `region[0] + region[2] <= imgW && region[1] + region[3] <= imgH`, apply `hashMaskedArtworkRegion` over `region`. (`matchedMode = 'in-image-masked'`).
 
 ---
 
@@ -52,18 +80,19 @@ To eliminate browser `<canvas>` premultiplied-alpha corruption and color-profile
 
 ### 4.1 Unsigned Manifest Map (`payloadBytes`)
 
-Encoded as a deterministic RFC 8949 CBOR map with integer keys sorted ascending (`1..8`):
+Encoded as a deterministic RFC 8949 CBOR map with integer keys sorted ascending:
 
-| Key | Name | CBOR Type | Constraints |
-| --- | --- | --- | --- |
-| `1` | `artworkId` | `bstr` (16 bytes) | Random UUIDv4 bytes |
-| `2` | `publicKey` | `bstr` (32 bytes) | Raw Ed25519 public key |
-| `3` | `sha256` | `bstr` (32 bytes) | Canonical RGBA8 SHA-256 digest |
-| `4` | `region` | `array(4)` of `uint` | `[x, y, width, height]`, `w >= 1, h >= 1` |
-| `5` | `issuedAt` | `uint` | Self-declared Unix epoch seconds |
-| `6` | `license` | `array(4 or 5)` | `[licenseCode, commercial, redistribution, aiTraining, attributionName?]` |
-| `7` | `authorName` | `tstr` (optional) | Max 48 UTF-8 bytes, no ASCII control chars |
-| `8` | `artworkTitle` | `tstr` (optional) | Max 64 UTF-8 bytes, no ASCII control chars |
+| Key | Name | CBOR Type | Protocol | Constraints |
+| --- | --- | --- | --- | --- |
+| `1` | `artworkId` | `bstr` (16 bytes) | `v1`, `v2` | Random RFC 4122 UUIDv4 bytes |
+| `2` | `publicKey` | `bstr` (32 bytes) | `v1`, `v2` | Raw Ed25519 public key |
+| `3` | `sha256` | `bstr` (32 bytes) | `v1`, `v2` | Canonical RGBA8 SHA-256 digest (masked in `v2`) |
+| `4` | `region` | `array(4)` of `uint` | `v1`, `v2` | `[x, y, width, height]`, `w >= 1, h >= 1`, within `10240` |
+| `5` | `issuedAt` | `uint` | `v1`, `v2` | Self-declared Unix epoch seconds |
+| `6` | `license` | `array(4 or 5)` | `v1`, `v2` | `[licenseCode, commercial, redistribution, aiTraining, attributionName?]` |
+| `7` | `authorName` | `tstr` (optional) | `v1`, `v2` | Max 48 UTF-8 bytes, no ASCII control chars (`<0x20` or `0x7f`) |
+| `8` | `artworkTitle` | `tstr` (optional) | `v1`, `v2` | Max 64 UTF-8 bytes, no ASCII control chars (`<0x20` or `0x7f`) |
+| `9` | `qrMask` | `array(4)` of `uint` | `v2` only | `[mx, my, mw, mh]`, `mw,mh >= 21`, inside `region` size; forbidden in `v1` |
 
 #### License & Policy Codes (Key `6`)
 
@@ -97,54 +126,85 @@ signature      = Ed25519_Sign(privateKey, signingMessage)   // 64 bytes
 Encoded as a deterministic RFC 8949 CBOR 3-element array:
 
 ```
-proofEnvelope = [ 1, payloadBytes, signature ]
+proofEnvelope = [ version, payloadBytes, signature ]   // version in {1, 2}
 ```
 
 Maximum encoded size: `2048` bytes (`MAX_PROOF_BYTES`).
 
-### 4.4 Anti-Malleability Validation Rules
+### 4.4 Anti-Malleability & Version Validation Rules
 
 A conforming verifier MUST reject proofs if any of the following hold:
-- Indefinite-length CBOR items, `undefined`, `NaN`, `Infinity`, floats, or duplicate map keys are present.
-- Unknown map keys outside `{1..8}` appear in `payloadBytes`.
+- Indefinite-length CBOR items, `undefined`, `NaN`, `Infinity`, floats, BigInts, invalid UTF-8, or duplicate map keys are present.
+- `version` is not an integer in `{1, 2}`: MUST explicitly return `Unsupported` protocol version rather than silently downgrading or partially parsing unknown structures.
+- Unknown map keys appear in `payloadBytes`:
+  - For `version == 1`, any key outside `{1..8}` (including key `9` `qrMask`) MUST be rejected.
+  - For `version == 2`, any key outside `{1..9}` MUST be rejected.
 - Re-encoding the decoded payload map or outer envelope with RFC 8949 deterministic rules does not match the input bytes byte-for-byte.
-- `version !== 1` (MUST report `Unsupported` protocol version rather than attempting partial parsing).
 
 ---
 
-## 5. QR Code URI Format
+## 5. QR Code URI Format & Optional Portable Proof Bundle
+
+### 5.1 Embedded QR URI Format
 
 ```
 https://certified-handmade.com/verify#proof=<base64url(proofBytes)>
 ```
 
 - Using the URL **fragment** (`#proof=...`) ensures browsers never transmit the proof payload in HTTP requests.
-- QR codes use Error Correction Level `M` (15%) with a mandatory minimum **4-module** `#FFFFFF` quiet zone and integer pixel module scaling.
+- Protocol v1 QR codes use Error Correction Level `M` (15%) with a mandatory minimum **4-module** `#FFFFFF` quiet zone and integer pixel module scaling.
+- Protocol v2 In-Image QR codes support Error Correction Levels `M`, `Q`, or `H` and embed directly inside `qrMask`.
+- Offline verifiers (including Standalone Edition on `127.0.0.1:43777`) MUST parse the `#proof=` token locally and MUST NOT perform any automatic outbound navigation or network lookup to `certified-handmade.com`.
+
+### 5.2 Optional Portable Proof Bundle (`.chproof.json`)
+
+For convenient file-based archiving or USB transfer alongside an unmodified artwork file, an optional versioned JSON container wraps the **exact unmodified `proofBase64Url` bytes**:
+
+```json
+{
+  "format": "certified-handmade-proof-bundle",
+  "version": 1,
+  "protocolVersion": 1,
+  "artworkId": "01234567-89ab-cdef-4123-8123456789ab",
+  "publicKeyFingerprint": "<64-char sha256(publicKey) hex>",
+  "createdAt": "2026-11-23T00:00:00.000Z",
+  "proofBase64Url": "<unpadded base64url(proofBytes)>"
+}
+```
+
+- The cryptographic signature binds only `proofBytes` (`proofBase64Url`); JSON wrapper fields (`createdAt`, `artworkId`, `publicKeyFingerprint`) are convenience metadata and MUST NOT be trusted unless matched against the verified CBOR payload.
 
 ---
 
 ## 6. Author Public Key Fingerprint
 
 ```
-fingerprint = SHA-256(publicKey32)   // 32 bytes / 64 lowercase hex chars
+fingerprint  = SHA-256(publicKey32)   // 32 bytes / 64 lowercase hex chars
 shortDisplay = "CHM-" + uppercase(hex(fingerprint[0..8])).groupedBy4("-")
 ```
 
 ---
 
-## 7. Independent Third-Party Verification Algorithm
+## 7. Independent Offline Verification Algorithm
 
-Any standalone script (Python, Rust, Go, Node.js) can verify a signed PNG or `#proof=...` URL without running Certified Handmade's web app:
+Any standalone script or tool (Python, Rust, Go, Node.js) can verify a signed PNG, `#proof=...` token, or `.chproof.json` bundle completely offline:
 
-1. Extract the `#proof=` token and decode unpadded base64url into `proofBytes`.
-2. Decode `proofBytes` as strict CBOR `[version, payloadBytes, signature]`, confirm `version == 1` and canonical re-encoding.
-3. Verify `Ed25519_Verify(publicKey, b"CHM1\x00" + payloadBytes, signature)`.
-4. Decode `payloadBytes` as strict CBOR map `{1..8}` and confirm canonical re-encoding.
-5. (If verifying an image) Decode the PNG into straight RGBA8, extract `[x, y, w, h]` (or `[0, 0, w, h]` if dimensions equal `(w, h)`), and compare `SHA-256(croppedRgba8)` against key `3`.
+1. Extract the `#proof=` token (from QR text, URL fragment, raw token, or `.chproof.json`'s `proofBase64Url`) and decode unpadded base64url into `proofBytes`.
+2. Decode `proofBytes` as strict CBOR `[version, payloadBytes, signature]`. If `version` is not `1` or `2`, report `Unsupported` and stop. Confirm canonical re-encoding of the outer array.
+3. Verify `Ed25519_Verify(publicKey, b"CHM1\x00" + payloadBytes, signature)` -> sets **Cryptographic Signature** (`Valid` / `Invalid`).
+4. Decode `payloadBytes` as strict CBOR map (`{1..8}` for v1, `{1..9}` for v2) and confirm canonical re-encoding. Validate `region`, optional `qrMask` (`v2`), and string constraints.
+5. **Artwork Integrity** (if an artwork image is supplied):
+   - Decode the PNG into straight RGBA8 (`CAR-v1`, enforcing pre-flight `IHDR` size bounds).
+   - Extract `region = [x, y, w, h]` (or `[0, 0, w, h]` when image dimensions equal `(w, h)`).
+   - If `qrMask` (`key 9`) is present, zero all RGBA bytes inside `[mx, my, mw, mh]` relative to the extracted rectangle before hashing.
+   - Compare `SHA-256(rasterBytes)` with key `3` -> sets **Artwork Integrity** (`Matched` / `Mismatched` / `Not Checked`).
+6. **Author Identity** (local trust store only):
+   - Compare `publicKey` against the verifier's own local trusted keys list -> sets **Author Identity** (`Locally Trusted Key` / `Unknown / Unverified Key`).
+   - A `Valid` signature proves only that the holder of the matching Ed25519 private key signed the manifest; it does **not** independently prove hand-drawn creation or legal copyright ownership.
 
 ---
 
-## 8. Normative Test Vector (v1)
+## 8. Normative Test Vector (v1 — Outer QR Border)
 
 - **Ed25519 Seed (hex, test only):**
   `9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60`
@@ -169,3 +229,27 @@ Any standalone script (Python, Rust, Go, Node.js) can verify a signed PNG or `#p
   `de1ee87132b29a89a89f1954b56ba0872abb07b7f38bbf05de73fa7d0064f217a22ed3c8168000d552b04e92acdc9d9310d8cb78ef932e59adeb71ac6968d404`
 - **Proof Token (`#proof=...`):**
   `gwFYk6gBUAEjRWeJq83vQSOBI0VniasCWCDXWpgBgrEKt9VL_tPJZAc6DuFy89qmIyWvAhpo9wdRGgNYIOYBn-Qcdjc2CrkMicM4sdyGR2bHrbtIuWCr2UY3JcV6BIQYGBgYAgIFGmsC6NIGhQQCAQJpWW9taVBsdXNoB2lZb21pUGx1c2gIb1Rlc3QgVmVjdG9yIDJ4MlhA3h7ocTKymomonxlUtWughyq7B7fzi78F3nP6fQBk8heiLtPIFoAA1VKwTpKs3J2TENjLeO-TLlmt63GsaWjUBA`
+
+---
+
+## 9. Normative Test Vector (v2 — In-Image Masked QR)
+
+- **Ed25519 Seed & Public Key:** Same as Section 8 (`d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a`, `CHM-21FE-31DF-A154-A261`)
+- **Artwork ID (hex / UUID):**
+  `fedcba98765443218123456789abcdef` (`fedcba98-7654-4321-8123-456789abcdef`)
+- **24×24 Synthetic Test Artwork RGBA8 Pattern:**
+  For `y = 0..23`, `x = 0..23`, pixel `[R, G, B, A] = [(x * 10 + y) & 0xff, (x + y * 10) & 0xff, (x ^ y) & 0xff, 255]`
+- **Region:** `[0, 0, 24, 24]`
+- **QR Mask (`key 9`):** `[2, 2, 21, 21]`
+- **Masked Artwork SHA-256 (after zeroing `[2, 2, 21, 21]` RGBA bytes, hex):**
+  `be13d44bb13b0aa8d26c9ee3af23e0fb583dea9a94a26114f39dee5aa52598f3`
+- **Issued At:** `1795352786`
+- **License Tuple:** `[0, 2, 2, 2]` (`ARR`, commercial=`disallow`, redistribution=`disallow`, aiTraining=`disallow`)
+- **Author Name:** `"YomiPlush"`
+- **Artwork Title:** `"Test Vector v2 Masked"`
+- **Canonical Payload CBOR (hex):**
+  `a90150fedcba98765443218123456789abcdef025820d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a035820be13d44bb13b0aa8d26c9ee3af23e0fb583dea9a94a26114f39dee5aa52598f30484000018181818051a6b02e8d20684000202020769596f6d69506c75736808755465737420566563746f72207632204d61736b6564098402021515`
+- **Ed25519 Signature over `CHM1\0 || payload` (hex):**
+  `82c2fa87fb210ee446c84250cd19e580691e5dd90cafce66e6778b6c4a20cbd969f51800f74d695931eb9642da1a8e0e6038d07d5bf0bfe5d01849e5f1677e03`
+- **Proof Token (`#proof=...`):**
+  `gwJYlakBUP7cuph2VEMhgSNFZ4mrze8CWCDXWpgBgrEKt9VL_tPJZAc6DuFy89qmIyWvAhpo9wdRGgNYIL4T1EuxOwqo0mye468j4PtYPeqalKJhFPOd7lqlJZjzBIQAABgYGBgFGmsC6NIGhAACAgIHaVlvbWlQbHVzaAh1VGVzdCBWZWN0b3IgdjIgTWFza2VkCYQCAhUVWECCwvqH-yEO5EbIQlDNGeWAaR5d2Qyvzmbmd4tsSiDL2Wn1GAD3TWlZMeuWQtoajg5gONB9W_C_5dAYSeXxZ34D`

@@ -15,6 +15,17 @@
   animation: slideUpFromBottom 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @layer base {
   :root {
     color-scheme: dark;
@@ -42,10 +53,33 @@
   a,
   input,
   select,
-  textarea {
+  textarea,
+  summary,
+  [role="button"],
+  [tabindex] {
     &:focus-visible {
       outline: 2px solid #7dd3fc;
       outline-offset: 2px;
     }
   }
+}
+
+/* Prevent long hex fingerprints / exchange URLs inside @yomiplush/chm-exchange from overflowing mobile viewports */
+.chmx-root,
+.chmx-root .chmx-panel,
+.chmx-root .chmx-card,
+.chmx-root .chmx-stack,
+.chmx-root .chmx-field,
+.chmx-root .chmx-trusted-item,
+.chmx-root .chmx-actions,
+.chmx-root .chmx-banner {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.chmx-root .chmx-hint,
+.chmx-root .chmx-mono,
+.chmx-root .chmx-kv-value,
+.chmx-root .chmx-banner-body {
+  overflow-wrap: anywhere;
 }

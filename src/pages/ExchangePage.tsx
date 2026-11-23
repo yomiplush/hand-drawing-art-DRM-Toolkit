@@ -4,6 +4,7 @@ import { KeyRound } from 'lucide-react';
 import { ChmExchangeView } from '@yomiplush/chm-exchange/react';
 import type { ChmExchangeTheme, ExchangeTab } from '@yomiplush/chm-exchange/react';
 import '@yomiplush/chm-exchange/styles.css';
+import { HelpIconButton } from '../components/ui/HelpIconButton';
 import { createCertifiedHandmadeExchangeAdapter } from '../core/exchange/hostAdapter';
 import { useI18n } from '../i18n/context';
 
@@ -41,7 +42,23 @@ export function ExchangePage() {
       : 'https://certified-handmade.com/exchange';
 
   return (
-    <div data-testid="exchange-page" className="space-y-4">
+    <div data-testid="exchange-page" className="space-y-6">
+      <header className="flex items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-white">
+          {t.minimal.nav.keyExchangeItem}
+        </h1>
+
+        <HelpIconButton
+          label={t.minimal.exchange.helpLabel}
+          title={t.minimal.exchange.helpLabel}
+          closeLabel={t.minimal.home.closeHelp}
+          testId="exchange-help-btn"
+          panelTestId="exchange-help-panel"
+        >
+          <p>{t.minimal.exchange.helpBody}</p>
+        </HelpIconButton>
+      </header>
+
       <ChmExchangeView
         adapter={adapter}
         exchangeBaseUrl={exchangeBaseUrl}

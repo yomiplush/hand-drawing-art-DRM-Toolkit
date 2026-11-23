@@ -8,8 +8,10 @@ import { LICENSE_I18N } from '../../src/i18n/licenses';
 import { ko, zhCN, zhTW } from '../../src/i18n/locales/eastAsia';
 import { ar, de, es, fr, it as itLocale, pt } from '../../src/i18n/locales/europeanAndArabic';
 import { ru, uk } from '../../src/i18n/locales/slavic';
+import { MINIMAL_UI_I18N } from '../../src/i18n/minimalUi';
 import { QR_STUDIO_I18N } from '../../src/i18n/qrStudio';
 import { SEO_I18N } from '../../src/i18n/seo';
+import { STANDALONE_I18N } from '../../src/i18n/standalone';
 import { TUTORIAL_I18N } from '../../src/i18n/tutorial';
 import { VERIFY_MOBILE_I18N } from '../../src/i18n/verifyMobile';
 
@@ -142,6 +144,37 @@ describe('13-language license guide & simple how-to translations', () => {
       if (locale !== 'en') {
         expect(vm.proofStep2Title).not.toBe(VERIFY_MOBILE_I18N.en.proofStep2Title);
         expect(vm.pasteImageBtn).not.toBe(VERIFY_MOBILE_I18N.en.pasteImageBtn);
+      }
+    }
+  });
+
+  it('provides Standalone Edition copy for all 13 languages', () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      const st = STANDALONE_I18N[locale];
+      expect(st.title.trim().length).toBeGreaterThan(5);
+      expect(st.subtitle.trim().length).toBeGreaterThan(20);
+      expect(st.modes).toHaveLength(3);
+      expect(st.platforms).toHaveLength(2);
+      if (locale !== 'en') {
+        expect(st.title).not.toBe(STANDALONE_I18N.en.title);
+      }
+    }
+  });
+
+  it('provides minimal UI/UX copy for all 13 languages', () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      const mui = MINIMAL_UI_I18N[locale];
+      expect(mui.home.tagline.trim().length).toBeGreaterThan(4);
+      expect(mui.home.createCta.trim().length).toBeGreaterThan(3);
+      expect(mui.home.verifyCta.trim().length).toBeGreaterThan(3);
+      expect(mui.home.helpItems).toHaveLength(6);
+      expect(mui.create.signAndDownloadBtn.trim().length).toBeGreaterThan(3);
+      expect(mui.verify.sigLabel.trim().length).toBeGreaterThan(1);
+      expect(mui.verify.intLabel.trim().length).toBeGreaterThan(1);
+      expect(mui.verify.idLabel.trim().length).toBeGreaterThan(1);
+      if (locale !== 'en') {
+        expect(mui.home.tagline).not.toBe(MINIMAL_UI_I18N.en.home.tagline);
+        expect(mui.home.createCta).not.toBe(MINIMAL_UI_I18N.en.home.createCta);
       }
     }
   });

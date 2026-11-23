@@ -20,7 +20,6 @@ function buildSampleArtworkPng(width = 160, height = 120): Buffer {
 test.describe('CHM-Exchange Critical End-to-End Integration', () => {
   test('cross-browser key exchange, unverified start, explicit trust, artwork verification, trust removal, and QR PNG upload', async ({
     browser,
-    isMobile,
   }, testInfo) => {
     const contextA = await browser.newContext();
     const contextB = await browser.newContext();
@@ -55,14 +54,10 @@ test.describe('CHM-Exchange Critical End-to-End Integration', () => {
       await pageA.goto('/');
       await pageA.getByTestId('cookie-reject-btn').click();
 
-      // Check Exchange nav entry (desktop vs mobile drawer)
-      if (isMobile) {
-        await pageA.getByRole('button', { name: /Toggle navigation/i }).click();
-        await expect(pageA.locator('nav[aria-label="Mobile"] a[href="/exchange"]')).toBeVisible();
-        await pageA.getByRole('button', { name: /Toggle navigation/i }).click();
-      } else {
-        await expect(pageA.locator('nav[aria-label="Primary"] a[href="/exchange"]')).toBeVisible();
-      }
+      // Check Exchange entry in compact navigation menu
+      await pageA.getByTestId('nav-menu-toggle').click();
+      await expect(pageA.getByTestId('menu-exchange-link')).toBeVisible();
+      await pageA.keyboard.press('Escape');
 
       await pageA.goto('/keys');
       await pageA.getByTestId('keygen-label').fill('Artist Studio A');
@@ -105,14 +100,15 @@ test.describe('CHM-Exchange Critical End-to-End Integration', () => {
       fs.writeFileSync(artPath, buildSampleArtworkPng());
       await pageA.goto('/create');
       await pageA.getByTestId('create-image-input').setInputFiles(artPath);
+      await pageA.locator('[data-testid="create-identity-advanced"] > button').click();
       await pageA.getByTestId('create-author-input').fill('Artist Studio A');
       await pageA.getByTestId('create-title-input').fill('Exchange Integration Test');
-      await pageA.getByTestId('create-sign-button').click();
-      await expect(pageA.getByTestId('create-result-section')).toBeVisible();
 
       const signedDlPromise = pageA.waitForEvent('download');
-      await pageA.getByTestId('download-signed-png').click();
+      await pageA.getByTestId('create-sign-button').click();
       const signedDl = await signedDlPromise;
+      await expect(pageA.getByTestId('create-result-section')).toBeVisible();
+      await expect(pageA.getByTestId('download-signed-png')).toBeVisible();
       const signedPngPath = testInfo.outputPath('signed-by-artist-a.png');
       await signedDl.saveAs(signedPngPath);
 
@@ -146,13 +142,13 @@ test.describe('CHM-Exchange Critical End-to-End Integration', () => {
       await pageB.getByTestId('chmx-qr-file-input').setInputFiles(qrPngPath);
       await expect(pageB.getByTestId('chmx-duplicate-notice')).toBeVisible();
 
-      // 6 & 7. Verify artwork signed by Context A on /verify -> Valid + Matched + Locally Trusted Key
+      // 6 & 7. Verify artwork signed by Context A on /verify -> Valid + Matched + Trusted (Artist A (Confirmed))
       await pageB.goto('/verify');
       await pageB.getByTestId('verify-image-input').setInputFiles(signedPngPath);
       await expect(pageB.getByTestId('status-signature')).toContainText('Valid');
       await expect(pageB.getByTestId('status-integrity')).toContainText('Matched');
       await expect(pageB.getByTestId('status-identity')).toContainText(
-        'Locally Trusted Key (Artist A (Confirmed))',
+        'Trusted (Artist A (Confirmed))',
       );
 
       // Verify shortcut from /verify -> /exchange?inspect=...
@@ -169,12 +165,12 @@ test.describe('CHM-Exchange Critical End-to-End Integration', () => {
       await pageB.getByTestId('chmx-remove-trusted-btn').click();
       await expect(pageB.getByTestId('chmx-trusted-empty')).toBeVisible();
 
-      // 9. Re-verify signed PNG -> Signature Valid & Matched, Identity returns to Unknown / Unverified
+      // 9. Re-verify signed PNG -> Signature Valid & Matched, Identity returns to Unverified
       await pageB.goto('/verify');
       await pageB.getByTestId('verify-image-input').setInputFiles(signedPngPath);
       await expect(pageB.getByTestId('status-signature')).toContainText('Valid');
       await expect(pageB.getByTestId('status-integrity')).toContainText('Matched');
-      await expect(pageB.getByTestId('status-identity')).toContainText('Unknown / Unverified Key');
+      await expect(pageB.getByTestId('status-identity')).toContainText('Unverified');
 
       // Confirm dist/exchange.html static SEO shell exists with canonical link
       const exchangeHtmlPath = path.resolve(process.cwd(), 'dist', 'exchange.html');

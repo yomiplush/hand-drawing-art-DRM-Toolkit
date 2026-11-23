@@ -10,14 +10,24 @@ import type {
   ArtworkIntegrityStatus,
   AuthorIdentityStatus,
   SignatureStatus,
+  VerificationResult,
 } from '../core/manifest/types';
 import { useI18n } from '../i18n/context';
+import { CompactStatus } from './ui/CompactStatus';
+import type { StatusTone } from './ui/CompactStatus';
 
 interface StatusGridProps {
   signatureStatus: SignatureStatus;
   integrityStatus: ArtworkIntegrityStatus;
   identityStatus: AuthorIdentityStatus;
   trustedKeyLabel?: string | null;
+  matchedMode?: VerificationResult['matchedMode'];
+}
+
+interface RowSpec {
+  tone: StatusTone;
+  icon: typeof CheckCircle2;
+  text: string;
 }
 
 export function StatusDimensionsGrid({
@@ -25,86 +35,112 @@ export function StatusDimensionsGrid({
   integrityStatus,
   identityStatus,
   trustedKeyLabel,
+  matchedMode,
 }: StatusGridProps) {
   const { t } = useI18n();
+  const mv = t.minimal.verify;
 
-  const sigCard = {
+  const sigMap: Record<SignatureStatus, RowSpec> = {
     valid: {
-      tone: 'border-sky-300/35 bg-[#05162b]/75 text-sky-100',
+      tone: 'success',
       icon: CheckCircle2,
-      text: t.verify.badges.sigValid,
+      text: mv.sigValid,
     },
     invalid: {
-      tone: 'border-rose-500/45 bg-rose-950/50 text-rose-100',
+      tone: 'danger',
       icon: XCircle,
-      text: t.verify.badges.sigInvalid,
+      text: mv.sigInvalid,
     },
     unsupported: {
-      tone: 'border-amber-400/40 bg-amber-950/40 text-amber-100',
+      tone: 'warning',
       icon: AlertTriangle,
-      text: t.verify.badges.sigUnsupported,
+      text: mv.sigUnsupported,
     },
-  }[signatureStatus];
+  };
 
-  const intCard = {
+  const intMap: Record<ArtworkIntegrityStatus, RowSpec> = {
     matched: {
-      tone: 'border-sky-300/35 bg-[#05162b]/75 text-sky-100',
+      tone: 'success',
       icon: CheckCircle2,
-      text: t.verify.badges.intMatched,
+      text: mv.intMatched,
     },
     mismatched: {
-      tone: 'border-rose-500/45 bg-rose-950/50 text-rose-100',
+      tone: 'danger',
       icon: XCircle,
-      text: t.verify.badges.intMismatched,
+      text: mv.intMismatched,
     },
     'not-checked': {
-      tone: 'border-amber-400/35 bg-amber-950/35 text-amber-100',
+      tone: 'warning',
       icon: HelpCircle,
-      text: t.verify.badges.intNotChecked,
+      text: mv.intNotChecked,
     },
-  }[integrityStatus];
+  };
 
-  const idCard = {
+  const idMap: Record<AuthorIdentityStatus, RowSpec> = {
     'locally-trusted': {
-      tone: 'border-emerald-400/40 bg-emerald-950/40 text-emerald-100',
+      tone: 'success',
       icon: ShieldCheck,
-      text: trustedKeyLabel
-        ? `${t.verify.badges.idTrusted} (${trustedKeyLabel})`
-        : t.verify.badges.idTrusted,
+      text: trustedKeyLabel ? `${mv.idTrusted} (${trustedKeyLabel})` : mv.idTrusted,
     },
     unknown: {
-      tone: 'border-amber-400/35 bg-amber-950/35 text-amber-100',
+      tone: 'warning',
       icon: ShieldAlert,
-      text: t.verify.badges.idUnknown,
+      text: mv.idUnverified,
     },
-  }[identityStatus];
+  };
 
-  const cards = [
-    { key: 'sig', title: t.verify.dimA, ...sigCard, testId: 'status-signature' },
-    { key: 'int', title: t.verify.dimB, ...intCard, testId: 'status-integrity' },
-    { key: 'id', title: t.verify.dimC, ...idCard, testId: 'status-identity' },
-  ];
+  const sigRow = sigMap[signatureStatus];
+  const intRow = intMap[integrityStatus];
+  const idRow = idMap[identityStatus];
+
+  const SigIcon = sigRow.icon;
+  const IntIcon = intRow.icon;
+  const IdIcon = idRow.icon;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-      {cards.map((card) => {
-        const Icon = card.icon;
-        return (
-          <div
-            key={card.key}
-            data-testid={card.testId}
-            className={`rounded-xl border backdrop-blur-md p-4 ${card.tone}`}
-          >
-            <div className="text-xs font-medium uppercase tracking-wider opacity-75 mb-1.5">
-              {card.title}
-            </div>
-            <div className="flex items-center gap-2 font-semibold text-sm sm:text-base">
-              <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-              <span>{card.text}</span>
-            </div>
-          </div>
-        );
-      })}
+    <div className="space-y-2.5">
+      <CompactStatus
+        testId="status-signature"
+        helpTestId="status-signature-help"
+        label={mv.sigLabel}
+        value={sigRow.text}
+        tone={sigRow.tone}
+        icon={<SigIcon className="h-5 w-5" />}
+        helpText={mv.sigHelp}
+        helpLabel={`${mv.sigLabel} — ?`}
+        helpCloseLabel={t.minimal.home.closeHelp}
+      />
+
+      <CompactStatus
+        testId="status-integrity"
+        helpTestId="status-integrity-help"
+        label={mv.intLabel}
+        value={intRow.text}
+        tone={intRow.tone}
+        icon={<IntIcon className="h-5 w-5" />}
+        extra={
+          matchedMode ? (
+            <span className="rounded bg-black/25 border border-white/15 px-2 py-0.5 text-[11px] font-mono opacity-90">
+              {matchedMode}
+            </span>
+          ) : undefined
+        }
+        helpText={mv.intHelp}
+        helpLabel={`${mv.intLabel} — ?`}
+        helpCloseLabel={t.minimal.home.closeHelp}
+      />
+
+      <CompactStatus
+        testId="status-identity"
+        helpTestId="status-identity-help"
+        label={mv.idLabel}
+        value={idRow.text}
+        tone={idRow.tone}
+        icon={<IdIcon className="h-5 w-5" />}
+        helpText={mv.idHelp}
+        helpLabel={`${mv.idLabel} — ?`}
+        helpCloseLabel={t.minimal.home.closeHelp}
+      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
 import { decodePngToCanonicalRgba8, encodeCanonicalRgba8ToPng } from '../../src/core/image';
 import type { CanonicalRaster } from '../../src/core/image';
 import type { FrameTheme, QrPlacement } from '../../src/core/image/qrBurner';
+import { createPortableProofBundle } from '../../src/core/manifest/proofBundle';
 import {
   createInImageSignedArtworkPng,
   createSignedArtworkPng,
@@ -85,6 +86,8 @@ describe('End-to-end signing, QR burning, PNG encoding, QR decoding & verificati
       issuedAt: 1795352786,
     });
 
+    expect(signed.qrVerifiedReadable).toBe(true);
+
     // Verify signed PNG directly (without trusted key first)
     const unknownRes = await verifyImageWithEmbeddedQr({
       fileOrBytes: signed.pngBytes,
@@ -106,6 +109,23 @@ describe('End-to-end signing, QR burning, PNG encoding, QR decoding & verificati
     });
     expect(proofOnlyRes.signatureStatus).toBe('valid');
     expect(proofOnlyRes.integrityStatus).toBe('not-checked');
+
+    // Portable .chproof.json bundle works identically offline
+    const bundleJson = JSON.stringify(
+      createPortableProofBundle({
+        protocolVersion: 1,
+        artworkId: signed.manifest.artworkIdHex,
+        publicKeyFingerprint: authorKey.fingerprintHex,
+        proofBytes: signed.proofBytes,
+      }),
+    );
+    const bundleVerifyRes = await verifyProofAndArtwork({
+      proofInput: bundleJson,
+      artworkRaster: artwork,
+      lookupTrustedKey: async () => undefined,
+    });
+    expect(bundleVerifyRes.signatureStatus).toBe('valid');
+    expect(bundleVerifyRes.integrityStatus).toBe('matched');
 
     // Verify with trusted key store
     const trustedRecord: TrustedKeyRecord = {
@@ -164,6 +184,7 @@ describe('End-to-end signing, QR burning, PNG encoding, QR decoding & verificati
 
     expect(signed.manifest.version).toBe(2);
     expect(signed.manifest.qrMask).toEqual([24, 24, 180, 180]);
+    expect(signed.qrVerifiedReadable).toBe(true);
 
     // Verify pixels outside qrMask remained bit-for-bit untouched
     for (let i = 0; i < 4; i++) {
@@ -200,6 +221,67 @@ describe('End-to-end signing, QR burning, PNG encoding, QR decoding & verificati
     });
     expect(tamperedRes.signatureStatus).toBe('valid');
     expect(tamperedRes.integrityStatus).toBe('mismatched');
+  });
+
+  it('flags ultra-low-opacity unreadable in-image QR via qrVerifiedReadable and decodes small in-image QRs on >2.5 MP canvases', async () => {
+    const authorKey = await makeTestAuthorKey(seedHex, 'YomiPlush');
+
+    // Low-opacity dark-glass over busy pattern -> qrVerifiedReadable === false
+    const smallArt = makePatternRaster(300, 300, false);
+    const faintSigned = await createInImageSignedArtworkPng({
+      artworkRaster: smallArt,
+      authorKey,
+      passphraseIfEncrypted: 'test-passphrase-123',
+      license: {
+        licenseId: 'ARR',
+        commercialUse: 'disallow',
+        redistribution: 'disallow',
+        aiTraining: 'disallow',
+      },
+      qrOptions: {
+        x: 20,
+        y: 20,
+        boxSize: 160,
+        opacity: 0.08,
+        style: 'transparent-tint',
+        eccLevel: 'M',
+      },
+      issuedAt: 1795352786,
+    });
+    expect(faintSigned.qrVerifiedReadable).toBe(false);
+
+    // High-res > 2.5 MP canvas (2200 x 1600 = 3.52 MP) with compact in-image QR offset away from exact edges
+    const bigArt = makePatternRaster(2200, 1600, false);
+    const bigSigned = await createInImageSignedArtworkPng({
+      artworkRaster: bigArt,
+      authorKey,
+      passphraseIfEncrypted: 'test-passphrase-123',
+      authorName: 'HighRes Artist',
+      license: {
+        licenseId: 'CC-BY-4.0',
+        commercialUse: 'allow',
+        redistribution: 'allow',
+        aiTraining: 'disallow',
+      },
+      qrOptions: {
+        x: 740,
+        y: 520,
+        boxSize: 200,
+        opacity: 0.9,
+        style: 'frosted-light',
+        eccLevel: 'Q',
+      },
+      issuedAt: 1795352786,
+    });
+    expect(bigSigned.qrVerifiedReadable).toBe(true);
+
+    const bigVerified = await verifyImageWithEmbeddedQr({
+      fileOrBytes: bigSigned.pngBytes,
+      lookupTrustedKey: async () => undefined,
+    });
+    expect(bigVerified.verification.signatureStatus).toBe('valid');
+    expect(bigVerified.verification.integrityStatus).toBe('matched');
+    expect(bigVerified.verification.matchedMode).toBe('in-image-masked');
   });
 
   it('detects tampered artwork pixels while keeping signature valid', async () => {

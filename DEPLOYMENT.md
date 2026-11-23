@@ -1,6 +1,9 @@
-# Deployment Guide (`DEPLOYMENT.md`)
+# Deployment & Standalone Release Guide (`DEPLOYMENT.md`)
 
-Certified Handmade is a **100% static Vite + React + PWA** application. It requires **zero backend services**, **zero Cloudflare Workers/Pages Functions**, and **zero databases** (KV, D1, R2 are not used).
+Certified Handmade is a **100% static Vite + React + PWA** application requiring **zero backend services**, **zero databases**, and **zero paid infrastructure**. It ships in two mutually compatible distributions:
+
+1. **Web / PWA Edition (`dist/`)** — hosted on **Cloudflare Pages (Free plan)** at `https://certified-handmade.com/`.
+2. **Portable Standalone Edition (`release/`)** — static Go loopback launchers embedding `dist/` for **Linux x86_64** and **Windows x86_64**, distributed via **GitHub Releases** with `SHA256SUMS.txt`.
 
 ---
 
@@ -14,7 +17,7 @@ Certified Handmade is a **100% static Vite + React + PWA** application. It requi
    - **Build command:** `npm run build`
    - **Build output directory:** `dist`
    - **Root directory:** `/`
-4. Deploy! Cloudflare Pages automatically serves:
+4. Deploy. Cloudflare Pages serves:
    - `dist/_redirects` (`/* /index.html 200`) for direct SPA route access (including `/verify#proof=...`).
    - `dist/_headers` for strict Content Security Policy (`script-src 'self'`, `connect-src 'self'`, `Referrer-Policy: no-referrer`, `Permissions-Policy: camera=(self)`).
 
@@ -22,30 +25,58 @@ Certified Handmade is a **100% static Vite + React + PWA** application. It requi
 
 ## 2. Assigning Custom Domain (`certified-handmade.com`)
 
-> Note: Do not automate DNS modifications before ownership/zone setup. Assign the custom domain manually when ready:
-
 1. Open your Cloudflare Pages project → **Custom domains** → **Set up a custom domain**.
 2. Enter `certified-handmade.com` (and optionally `www.certified-handmade.com` redirecting to apex).
-3. Cloudflare will configure the CNAME/DNS record in your Cloudflare zone and provision an automatic Universal SSL/TLS certificate.
-4. Ensure **Always Use HTTPS** is enabled in Cloudflare SSL/TLS settings (required for Web Crypto API and Service Worker PWA registration).
+3. Cloudflare configures DNS and Universal SSL/TLS automatically.
+4. Keep **Always Use HTTPS** enabled (required for Web Crypto API and Service Worker PWA registration).
 
 ---
 
-## 3. Self-Hosting Without Cloudflare
+## 3. Building & Distributing the Portable Standalone Edition (Zero Cost)
 
-The `dist/` directory built by `npm run build` is completely portable to any static HTTPS host (GitHub Pages, Nginx, Caddy, Apache, IPFS, local static server):
+No paid CI/CD runners, third-party Go modules, or commercial code-signing services are required.
 
-- Configure your static server to fall back unknown paths (`/create`, `/verify`, `/keys`, `/docs`) to `/index.html` with HTTP `200` (without stripping URL `#proof=...` fragments).
-- Serve over **HTTPS** (or `http://localhost`) so `crypto.subtle`, `navigator.mediaDevices`, and Service Workers work in browsers.
-- If hosting under a subpath (e.g., `https://example.org/certified-handmade/`), build with:
+### 3.1 Local Reproducible Build (Linux Host)
+
+Requires Node.js 20+ and Go 1.22+ (standard library only, `CGO_ENABLED=0`):
+
+```bash
+npm ci
+npm run build:standalone
+```
+
+`scripts/build-standalone.sh`:
+1. Runs `npm run build` to produce fresh `dist/` assets.
+2. Temporarily copies `dist/` into `standalone/webdist/` (restored on exit via cleanup `trap`).
+3. Runs Go tests (`go test -race ./...`).
+4. Cross-compiles reproducible binaries (`-trimpath -ldflags="-s -w"`):
+   - `release/certified-handmade-linux-amd64` (statically linked Linux x86_64 ELF)
+   - `release/certified-handmade-windows-amd64.exe` (Windows x86_64 portable console executable)
+5. Packages reproducible archives (`tar` with `--sort=name` + `SOURCE_DATE_EPOCH`, Python deterministic-timestamp `.zip`) alongside `README-STANDALONE.txt` and `certified-handmade-standalone.desktop`:
+   - `release/certified-handmade-standalone-<version>-linux-amd64.tar.gz`
+   - `release/certified-handmade-standalone-<version>-windows-amd64.zip`
+6. Writes `release/SHA256SUMS.txt`.
+
+Verify checksums locally:
+
+```bash
+(cd release && sha256sum -c SHA256SUMS.txt)
+```
+
+### 3.2 Publishing to GitHub Releases
+
+- **Manual local upload (zero CI usage):** Run `npm run build:standalone`, create a GitHub Release for tag `vX.Y.Z`, and attach the `.tar.gz`, `.zip`, standalone binaries, and `SHA256SUMS.txt`.
+- **Optional zero-cost GitHub Actions release:** `.github/workflows/release-standalone.yml` uses standard public-repo free `ubuntu-latest` runners (never paid macOS/Windows/larger runners) and runs only on manual `workflow_dispatch` or `v*` tag pushes.
+
+---
+
+## 4. Self-Hosting Without Cloudflare
+
+The `dist/` directory built by `npm run build` is portable to any static HTTPS host (GitHub Pages, Nginx, Caddy, Apache, IPFS):
+
+- Fall back unknown paths (`/create`, `/verify`, `/tutorial`, `/keys`, `/docs`) to `/index.html` with HTTP `200` (without stripping URL `#proof=...` fragments).
+- Serve over **HTTPS** (or `http://localhost` / `http://127.0.0.1`) so `crypto.subtle`, `navigator.mediaDevices`, and Service Workers work in browsers.
+- If hosting under a subpath, build with:
   ```bash
   VITE_BASE_PATH=/certified-handmade/ npm run build
   ```
-
----
-
-## 4. PWA Offline Verification Notes
-
-- Upon first visit over HTTPS, `sw.js` (Workbox) precaches all application assets (`index.html`, JS bundles, CSS, SVG/PNG icons, manifest).
-- Subsequent visits—including direct links to `/verify#proof=...`—work completely offline.
-- A device that has **never** loaded the app cannot bootstrap the web app while offline; users intending to verify offline in the field should open the site once (or install the PWA) beforehand.

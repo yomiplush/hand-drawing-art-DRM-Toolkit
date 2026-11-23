@@ -178,6 +178,15 @@ export const en = {
     goToKeys: 'Go to Identity / Keys',
     selectKeyLabel: 'Signing Key',
     passphrasePrompt: 'Passphrase required to unlock encrypted key',
+    quickPassLabel: 'Backup Encryption Passphrase (min 8 chars — strongly recommended)',
+    quickPassPlaceholder: 'Enter 8+ chars to enable .chkey.json encrypted backup',
+    quickBackupReadyTitle: 'Save Your Encrypted Key Backup (.chkey.json)',
+    quickBackupReadyBody:
+      'Download and keep this passphrase-encrypted backup file safely offline. Web and Standalone Edition use separate browser storage—restoring from .chkey.json moves your key cleanly.',
+    keyNotBackedUpWarning:
+      'Warning: This signing key is not backed up yet. Browser storage is not permanent, and Web vs. Standalone Edition keep separate storage.',
+    keyNonExtractableNoBackup:
+      'This non-extractable browser key was created without a backup passphrase, so its private key cannot be exported later. For portable cross-device or Standalone backups, generate a passphrase-protected key in Identity / Keys.',
     step5: '5. QR Placement & Output Layout',
     placementLabel: 'QR Position (Outside Artwork Region)',
     placements: {
@@ -202,8 +211,11 @@ export const en = {
     signingBusy: 'Hashing, Signing & Encoding PNG…',
     resultTitle: 'Signed PNG Ready',
     downloadPng: 'Download Signed PNG',
+    downloadProofBundle: 'Download Proof Bundle (.chproof.json)',
     copyProofUrl: 'Copy Proof URL',
     copied: 'Copied!',
+    qrReadabilityPostWarn:
+      'Warning: The embedded QR code could not be auto-decoded after rendering at this size/opacity/style. Increase opacity, enlarge the box, or switch to Frosted White before sharing.',
     artworkShaLabel: 'Artwork Canonical RGBA8 SHA-256',
     artworkRegionLabel: 'Signed Artwork Region [x, y, w, h]',
     proofSizeLabel: 'CBOR Proof Size',
@@ -223,8 +235,9 @@ export const en = {
     cameraStop: 'Stop Camera',
     cameraHint: 'Camera video stays strictly on your device. Hold the QR code steadily in frame.',
     cameraError: 'Unable to access camera. Check browser permissions or use Image Upload instead.',
-    proofInputLabel: 'Proof URL (#proof=...) or Base64url Token',
+    proofInputLabel: 'Proof URL (#proof=...), Base64url Token, or .chproof.json',
     proofInputPlaceholder: 'https://certified-handmade.com/verify#proof=...',
+    proofBundleUploadLabel: 'Or load a Portable Proof Bundle (.chproof.json)',
     verifyProofBtn: 'Verify Proof Payload',
     attachArtworkTitle: 'Artwork Integrity Check (Optional / Recommended)',
     attachArtworkHint:
@@ -246,7 +259,7 @@ export const en = {
     },
     banners: {
       invalid: 'Verification Failed: Signature or artwork integrity check did not pass.',
-      unsupported: 'Unsupported Protocol Version: Cannot verify this manifest with v1 rules.',
+      unsupported: 'Unsupported Protocol Version: Cannot verify this manifest cleanly.',
       validTrustedMatched:
         'Signature Valid, Artwork Pixels Matched, and Signer Key is in Your Local Trust List.',
       validUnknownMatched:
@@ -254,6 +267,9 @@ export const en = {
       validNotChecked:
         'Cryptographic Signature Valid — Artwork Pixels Not Yet Checked.',
     },
+    qrMaskNoticeTitle: 'Protocol v2 In-Image QR Mask Notice',
+    qrMaskNoticeBody:
+      'Pixels inside the overlaid QR mask region [x, y, w, h] are intentionally excluded from SHA-256 verification. All pixels outside that mask are verified byte-for-byte.',
     trustReminder:
       'Important: "Signature Valid" does NOT mean "Human-Made Verified" or identity-verified by a central authority. Timestamps and creator claims are self-declared by the signer.',
     detailsTitle: 'Manifest Details',
@@ -289,6 +305,8 @@ export const en = {
     storageWarningTitle: 'Browser Storage Volatility Warning',
     storageWarningBody:
       'Keys stored in IndexedDB can be wiped if you clear site data or if browser storage is evicted. Always download and safely store an encrypted backup (.chkey.json). Lost private keys cannot be recovered.',
+    standaloneStorageNote:
+      'Separate Origin Storage: Online Web (certified-handmade.com) and Offline Standalone (127.0.0.1:43777) store IndexedDB separately. Export an encrypted .chkey.json backup and restore it to move your keys safely between Web and Standalone.',
     generateTitle: 'Generate New Ed25519 Keypair',
     keyLabelInput: 'Key Label',
     keyLabelPlaceholder: 'e.g., Studio Main Key 2026',
@@ -299,10 +317,17 @@ export const en = {
     backupReadyBody:
       'Your active key uses a non-extractable Web Crypto handle where supported. Save this AES-256-GCM encrypted backup file now so you can restore your key on another device or after clearing browser data.',
     downloadBackupBtn: 'Download .chkey.json Backup',
-    restoreTitle: 'Restore Key from Encrypted Backup',
+    unbackedBadge: 'Not Backed Up',
+    noBackupExportNotice: 'Created without passphrase (non-extractable handle — cannot export backup later)',
+    restoreTitle: 'Restore or Verify Encrypted Key Backup',
     restorePassLabel: 'Backup Passphrase',
     restoreFileLabel: 'Select .chkey.json backup file',
     restoreBtn: 'Decrypt & Restore Key',
+    verifyBackupBtn: 'Verify Backup Only (No Import)',
+    verifyBackupMatchExisting: 'Verified: Backup decrypted cleanly and matches your existing local key',
+    verifyBackupMatchTrusted: 'Verified: Backup decrypted cleanly and matches Trusted Key',
+    verifyBackupValidNew:
+      'Verified: Backup decrypted cleanly (valid Ed25519 key, not yet imported into this origin)',
     myKeysTitle: 'My Local Signing Keys',
     noMyKeys: 'No local signing keys yet.',
     modeNonExtractable: 'Web Crypto Non-Extractable',
@@ -333,15 +358,15 @@ export const en = {
       },
       {
         title: '2. Solving the Image/QR Circular Dependency',
-        body: 'Burning a QR code into an image changes the file bytes. Certified Handmade avoids circularity by hashing ONLY the canonical RGBA8 pixels inside the declared artwork region [x, y, w, h] and placing the QR code strictly outside that rectangle. On verification, the verifier extracts [x, y, w, h] from the PNG without Canvas premultiplied-alpha distortion and recomputes the exact SHA-256.',
+        body: 'Burning a QR code into an image changes the file bytes. Certified Handmade avoids circularity by hashing ONLY the canonical RGBA8 pixels inside the declared artwork region [x, y, w, h] and placing the QR code strictly outside that rectangle (Protocol v1), or excluding the overlaid qrMask rectangle from the SHA-256 input (Protocol v2). On verification, the verifier extracts pixels from the PNG without Canvas premultiplied-alpha distortion and recomputes the exact SHA-256.',
       },
       {
         title: '3. Security Model & Honest Limits',
         body: '1) Signature validity does not equal real-world identity unless you verified the public key out-of-band and saved it to Locally Trusted Keys. 2) Issued timestamps are self-declared unless paired with an external timestamping service. 3) A completed image alone cannot mathematically prove human hand-drawing; AI-training preferences are non-binding declarations.',
       },
       {
-        title: '4. Offline PWA & First-Load Constraint',
-        body: 'Once loaded in a browser, the Service Worker caches all JS, CSS, HTML, and icons so signing and verification work 100% offline. However, a device that has never visited or cached the web app cannot load the web app over the internet while offline—a fundamental browser/HTTP constraint.',
+        title: '4. Offline PWA & Standalone Edition',
+        body: 'Once loaded in a browser, the Service Worker caches all JS, CSS, HTML, and icons so signing and verification work 100% offline. For completely air-gapped or zero-first-load-network usage on Linux and Windows, Certified Handmade Standalone Edition bundles the entire application inside a self-contained local binary serving strictly on 127.0.0.1:43777.',
       },
       {
         title: '5. Independent Open Specification & Zero Lock-In',

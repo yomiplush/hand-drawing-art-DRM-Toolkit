@@ -1,18 +1,28 @@
 import { encode as cborEncode, rfc8949EncodeOptions } from 'cborg';
 import { describe, expect, it } from 'vitest';
-import { derivePublicKeyFromSeed, hexToBytes, signWithSeed, verifyEd25519Signature } from '../../src/core/crypto';
+import {
+  base64UrlEncode,
+  bytesToHex,
+  derivePublicKeyFromSeed,
+  hexToBytes,
+  signWithSeed,
+  verifyEd25519Signature,
+} from '../../src/core/crypto';
 import {
   UnsupportedProtocolVersionError,
   buildProofUrl,
   buildSigningMessage,
+  createPortableProofBundle,
   decodeSignedProofEnvelope,
   encodeSignedProofEnvelope,
   encodeUnsignedPayload,
   extractProofBytesFromInput,
   generateArtworkId,
+  parsePortableProofBundle,
   sanitizeVerifyBaseUrl,
 } from '../../src/core/manifest';
 import { PROTOCOL_VERSION, PROTOCOL_VERSION_MASKED } from '../../src/core/manifest/types';
+import { verifyProofAndArtwork } from '../../src/core/verify/verifier';
 
 describe('Manifest deterministic CBOR encoding & proof URL handling', () => {
   const testSeed = hexToBytes('9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60');
@@ -110,6 +120,43 @@ describe('Manifest deterministic CBOR encoding & proof URL handling', () => {
     ).toThrow();
   });
 
+  it('round-trips optional .chproof.json portable proof bundles without altering signed bytes', () => {
+    const artworkId = generateArtworkId();
+    const payloadBytes = encodeUnsignedPayload({
+      version: PROTOCOL_VERSION,
+      artworkId,
+      publicKey: testPk,
+      sha256: testHash,
+      region: [24, 24, 300, 300],
+      issuedAt: 1795352786,
+      license: {
+        licenseId: 'CC0-1.0',
+        commercialUse: 'allow',
+        redistribution: 'allow',
+        aiTraining: 'unspecified',
+      },
+    });
+    const sig = signWithSeed(testSeed, buildSigningMessage(payloadBytes));
+    const proofBytes = encodeSignedProofEnvelope(payloadBytes, sig);
+
+    const bundle = createPortableProofBundle({
+      protocolVersion: 1,
+      artworkId: '01234567-89ab-cdef-4123-8123456789ab',
+      publicKeyFingerprint: 'deadbeef'.repeat(8),
+      proofBytes,
+    });
+
+    const parsed = parsePortableProofBundle(bundle);
+    expect(parsed.proofBytes).toEqual(proofBytes);
+    expect(extractProofBytesFromInput(JSON.stringify(bundle))).toEqual(proofBytes);
+
+    // Reject malformed bundle inputs
+    expect(() => parsePortableProofBundle({ ...bundle, format: 'wrong' })).toThrow();
+    expect(() => parsePortableProofBundle({ ...bundle, version: 2 })).toThrow();
+    expect(() => parsePortableProofBundle({ ...bundle, proofBase64Url: 'bad+char' })).toThrow();
+    expect(() => extractProofBytesFromInput('{not-json')).toThrow();
+  });
+
   it('matches the normative SPEC.md v1 test vector', async () => {
     const token =
       'gwFYk6gBUAEjRWeJq83vQSOBI0VniasCWCDXWpgBgrEKt9VL_tPJZAc6DuFy89qmIyWvAhpo9wdRGgNYIOYBn-Qcdjc2CrkMicM4sdyGR2bHrbtIuWCr2UY3JcV6BIQYGBgYAgIFGmsC6NIGhQQCAQJpWW9taVBsdXNoB2lZb21pUGx1c2gIb1Rlc3QgVmVjdG9yIDJ4MlhA3h7ocTKymomonxlUtWughyq7B7fzi78F3nP6fQBk8heiLtPIFoAA1VKwTpKs3J2TENjLeO-TLlmt63GsaWjUBA';
@@ -131,12 +178,85 @@ describe('Manifest deterministic CBOR encoding & proof URL handling', () => {
     expect(ok).toBe(true);
   });
 
-  it('rejects unsupported protocol versions explicitly', () => {
-    const fakeEnvelope = cborEncode([99, new Uint8Array([1, 2, 3]), new Uint8Array(64)], rfc8949EncodeOptions);
-    expect(() => decodeSignedProofEnvelope(fakeEnvelope)).toThrow(UnsupportedProtocolVersionError);
+  it('matches the normative SPEC.md v2 masked test vector and enforces qrMask boundary', async () => {
+    const token =
+      'gwJYlakBUP7cuph2VEMhgSNFZ4mrze8CWCDXWpgBgrEKt9VL_tPJZAc6DuFy89qmIyWvAhpo9wdRGgNYIL4T1EuxOwqo0mye468j4PtYPeqalKJhFPOd7lqlJZjzBIQAABgYGBgFGmsC6NIGhAACAgIHaVlvbWlQbHVzaAh1VGVzdCBWZWN0b3IgdjIgTWFza2VkCYQCAhUVWECCwvqH-yEO5EbIQlDNGeWAaR5d2Qyvzmbmd4tsSiDL2Wn1GAD3TWlZMeuWQtoajg5gONB9W_C_5dAYSeXxZ34D';
+
+    const width = 24;
+    const height = 24;
+    const data = new Uint8Array(width * height * 4);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        data[i] = (x * 10 + y) & 0xff;
+        data[i + 1] = (x + y * 10) & 0xff;
+        data[i + 2] = (x ^ y) & 0xff;
+        data[i + 3] = 255;
+      }
+    }
+
+    const decoded = decodeSignedProofEnvelope(extractProofBytesFromInput(token));
+    expect(decoded.version).toBe(2);
+    expect(decoded.manifest.artworkIdHex).toBe('fedcba98-7654-4321-8123-456789abcdef');
+    expect(decoded.manifest.region).toEqual([0, 0, 24, 24]);
+    expect(decoded.manifest.qrMask).toEqual([2, 2, 21, 21]);
+    expect(bytesToHex(decoded.manifest.sha256)).toBe(
+      'be13d44bb13b0aa8d26c9ee3af23e0fb583dea9a94a26114f39dee5aa52598f3',
+    );
+    expect(bytesToHex(decoded.signature)).toBe(
+      '82c2fa87fb210ee446c84250cd19e580691e5dd90cafce66e6778b6c4a20cbd969f51800f74d695931eb9642da1a8e0e6038d07d5bf0bfe5d01849e5f1677e03',
+    );
+
+    const exactVerify = await verifyProofAndArtwork({
+      proofInput: token,
+      artworkRaster: { width, height, data },
+      lookupTrustedKey: async () => undefined,
+    });
+    expect(exactVerify.signatureStatus).toBe('valid');
+    expect(exactVerify.integrityStatus).toBe('matched');
+    expect(exactVerify.matchedMode).toBe('in-image-masked');
+
+    // Mutating inside qrMask [2, 2, 21, 21] does not alter masked SHA-256
+    const insideMasked = new Uint8Array(data);
+    const insideIdx = (5 * width + 5) * 4;
+    insideMasked[insideIdx] ^= 0xff;
+    const insideVerify = await verifyProofAndArtwork({
+      proofInput: token,
+      artworkRaster: { width, height, data: insideMasked },
+      lookupTrustedKey: async () => undefined,
+    });
+    expect(insideVerify.integrityStatus).toBe('matched');
+
+    // Mutating outside qrMask (pixel 0, 0) must immediately fail integrity check
+    const outsideTampered = new Uint8Array(data);
+    outsideTampered[0] ^= 0xff;
+    const outsideVerify = await verifyProofAndArtwork({
+      proofInput: token,
+      artworkRaster: { width, height, data: outsideTampered },
+      lookupTrustedKey: async () => undefined,
+    });
+    expect(outsideVerify.signatureStatus).toBe('valid');
+    expect(outsideVerify.integrityStatus).toBe('mismatched');
   });
 
-  it('rejects non-canonical CBOR, oversized metadata, control chars, and invalid URLs', () => {
+  it('rejects unsupported protocol versions explicitly (v0, v3, v99)', async () => {
+    for (const ver of [0, 3, 99]) {
+      const fakeEnvelope = cborEncode(
+        [ver, new Uint8Array([1, 2, 3]), new Uint8Array(64)],
+        rfc8949EncodeOptions,
+      );
+      expect(() => decodeSignedProofEnvelope(fakeEnvelope)).toThrow(UnsupportedProtocolVersionError);
+
+      const verifyRes = await verifyProofAndArtwork({
+        proofInput: base64UrlEncode(fakeEnvelope),
+        artworkRaster: null,
+        lookupTrustedKey: async () => undefined,
+      });
+      expect(verifyRes.signatureStatus).toBe('unsupported');
+    }
+  });
+
+  it('rejects non-canonical CBOR, malformed CBOR, oversized metadata, control chars, and invalid URLs', async () => {
     expect(() =>
       encodeUnsignedPayload({
         version: 1,
@@ -177,8 +297,18 @@ describe('Manifest deterministic CBOR encoding & proof URL handling', () => {
     const badEnvelope = cborEncode([1, nonCanonicalBytes, new Uint8Array(64)], rfc8949EncodeOptions);
     expect(() => decodeSignedProofEnvelope(badEnvelope)).toThrow();
 
+    const truncatedVerify = await verifyProofAndArtwork({
+      proofInput: base64UrlEncode(new Uint8Array([0x83, 0x01])),
+      artworkRaster: null,
+      lookupTrustedKey: async () => undefined,
+    });
+    expect(truncatedVerify.signatureStatus).toBe('invalid');
+
     expect(() => sanitizeVerifyBaseUrl('javascript:alert(1)')).toThrow();
     expect(() => sanitizeVerifyBaseUrl('http://evil.example.com/verify')).toThrow();
     expect(sanitizeVerifyBaseUrl('http://localhost:4173/verify')).toBe('http://localhost:4173/verify');
+    expect(sanitizeVerifyBaseUrl('http://127.0.0.1:43777/verify')).toBe(
+      'http://127.0.0.1:43777/verify',
+    );
   });
 });

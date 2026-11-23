@@ -6,6 +6,7 @@ import { assertArtworkInputBounds, encodeCanonicalRgba8ToPng } from '../image/pn
 import type { CanonicalRaster } from '../image/pngCodec';
 import { burnQrIntoRaster, computeBurnLayout } from '../image/qrBurner';
 import type { BurnLayout, QrBurnOptions } from '../image/qrBurner';
+import { decodeQrFromRegion } from '../qr/qrDecoder';
 import { generateQrMatrix } from '../qr/qrGenerator';
 import { signWithAuthorKey } from '../storage/keyStore';
 import type { AuthorKeyRecord } from '../storage/keyStore';
@@ -29,6 +30,7 @@ export interface SignedArtworkResult {
   proofUrl: string;
   qrVersion: number;
   qrModules: number;
+  qrVerifiedReadable: boolean;
 }
 
 export interface InImageSignedArtworkResult {
@@ -41,6 +43,7 @@ export interface InImageSignedArtworkResult {
   proofUrl: string;
   qrVersion: number;
   qrModules: number;
+  qrVerifiedReadable: boolean;
 }
 
 export async function createSignedArtworkPng(params: {
@@ -221,6 +224,13 @@ async function finalizeSignedPng(params: {
     labelLines,
   });
 
+  const decodedCheck = decodeQrFromRegion(
+    raster,
+    [layout.qrBox.x, layout.qrBox.y, layout.qrBox.size, layout.qrBox.size],
+    4,
+  );
+  const qrVerifiedReadable = decodedCheck !== null && decodedCheck.rawText === proofUrl;
+
   const pngBytes = encodeCanonicalRgba8ToPng(raster, {
     Software: 'Certified Handmade v1',
     'CHM-Protocol': '1',
@@ -240,6 +250,7 @@ async function finalizeSignedPng(params: {
     proofUrl,
     qrVersion: qrMatrix.version,
     qrModules: qrMatrix.size,
+    qrVerifiedReadable,
   };
 }
 
@@ -311,6 +322,9 @@ export async function createInImageSignedArtworkPng(params: {
     clamped,
   );
 
+  const decodedCheck = decodeQrFromRegion(raster, qrMask, 8);
+  const qrVerifiedReadable = decodedCheck !== null && decodedCheck.rawText === proofUrl;
+
   const pngBytes = encodeCanonicalRgba8ToPng(raster, {
     Software: 'Certified Handmade v2',
     'CHM-Protocol': '2',
@@ -331,5 +345,6 @@ export async function createInImageSignedArtworkPng(params: {
     proofUrl,
     qrVersion: qrMatrix.version,
     qrModules: qrMatrix.size,
+    qrVerifiedReadable,
   };
 }

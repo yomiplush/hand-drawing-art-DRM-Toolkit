@@ -61,7 +61,7 @@ const ROUTES = [
       'Ed25519 Artist Key, AES-256-GCM Key Backup, Local Key Management, Standalone Cryptography, ローカル署名鍵, 暗号化バックアップ',
     heading: 'Local Signing Keys & AES-256-GCM Encrypted Backups',
     summary:
-      'Generate Ed25519 signing keys exclusively on your device and export passphrase-encrypted .chkey.json backups with 310,000 PBKDF2-SHA256 iterations.',
+      'Generate Ed25519 signing keys exclusively on your device and export passphrase-encrypted .chkey.json backups with 600,000 PBKDF2-SHA256 iterations.',
   },
   {
     slug: 'exchange',
