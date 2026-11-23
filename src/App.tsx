@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { registerSW } from 'virtual:pwa-register';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
 import { Layout } from './components/Layout';
+import { MoonStartupSplash } from './components/MoonStartupSplash';
 import { Ps3WaveBackground } from './components/Ps3WaveBackground';
 import { SeoHead } from './components/SeoHead';
 import {
@@ -92,6 +93,7 @@ function AppRoutes() {
     <>
       <SeoHead />
       <Ps3WaveBackground />
+      <MoonStartupSplash />
 
       <Routes>
         <Route

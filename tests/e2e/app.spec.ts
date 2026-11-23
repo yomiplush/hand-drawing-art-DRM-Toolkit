@@ -841,6 +841,30 @@ test.describe('Certified Handmade E2E suite', () => {
     }
   });
 
+  test('crescent moon motion graphic startup splash plays on every URL access and supports skip', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    const splash = page.getByTestId('moon-startup-splash');
+    await expect(splash).toBeVisible();
+    await expect(page.getByTestId('moon-splash-brand')).toContainText('Certified Handmade');
+
+    const skipBox = await page.getByTestId('moon-splash-skip').boundingBox();
+    expect(skipBox).not.toBeNull();
+    expect(skipBox!.width).toBeGreaterThanOrEqual(44);
+    expect(skipBox!.height).toBeGreaterThanOrEqual(44);
+
+    // Wait for automatic exit and unmount
+    await expect(splash).toHaveCount(0, { timeout: 4000 });
+    await expect(page.getByTestId('home-cta-create')).toBeVisible();
+
+    // Direct navigation to another URL plays the startup splash again and can be skipped immediately
+    await page.goto('/keys');
+    await expect(splash).toBeVisible();
+    await page.getByTestId('moon-splash-skip').click();
+    await expect(splash).toHaveCount(0, { timeout: 2000 });
+  });
+
   test('respects prefers-reduced-motion cleanly', async ({ browser }) => {
     const context = await browser.newContext({ reducedMotion: 'reduce' });
     const page = await context.newPage();
@@ -848,6 +872,7 @@ test.describe('Certified Handmade E2E suite', () => {
     page.on('pageerror', (err) => pageErrors.push(err.message));
 
     await page.goto('/');
+    await expect(page.getByTestId('moon-startup-splash')).toHaveCount(0);
     await expect(page.getByTestId('home-tagline')).toBeVisible();
     await expect(page.getByTestId('home-cta-create')).toBeVisible();
     expect(pageErrors).toEqual([]);
