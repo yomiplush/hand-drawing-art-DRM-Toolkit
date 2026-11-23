@@ -28,7 +28,7 @@
   "dependencies": {
     "@noble/ed25519": "^3.2.0",
     "@noble/hashes": "^2.4.0",
-    "@yomiplush/chm-exchange": "file:../CHM-Exchange",
+    "@yomiplush/chm-exchange": "git+https://github.com/yomiplush/CHM-Exchange.git#703f367832c412a424bc42ab229197496492c4f2",
     "cborg": "^7.0.0",
     "fast-png": "^8.0.0",
     "jsqr": "^1.4.0",
