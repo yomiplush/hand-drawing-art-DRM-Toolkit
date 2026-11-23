@@ -4,9 +4,51 @@ import { base64UrlDecode, base64UrlEncode, constantTimeEqual } from './sha256';
 export const KEY_BACKUP_FORMAT = 'certified-handmade-key-backup';
 export const KEY_BACKUP_VERSION = 1;
 export const DEFAULT_PBKDF2_ITERATIONS = 600_000;
+export const MIN_PASSPHRASE_LENGTH = 8;
+export const RECOMMENDED_PASSPHRASE_LENGTH = 12;
 const MIN_PBKDF2_ITERATIONS = 100_000;
 const MAX_PBKDF2_ITERATIONS = 5_000_000;
 const SEED_MAGIC = new Uint8Array([0x43, 0x48, 0x53, 0x4b]); // "CHSK"
+
+export type PassphraseStrengthScore = 'too-short' | 'fair' | 'strong';
+
+export interface PassphraseStrengthEvaluation {
+  length: number;
+  score: PassphraseStrengthScore;
+  meetsMinimum: boolean;
+  recommendedMinimum: number;
+  hasMixedClasses: boolean;
+}
+
+export function evaluatePassphraseStrength(passphrase: string): PassphraseStrengthEvaluation {
+  const length = passphrase.length;
+  const meetsMinimum = length >= MIN_PASSPHRASE_LENGTH;
+  const classes = [
+    /[a-z]/.test(passphrase),
+    /[A-Z]/.test(passphrase),
+    /[0-9]/.test(passphrase),
+    /[^a-zA-Z0-9]/.test(passphrase),
+  ].filter(Boolean).length;
+  const hasMixedClasses = classes >= 3;
+  const allSameChar = length > 0 && new Set(passphrase).size <= 2;
+
+  let score: PassphraseStrengthScore;
+  if (!meetsMinimum) {
+    score = 'too-short';
+  } else if (!allSameChar && (length >= 16 || (length >= RECOMMENDED_PASSPHRASE_LENGTH && classes >= 2))) {
+    score = 'strong';
+  } else {
+    score = 'fair';
+  }
+
+  return {
+    length,
+    score,
+    meetsMinimum,
+    recommendedMinimum: RECOMMENDED_PASSPHRASE_LENGTH,
+    hasMixedClasses,
+  };
+}
 
 export interface EncryptedKeyBackup {
   format: typeof KEY_BACKUP_FORMAT;
@@ -88,8 +130,8 @@ export async function encryptKeyBackup(params: {
   if (publicKey32.length !== 32) {
     throw new Error('Ed25519 public key must be 32 bytes');
   }
-  if (passphrase.length < 8) {
-    throw new Error('Backup passphrase must be at least 8 characters');
+  if (passphrase.length < MIN_PASSPHRASE_LENGTH) {
+    throw new Error(`Backup passphrase must be at least ${MIN_PASSPHRASE_LENGTH} characters`);
   }
   if (iterations < MIN_PBKDF2_ITERATIONS || iterations > MAX_PBKDF2_ITERATIONS) {
     throw new Error('Invalid PBKDF2 iteration count');
@@ -148,7 +190,7 @@ export async function decryptKeyBackup(
   rawBackup: unknown,
   passphrase: string,
 ): Promise<DecryptedKeyBackup> {
-  if (!rawBackup || typeof rawBackup !== 'object') {
+  if (!rawBackup || typeof rawBackup !== 'object' || Array.isArray(rawBackup)) {
     throw new Error('Invalid key backup JSON');
   }
   const obj = rawBackup as Record<string, unknown>;
@@ -182,6 +224,13 @@ export async function decryptKeyBackup(
 
   if (salt.length !== 16 || iv.length !== 12 || publicKey32.length !== 32 || ciphertext.length < 36) {
     throw new Error('Malformed encrypted backup byte lengths');
+  }
+
+  const fp = await computePublicKeyFingerprint(publicKey32);
+  if (typeof obj.fingerprint === 'string' && obj.fingerprint.trim().length > 0) {
+    if (obj.fingerprint.trim().toLowerCase() !== fp.fullHex.toLowerCase()) {
+      throw new Error('Encrypted backup fingerprint metadata does not match publicKey');
+    }
   }
 
   const aad = buildBackupAad(obj.publicKey);
@@ -218,7 +267,6 @@ export async function decryptKeyBackup(
       seed32.fill(0);
       throw new Error('Restored private key does not match public key');
     }
-    const fp = await computePublicKeyFingerprint(publicKey32);
     return {
       seed32,
       publicKey32,

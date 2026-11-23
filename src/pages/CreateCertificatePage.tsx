@@ -24,6 +24,7 @@ import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
 import { AdvancedSettings } from '../components/ui/AdvancedSettings';
 import { HelpIconButton } from '../components/ui/HelpIconButton';
 import { computePublicKeyFingerprint } from '../core/crypto/ed25519';
+import { evaluatePassphraseStrength } from '../core/crypto/keyBackup';
 import { bytesToHex } from '../core/crypto/sha256';
 import { clampInImageQrOptions } from '../core/image/inImageQr';
 import type { InImageQrStyle } from '../core/image/inImageQr';
@@ -101,6 +102,7 @@ export function CreateCertificatePage() {
   const [quickPassphrase, setQuickPassphrase] = useState('');
   const [quickKeyBusy, setQuickKeyBusy] = useState(false);
   const [quickKeyError, setQuickKeyError] = useState<string | null>(null);
+  const quickPassphraseStrength = evaluatePassphraseStrength(quickPassphrase);
 
   const [sourceFileName, setSourceFileName] = useState<string>('');
   const [sourceFormat, setSourceFormat] = useState<string>('');
@@ -509,6 +511,31 @@ export function CreateCertificatePage() {
                   data-testid="create-quick-passphrase"
                   className="w-full rounded-lg border border-white/[0.16] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
                 />
+                {quickPassphrase.length > 0 && (
+                  <div data-testid="create-quick-passphrase-strength" className="mt-1.5 space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-300">{t.hardening.passphraseStrength.label}</span>
+                      <span
+                        className={
+                          quickPassphraseStrength.score === 'strong'
+                            ? 'font-medium text-emerald-300'
+                            : quickPassphraseStrength.score === 'fair'
+                              ? 'font-medium text-amber-200'
+                              : 'font-medium text-rose-300'
+                        }
+                      >
+                        {quickPassphraseStrength.score === 'strong'
+                          ? t.hardening.passphraseStrength.strong
+                          : quickPassphraseStrength.score === 'fair'
+                            ? t.hardening.passphraseStrength.fair
+                            : t.hardening.passphraseStrength.tooShort}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300/85">
+                      {t.hardening.passphraseStrength.guidance}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {quickKeyError && (
@@ -891,6 +918,7 @@ export function CreateCertificatePage() {
                 estimatedProofTokenChars={estimatedProofTokenChars}
                 onChangeX={setQrX}
                 onChangeY={setQrY}
+                onChangeBoxSize={setQrBoxSize}
               />
             ) : (
               <div className="rounded-xl border border-sky-400/25 bg-sky-500/[0.07] p-4 text-xs sm:text-sm text-sky-100 flex items-center gap-2.5">

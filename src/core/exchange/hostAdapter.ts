@@ -60,13 +60,18 @@ export function createCertifiedHandmadeExchangeAdapter(): ChmExchangeHostAdapter
 
     async listTrustedKeys(): Promise<HostTrustedKey[]> {
       const records = await storeListTrustedKeys();
-      return records.map(toHostTrustedKey);
+      return records
+        .filter((r) => r.verificationState !== 'unconfirmed')
+        .map(toHostTrustedKey);
     },
 
     async getTrustStatus(publicKeyBase64Url: string): Promise<TrustStatusResult> {
       const publicKey32 = decodeAndValidateEd25519PublicKey(publicKeyBase64Url);
       const match = await findTrustedKeyByPublicKey(publicKey32);
-      return match ? { trusted: true, record: toHostTrustedKey(match) } : { trusted: false };
+      if (!match || match.verificationState === 'unconfirmed') {
+        return { trusted: false };
+      }
+      return { trusted: true, record: toHostTrustedKey(match) };
     },
 
     async addTrustedKey(request: AddTrustedKeyRequest): Promise<HostTrustedKey> {
@@ -74,6 +79,7 @@ export function createCertifiedHandmadeExchangeAdapter(): ChmExchangeHostAdapter
         publicKeyInput: request.publicKeyBase64Url,
         label: request.displayName,
         note: request.note,
+        verificationState: 'confirmed',
       });
       if (
         request.fingerprintHex &&

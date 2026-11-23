@@ -21,69 +21,69 @@ function escapeHtml(value) {
 const ROUTES = [
   {
     slug: 'create',
-    title: 'Create Hand-Drawn Art DRM Certificate & Encrypted PNG QR | Certified Handmade',
+    title: 'Create Cryptographic Artwork Provenance Certificate & PNG QR | Certified Handmade',
     description:
       'Sign your hand-drawn artwork locally with Ed25519 cryptographic signatures and SHA-256 pixel hashing. Export lossless PNGs with an outer QR frame or translucent In-Image QR Studio—zero server upload.',
     keywords:
-      'Create Art Certificate, Hand-drawn Art DRM, Ed25519 Signing, Lossless PNG QR, Local Encryption, 手描きDRM, 証明書作成, QRコード埋め込み',
-    heading: 'Create Hand-Drawn Art DRM Certificate & QR Studio',
+      'Cryptographic Artwork Provenance, Create Art Certificate, Hand-drawn Art DRM, Ed25519 Signing, Lossless PNG QR, 手描きDRM, 来歴証明作成, QRコード埋め込み',
+    heading: 'Create Cryptographic Artwork Provenance Certificate & QR Studio',
     summary:
       'Sign illustrations locally in your browser with Ed25519 + SHA-256 and embed an outer QR border or manual translucent in-image QR inside lossless PNG files.',
   },
   {
     slug: 'verify',
-    title: 'Verify Hand-Drawn Artwork, Ed25519 Signature & QR Proof | Certified Handmade',
+    title: 'Verify Artwork Provenance, Ed25519 Signature & QR Proof | Certified Handmade',
     description:
       'Verify Ed25519 artwork signatures, SHA-256 canonical pixel integrity, #proof= URL fragments, and locally trusted artist keys 100% locally offline via PNG upload, camera QR, or clipboard.',
     keywords:
-      'Verify Artwork DRM, QR Proof Verifier, Ed25519 Signature Check, SHA-256 Pixel Integrity, Offline Verification, 手描き検証, ピクセル整合性',
-    heading: 'Verify Hand-Drawn Artwork & QR Proof',
+      'Cryptographic Artwork Provenance, Verify Artwork, QR Proof Verifier, Ed25519 Signature Check, SHA-256 Pixel Integrity, Offline Verification, 手描き検証, ピクセル整合性',
+    heading: 'Verify Artwork Provenance & QR Proof',
     summary:
       'Inspect signed PNG artwork, scan verification QR codes, paste images from clipboard, or verify #proof= links completely offline with zero external requests.',
   },
   {
     slug: 'tutorial',
-    title: 'Step-by-Step Guide to Local Hand-Drawing Art DRM | Certified Handmade',
+    title: 'Step-by-Step Guide to Cryptographic Artwork Provenance | Certified Handmade',
     description:
-      'Beginner-friendly standalone guide: generate an encrypted Ed25519 signing key, embed a verification QR into your hand-drawn PNG, and choose ARR or Creative Commons licenses.',
+      'Beginner-friendly standalone guide: generate an encrypted Ed25519 signing key, embed a verification QR into your PNG, and declare ARR or Creative Commons licenses honestly.',
     keywords:
-      'Art DRM Tutorial, Hand-drawing Artist Guide, Ed25519 Key Setup, Artwork Licensing Guide, 手描きDRM 使い方, チュートリアル',
-    heading: 'Step-by-Step Standalone Art DRM Tutorial',
+      'Cryptographic Artwork Provenance Tutorial, Art DRM Tutorial, Hand-drawing Artist Guide, Ed25519 Key Setup, Artwork Licensing Guide, 手描きDRM 使い方, チュートリアル',
+    heading: 'Step-by-Step Offline Provenance Tutorial',
     summary:
       'Learn how to create an AES-256-GCM encrypted artist key, embed a cryptographic QR proof into your drawing, and verify authenticity offline.',
   },
   {
     slug: 'keys',
-    title: 'Local Signing Keys & AES-256-GCM Encrypted Backup | Certified Handmade',
+    title: 'Local Signing Keys, Fingerprints & AES-256-GCM Backups | Certified Handmade',
     description:
-      'Generate Ed25519 artist identity keys in your browser and export passphrase-encrypted .chkey.json backups protected with AES-256-GCM & PBKDF2-SHA256—no accounts or cloud.',
+      'Generate Ed25519 artist identity keys in your browser, manage revocation/rotation notices, verify key-possession challenges, and export passphrase-encrypted .chkey.json backups offline.',
     keywords:
-      'Ed25519 Artist Key, AES-256-GCM Key Backup, Local Key Management, Standalone Cryptography, ローカル署名鍵, 暗号化バックアップ',
-    heading: 'Local Signing Keys & AES-256-GCM Encrypted Backups',
+      'Ed25519 Artist Key, AES-256-GCM Key Backup, Key Revocation Notice, Challenge Response, Local Key Management, ローカル署名鍵, 暗号化バックアップ',
+    heading: 'Local Signing Keys, Notices & AES-256-GCM Encrypted Backups',
     summary:
-      'Generate Ed25519 signing keys exclusively on your device and export passphrase-encrypted .chkey.json backups with 600,000 PBKDF2-SHA256 iterations.',
+      'Generate Ed25519 signing keys exclusively on your device, verify out-of-band fingerprints, and export passphrase-encrypted .chkey.json backups.',
   },
   {
     slug: 'exchange',
-    title: 'CHM Public-Key Exchange — Share & Verify Ed25519 Artist Keys | Certified Handmade',
+    title: 'CHM Public-Key Exchange — Share & Verify Ed25519 Keys | Certified Handmade',
     description:
-      'Share your Ed25519 artist public key via portable #key= URLs, QR codes, or JSON and verify SHA-256 fingerprints locally offline with CHM-Exchange.',
+      'Share your Ed25519 artist public key via portable #key= URLs, QR codes, or JSON, and verify SHA-256 fingerprints locally offline without auto-trust.',
     keywords:
-      'CHM-Exchange, Ed25519 Public-Key Exchange, Artist Fingerprint Verification, QR Key Sharing, 公開鍵交換, フィンガープリント',
+      'CHM-Exchange, Ed25519 Public-Key Exchange, Artist Fingerprint Verification, QR Key Sharing, Offline Trust, 公開鍵交換, フィンガープリント',
     heading: 'CHM Public-Key Exchange',
     summary:
-      'Generate portable #key= exchange URLs, downloadable QR PNGs, and JSON public-key bundles, and confirm local trust explicitly offline.',
+      'Generate portable #key= exchange URLs, downloadable QR PNGs, and JSON public-key bundles, and confirm local trust via out-of-band fingerprints.',
   },
   {
     slug: 'docs',
-    title: 'Cryptographic Architecture, SPEC & License Docs | Certified Handmade',
+    title: 'Cryptographic Architecture, SPEC & Offline Verifier Docs | Certified Handmade',
     description:
-      'Technical reference for Certified Handmade: RFC 8949 CBOR proof schema, RGBA8 canonical SHA-256 digests, Protocol v1/v2 QR masks, AES-256-GCM backups, and license definitions.',
+      'Technical reference for Certified Handmade: RFC 8949 CBOR proof schema, RGBA8 canonical SHA-256 digests, Protocol v1/v2 QR masks, key notices, and independent offline CLI verifiers.',
     keywords:
-      'Art DRM Specification, RFC 8949 CBOR, Ed25519 Provenance Spec, AES-256-GCM Encryption, Cryptographic Art Docs, 暗号仕様, 手描きDRM',
-    heading: 'Cryptographic Specification & License Guide',
+      'Cryptographic Artwork Provenance Spec, RFC 8949 CBOR, Ed25519 Provenance Spec, AES-256-GCM Encryption, Offline Verifier CLI, 暗号仕様, 手描きDRM',
+    heading: 'Cryptographic Specification, Threat Model & License Guide',
     summary:
-      'Explore the open MIT specification (SPEC.md), RFC 8949 CBOR payload layout, Protocol v1/v2 pixel integrity verification, and license guide.',
+      'Explore the open MIT specification (SPEC.md), RFC 8949 CBOR payload layout, Protocol v1/v2 pixel integrity verification, and independent offline CLI verifiers.',
   },
   {
     slug: 'privacypolicy',

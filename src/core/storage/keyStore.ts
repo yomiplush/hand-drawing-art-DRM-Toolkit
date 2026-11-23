@@ -10,11 +10,14 @@ import {
 import { decryptKeyBackup, encryptKeyBackup } from '../crypto/keyBackup';
 import type { EncryptedKeyBackup } from '../crypto/keyBackup';
 import { base64UrlEncode } from '../crypto/sha256';
+import { verifyKeyNoticeInput } from '../manifest/keyNotice';
+import type { KeyNoticeReason, KeyNoticeType, VerifiedKeyNoticeResult } from '../manifest/keyNotice';
 
 const DB_NAME = 'certified-handmade-store';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_AUTHOR_KEYS = 'authorKeys';
 const STORE_TRUSTED_KEYS = 'trustedKeys';
+const STORE_KEY_NOTICES = 'keyNotices';
 
 export interface AuthorKeyRecord {
   id: string;
@@ -30,6 +33,8 @@ export interface AuthorKeyRecord {
   createdAt: string;
 }
 
+export type TrustedKeyVerificationState = 'confirmed' | 'unconfirmed';
+
 export interface TrustedKeyRecord {
   publicKeyBase64Url: string;
   publicKey: Uint8Array;
@@ -38,6 +43,24 @@ export interface TrustedKeyRecord {
   label: string;
   note?: string;
   addedAt: string;
+  verificationState?: TrustedKeyVerificationState;
+  confirmedAt?: string;
+}
+
+export interface StoredKeyNoticeRecord {
+  id: string;
+  noticeType: KeyNoticeType;
+  reason: KeyNoticeReason;
+  subjectPublicKeyBase64Url: string;
+  subjectFingerprintHex: string;
+  subjectFingerprintShort: string;
+  replacementPublicKeyBase64Url?: string;
+  replacementFingerprintHex?: string;
+  replacementFingerprintShort?: string;
+  noticeIssuedAt: number;
+  importedAt: string;
+  token: string;
+  note?: string;
 }
 
 export interface PublicKeyExportBundle {
@@ -63,6 +86,9 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_TRUSTED_KEYS)) {
         db.createObjectStore(STORE_TRUSTED_KEYS, { keyPath: 'publicKeyBase64Url' });
+      }
+      if (!db.objectStoreNames.contains(STORE_KEY_NOTICES)) {
+        db.createObjectStore(STORE_KEY_NOTICES, { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -281,9 +307,12 @@ export async function addTrustedKey(params: {
   publicKeyInput: string;
   label: string;
   note?: string;
+  verificationState?: TrustedKeyVerificationState;
 }): Promise<TrustedKeyRecord> {
   const imported = parsePublicKeyExchangeInput(params.publicKeyInput);
   const resolvedLabel = params.label.trim() || imported.displayName || 'Trusted Artist';
+  const nowIso = new Date().toISOString();
+  const verificationState: TrustedKeyVerificationState = params.verificationState ?? 'confirmed';
 
   const record: TrustedKeyRecord = {
     publicKeyBase64Url: imported.publicKeyBase64Url,
@@ -292,13 +321,83 @@ export async function addTrustedKey(params: {
     fingerprintShort: imported.fingerprintShort,
     label: resolvedLabel.slice(0, 64) || 'Trusted Artist',
     note: params.note?.trim().slice(0, 200) || undefined,
-    addedAt: new Date().toISOString(),
+    addedAt: nowIso,
+    verificationState,
+    confirmedAt: verificationState === 'confirmed' ? nowIso : undefined,
   };
 
   await withStore(STORE_TRUSTED_KEYS, 'readwrite', (s) => s.put(record));
   return record;
 }
 
+export async function confirmTrustedKey(
+  publicKeyBase64Url: string,
+): Promise<TrustedKeyRecord | undefined> {
+  const existing = await withStore<TrustedKeyRecord | undefined>(
+    STORE_TRUSTED_KEYS,
+    'readonly',
+    (s) => s.get(publicKeyBase64Url),
+  );
+  if (!existing) return undefined;
+  const updated: TrustedKeyRecord = {
+    ...existing,
+    verificationState: 'confirmed',
+    confirmedAt: new Date().toISOString(),
+  };
+  await withStore(STORE_TRUSTED_KEYS, 'readwrite', (s) => s.put(updated));
+  return updated;
+}
+
 export async function removeTrustedKey(publicKeyBase64Url: string): Promise<void> {
   await withStore(STORE_TRUSTED_KEYS, 'readwrite', (s) => s.delete(publicKeyBase64Url));
+}
+
+export async function saveVerifiedKeyNotice(rawInput: string): Promise<{
+  record: StoredKeyNoticeRecord;
+  verified: VerifiedKeyNoticeResult;
+}> {
+  const verified = await verifyKeyNoticeInput(rawInput);
+  if (!verified.valid) {
+    throw new Error(verified.errors.join(' '));
+  }
+  const record: StoredKeyNoticeRecord = {
+    id: verified.notice.noticeIdHex,
+    noticeType: verified.notice.noticeType,
+    reason: verified.notice.reason,
+    subjectPublicKeyBase64Url: verified.subjectPublicKeyBase64Url,
+    subjectFingerprintHex: verified.subjectFingerprintHex,
+    subjectFingerprintShort: verified.subjectFingerprintShort,
+    replacementPublicKeyBase64Url: verified.replacementPublicKeyBase64Url,
+    replacementFingerprintHex: verified.replacementFingerprintHex,
+    replacementFingerprintShort: verified.replacementFingerprintShort,
+    noticeIssuedAt: verified.noticeIssuedAt,
+    importedAt: new Date().toISOString(),
+    token: verified.token,
+    note: verified.notice.note,
+  };
+  await withStore(STORE_KEY_NOTICES, 'readwrite', (s) => s.put(record));
+  return { record, verified };
+}
+
+export async function listKeyNotices(): Promise<StoredKeyNoticeRecord[]> {
+  try {
+    const list = await withStore<StoredKeyNoticeRecord[]>(STORE_KEY_NOTICES, 'readonly', (s) =>
+      s.getAll(),
+    );
+    return (list ?? []).sort((a, b) => b.noticeIssuedAt - a.noticeIssuedAt);
+  } catch {
+    return [];
+  }
+}
+
+export async function findKeyNoticesByPublicKey(
+  publicKey32: Uint8Array,
+): Promise<StoredKeyNoticeRecord[]> {
+  const b64 = base64UrlEncode(publicKey32);
+  const all = await listKeyNotices();
+  return all.filter((n) => n.subjectPublicKeyBase64Url === b64);
+}
+
+export async function deleteKeyNotice(id: string): Promise<void> {
+  await withStore(STORE_KEY_NOTICES, 'readwrite', (s) => s.delete(id));
 }

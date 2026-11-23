@@ -21,6 +21,7 @@ interface StatusGridProps {
   integrityStatus: ArtworkIntegrityStatus;
   identityStatus: AuthorIdentityStatus;
   trustedKeyLabel?: string | null;
+  trustedKeyUnconfirmed?: boolean;
   matchedMode?: VerificationResult['matchedMode'];
 }
 
@@ -35,6 +36,7 @@ export function StatusDimensionsGrid({
   integrityStatus,
   identityStatus,
   trustedKeyLabel,
+  trustedKeyUnconfirmed = false,
   matchedMode,
 }: StatusGridProps) {
   const { t } = useI18n();
@@ -137,6 +139,13 @@ export function StatusDimensionsGrid({
         value={idRow.text}
         tone={idRow.tone}
         icon={<IdIcon className="h-5 w-5" />}
+        extra={
+          trustedKeyUnconfirmed && identityStatus === 'unknown' ? (
+            <span className="rounded bg-amber-500/20 border border-amber-400/35 px-2 py-0.5 text-[11px] text-amber-100">
+              {t.hardening.trust.unconfirmedBadge}
+            </span>
+          ) : undefined
+        }
         helpText={mv.idHelp}
         helpLabel={`${mv.idLabel} — ?`}
         helpCloseLabel={t.minimal.home.closeHelp}

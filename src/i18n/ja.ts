@@ -93,7 +93,7 @@ export const ja: Translations = {
       {
         name: 'IndexedDB (certified-handmade-store)',
         category: '利用者操作に基づく必須ストレージ（第6条1項(b)）',
-        purpose: '利用者が生成・復元したEd25519署名鍵とローカル信頼済み公開鍵リストを保存。',
+        purpose: '利用者が生成・復元したEd25519署名鍵、ローカル信頼済み公開鍵リスト、および取り込んだ鍵失効・ローテーション通知（keyNotices）を保存。',
         retention: '利用者が削除するかブラウザが消去するまで',
       },
       {
@@ -180,7 +180,7 @@ export const ja: Translations = {
     goToKeys: '鍵管理画面へ',
     selectKeyLabel: '使用する署名鍵',
     passphrasePrompt: '暗号化された秘密鍵を復号するパスフレーズ',
-    quickPassLabel: 'バックアップ暗号化パスフレーズ（8文字以上・強く推奨）',
+    quickPassLabel: 'バックアップ暗号化パスフレーズ（8文字以上・12文字以上推奨）',
     quickPassPlaceholder: '8文字以上入力すると .chkey.json 暗号化バックアップをすぐ保存できます',
     quickBackupReadyTitle: '暗号化済み鍵バックアップ（.chkey.json）を保存してください',
     quickBackupReadyBody:
@@ -312,7 +312,7 @@ export const ja: Translations = {
     generateTitle: '新しいEd25519鍵ペアを生成',
     keyLabelInput: '鍵のラベル',
     keyLabelPlaceholder: '例：メイン作画鍵 2026',
-    backupPassInput: 'バックアップ暗号化パスフレーズ（8文字以上・強く推奨）',
+    backupPassInput: 'バックアップ暗号化パスフレーズ（8文字以上・12文字以上推奨）',
     backupPassPlaceholder: 'バックアップを保護する強力なパスフレーズを入力',
     generateBtn: '鍵ペアを生成',
     backupReadyTitle: '暗号化済み秘密鍵バックアップをダウンロード',
@@ -364,7 +364,7 @@ export const ja: Translations = {
       },
       {
         title: '3. セキュリティモデルと証明の限界',
-        body: '1) 署名が有効でも、公開鍵を別経路で確認して信頼リストに登録しない限り現実の本人性は確認されません。2) 発行日時は外部TSAを使わない自己申告です。3) 完成画像のみで手描き制作を確定証明することは数学的に不可能です。AI学習拒否等の設定は非拘束の意思表示です。',
+        body: 'Certified Handmadeはコピー防止型DRMではなく暗号学的来歴表明（Cryptographic Artwork Provenance）ツールです。1) 署名が有効でも、公開鍵を別経路で確認しない限り現実の本人性や法的な著作権帰属は証明されません。2) 発行日時は外部TSAを使わない自己申告です。3) 暗号技術だけで手描き制作・AI不使用を確定証明することはできず、AI学習拒否宣言も技術的な学習ブロック機構ではありません。',
       },
       {
         title: '4. PWAのオフライン性とスタンドアローン版',

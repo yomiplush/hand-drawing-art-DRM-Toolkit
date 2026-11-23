@@ -5,6 +5,7 @@ import {
   hashCanonicalRaster,
   hashMaskedArtworkRegion,
 } from '../image/canonicalRaster';
+import { computeMaskCoverageStats } from '../image/inImageQr';
 import { decodeImageFileToCanonicalRgba8 } from '../image/pngCodec';
 import type { CanonicalRaster } from '../image/pngCodec';
 import {
@@ -16,24 +17,32 @@ import { extractProofBytesFromInput } from '../manifest/proofUrl';
 import type {
   ArtworkIntegrityStatus,
   AuthorIdentityStatus,
+  LocalKeyNoticeStatus,
   SignatureStatus,
+  VerificationKeyNoticeSummary,
   VerificationResult,
 } from '../manifest/types';
 import { decodeQrFromCanonicalRaster } from '../qr/qrDecoder';
-import { findTrustedKeyByPublicKey } from '../storage/keyStore';
-import type { TrustedKeyRecord } from '../storage/keyStore';
+import {
+  findKeyNoticesByPublicKey,
+  findTrustedKeyByPublicKey,
+} from '../storage/keyStore';
+import type { StoredKeyNoticeRecord, TrustedKeyRecord } from '../storage/keyStore';
 
 export type TrustedKeyLookup = (publicKey32: Uint8Array) => Promise<TrustedKeyRecord | undefined>;
+export type KeyNoticeLookup = (publicKey32: Uint8Array) => Promise<StoredKeyNoticeRecord[]>;
 
 export async function verifyProofAndArtwork(params: {
   proofInput: string;
   artworkRaster?: CanonicalRaster | null;
   lookupTrustedKey?: TrustedKeyLookup;
+  lookupKeyNotices?: KeyNoticeLookup;
 }): Promise<VerificationResult> {
   const {
     proofInput,
     artworkRaster = null,
     lookupTrustedKey = findTrustedKeyByPublicKey,
+    lookupKeyNotices = findKeyNoticesByPublicKey,
   } = params;
 
   const errors: string[] = [];
@@ -114,7 +123,64 @@ export async function verifyProofAndArtwork(params: {
     trustedRecord = undefined;
   }
 
-  const identityStatus: AuthorIdentityStatus = trustedRecord ? 'locally-trusted' : 'unknown';
+  const isConfirmedTrust = Boolean(trustedRecord && trustedRecord.verificationState !== 'unconfirmed');
+  const trustedKeyUnconfirmed = Boolean(trustedRecord && trustedRecord.verificationState === 'unconfirmed');
+  const identityStatus: AuthorIdentityStatus = isConfirmedTrust ? 'locally-trusted' : 'unknown';
+
+  if (trustedKeyUnconfirmed) {
+    warnings.push(
+      'Signer key is saved locally in unconfirmed state; confirm the full SHA-256 fingerprint out-of-band before treating it as trusted.',
+    );
+  }
+
+  // Query local revocation / rotation notices without rewriting historical artwork signature validity
+  let matchedNotices: StoredKeyNoticeRecord[];
+  try {
+    matchedNotices = await lookupKeyNotices(manifest.publicKey);
+  } catch {
+    matchedNotices = [];
+  }
+
+  const nowUnix = Math.floor(Date.now() / 1000);
+  const keyNotices: VerificationKeyNoticeSummary[] = matchedNotices.map((n) => ({
+    id: n.id,
+    noticeType: n.noticeType,
+    reason: n.reason,
+    subjectFingerprintShort: n.subjectFingerprintShort,
+    replacementFingerprintShort: n.replacementFingerprintShort,
+    replacementPublicKeyBase64Url: n.replacementPublicKeyBase64Url,
+    noticeIssuedAt: n.noticeIssuedAt,
+    verifiedAt: nowUnix,
+    note: n.note,
+  }));
+
+  let keyNoticeStatus: LocalKeyNoticeStatus = 'none-local';
+  if (keyNotices.length > 0) {
+    const hasRevocation = keyNotices.some((n) => n.noticeType === 'revocation');
+    keyNoticeStatus = hasRevocation ? 'revocation-notice' : 'rotation-notice';
+    warnings.push(
+      keyNoticeStatus === 'revocation-notice'
+        ? 'A locally imported signed revocation notice exists for this signing key. Historical signature math is unchanged, but verify the key status out-of-band.'
+        : 'A locally imported signed key rotation notice exists for this signing key.',
+    );
+  }
+
+  let qrMaskCoveragePct: number | null = null;
+  let qrMaskCoverageTier: VerificationResult['qrMaskCoverageTier'] = null;
+  if (manifest.qrMask) {
+    const cov = computeMaskCoverageStats(manifest.region[2], manifest.region[3], manifest.qrMask);
+    qrMaskCoveragePct = cov.coveragePct;
+    qrMaskCoverageTier = cov.tier;
+    if (cov.tier === 'high') {
+      warnings.push(
+        `Protocol v2 qrMask excludes ${cov.coveragePct}% of artwork area from SHA-256 hashing (>30%). Inspect the excluded region carefully.`,
+      );
+    } else if (cov.tier === 'caution') {
+      warnings.push(
+        `Protocol v2 qrMask excludes ${cov.coveragePct}% of artwork area from SHA-256 hashing (>15%).`,
+      );
+    }
+  }
 
   let integrityStatus: ArtworkIntegrityStatus = 'not-checked';
   let matchedMode: VerificationResult['matchedMode'] = null;
@@ -187,6 +253,11 @@ export async function verifyProofAndArtwork(params: {
     publicKeyFingerprintHex: fp.fullHex,
     publicKeyFingerprintShort: fp.shortDisplay,
     trustedKeyLabel: trustedRecord?.label ?? null,
+    trustedKeyUnconfirmed,
+    keyNoticeStatus,
+    keyNotices,
+    qrMaskCoveragePct,
+    qrMaskCoverageTier,
     matchedMode,
     computedArtworkSha256Hex,
     proofBytesLength: proofBytes.length,
@@ -198,6 +269,7 @@ export async function verifyProofAndArtwork(params: {
 export async function verifyImageWithEmbeddedQr(params: {
   fileOrBytes: File | Blob | Uint8Array;
   lookupTrustedKey?: TrustedKeyLookup;
+  lookupKeyNotices?: KeyNoticeLookup;
 }): Promise<{
   qrRawText: string;
   qrStrategy: string;
@@ -221,6 +293,7 @@ export async function verifyImageWithEmbeddedQr(params: {
     proofInput: qr.rawText,
     artworkRaster: raster,
     lookupTrustedKey: params.lookupTrustedKey,
+    lookupKeyNotices: params.lookupKeyNotices,
   });
   return {
     qrRawText: qr.rawText,

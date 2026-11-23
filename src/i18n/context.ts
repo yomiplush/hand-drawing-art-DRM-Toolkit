@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { SupportedLocale } from '../core/storage/consent';
 import type { Translations } from './en';
+import type { HardeningTranslations } from './hardening';
 import type { HowToTranslations } from './howto';
 import type { LicenseGuideTranslations } from './licenses';
 import type { MinimalUiTranslations } from './minimalUi';
@@ -19,6 +20,7 @@ export type FullTranslations = Translations & {
   verifyMobile: VerifyMobileTranslations;
   seo: SeoTranslations;
   minimal: MinimalUiTranslations;
+  hardening: HardeningTranslations;
 };
 
 export interface LocaleOption {
