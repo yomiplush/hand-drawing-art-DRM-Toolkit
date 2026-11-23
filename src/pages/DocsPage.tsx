@@ -1,5 +1,14 @@
 import { Link } from 'react-router-dom';
-import { BookOpen, Compass, KeyRound, Package, Scale, Smartphone, Terminal } from 'lucide-react';
+import {
+  BookOpen,
+  Compass,
+  FileCheck2,
+  KeyRound,
+  Package,
+  Scale,
+  Smartphone,
+  Terminal,
+} from 'lucide-react';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
 import { StandaloneEditionSection } from '../components/StandaloneEditionSection';
 import { LICENSE_DEFINITIONS } from '../core/manifest/types';
@@ -92,6 +101,25 @@ export function DocsPage() {
         ))}
 
         <section
+          data-testid="docs-evidence-section"
+          className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-3"
+        >
+          <h2 className="text-base sm:text-lg font-medium text-slate-100 flex items-center gap-2">
+            <FileCheck2 className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+            <span>{t.artworkDetails.docsTitle}</span>
+          </h2>
+          <p className="text-sm text-slate-300/90 leading-relaxed">{t.artworkDetails.docsLead}</p>
+          <div className="space-y-1.5 text-xs sm:text-sm text-slate-300">
+            <div className="font-medium text-sky-200">{t.artworkDetails.docsModesTitle}</div>
+            <ul className="space-y-1 list-disc list-inside text-slate-300/90">
+              <li>{t.artworkDetails.docsModeA}</li>
+              <li>{t.artworkDetails.docsModeB}</li>
+              <li>{t.artworkDetails.docsModeC}</li>
+            </ul>
+          </div>
+        </section>
+
+        <section
           data-testid="docs-notices-section"
           className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-2"
         >
@@ -138,7 +166,7 @@ export function DocsPage() {
             {t.hardening.docsAddendum.cliBody}
           </p>
           <pre className="rounded-lg border border-white/[0.08] bg-[#030b18] p-3 text-xs font-mono text-sky-200 overflow-x-auto">
-            {`node tools/chm-verify.mjs signed-artwork.png --notice key-notice.chnotice.json\ngo run ./tools/chm-verify signed-artwork.png`}
+            {`node tools/chm-verify.mjs signed-artwork.png --evidence artwork.chmevidence --evidence-file sketch.png\ngo run ./tools/chm-verify --evidence artwork.chmevidence --evidence-file sketch.png signed-artwork.png`}
           </pre>
         </section>
       </div>

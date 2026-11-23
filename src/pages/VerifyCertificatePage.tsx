@@ -7,12 +7,15 @@ import {
   ChevronDown,
   ClipboardPaste,
   Eye,
+  FileCheck2,
   FileImage,
   Info,
   Link2,
   Loader2,
   Share2,
   ShieldAlert,
+  Trash2,
+  Upload,
 } from 'lucide-react';
 import { ImageDropzone } from '../components/ImageDropzone';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
@@ -20,6 +23,7 @@ import { QrCameraScanner } from '../components/QrCameraScanner';
 import { StatusDimensionsGrid } from '../components/StatusBadge';
 import { AdvancedSettings } from '../components/ui/AdvancedSettings';
 import { HelpIconButton } from '../components/ui/HelpIconButton';
+import { VerifiedArtworkDetailsCard } from '../components/VerifiedArtworkDetailsCard';
 import { base64UrlEncode, bytesToHex } from '../core/crypto/sha256';
 import {
   comparePerceptualHashes,
@@ -28,8 +32,16 @@ import {
 import type { PerceptualComparisonResult } from '../core/image/perceptualHash';
 import { decodeImageFileToCanonicalRgba8 } from '../core/image/pngCodec';
 import type { CanonicalRaster } from '../core/image/pngCodec';
-import type { PolicySignal, VerificationResult } from '../core/manifest/types';
+import { isLikelyEvidenceExtensionText } from '../core/manifest/evidenceExtension';
+import type {
+  EvidenceVerificationSummary,
+  PolicySignal,
+  SignedManifest,
+  VerificationResult,
+} from '../core/manifest/types';
 import { addTrustedKey, confirmTrustedKey } from '../core/storage/keyStore';
+import { verifyEvidenceExtension } from '../core/verify/evidenceVerifier';
+import type { SuppliedEvidenceFileInput } from '../core/verify/evidenceVerifier';
 import { verifyImageWithEmbeddedQr, verifyProofAndArtwork } from '../core/verify/verifier';
 import { useI18n } from '../i18n/context';
 
@@ -60,6 +72,8 @@ export function VerifyCertificatePage() {
   const { t } = useI18n();
   const location = useLocation();
   const proofBundleInputId = useId();
+  const evidenceFileInputId = useId();
+  const localFilesInputId = useId();
 
   const initialUrlProof = detectUrlProofInput(location.hash, location.search);
   const hasInitialHashProof = Boolean(initialUrlProof);
@@ -82,6 +96,15 @@ export function VerifyCertificatePage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [qrInfoNote, setQrInfoNote] = useState<string | null>(null);
 
+  const [evidenceInputRaw, setEvidenceInputRaw] = useState<string | null>(null);
+  const [evidenceFileName, setEvidenceFileName] = useState<string | null>(null);
+  const [suppliedEvidenceFiles, setSuppliedEvidenceFiles] = useState<SuppliedEvidenceFileInput[]>(
+    [],
+  );
+  const [evidenceSummary, setEvidenceSummary] = useState<EvidenceVerificationSummary | null>(null);
+  const [evidenceHashProgress, setEvidenceHashProgress] = useState<string | null>(null);
+  const [standaloneEvidenceError, setStandaloneEvidenceError] = useState<string | null>(null);
+
   const [pasteBusy, setPasteBusy] = useState(false);
   const [pasteFeedback, setPasteFeedback] = useState<string | null>(null);
 
@@ -94,11 +117,57 @@ export function VerifyCertificatePage() {
     useState<PerceptualComparisonResult | null>(null);
   const [simComparisonError, setSimComparisonError] = useState<string | null>(null);
 
+  const runEvidenceVerification = useCallback(
+    async (
+      nextEvidenceRaw: string | null,
+      nextProofBytes: Uint8Array | null | undefined,
+      nextManifest: SignedManifest | null | undefined,
+      nextSuppliedFiles: SuppliedEvidenceFileInput[],
+    ) => {
+      if (!nextEvidenceRaw || !nextEvidenceRaw.trim()) {
+        setEvidenceSummary(null);
+        setStandaloneEvidenceError(null);
+        return;
+      }
+      if (!nextProofBytes || !nextManifest) {
+        setEvidenceSummary(null);
+        setStandaloneEvidenceError(t.artworkDetails.verifyStandaloneError);
+        return;
+      }
+
+      setStandaloneEvidenceError(null);
+      try {
+        const summary = await verifyEvidenceExtension({
+          evidenceInput: nextEvidenceRaw,
+          proofBytes: nextProofBytes,
+          manifest: nextManifest,
+          suppliedEvidenceFiles: nextSuppliedFiles,
+          onEvidenceHashProgress: (fileIdx, totalFiles, done, total) => {
+            const pct = total > 0 ? Math.round((done / total) * 100) : 100;
+            setEvidenceHashProgress(
+              `${t.artworkDetails.evidenceHashingBusy} (${fileIdx + 1}/${totalFiles}, ${pct}%)`,
+            );
+          },
+        });
+        setEvidenceSummary(summary);
+      } finally {
+        setEvidenceHashProgress(null);
+      }
+    },
+    [t.artworkDetails.evidenceHashingBusy, t.artworkDetails.verifyStandaloneError],
+  );
+
   const runProofVerify = useCallback(
     async (rawProof: string, raster: CanonicalRaster | null) => {
       setErrorMsg(null);
       setTrustSavedMsg(null);
       setTrustConfirmChecked(false);
+      if (isLikelyEvidenceExtensionText(rawProof)) {
+        setResult(null);
+        setActiveProofRaw(null);
+        setStandaloneEvidenceError(t.artworkDetails.verifyStandaloneError);
+        return;
+      }
       setActiveProofRaw(rawProof);
       setVerifyingProof(true);
       try {
@@ -107,11 +176,22 @@ export function VerifyCertificatePage() {
           artworkRaster: raster,
         });
         setResult(res);
+        await runEvidenceVerification(
+          evidenceInputRaw,
+          res.proofBytes,
+          res.manifest,
+          suppliedEvidenceFiles,
+        );
       } finally {
         setVerifyingProof(false);
       }
     },
-    [],
+    [
+      evidenceInputRaw,
+      runEvidenceVerification,
+      suppliedEvidenceFiles,
+      t.artworkDetails.verifyStandaloneError,
+    ],
   );
 
   // Automatically verify #proof= / ?proof= when QR link opens or URL changes
@@ -140,6 +220,12 @@ export function VerifyCertificatePage() {
           setPasteFeedback(null);
           setTrustSavedMsg(null);
           setResult(res);
+          await runEvidenceVerification(
+            evidenceInputRaw,
+            res.proofBytes,
+            res.manifest,
+            suppliedEvidenceFiles,
+          );
         }
       } finally {
         if (active) {
@@ -150,35 +236,51 @@ export function VerifyCertificatePage() {
     return () => {
       active = false;
     };
-  }, [location.hash, location.search]);
+  }, [
+    evidenceInputRaw,
+    location.hash,
+    location.search,
+    runEvidenceVerification,
+    suppliedEvidenceFiles,
+  ]);
 
-  const handleSignedImageUpload = useCallback(async (file: File) => {
-    setErrorMsg(null);
-    setQrInfoNote(null);
-    setPasteFeedback(null);
-    setTrustSavedMsg(null);
-    setTrustConfirmChecked(false);
-    setSimComparisonName(null);
-    setSimComparisonResult(null);
-    setSimComparisonError(null);
-    setLaunchedWithHashProof(false);
-    setCameraAutoVerified(false);
-    try {
-      const rawBytes = new Uint8Array(await file.arrayBuffer());
-      const res = await verifyImageWithEmbeddedQr({ fileOrBytes: rawBytes });
-      setAttachedRaster(res.raster);
-      setAttachedFileName(file.name);
-      setActiveProofRaw(res.qrRawText);
-      setProofInput(res.qrRawText);
-      setQrInfoNote(
-        `QR decoded (${res.qrStrategy}) · ${res.imageWidth}×${res.imageHeight} px (${res.sourceFormat})`,
-      );
-      setResult(res.verification);
-    } catch (err) {
-      setResult(null);
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to verify image');
-    }
-  }, []);
+  const handleSignedImageUpload = useCallback(
+    async (file: File) => {
+      setErrorMsg(null);
+      setQrInfoNote(null);
+      setPasteFeedback(null);
+      setTrustSavedMsg(null);
+      setTrustConfirmChecked(false);
+      setSimComparisonName(null);
+      setSimComparisonResult(null);
+      setSimComparisonError(null);
+      setLaunchedWithHashProof(false);
+      setCameraAutoVerified(false);
+      try {
+        const rawBytes = new Uint8Array(await file.arrayBuffer());
+        const res = await verifyImageWithEmbeddedQr({ fileOrBytes: rawBytes });
+        setAttachedRaster(res.raster);
+        setAttachedFileName(file.name);
+        setActiveProofRaw(res.qrRawText);
+        setProofInput(res.qrRawText);
+        setQrInfoNote(
+          `QR decoded (${res.qrStrategy}) · ${res.imageWidth}×${res.imageHeight} px (${res.sourceFormat})`,
+        );
+        setResult(res.verification);
+        await runEvidenceVerification(
+          evidenceInputRaw,
+          res.verification.proofBytes,
+          res.verification.manifest,
+          suppliedEvidenceFiles,
+        );
+      } catch (err) {
+        setResult(null);
+        setEvidenceSummary(null);
+        setErrorMsg(err instanceof Error ? err.message : 'Failed to verify image');
+      }
+    },
+    [evidenceInputRaw, runEvidenceVerification, suppliedEvidenceFiles],
+  );
 
   const handleAttachArtworkForProof = useCallback(
     async (file: File) => {
@@ -201,6 +303,45 @@ export function VerifyCertificatePage() {
     },
     [activeProofRaw, runProofVerify],
   );
+
+  const handleEvidenceExtensionFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const text = await file.text();
+      setEvidenceInputRaw(text);
+      setEvidenceFileName(file.name);
+      await runEvidenceVerification(
+        text,
+        result?.proofBytes,
+        result?.manifest,
+        suppliedEvidenceFiles,
+      );
+    } catch (err) {
+      setStandaloneEvidenceError(
+        err instanceof Error ? err.message : 'Failed to read .chmevidence file',
+      );
+    }
+  };
+
+  const handleLocalEvidenceFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files ? Array.from(e.target.files) : [];
+    e.target.value = '';
+    if (picked.length === 0) return;
+
+    const nextFiles: SuppliedEvidenceFileInput[] = picked.map((f) => ({
+      name: f.name,
+      data: f,
+    }));
+    setSuppliedEvidenceFiles(nextFiles);
+    await runEvidenceVerification(
+      evidenceInputRaw,
+      result?.proofBytes,
+      result?.manifest,
+      nextFiles,
+    );
+  };
 
   // Consume shared artwork from PWA Web Share Target (?shared=1 via Cache Storage)
   useEffect(() => {
@@ -245,6 +386,12 @@ export function VerifyCertificatePage() {
           );
           setErrorMsg(null);
           setResult(res.verification);
+          await runEvidenceVerification(
+            evidenceInputRaw,
+            res.verification.proofBytes,
+            res.verification.manifest,
+            suppliedEvidenceFiles,
+          );
         } catch {
           const { raster } = await decodeImageFileToCanonicalRgba8(rawBytes);
           if (!active) return;
@@ -270,8 +417,11 @@ export function VerifyCertificatePage() {
       active = false;
     };
   }, [
+    evidenceInputRaw,
     location.search,
+    runEvidenceVerification,
     runProofVerify,
+    suppliedEvidenceFiles,
     t.verifyMobile.sharedImageNoQrNote,
     t.verifyMobile.sharedImageVerifiedNote,
   ]);
@@ -362,6 +512,17 @@ export function VerifyCertificatePage() {
     if (!file) return;
     try {
       const text = await file.text();
+      if (isLikelyEvidenceExtensionText(text)) {
+        setEvidenceInputRaw(text);
+        setEvidenceFileName(file.name);
+        await runEvidenceVerification(
+          text,
+          result?.proofBytes,
+          result?.manifest,
+          suppliedEvidenceFiles,
+        );
+        return;
+      }
       setProofInput(text);
       setCameraAutoVerified(false);
       setQrInfoNote(`Loaded proof bundle: ${file.name}`);
@@ -530,6 +691,104 @@ export function VerifyCertificatePage() {
     </form>
   );
 
+  const optionalExtensionSection = (
+    <AdvancedSettings
+      label={t.artworkDetails.verifySectionTitle}
+      summary={evidenceFileName || t.artworkDetails.verifySectionHint}
+      testId="verify-evidence-panel"
+    >
+      <p className="text-xs text-slate-300 leading-relaxed">{t.artworkDetails.verifySectionHint}</p>
+
+      <div className="flex flex-wrap items-center gap-2.5">
+        <input
+          id={evidenceFileInputId}
+          type="file"
+          accept=".chmevidence,.json,application/json"
+          data-testid="verify-evidence-file-input"
+          onChange={(e) => void handleEvidenceExtensionFileChange(e)}
+          className="sr-only"
+        />
+        <label
+          htmlFor={evidenceFileInputId}
+          className="inline-flex items-center gap-2 rounded-lg border border-sky-300/35 bg-sky-500/15 px-3.5 py-2 text-xs sm:text-sm font-medium text-sky-100 hover:bg-sky-500/25 min-h-[44px] cursor-pointer"
+        >
+          <FileCheck2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{t.artworkDetails.verifyAttachEvidenceBtn}</span>
+        </label>
+
+        {evidenceInputRaw && (
+          <>
+            <input
+              id={localFilesInputId}
+              type="file"
+              multiple
+              data-testid="verify-local-evidence-files-input"
+              onChange={(e) => void handleLocalEvidenceFilesChange(e)}
+              className="sr-only"
+            />
+            <label
+              htmlFor={localFilesInputId}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.16] bg-[#030b18]/75 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-100 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
+            >
+              <Upload className="h-4 w-4 shrink-0 text-sky-300" aria-hidden="true" />
+              <span>{t.artworkDetails.verifyAttachFilesBtn}</span>
+            </label>
+
+            <button
+              type="button"
+              data-testid="verify-clear-evidence-btn"
+              onClick={() => {
+                setEvidenceInputRaw(null);
+                setEvidenceFileName(null);
+                setSuppliedEvidenceFiles([]);
+                setEvidenceSummary(null);
+                setStandaloneEvidenceError(null);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] px-3 py-2 text-xs text-slate-300 hover:border-rose-400/40 hover:text-rose-200 min-h-[44px] cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>{t.artworkDetails.verifyClearEvidenceBtn}</span>
+            </button>
+          </>
+        )}
+
+        {suppliedEvidenceFiles.length > 0 && (
+          <button
+            type="button"
+            data-testid="verify-clear-local-files-btn"
+            onClick={() => {
+              setSuppliedEvidenceFiles([]);
+              void runEvidenceVerification(
+                evidenceInputRaw,
+                result?.proofBytes,
+                result?.manifest,
+                [],
+              );
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] px-3 py-2 text-xs text-slate-300 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
+          >
+            <span>{t.artworkDetails.verifyClearFilesBtn}</span>
+          </button>
+        )}
+      </div>
+
+      {evidenceFileName && (
+        <p className="text-xs font-mono text-sky-300">
+          {evidenceFileName}
+          {suppliedEvidenceFiles.length > 0
+            ? ` · ${suppliedEvidenceFiles.length} file(s)`
+            : ''}
+        </p>
+      )}
+
+      {evidenceHashProgress && (
+        <p role="status" className="text-xs font-mono text-sky-300">
+          {evidenceHashProgress}
+        </p>
+      )}
+    </AdvancedSettings>
+  );
+
   const inputTabsSection = (
     <section
       data-testid="verify-input-section"
@@ -626,6 +885,16 @@ export function VerifyCertificatePage() {
           className="rounded-lg border border-rose-500/40 bg-rose-500/15 p-3 text-sm text-rose-200"
         >
           {errorMsg}
+        </div>
+      )}
+
+      {standaloneEvidenceError && (
+        <div
+          role="alert"
+          data-testid="verify-standalone-evidence-error"
+          className="rounded-lg border border-rose-500/40 bg-rose-500/15 p-3 text-xs sm:text-sm text-rose-200"
+        >
+          {standaloneEvidenceError}
         </div>
       )}
     </section>
@@ -1011,6 +1280,8 @@ export function VerifyCertificatePage() {
         </section>
       )}
 
+      {evidenceSummary && <VerifiedArtworkDetailsCard summary={evidenceSummary} />}
+
       {result.manifest?.qrMask && (
         <div
           role="note"
@@ -1276,6 +1547,7 @@ export function VerifyCertificatePage() {
         <>
           {verifyingSpinnerCard}
           {resultsSection}
+          {optionalExtensionSection}
           {step2ArtworkCtaSection}
           {inputTabsSection}
         </>
@@ -1283,6 +1555,7 @@ export function VerifyCertificatePage() {
         <>
           {verifyingSpinnerCard}
           {inputTabsSection}
+          {optionalExtensionSection}
           {step2ArtworkCtaSection}
           {resultsSection}
         </>

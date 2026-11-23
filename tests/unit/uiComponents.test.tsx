@@ -1,11 +1,20 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { CheckCircle2 } from 'lucide-react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { useState } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  ArtworkDetailsPanel,
+  createEmptyArtworkDetailsDraft,
+  type ArtworkDetailsDraft,
+} from '../../src/components/ArtworkDetailsPanel';
+import { VerifiedArtworkDetailsCard } from '../../src/components/VerifiedArtworkDetailsCard';
 import { AdvancedSettings } from '../../src/components/ui/AdvancedSettings';
 import { CompactStatus } from '../../src/components/ui/CompactStatus';
 import { HelpDisclosure } from '../../src/components/ui/HelpDisclosure';
 import { HelpIconButton } from '../../src/components/ui/HelpIconButton';
+import type { EvidenceVerificationSummary } from '../../src/core/manifest/types';
+import { I18nProvider } from '../../src/i18n';
 
 afterEach(() => {
   cleanup();
@@ -97,5 +106,181 @@ describe('Reusable progressive disclosure UI components', () => {
 
     fireEvent.click(screen.getByTestId('status-help-btn'));
     expect(screen.getByText(/Ed25519 signature matched/)).toBeTruthy();
+  });
+
+  it('VerifiedArtworkDetailsCard renders untrusted text safely without HTML execution and distinguishes claims from proof', () => {
+    const summary: EvidenceVerificationSummary = {
+      status: 'valid',
+      errors: [],
+      extensionSignatureValid: true,
+      bindingMatchesPrimaryProof: true,
+      evidenceBytesLength: 256,
+      verifiedRecordCount: 1,
+      unavailableRecordCount: 1,
+      mismatchedSuppliedFiles: [
+        {
+          fileName: '<script>evil()</script>wrong.png',
+          byteLength: 42,
+          computedSha256Hex: 'aa'.repeat(32),
+        },
+      ],
+      recordChecks: [
+        {
+          index: 0,
+          sha256Hex: '11'.repeat(32),
+          byteLength: 1024,
+          label: 'rough-sketch.png',
+          category: 'sketch',
+          status: 'verified',
+          matchedFileName: 'rough-sketch.png',
+        },
+        {
+          index: 1,
+          sha256Hex: '22'.repeat(32),
+          byteLength: 4096,
+          label: 'timelapse.mp4',
+          category: 'timelapse',
+          status: 'unavailable',
+        },
+      ],
+      extension: {
+        version: 1,
+        proofSha256: new Uint8Array(32),
+        artworkId: new Uint8Array(16),
+        artworkSha256: new Uint8Array(32),
+        publicKey: new Uint8Array(32),
+        createdAt: 1795352786,
+        artworkMetadata: {
+          title: '<script>alert(1)</script> Moonlit 🎨',
+          artistName: '<img src=x onerror=alert(2)> Studio',
+          description: 'Line 1\n<svg onload=alert(3)>',
+        },
+        creatorProfile: {
+          displayName: 'Yomi <b>Bold</b>',
+          website: 'https://certified-handmade.com',
+          links: [{ label: 'Pixiv', url: 'https://www.pixiv.net/users/123' }],
+        },
+        creationMethod: 'hand-drawn-no-ai',
+        creationEnvironment: {
+          software: 'Krita',
+          hardware: 'Linux workstation',
+          inputDevice: 'Wacom pen',
+          notes: '<b>Inert</b> pencil',
+        },
+        signature: new Uint8Array(64),
+      },
+    };
+
+    const { container } = render(
+      <I18nProvider>
+        <VerifiedArtworkDetailsCard summary={summary} />
+      </I18nProvider>,
+    );
+
+    expect(container.querySelector('script')).toBeNull();
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('b')).toBeNull();
+    expect(container.querySelector('svg[onload]')).toBeNull();
+
+    const panel = screen.getByTestId('verify-artwork-details-panel');
+    expect(panel.textContent).toContain('<script>alert(1)</script> Moonlit 🎨');
+    expect(panel.textContent).toContain('<img src=x onerror=alert(2)> Studio');
+    expect(panel.textContent).toContain('<svg onload=alert(3)>');
+    expect(panel.textContent).toContain('<b>Inert</b> pencil');
+    expect(panel.textContent).toContain(
+      'Creation method: Hand-drawn (no generative AI) (declared by creator)',
+    );
+    expect(panel.textContent).toContain(
+      'Cryptographic verification confirms the signer signed this declaration',
+    );
+    expect(panel.textContent).not.toContain('100% Human-Made Verified');
+
+    expect(screen.getByTestId('verify-evidence-record-0').textContent).toContain('Hash verified');
+    expect(screen.getByTestId('verify-evidence-record-1').textContent).toContain(
+      'Unavailable (not supplied)',
+    );
+    expect(screen.getByTestId('verify-evidence-mismatched-files').textContent).toContain(
+      '<script>evil()</script>wrong.png',
+    );
+  });
+
+  it('VerifiedArtworkDetailsCard refuses to render unsafe javascript:/data: links as anchors', () => {
+    const summary: EvidenceVerificationSummary = {
+      status: 'valid',
+      errors: [],
+      extensionSignatureValid: true,
+      bindingMatchesPrimaryProof: true,
+      verifiedRecordCount: 0,
+      unavailableRecordCount: 0,
+      mismatchedSuppliedFiles: [],
+      recordChecks: [],
+      extension: {
+        version: 1,
+        proofSha256: new Uint8Array(32),
+        artworkId: new Uint8Array(16),
+        artworkSha256: new Uint8Array(32),
+        publicKey: new Uint8Array(32),
+        createdAt: 1795352786,
+        creatorProfile: {
+          displayName: 'Artist',
+          website: 'javascript:alert(1)',
+          links: [{ label: 'Bad', url: 'data:text/html,hi' }],
+        },
+        signature: new Uint8Array(64),
+      },
+    };
+
+    const { container } = render(
+      <I18nProvider>
+        <VerifiedArtworkDetailsCard summary={summary} />
+      </I18nProvider>,
+    );
+
+    expect(container.querySelectorAll('a')).toHaveLength(0);
+  });
+
+  it('ArtworkDetailsPanel stays collapsed by default, validates profile URLs, and groups creation options concisely', () => {
+    function Harness() {
+      const [draft, setDraft] = useState<ArtworkDetailsDraft>(createEmptyArtworkDetailsDraft);
+      return (
+        <I18nProvider>
+          <ArtworkDetailsPanel
+            draft={draft}
+            onChange={setDraft}
+            onSaveProfileDefaults={vi.fn(async () => {})}
+            onClearProfileDefaults={vi.fn(async () => {})}
+            profileSavedIndicator={false}
+          />
+        </I18nProvider>
+      );
+    }
+
+    render(<Harness />);
+
+    const disclosureBtn = screen.getByTestId('create-artwork-details').querySelector('button')!;
+    expect(disclosureBtn.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByTestId('details-ext-title')).toBeNull();
+
+    fireEvent.click(disclosureBtn);
+    expect(disclosureBtn.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByTestId('details-ext-title')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('details-group-creator'));
+    fireEvent.change(screen.getByTestId('details-creator-website'), {
+      target: { value: 'javascript:alert(1)' },
+    });
+    expect(screen.getByRole('alert')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('details-group-creation'));
+    const select = screen.getByTestId('details-creation-method') as HTMLSelectElement;
+    const optionValues = Array.from(select.querySelectorAll('option')).map((o) => o.value);
+    expect(optionValues).toEqual([
+      '',
+      'hand-drawn-no-ai',
+      'hand-drawn-ai-assisted',
+      'ai-generated',
+      'other',
+      'prefer-not-to-disclose',
+    ]);
   });
 });

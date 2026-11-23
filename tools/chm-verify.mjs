@@ -4,25 +4,47 @@
  *
  * Intentionally imports ZERO modules from ../src/ so verification remains
  * independent of the application bundle. Uses only node:crypto, node:fs,
- * cborg (MIT/Apache-2.0), fast-png (MIT), and jsqr (Apache-2.0).
+ * node:path, cborg (MIT/Apache-2.0), fast-png (MIT), and jsqr (Apache-2.0).
  */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import path from 'node:path';
 import { decode as cborDecode, encode as cborEncode, rfc8949EncodeOptions } from 'cborg';
 import { decode as decodePng, hasPngSignature } from 'fast-png';
 import jsQR from 'jsqr';
 
 const PROTOCOL_V1 = 1;
 const PROTOCOL_V2 = 2;
+const EVIDENCE_EXTENSION_FORMAT = 'certified-handmade-evidence';
+const EVIDENCE_EXTENSION_VERSION = 1;
+const EVIDENCE_TOKEN_PREFIX = 'chm-evidence:';
+
 const MAX_PROOF_BYTES = 2048;
 const MAX_NOTICE_BYTES = 2048;
 const MAX_INPUT_CHARS = 32768;
+const MAX_EVIDENCE_CBOR_BYTES = 32768;
+const MAX_EVIDENCE_INPUT_CHARS = 131072;
+const MAX_EVIDENCE_FILE_BYTES = 512 * 1024 * 1024;
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const MAX_OUTPUT_DIMENSION = 10240;
 const MAX_TOTAL_PIXELS = 33_554_432;
 
+const MAX_EXT_TITLE_UTF8_BYTES = 256;
+const MAX_EXT_ARTIST_UTF8_BYTES = 128;
+const MAX_EXT_DESCRIPTION_UTF8_BYTES = 4000;
+const MAX_CREATOR_DISPLAY_NAME_UTF8_BYTES = 128;
+const MAX_PROFILE_URL_UTF8_BYTES = 512;
+const MAX_PROFILE_LINK_LABEL_UTF8_BYTES = 64;
+const MAX_PROFILE_LINKS = 12;
+const MAX_ENV_FIELD_UTF8_BYTES = 128;
+const MAX_ENV_NOTES_UTF8_BYTES = 1000;
+const MAX_EVIDENCE_RECORDS = 24;
+const MAX_EVIDENCE_LABEL_UTF8_BYTES = 128;
+const MAX_EVIDENCE_MIME_UTF8_BYTES = 96;
+
 const DOMAIN_PROOF = Buffer.from('CHM1\0', 'ascii');
 const DOMAIN_NOTICE = Buffer.from('CHM-NOTICE1\0', 'ascii');
+const DOMAIN_EVIDENCE = Buffer.from('CHM-EVIDENCE1\0', 'ascii');
 const ED25519_SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
 
 const STRICT_CBOR = {
@@ -51,6 +73,21 @@ const LICENSES = {
 const POLICIES = { 0: 'unspecified', 1: 'allow', 2: 'disallow' };
 const NOTICE_TYPES = { 1: 'revocation', 2: 'rotation' };
 const NOTICE_REASONS = { 1: 'key-compromise', 2: 'key-superseded', 3: 'retired', 4: 'other' };
+const CREATION_METHOD_NAMES = {
+  1: 'hand-drawn-no-ai',
+  2: 'hand-drawn-ai-assisted',
+  3: 'ai-generated',
+  4: 'other',
+  5: 'prefer-not-to-disclose',
+};
+const EVIDENCE_CATEGORY_NAMES = {
+  1: 'sketch',
+  2: 'wip',
+  3: 'intermediate',
+  4: 'timelapse',
+  5: 'project-file',
+  6: 'other',
+};
 
 function strictBase64UrlDecode(str) {
   if (typeof str !== 'string' || !/^[A-Za-z0-9_-]+$/.test(str) || str.length % 4 === 1) {
@@ -86,6 +123,82 @@ function fingerprintFor(pub32) {
 function uuidHex(b) {
   const h = Buffer.from(b).toString('hex');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
+
+function isDisallowedCodeUnit(code, allowMultiline) {
+  if (code >= 0x202a && code <= 0x202e) return true;
+  if (code >= 0x2066 && code <= 0x2069) return true;
+  if (code === 0x7f || (code >= 0x80 && code <= 0x9f)) return true;
+  if (code < 0x20) {
+    if (allowMultiline && (code === 0x09 || code === 0x0a)) return false;
+    return true;
+  }
+  return false;
+}
+
+function validateCanonicalText(value, maxBytes, allowMultiline, fieldName) {
+  if (typeof value !== 'string') {
+    throw new Error(`${fieldName} must be a string`);
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed !== value) {
+    throw new Error(`${fieldName} must be non-empty trimmed text`);
+  }
+  if (allowMultiline && value.includes('\r')) {
+    throw new Error(`${fieldName} contains non-canonical CR line endings`);
+  }
+  for (let i = 0; i < value.length; i++) {
+    if (isDisallowedCodeUnit(value.charCodeAt(i), allowMultiline)) {
+      throw new Error(`${fieldName} contains disallowed control characters`);
+    }
+  }
+  if (Buffer.byteLength(value, 'utf8') > maxBytes) {
+    throw new Error(`${fieldName} exceeds maximum ${maxBytes} UTF-8 bytes`);
+  }
+  return value;
+}
+
+function validateProfileUrl(value, fieldName) {
+  if (typeof value !== 'string') {
+    throw new Error(`${fieldName} must be a string`);
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed !== value) {
+    throw new Error(`${fieldName} must be non-empty trimmed URL`);
+  }
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (isDisallowedCodeUnit(code, false) || /\s/.test(value[i])) {
+      throw new Error(`${fieldName} contains disallowed whitespace or control characters`);
+    }
+  }
+  if (Buffer.byteLength(value, 'utf8') > MAX_PROFILE_URL_UTF8_BYTES) {
+    throw new Error(`${fieldName} exceeds maximum ${MAX_PROFILE_URL_UTF8_BYTES} UTF-8 bytes`);
+  }
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${fieldName} must be a valid https:// or http:// URL`);
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error(`${fieldName} must use https:// or http://`);
+  }
+  if (parsed.username !== '' || parsed.password !== '') {
+    throw new Error(`${fieldName} must not contain credentials`);
+  }
+  if (!parsed.hostname) {
+    throw new Error(`${fieldName} must include a valid hostname`);
+  }
+  return value;
+}
+
+function assertAllowedMapKeys(map, allowedSet, label) {
+  for (const key of map.keys()) {
+    if (typeof key !== 'number' || !allowedSet.has(key)) {
+      throw new Error(`Unknown or invalid ${label} key: ${String(key)}`);
+    }
+  }
 }
 
 function normalizeSample8(sample, depth) {
@@ -351,28 +464,345 @@ function verifyProofData(proofInput, raster) {
   }
 
   return {
-    protocolVersion: ver,
+    summary: {
+      protocolVersion: ver,
+      signatureValid,
+      integrityStatus,
+      matchedMode,
+      artworkId: uuidHex(artworkId),
+      publicKeyFingerprintHex: fp.fullHex,
+      publicKeyFingerprintShort: fp.shortDisplay,
+      declaredSha256Hex: Buffer.from(sha).toString('hex'),
+      computedSha256Hex: computedShaHex,
+      region,
+      qrMask: qrMask ?? null,
+      qrMaskCoveragePct,
+      issuedAtUnix: issuedAt,
+      issuedAtIso: new Date(issuedAt * 1000).toISOString(),
+      license: LICENSES[lic[0]] ?? `code-${lic[0]}`,
+      commercialUse: POLICIES[lic[1]] ?? 'unknown',
+      redistribution: POLICIES[lic[2]] ?? 'unknown',
+      aiTraining: POLICIES[lic[3]] ?? 'unknown',
+      attributionName: lic[4] ?? null,
+      authorName: authorName ?? null,
+      artworkTitle: artworkTitle ?? null,
+      integrityError,
+    },
+    raw: {
+      proofBytes,
+      publicKey: pubKey,
+      artworkId,
+      artworkSha256: sha,
+    },
+  };
+}
+
+function extractEvidenceBytes(rawInput) {
+  const trimmed = rawInput.trim();
+  if (!trimmed || trimmed.length > MAX_EVIDENCE_INPUT_CHARS) {
+    throw new Error('Empty or oversized evidence extension input');
+  }
+  let token;
+  if (trimmed.startsWith('{')) {
+    const obj = JSON.parse(trimmed);
+    if (obj.format !== EVIDENCE_EXTENSION_FORMAT) {
+      throw new Error('Unsupported evidence extension format');
+    }
+    if (obj.version !== EVIDENCE_EXTENSION_VERSION) {
+      throw new Error(`Unsupported evidence extension version: ${String(obj.version)}`);
+    }
+    token = obj.evidenceBase64Url;
+  } else if (trimmed.startsWith(EVIDENCE_TOKEN_PREFIX)) {
+    token = trimmed.slice(EVIDENCE_TOKEN_PREFIX.length).trim();
+  } else {
+    token = trimmed;
+  }
+  if (!token) throw new Error('Missing evidenceBase64Url token');
+  const bytes = strictBase64UrlDecode(token);
+  if (bytes.length === 0 || bytes.length > MAX_EVIDENCE_CBOR_BYTES) {
+    throw new Error('Evidence extension bytes out of bounds');
+  }
+  return bytes;
+}
+
+function hashFileStreamed(filePath) {
+  const stat = fs.statSync(filePath);
+  if (!stat.isFile()) {
+    throw new Error(`Not a regular file: ${filePath}`);
+  }
+  if (stat.size > MAX_EVIDENCE_FILE_BYTES) {
+    throw new Error(`Evidence file exceeds ${MAX_EVIDENCE_FILE_BYTES} byte limit: ${filePath}`);
+  }
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    let byteLength = 0;
+    const stream = fs.createReadStream(filePath, { highWaterMark: 256 * 1024 });
+    stream.on('data', (chunk) => {
+      byteLength += chunk.length;
+      if (byteLength > MAX_EVIDENCE_FILE_BYTES) {
+        stream.destroy();
+        reject(new Error(`Evidence file exceeded ${MAX_EVIDENCE_FILE_BYTES} byte limit`));
+        return;
+      }
+      hash.update(chunk);
+    });
+    stream.on('error', (err) => reject(err));
+    stream.on('end', () => {
+      const digest = new Uint8Array(hash.digest());
+      resolve({
+        fileName: path.basename(filePath),
+        byteLength,
+        digest,
+        hex: Buffer.from(digest).toString('hex'),
+      });
+    });
+  });
+}
+
+async function verifyEvidenceData(evidenceInput, proofRaw, suppliedFilePaths) {
+  const evidenceBytes = extractEvidenceBytes(evidenceInput);
+  const outer = cborDecode(evidenceBytes, STRICT_CBOR);
+  if (!Array.isArray(outer) || outer.length !== 3) {
+    throw new Error('Evidence extension envelope must be a 3-element CBOR array');
+  }
+  const [version, payloadBytes, sig] = outer;
+  if (typeof version !== 'number' || !Number.isSafeInteger(version) || version !== EVIDENCE_EXTENSION_VERSION) {
+    throw new Error(`Unsupported evidence extension version: ${String(version)}`);
+  }
+  if (!(payloadBytes instanceof Uint8Array) || payloadBytes.length === 0) {
+    throw new Error('Evidence extension payload must be a non-empty byte string');
+  }
+  if (!(sig instanceof Uint8Array) || sig.length !== 64) {
+    throw new Error('Evidence extension signature must be 64 bytes');
+  }
+  const reOuter = cborEncode([version, payloadBytes, sig], rfc8949EncodeOptions);
+  if (!Buffer.from(reOuter).equals(Buffer.from(evidenceBytes))) {
+    throw new Error('Non-canonical outer evidence CBOR');
+  }
+
+  const m = cborDecode(payloadBytes, STRICT_CBOR);
+  if (!(m instanceof Map)) throw new Error('Evidence payload must be a CBOR map');
+  assertAllowedMapKeys(m, new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]), 'evidencePayload');
+
+  const rePayload = cborEncode(m, rfc8949EncodeOptions);
+  if (!Buffer.from(rePayload).equals(Buffer.from(payloadBytes))) {
+    throw new Error('Non-canonical inner evidence CBOR');
+  }
+
+  const evidenceId = m.get(1);
+  const pubKey = m.get(2);
+  const proofSha256 = m.get(3);
+  const artworkId = m.get(4);
+  const artworkSha256 = m.get(5);
+  const issuedAt = m.get(6);
+
+  if (!(evidenceId instanceof Uint8Array) || evidenceId.length !== 16) throw new Error('Invalid evidenceId');
+  if (!(pubKey instanceof Uint8Array) || pubKey.length !== 32) throw new Error('Invalid evidence publicKey');
+  if (!(proofSha256 instanceof Uint8Array) || proofSha256.length !== 32) throw new Error('Invalid proofSha256');
+  if (!(artworkId instanceof Uint8Array) || artworkId.length !== 16) throw new Error('Invalid evidence artworkId');
+  if (!(artworkSha256 instanceof Uint8Array) || artworkSha256.length !== 32) throw new Error('Invalid evidence artworkSha256');
+  if (typeof issuedAt !== 'number' || !Number.isSafeInteger(issuedAt) || issuedAt < 0) {
+    throw new Error('Invalid evidence issuedAt');
+  }
+
+  let artworkMetadata = null;
+  if (m.has(7)) {
+    const rawMeta = m.get(7);
+    if (!(rawMeta instanceof Map) || rawMeta.size === 0) throw new Error('artworkMetadata must be a non-empty CBOR map');
+    assertAllowedMapKeys(rawMeta, new Set([1, 2, 3]), 'artworkMetadata');
+    artworkMetadata = {};
+    if (rawMeta.has(1)) artworkMetadata.title = validateCanonicalText(rawMeta.get(1), MAX_EXT_TITLE_UTF8_BYTES, false, 'artworkMetadata.title');
+    if (rawMeta.has(2)) artworkMetadata.artistName = validateCanonicalText(rawMeta.get(2), MAX_EXT_ARTIST_UTF8_BYTES, false, 'artworkMetadata.artistName');
+    if (rawMeta.has(3)) artworkMetadata.description = validateCanonicalText(rawMeta.get(3), MAX_EXT_DESCRIPTION_UTF8_BYTES, true, 'artworkMetadata.description');
+  }
+
+  let creatorProfile = null;
+  if (m.has(8)) {
+    const rawProf = m.get(8);
+    if (!(rawProf instanceof Map) || rawProf.size === 0) throw new Error('creatorProfile must be a non-empty CBOR map');
+    assertAllowedMapKeys(rawProf, new Set([1, 2, 3]), 'creatorProfile');
+    creatorProfile = {};
+    if (rawProf.has(1)) creatorProfile.displayName = validateCanonicalText(rawProf.get(1), MAX_CREATOR_DISPLAY_NAME_UTF8_BYTES, false, 'creatorProfile.displayName');
+    if (rawProf.has(2)) creatorProfile.website = validateProfileUrl(rawProf.get(2), 'creatorProfile.website');
+    if (rawProf.has(3)) {
+      const rawLinks = rawProf.get(3);
+      if (!Array.isArray(rawLinks) || rawLinks.length === 0 || rawLinks.length > MAX_PROFILE_LINKS) {
+        throw new Error('creatorProfile.links must be a non-empty bounded array');
+      }
+      creatorProfile.links = rawLinks.map((entry, idx) => {
+        if (!Array.isArray(entry) || (entry.length !== 1 && entry.length !== 2)) {
+          throw new Error(`creatorProfile.links[${idx}] must be a 1 or 2-element array`);
+        }
+        const url = validateProfileUrl(entry[0], `creatorProfile.links[${idx}].url`);
+        if (entry.length === 2) {
+          const label = validateCanonicalText(entry[1], MAX_PROFILE_LINK_LABEL_UTF8_BYTES, false, `creatorProfile.links[${idx}].label`);
+          return { url, label };
+        }
+        return { url };
+      });
+    }
+  }
+
+  let creationMethod = null;
+  if (m.has(9)) {
+    const code = m.get(9);
+    if (typeof code !== 'number' || !CREATION_METHOD_NAMES[code]) {
+      throw new Error('creationMethod contains an invalid code');
+    }
+    creationMethod = CREATION_METHOD_NAMES[code];
+  }
+
+  let creationEnvironment = null;
+  if (m.has(10)) {
+    const rawEnv = m.get(10);
+    if (!(rawEnv instanceof Map) || rawEnv.size === 0) throw new Error('creationEnvironment must be a non-empty CBOR map');
+    assertAllowedMapKeys(rawEnv, new Set([1, 2, 3, 4]), 'creationEnvironment');
+    creationEnvironment = {};
+    if (rawEnv.has(1)) creationEnvironment.software = validateCanonicalText(rawEnv.get(1), MAX_ENV_FIELD_UTF8_BYTES, false, 'creationEnvironment.software');
+    if (rawEnv.has(2)) creationEnvironment.hardware = validateCanonicalText(rawEnv.get(2), MAX_ENV_FIELD_UTF8_BYTES, false, 'creationEnvironment.hardware');
+    if (rawEnv.has(3)) creationEnvironment.inputDevice = validateCanonicalText(rawEnv.get(3), MAX_ENV_FIELD_UTF8_BYTES, false, 'creationEnvironment.inputDevice');
+    if (rawEnv.has(4)) creationEnvironment.notes = validateCanonicalText(rawEnv.get(4), MAX_ENV_NOTES_UTF8_BYTES, true, 'creationEnvironment.notes');
+  }
+
+  let evidenceRecords = [];
+  if (m.has(11)) {
+    const rawRecords = m.get(11);
+    if (!Array.isArray(rawRecords) || rawRecords.length === 0 || rawRecords.length > MAX_EVIDENCE_RECORDS) {
+      throw new Error('evidenceRecords must be a non-empty bounded array');
+    }
+    evidenceRecords = rawRecords.map((item, idx) => {
+      if (!(item instanceof Map)) throw new Error(`evidenceRecords[${idx}] must be a CBOR map`);
+      assertAllowedMapKeys(item, new Set([1, 2, 3, 4, 5]), `evidenceRecords[${idx}]`);
+      const recSha = item.get(1);
+      if (!(recSha instanceof Uint8Array) || recSha.length !== 32) {
+        throw new Error(`evidenceRecords[${idx}].sha256 must be 32 bytes`);
+      }
+      const byteLength = item.get(2);
+      if (typeof byteLength !== 'number' || !Number.isSafeInteger(byteLength) || byteLength < 0) {
+        throw new Error(`evidenceRecords[${idx}].byteLength must be a non-negative integer`);
+      }
+      const label = item.has(3)
+        ? validateCanonicalText(item.get(3), MAX_EVIDENCE_LABEL_UTF8_BYTES, false, `evidenceRecords[${idx}].label`)
+        : null;
+      let category = null;
+      if (item.has(4)) {
+        const catCode = item.get(4);
+        if (typeof catCode !== 'number' || !EVIDENCE_CATEGORY_NAMES[catCode]) {
+          throw new Error(`evidenceRecords[${idx}].category is invalid`);
+        }
+        category = EVIDENCE_CATEGORY_NAMES[catCode];
+      }
+      const mimeType = item.has(5)
+        ? validateCanonicalText(item.get(5), MAX_EVIDENCE_MIME_UTF8_BYTES, false, `evidenceRecords[${idx}].mimeType`)
+        : null;
+      return {
+        index: idx,
+        sha256: recSha,
+        sha256Hex: Buffer.from(recSha).toString('hex'),
+        byteLength,
+        label,
+        category,
+        mimeType,
+      };
+    });
+  }
+
+  const signingMsg = Buffer.concat([DOMAIN_EVIDENCE, Buffer.from(payloadBytes)]);
+  const signatureValid = verifyEd25519(pubKey, signingMsg, sig);
+
+  const expectedProofSha = new Uint8Array(crypto.createHash('sha256').update(proofRaw.proofBytes).digest());
+  const publicKeyMatchesProof = crypto.timingSafeEqual(Buffer.from(pubKey), Buffer.from(proofRaw.publicKey));
+  const artworkIdMatchesProof = crypto.timingSafeEqual(Buffer.from(artworkId), Buffer.from(proofRaw.artworkId));
+  const artworkSha256MatchesProof = crypto.timingSafeEqual(Buffer.from(artworkSha256), Buffer.from(proofRaw.artworkSha256));
+  const proofSha256MatchesProof = crypto.timingSafeEqual(Buffer.from(proofSha256), Buffer.from(expectedProofSha));
+  const proofBindingValid =
+    publicKeyMatchesProof &&
+    artworkIdMatchesProof &&
+    artworkSha256MatchesProof &&
+    proofSha256MatchesProof;
+
+  const errors = [];
+  const warnings = [];
+  if (!signatureValid) errors.push('Evidence extension Ed25519 signature verification failed');
+  if (!publicKeyMatchesProof) errors.push('Evidence extension publicKey does not match primary proof');
+  if (!artworkIdMatchesProof) errors.push('Evidence extension artworkId does not match primary proof');
+  if (!artworkSha256MatchesProof) errors.push('Evidence extension artworkSha256 does not match primary proof');
+  if (!proofSha256MatchesProof) errors.push('Evidence extension proofSha256 does not match primary proof');
+
+  const status = !signatureValid ? 'invalid' : !proofBindingValid ? 'binding-mismatch' : 'valid';
+
+  const hashedSupplied = [];
+  for (const filePath of suppliedFilePaths) {
+    hashedSupplied.push(await hashFileStreamed(filePath));
+  }
+
+  const matchedSupplied = new Set();
+  const recordChecks = evidenceRecords.map((rec) => {
+    const idx = hashedSupplied.findIndex(
+      (sup) => sup.byteLength === rec.byteLength && crypto.timingSafeEqual(Buffer.from(sup.digest), Buffer.from(rec.sha256)),
+    );
+    if (idx >= 0) {
+      matchedSupplied.add(idx);
+      return {
+        index: rec.index,
+        sha256Hex: rec.sha256Hex,
+        byteLength: rec.byteLength,
+        label: rec.label,
+        category: rec.category,
+        mimeType: rec.mimeType,
+        status: 'verified',
+        matchedFileName: hashedSupplied[idx].fileName,
+      };
+    }
+    return {
+      index: rec.index,
+      sha256Hex: rec.sha256Hex,
+      byteLength: rec.byteLength,
+      label: rec.label,
+      category: rec.category,
+      mimeType: rec.mimeType,
+      status: 'unavailable',
+      matchedFileName: null,
+    };
+  });
+
+  const mismatchedSuppliedFiles = [];
+  for (let i = 0; i < hashedSupplied.length; i++) {
+    if (!matchedSupplied.has(i)) {
+      mismatchedSuppliedFiles.push({
+        fileName: hashedSupplied[i].fileName,
+        byteLength: hashedSupplied[i].byteLength,
+        computedSha256Hex: hashedSupplied[i].hex,
+      });
+    }
+  }
+  if (mismatchedSuppliedFiles.length > 0) {
+    warnings.push(`${mismatchedSuppliedFiles.length} supplied local evidence file(s) did not match any record in .chmevidence`);
+  }
+
+  return {
+    status,
     signatureValid,
-    integrityStatus,
-    matchedMode,
-    artworkId: uuidHex(artworkId),
-    publicKeyFingerprintHex: fp.fullHex,
-    publicKeyFingerprintShort: fp.shortDisplay,
-    declaredSha256Hex: Buffer.from(sha).toString('hex'),
-    computedSha256Hex: computedShaHex,
-    region,
-    qrMask: qrMask ?? null,
-    qrMaskCoveragePct,
+    proofBindingValid,
+    publicKeyMatchesProof,
+    artworkIdMatchesProof,
+    artworkSha256MatchesProof,
+    proofSha256MatchesProof,
+    evidenceBytesLength: evidenceBytes.length,
+    evidenceId: uuidHex(evidenceId),
+    proofSha256Hex: Buffer.from(proofSha256).toString('hex'),
     issuedAtUnix: issuedAt,
     issuedAtIso: new Date(issuedAt * 1000).toISOString(),
-    license: LICENSES[lic[0]] ?? `code-${lic[0]}`,
-    commercialUse: POLICIES[lic[1]] ?? 'unknown',
-    redistribution: POLICIES[lic[2]] ?? 'unknown',
-    aiTraining: POLICIES[lic[3]] ?? 'unknown',
-    attributionName: lic[4] ?? null,
-    authorName: authorName ?? null,
-    artworkTitle: artworkTitle ?? null,
-    integrityError,
+    artworkMetadata,
+    creatorProfile,
+    creationMethod,
+    creationEnvironment,
+    recordChecks,
+    verifiedRecordCount: recordChecks.filter((r) => r.status === 'verified').length,
+    unavailableRecordCount: recordChecks.filter((r) => r.status === 'unavailable').length,
+    mismatchedSuppliedFiles,
+    errors,
+    warnings,
   };
 }
 
@@ -447,11 +877,13 @@ function readMaybeFile(arg) {
   return arg;
 }
 
-function main() {
+async function main() {
   const argv = process.argv.slice(2);
   let proofArg = null;
   let artworkArg = null;
   let noticeArg = null;
+  let evidenceArg = null;
+  const evidenceFileArgs = [];
   let jsonOut = false;
   let positional = null;
 
@@ -461,8 +893,10 @@ function main() {
     else if (a === '--proof' && i + 1 < argv.length) proofArg = argv[++i];
     else if (a === '--artwork' && i + 1 < argv.length) artworkArg = argv[++i];
     else if (a === '--notice' && i + 1 < argv.length) noticeArg = argv[++i];
+    else if (a === '--evidence' && i + 1 < argv.length) evidenceArg = argv[++i];
+    else if (a === '--evidence-file' && i + 1 < argv.length) evidenceFileArgs.push(argv[++i]);
     else if (a === '-h' || a === '--help') {
-      console.log('Usage: chm-verify.mjs <signed.png> | --proof <url|token|.chproof.json> [--artwork <img.png>] | --notice <token|.chnotice.json> [--json]');
+      console.log('Usage: chm-verify.mjs <signed.png> | --proof <url|token|.chproof.json> [--artwork <img.png>] [--evidence <token|.chmevidence>] [--evidence-file <path>...] | --notice <token|.chnotice.json> [--json]');
       process.exit(0);
     } else if (!a.startsWith('-')) {
       positional = a;
@@ -487,6 +921,11 @@ function main() {
       process.exit(res.valid ? 0 : 1);
     }
 
+    if (evidenceArg && !proofArg && !positional) {
+      console.error('VERIFICATION FAILED: Standalone .chmevidence cannot verify an artwork without the original proof (--proof or <signed.png>).');
+      process.exit(1);
+    }
+
     let raster = null;
     let proofInput = proofArg;
     if (!proofInput && positional) {
@@ -505,7 +944,7 @@ function main() {
     }
 
     if (!proofInput) {
-      console.error('Usage: chm-verify.mjs <signed.png> | --proof <url|token|.chproof.json> [--artwork <img.png>] [--json]');
+      console.error('Usage: chm-verify.mjs <signed.png> | --proof <url|token|.chproof.json> [--artwork <img.png>] [--evidence <token|.chmevidence>] [--evidence-file <path>...] [--json]');
       process.exit(2);
     }
     if (artworkArg && !raster) {
@@ -516,7 +955,22 @@ function main() {
       raster = decodePngCanonical(new Uint8Array(fs.readFileSync(artworkArg)));
     }
 
-    const res = verifyProofData(proofInput, raster);
+    for (const filePath of evidenceFileArgs) {
+      if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+        console.error(`Evidence file not found: ${filePath}`);
+        process.exit(2);
+      }
+    }
+
+    const { summary: res, raw: proofRaw } = verifyProofData(proofInput, raster);
+
+    let evidenceSummary = null;
+    if (evidenceArg) {
+      const evidenceRaw = readMaybeFile(evidenceArg);
+      evidenceSummary = await verifyEvidenceData(evidenceRaw, proofRaw, evidenceFileArgs);
+      res.evidenceExtension = evidenceSummary;
+    }
+
     if (jsonOut) {
       console.log(JSON.stringify(res, null, 2));
     } else {
@@ -532,12 +986,51 @@ function main() {
       if (res.integrityError) {
         console.error(`Integrity Error: ${res.integrityError}`);
       }
+      if (evidenceSummary) {
+        console.log(`Evidence Extension (.chmevidence): ${evidenceSummary.status.toUpperCase()} (${evidenceSummary.evidenceBytesLength} bytes)`);
+        if (evidenceSummary.artworkMetadata?.title) {
+          console.log(`Extended Title: ${evidenceSummary.artworkMetadata.title}`);
+        }
+        if (evidenceSummary.artworkMetadata?.artistName) {
+          console.log(`Extended Artist: ${evidenceSummary.artworkMetadata.artistName}`);
+        }
+        if (evidenceSummary.creatorProfile?.website) {
+          console.log(`Creator Website (self-declared): ${evidenceSummary.creatorProfile.website}`);
+        }
+        if (evidenceSummary.creationMethod) {
+          console.log(`Creation Method: ${evidenceSummary.creationMethod} (declared by creator; not independently proved)`);
+        }
+        if (evidenceSummary.creationEnvironment) {
+          const envParts = [
+            evidenceSummary.creationEnvironment.software && `software=${evidenceSummary.creationEnvironment.software}`,
+            evidenceSummary.creationEnvironment.hardware && `hardware=${evidenceSummary.creationEnvironment.hardware}`,
+            evidenceSummary.creationEnvironment.inputDevice && `input=${evidenceSummary.creationEnvironment.inputDevice}`,
+          ].filter(Boolean);
+          if (envParts.length > 0) {
+            console.log(`Creation Environment (declared): ${envParts.join(', ')}`);
+          }
+        }
+        if (evidenceSummary.recordChecks.length > 0) {
+          console.log(`Evidence Records: ${evidenceSummary.verifiedRecordCount} verified, ${evidenceSummary.unavailableRecordCount} unavailable`);
+        }
+        for (const w of evidenceSummary.warnings) {
+          console.error(`Evidence Warning: ${w}`);
+        }
+        for (const e of evidenceSummary.errors) {
+          console.error(`Evidence Error: ${e}`);
+        }
+      }
     }
-    process.exit(res.signatureValid && res.integrityStatus !== 'mismatched' ? 0 : 1);
+
+    const primaryOk = res.signatureValid && res.integrityStatus !== 'mismatched';
+    const evidenceOk =
+      !evidenceSummary ||
+      (evidenceSummary.status === 'valid' && evidenceSummary.mismatchedSuppliedFiles.length === 0);
+    process.exit(primaryOk && evidenceOk ? 0 : 1);
   } catch (err) {
     console.error(`VERIFICATION FAILED: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
 }
 
-main();
+await main();

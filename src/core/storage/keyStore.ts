@@ -12,9 +12,10 @@ import type { EncryptedKeyBackup } from '../crypto/keyBackup';
 import { base64UrlEncode } from '../crypto/sha256';
 import { verifyKeyNoticeInput } from '../manifest/keyNotice';
 import type { KeyNoticeReason, KeyNoticeType, VerifiedKeyNoticeResult } from '../manifest/keyNotice';
+import type { CreatorProfileLink } from '../manifest/types';
 
 export const CHM_DB_NAME = 'certified-handmade-store';
-export const CHM_DB_VERSION = 3;
+export const CHM_DB_VERSION = 4;
 export const STORE_AUTHOR_KEYS = 'authorKeys';
 export const STORE_TRUSTED_KEYS = 'trustedKeys';
 export const STORE_KEY_NOTICES = 'keyNotices';
@@ -23,6 +24,15 @@ export const STORE_PAIRING_SESSIONS = 'pairingSessions';
 export const STORE_USED_PAIRING_NONCES = 'usedPairingNonces';
 export const STORE_PAIRED_DEVICES = 'pairedDevices';
 export const STORE_DEVICE_REVOCATIONS = 'deviceRevocations';
+export const STORE_CREATOR_PROFILES = 'creatorProfiles';
+
+export interface CreatorProfileDefaultsRecord {
+  id: 'default';
+  displayName?: string;
+  website?: string;
+  links?: CreatorProfileLink[];
+  updatedAt: string;
+}
 
 export interface AuthorKeyRecord {
   id: string;
@@ -109,6 +119,9 @@ export function openChmDatabase(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_DEVICE_REVOCATIONS)) {
         db.createObjectStore(STORE_DEVICE_REVOCATIONS, { keyPath: 'key' });
+      }
+      if (!db.objectStoreNames.contains(STORE_CREATOR_PROFILES)) {
+        db.createObjectStore(STORE_CREATOR_PROFILES, { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -460,4 +473,43 @@ export async function findKeyNoticesByPublicKey(
 
 export async function deleteKeyNotice(id: string): Promise<void> {
   await withChmStore(STORE_KEY_NOTICES, 'readwrite', (s) => s.delete(id));
+}
+
+export async function saveCreatorProfileDefaults(params: {
+  displayName?: string;
+  website?: string;
+  links?: CreatorProfileLink[];
+}): Promise<CreatorProfileDefaultsRecord> {
+  const record: CreatorProfileDefaultsRecord = {
+    id: 'default',
+    displayName: params.displayName?.trim() || undefined,
+    website: params.website?.trim() || undefined,
+    links: params.links?.filter((l) => l.url.trim().length > 0).map((l) => ({
+      url: l.url.trim(),
+      ...(l.label?.trim() ? { label: l.label.trim() } : {}),
+    })),
+    updatedAt: new Date().toISOString(),
+  };
+  await withChmStore(STORE_CREATOR_PROFILES, 'readwrite', (s) => s.put(record));
+  return record;
+}
+
+export async function loadCreatorProfileDefaults(): Promise<CreatorProfileDefaultsRecord | undefined> {
+  try {
+    return await withChmStore<CreatorProfileDefaultsRecord | undefined>(
+      STORE_CREATOR_PROFILES,
+      'readonly',
+      (s) => s.get('default'),
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+export async function clearCreatorProfileDefaults(): Promise<void> {
+  try {
+    await withChmStore(STORE_CREATOR_PROFILES, 'readwrite', (s) => s.delete('default'));
+  } catch {
+    // Ignore when IndexedDB unavailable
+  }
 }

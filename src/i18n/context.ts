@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { SupportedLocale } from '../core/storage/consent';
+import type { ArtworkDetailsTranslations } from './artworkDetails';
 import type { DevicePairingTranslations } from './devicePairing';
 import type { Translations } from './en';
 import type { HardeningTranslations } from './hardening';
@@ -23,6 +24,7 @@ export type FullTranslations = Translations & {
   minimal: MinimalUiTranslations;
   hardening: HardeningTranslations;
   devices: DevicePairingTranslations;
+  artworkDetails: ArtworkDetailsTranslations;
 };
 
 export interface LocaleOption {
