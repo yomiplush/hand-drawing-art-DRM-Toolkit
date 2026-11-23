@@ -8,6 +8,7 @@ import { I18nContext, LOCALE_OPTIONS } from './context';
 import type { FullTranslations, Locale } from './context';
 import { en } from './en';
 import type { Translations } from './en';
+import { HARDENING_I18N } from './hardening';
 import { HOWTO_I18N } from './howto';
 import { ja } from './ja';
 import { LICENSE_I18N } from './licenses';
@@ -101,6 +102,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     verifyMobile: VERIFY_MOBILE_I18N[locale] ?? VERIFY_MOBILE_I18N.en,
     seo: SEO_I18N[locale] ?? SEO_I18N.en,
     minimal: MINIMAL_UI_I18N[locale] ?? MINIMAL_UI_I18N.en,
+    hardening: HARDENING_I18N[locale] ?? HARDENING_I18N.en,
   };
 
   return (

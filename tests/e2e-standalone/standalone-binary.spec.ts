@@ -218,6 +218,9 @@ test.describe('Standalone Linux Binary Offline E2E & HTTP Hardening', () => {
     await expect(page.getByTestId('verify-qr-mask-notice')).toBeVisible();
 
     await page.getByTestId('verify-trust-label-input').fill('Standalone Local Artist');
+    await expect(page.getByTestId('verify-trust-btn')).toBeDisabled();
+    await page.getByTestId('verify-trust-confirm-checkbox').check();
+    await expect(page.getByTestId('verify-trust-btn')).toBeEnabled();
     await page.getByTestId('verify-trust-btn').click();
     await expect(page.getByTestId('status-identity')).toContainText(
       'Trusted (Standalone Local Artist)',

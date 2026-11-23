@@ -1,6 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Move } from 'lucide-react';
-import { overlayQrIntoArtwork } from '../core/image/inImageQr';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, CheckCircle2, Eye, Move, Sparkles } from 'lucide-react';
+import {
+  computeMaskCoverageStats,
+  overlayQrIntoArtwork,
+  recommendInImageBoxSize,
+} from '../core/image/inImageQr';
 import type { ClampedInImageQrOptions, InImageQrStyle } from '../core/image/inImageQr';
 import type { CanonicalRaster } from '../core/image/pngCodec';
 import { decodeQrFromCanonicalRaster } from '../core/qr/qrDecoder';
@@ -35,6 +39,7 @@ export interface InImageQrStudioPanelProps {
   estimatedProofTokenChars?: number;
   onChangeX: (x: number) => void;
   onChangeY: (y: number) => void;
+  onChangeBoxSize?: (size: number) => void;
 }
 
 export function InImageQrStudioPanel({
@@ -45,9 +50,12 @@ export function InImageQrStudioPanel({
   estimatedProofTokenChars = 310,
   onChangeX,
   onChangeY,
+  onChangeBoxSize,
 }: InImageQrStudioPanelProps) {
   const { t } = useI18n();
   const [isScannable, setIsScannable] = useState<boolean>(true);
+  const [highlightMask, setHighlightMask] = useState<boolean>(false);
+  const [optimizedHintVisible, setOptimizedHintVisible] = useState<boolean>(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -60,6 +68,33 @@ export function InImageQrStudioPanel({
   const cleanBase = (verifyBaseUrl || DEFAULT_VERIFY_BASE_URL).replace(/#.*$/, '');
   const tokenLen = Math.max(260, Math.min(2800, Math.round(estimatedProofTokenChars)));
   const samplePreviewText = `${cleanBase}#proof=${'A'.repeat(tokenLen)}`;
+
+  const previewQrMatrix = useMemo(
+    () => generateQrMatrix(samplePreviewText, eccLevel),
+    [samplePreviewText, eccLevel],
+  );
+
+  const coverageStats = useMemo(
+    () =>
+      computeMaskCoverageStats(artworkRaster.width, artworkRaster.height, [
+        clampedOptions.x,
+        clampedOptions.y,
+        clampedOptions.boxSize,
+        clampedOptions.boxSize,
+      ]),
+    [artworkRaster.width, artworkRaster.height, clampedOptions.x, clampedOptions.y, clampedOptions.boxSize],
+  );
+
+  const recommendedBoxSize = useMemo(
+    () =>
+      recommendInImageBoxSize({
+        artWidth: artworkRaster.width,
+        artHeight: artworkRaster.height,
+        qrModules: previewQrMatrix.size,
+        quietZoneModules: clampedOptions.quietZoneModules,
+      }),
+    [artworkRaster.width, artworkRaster.height, previewQrMatrix.size, clampedOptions.quietZoneModules],
+  );
 
   useEffect(() => {
     if (typeof document === 'undefined') {
@@ -85,7 +120,6 @@ export function InImageQrStudioPanel({
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    const previewQrMatrix = generateQrMatrix(samplePreviewText, eccLevel);
     const { width: artW, height: artH } = artworkRaster;
     const scale = Math.min(1, MAX_PREVIEW_DIM / Math.max(artW, artH));
     const dispW = Math.max(1, Math.round(artW * scale));
@@ -147,10 +181,18 @@ export function InImageQrStudioPanel({
     const gy = Math.round(clampedOptions.y * scale) + 0.5;
     const gs = Math.max(8, Math.round(clampedOptions.boxSize * scale) - 1);
     ctx.save();
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.95)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 4]);
-    ctx.strokeRect(gx, gy, gs, gs);
+    if (highlightMask) {
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.28)';
+      ctx.fillRect(gx, gy, gs, gs);
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.98)';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(gx, gy, gs, gs);
+    } else {
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.95)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(gx, gy, gs, gs);
+    }
     ctx.restore();
 
     const timer = window.setTimeout(() => {
@@ -159,7 +201,7 @@ export function InImageQrStudioPanel({
     }, 90);
 
     return () => window.clearTimeout(timer);
-  }, [artworkRaster, clampedOptions, eccLevel, samplePreviewText]);
+  }, [artworkRaster, clampedOptions, highlightMask, previewQrMatrix, samplePreviewText]);
 
   const applyPreset = (
     preset: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight' | 'center',
@@ -255,6 +297,20 @@ export function InImageQrStudioPanel({
     }
   };
 
+  const coverageTone =
+    coverageStats.tier === 'high'
+      ? 'border-rose-400/45 bg-rose-500/15 text-rose-200'
+      : coverageStats.tier === 'caution'
+        ? 'border-amber-400/45 bg-amber-500/15 text-amber-200'
+        : 'border-sky-400/35 bg-sky-500/10 text-sky-200';
+
+  const coverageTierLabel =
+    coverageStats.tier === 'high'
+      ? t.hardening.qrMaskSafety.tierHigh
+      : coverageStats.tier === 'caution'
+        ? t.hardening.qrMaskSafety.tierCaution
+        : t.hardening.qrMaskSafety.tierOk;
+
   return (
     <div
       data-testid="qrstudio-panel"
@@ -266,22 +322,53 @@ export function InImageQrStudioPanel({
           <span>{t.qrStudio.previewTitle}</span>
         </div>
 
-        <div
-          data-testid="qrstudio-readability-badge"
-          className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
-            isScannable
-              ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200'
-              : 'border-amber-400/45 bg-amber-500/15 text-amber-200'
-          }`}
-        >
-          {isScannable ? (
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300 shrink-0" aria-hidden="true" />
-          ) : (
-            <AlertTriangle className="h-3.5 w-3.5 text-amber-300 shrink-0" aria-hidden="true" />
-          )}
-          <span>{isScannable ? t.qrStudio.readabilityOk : t.qrStudio.readabilityWarn}</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <div
+            data-testid="qrstudio-coverage-badge"
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${coverageTone}`}
+          >
+            <span>
+              {t.hardening.qrMaskSafety.coverageLabel}: {coverageStats.coveragePct}%
+            </span>
+            <span className="opacity-80">· {coverageTierLabel}</span>
+          </div>
+
+          <div
+            data-testid="qrstudio-readability-badge"
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
+              isScannable
+                ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200'
+                : 'border-amber-400/45 bg-amber-500/15 text-amber-200'
+            }`}
+          >
+            {isScannable ? (
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300 shrink-0" aria-hidden="true" />
+            ) : (
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-300 shrink-0" aria-hidden="true" />
+            )}
+            <span>{isScannable ? t.qrStudio.readabilityOk : t.qrStudio.readabilityWarn}</span>
+          </div>
         </div>
       </div>
+
+      {coverageStats.tier !== 'ok' && (
+        <div
+          role="note"
+          data-testid="qrstudio-coverage-warning"
+          className={`rounded-lg border px-3 py-2 text-xs leading-relaxed flex items-start gap-2 ${
+            coverageStats.tier === 'high'
+              ? 'border-rose-400/40 bg-rose-500/10 text-rose-100'
+              : 'border-amber-400/40 bg-amber-500/10 text-amber-100'
+          }`}
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+          <span>
+            {coverageStats.tier === 'high'
+              ? t.hardening.qrMaskSafety.warnHigh
+              : t.hardening.qrMaskSafety.warnCaution}
+          </span>
+        </div>
+      )}
 
       <div className="flex flex-col items-center justify-center rounded-xl border border-white/[0.08] bg-[#020813]/85 p-3">
         <canvas
@@ -296,8 +383,42 @@ export function InImageQrStudioPanel({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs text-slate-400">{t.qrStudio.presetsLabel}</span>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            aria-pressed={highlightMask}
+            data-testid="qrstudio-highlight-mask-toggle"
+            onClick={() => setHighlightMask((prev) => !prev)}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors min-h-[40px] cursor-pointer ${
+              highlightMask
+                ? 'border-amber-400/60 bg-amber-500/20 text-amber-100'
+                : 'border-white/[0.14] bg-[#030b18]/75 text-slate-200 hover:border-sky-400/50'
+            }`}
+          >
+            <Eye className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>{t.hardening.qrMaskSafety.highlightToggle}</span>
+          </button>
+
+          {onChangeBoxSize && (
+            <button
+              type="button"
+              data-testid="qrstudio-optimize-size-btn"
+              onClick={() => {
+                onChangeBoxSize(recommendedBoxSize);
+                setOptimizedHintVisible(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/40 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-100 hover:bg-sky-500/25 min-h-[40px] cursor-pointer"
+            >
+              <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>
+                {t.hardening.qrMaskSafety.optimizeSizeBtn} ({recommendedBoxSize}px)
+              </span>
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-slate-400 me-1">{t.qrStudio.presetsLabel}</span>
           {(
             [
               ['topLeft', t.qrStudio.presets.topLeft],
@@ -312,13 +433,19 @@ export function InImageQrStudioPanel({
               type="button"
               onClick={() => applyPreset(presetKey)}
               data-testid={`qrstudio-preset-${presetKey}`}
-              className="rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-sky-400/50 hover:text-white transition-colors min-h-[38px] cursor-pointer"
+              className="rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-sky-400/50 hover:text-white transition-colors min-h-[40px] cursor-pointer"
             >
               {label}
             </button>
           ))}
         </div>
       </div>
+
+      {optimizedHintVisible && (
+        <p role="status" className="text-[11px] text-sky-300">
+          {t.hardening.qrMaskSafety.appliedHint} ({recommendedBoxSize} × {recommendedBoxSize} px)
+        </p>
+      )}
     </div>
   );
 }

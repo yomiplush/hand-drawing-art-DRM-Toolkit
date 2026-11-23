@@ -91,7 +91,7 @@ export const en = {
       {
         name: 'IndexedDB (certified-handmade-store)',
         category: 'Strictly Necessary on User Action (Art. 6(1)(b))',
-        purpose: 'Stores your local Ed25519 key handles and your personal Locally Trusted Keys list.',
+        purpose: 'Stores your local Ed25519 key handles, Locally Trusted Keys list, and imported revocation/rotation notices (keyNotices).',
         retention: 'Until deleted by user or browser eviction',
       },
       {
@@ -178,7 +178,7 @@ export const en = {
     goToKeys: 'Go to Identity / Keys',
     selectKeyLabel: 'Signing Key',
     passphrasePrompt: 'Passphrase required to unlock encrypted key',
-    quickPassLabel: 'Backup Encryption Passphrase (min 8 chars — strongly recommended)',
+    quickPassLabel: 'Backup Encryption Passphrase (min 8 chars; 12+ recommended)',
     quickPassPlaceholder: 'Enter 8+ chars to enable .chkey.json encrypted backup',
     quickBackupReadyTitle: 'Save Your Encrypted Key Backup (.chkey.json)',
     quickBackupReadyBody:
@@ -310,7 +310,7 @@ export const en = {
     generateTitle: 'Generate New Ed25519 Keypair',
     keyLabelInput: 'Key Label',
     keyLabelPlaceholder: 'e.g., Studio Main Key 2026',
-    backupPassInput: 'Backup Encryption Passphrase (min 8 chars, strongly recommended)',
+    backupPassInput: 'Backup Encryption Passphrase (min 8 chars; 12+ recommended)',
     backupPassPlaceholder: 'Enter a strong passphrase to encrypt your backup',
     generateBtn: 'Generate Keypair',
     backupReadyTitle: 'Download Encrypted Private Key Backup',
@@ -362,7 +362,7 @@ export const en = {
       },
       {
         title: '3. Security Model & Honest Limits',
-        body: '1) Signature validity does not equal real-world identity unless you verified the public key out-of-band and saved it to Locally Trusted Keys. 2) Issued timestamps are self-declared unless paired with an external timestamping service. 3) A completed image alone cannot mathematically prove human hand-drawing; AI-training preferences are non-binding declarations.',
+        body: 'Certified Handmade provides Cryptographic Artwork Provenance—not copy-prevention DRM. 1) Signature validity does not equal real-world identity or legal copyright ownership unless verified out-of-band. 2) Issued timestamps are self-declared without an external TSA. 3) Cryptography alone cannot prove an artwork was hand-drawn or free of AI; AI-training opt-out flags are declarative signals, not technical blocks.',
       },
       {
         title: '4. Offline PWA & Standalone Edition',

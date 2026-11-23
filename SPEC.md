@@ -253,3 +253,89 @@ Any standalone script or tool (Python, Rust, Go, Node.js) can verify a signed PN
   `82c2fa87fb210ee446c84250cd19e580691e5dd90cafce66e6778b6c4a20cbd969f51800f74d695931eb9642da1a8e0e6038d07d5bf0bfe5d01849e5f1677e03`
 - **Proof Token (`#proof=...`):**
   `gwJYlakBUP7cuph2VEMhgSNFZ4mrze8CWCDXWpgBgrEKt9VL_tPJZAc6DuFy89qmIyWvAhpo9wdRGgNYIL4T1EuxOwqo0mye468j4PtYPeqalKJhFPOd7lqlJZjzBIQAABgYGBgFGmsC6NIGhAACAgIHaVlvbWlQbHVzaAh1VGVzdCBWZWN0b3IgdjIgTWFza2VkCYQCAhUVWECCwvqH-yEO5EbIQlDNGeWAaR5d2Qyvzmbmd4tsSiDL2Wn1GAD3TWlZMeuWQtoajg5gONB9W_C_5dAYSeXxZ34D`
+
+---
+
+## 10. Offline Key Revocation & Rotation Notices (`CHM-NOTICE1\0`)
+
+Certified Handmade allows artists to publish offline-verifiable key revocation and key rotation notices without introducing any central certificate authority (CA) or online Certificate Revocation List (CRL) server.
+
+### 10.1 Notice Payload Map (`payloadBytes`)
+
+Encoded as deterministic RFC 8949 CBOR map with integer keys sorted ascending:
+
+| Key | Name | CBOR Type | Constraints |
+| --- | --- | --- | --- |
+| `1` | `noticeId` | `bstr` (16 bytes) | Random RFC 4122 UUIDv4 bytes |
+| `2` | `noticeType` | `uint` | `1` = `revocation`, `2` = `rotation` |
+| `3` | `subjectPublicKey` | `bstr` (32 bytes) | Ed25519 public key being revoked or rotated |
+| `4` | `replacementPublicKey` | `bstr` (32 bytes, optional) | **Required** for `rotation` (`2`), MUST differ from `subjectPublicKey`; **forbidden** for `revocation` (`1`) |
+| `5` | `noticeIssuedAt` | `uint` | Self-declared Unix epoch seconds |
+| `6` | `reason` | `uint` | `1` = `key-compromise`, `2` = `key-superseded`, `3` = `retired`, `4` = `other` |
+| `7` | `note` | `tstr` (optional) | Max `160` UTF-8 bytes, no ASCII control chars (`<0x20` or `0x7f`) |
+
+### 10.2 Domain-Separated Signing Input & Envelope
+
+```
+noticeSigningMessage = 0x43 0x48 0x4D 0x2D 0x4E 0x4F 0x54 0x49 0x43 0x45 0x31 0x00 || payloadBytes
+                       ("C"  "H"  "M"  "-"  "N"  "O"  "T"  "I"  "C"  "E"  "1"  "\0")
+```
+
+- **Revocation Notice (`noticeType == 1`):**
+  `noticeEnvelope = [ 1, payloadBytes, subjectSignature ]` (3-element CBOR array; signed by `subjectPublicKey`).
+- **Rotation Notice (`noticeType == 2`):**
+  `noticeEnvelope = [ 1, payloadBytes, subjectSignature, replacementSignature ]` (4-element CBOR array; **dual-signed** by both `subjectPublicKey` and `replacementPublicKey` over identical `noticeSigningMessage`).
+- Maximum encoded notice envelope size: `2048` bytes (`MAX_NOTICE_BYTES`).
+- Transport representations: `chm-notice:<unpadded base64url(noticeBytes)>` token or portable `.chnotice.json` (`format: "certified-handmade-key-notice"`, `version: 1`).
+
+### 10.3 Verification & Honest Semantics
+
+1. Offline verifiers MUST validate canonical CBOR encoding and verify both signatures cleanly for `rotation` notices (or `subjectSignature` for `revocation`).
+2. **`noticeIssuedAt` vs `verifiedAt`:** Verifiers MUST treat `noticeIssuedAt` as self-declared and distinguish it from local inspection time (`verifiedAt`).
+3. **Leaked-Key Limitation:** If a private key was leaked, an attacker holding that seed can sign arbitrary revocation notices or backdated artwork manifests (`CHM1\0`). Verifiers MUST warn users to confirm key status and replacements out-of-band.
+4. **Absence of Local Notices:** Without a central CRL, finding zero matching notices in local storage MUST be reported only as *no local notice found on this device* — NEVER as "Not Revoked".
+5. **Historical Proof Independence:** Importing a revocation or rotation notice MUST NEVER rewrite past certificates' mathematical `Signature Valid` / `Artwork Integrity` evaluation; the local notice warning is surfaced separately alongside historical cryptographic results.
+
+---
+
+## 11. Offline Key-Possession Challenge-Response (`CHM-CHALLENGE1\0`)
+
+To let two parties test offline whether someone currently possesses the private key corresponding to a known Ed25519 public key:
+
+### 11.1 Challenge Payload Map
+
+| Key | Name | CBOR Type | Constraints |
+| --- | --- | --- | --- |
+| `1` | `challengeId` | `bstr` (16 bytes) | Random RFC 4122 UUIDv4 bytes |
+| `2` | `targetPublicKey` | `bstr` (32 bytes) | Target Ed25519 public key |
+| `3` | `nonce` | `bstr` (32 bytes) | Random 32-byte fresh challenge nonce |
+| `4` | `issuedAt` | `uint` | Challenge generation Unix epoch seconds |
+| `5` | `note` | `tstr` (optional) | Max `96` UTF-8 bytes, no ASCII control chars |
+
+### 11.2 Envelopes & Signature Scope
+
+- **Challenge:** `chm-challenge:<base64url([ 1, payloadBytes ])>`
+- **Response:** `chm-response:<base64url([ 1, payloadBytes, signature64 ])>` where:
+  ```
+  challengeSigningMessage = "CHM-CHALLENGE1\0" || payloadBytes
+  signature64             = Ed25519_Sign(targetPrivateKey, challengeSigningMessage)
+  ```
+- Maximum envelope size: `1024` bytes (`MAX_CHALLENGE_BYTES`).
+- Passing a challenge verification MUST match exact canonical `payloadBytes` (preserving `nonce`, `challengeId`, `targetPublicKey`, `issuedAt`, and `note`) and proves **private-key possession for that nonce only**. It does **not** prove real-world legal identity, copyright ownership, or that an artwork was created without AI.
+
+---
+
+## 12. Auxiliary Perceptual Similarity & Independent Offline CLI Verifiers
+
+### 12.1 Non-Cryptographic Perceptual Similarity (`dHash64` + `DCT pHash64`)
+
+- Strict `SHA-256` over `CAR-v1` canonical RGBA8 pixels remains the **only** cryptographic integrity mechanism in Certified Handmade.
+- Optional visual comparison helpers compute a 64-bit difference hash (`dHash64`, `9×8` grayscale box downsample) and 64-bit 2D-DCT perceptual hash (`pHash64`, `32×32` grayscale downsample) strictly locally to assist artists comparing recompressed social-media copies against a reference image.
+- Implementations MUST label perceptual comparisons explicitly as **non-cryptographic auxiliary hints** (`isCryptographic: false`) and NEVER use them to mark `Artwork Integrity` as `Matched`.
+
+### 12.2 Independent Offline CLI Verifiers
+
+To prevent single-implementation lock-in and support long-term auditability, the repository provides two standalone offline CLI verifiers importing **zero modules from `src/`**:
+
+- **Go CLI (`tools/chm-verify/`):** Standard-library-only Go binary verifying `#proof=`, `.chproof.json`, lossless PNG `CAR-v1` `v1`/`v2` integrity (including `qrMask`), and `.chnotice.json` / `chm-notice:` tokens.
+- **Node.js CLI (`tools/chm-verify.mjs`):** Minimal Node.js verifier supporting PNG embedded-QR extraction, `--proof`, `--artwork`, `--notice`, and `--json`.

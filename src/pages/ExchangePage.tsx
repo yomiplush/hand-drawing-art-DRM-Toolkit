@@ -1,11 +1,13 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { KeyRound } from 'lucide-react';
+import { AlertTriangle, KeyRound, ShieldCheck } from 'lucide-react';
 import { ChmExchangeView } from '@yomiplush/chm-exchange/react';
 import type { ChmExchangeTheme, ExchangeTab } from '@yomiplush/chm-exchange/react';
 import '@yomiplush/chm-exchange/styles.css';
 import { HelpIconButton } from '../components/ui/HelpIconButton';
 import { createCertifiedHandmadeExchangeAdapter } from '../core/exchange/hostAdapter';
+import { listKeyNotices } from '../core/storage/keyStore';
+import type { StoredKeyNoticeRecord } from '../core/storage/keyStore';
 import { useI18n } from '../i18n/context';
 
 const HOST_EXCHANGE_THEME: ChmExchangeTheme = {
@@ -27,6 +29,17 @@ export function ExchangePage() {
   const { locale, t } = useI18n();
   const [searchParams] = useSearchParams();
   const adapter = useMemo(() => createCertifiedHandmadeExchangeAdapter(), []);
+  const [notices, setNotices] = useState<StoredKeyNoticeRecord[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    listKeyNotices().then((list) => {
+      if (active) setNotices(list);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const initialIdentityId = searchParams.get('identity') ?? undefined;
   const initialInspectInput = searchParams.get('inspect') ?? undefined;
@@ -58,6 +71,44 @@ export function ExchangePage() {
           <p>{t.minimal.exchange.helpBody}</p>
         </HelpIconButton>
       </header>
+
+      <div className="rounded-xl border border-sky-400/25 bg-sky-500/5 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-200">
+        <div className="flex items-start gap-2.5 leading-relaxed">
+          <ShieldCheck className="h-4 w-4 text-sky-300 shrink-0 mt-0.5" aria-hidden="true" />
+          <span>{t.hardening.trust.outOfBandNote}</span>
+        </div>
+        <Link
+          to="/keys"
+          className="text-xs font-medium text-sky-300 hover:text-sky-200 underline underline-offset-4 shrink-0"
+        >
+          {t.hardening.notices.sectionTitle}
+        </Link>
+      </div>
+
+      {notices.length > 0 && (
+        <div
+          role="note"
+          data-testid="exchange-notices-alert"
+          className="rounded-xl border border-amber-400/35 bg-amber-500/10 px-4 py-3 flex items-start gap-2.5 text-xs text-amber-100"
+        >
+          <AlertTriangle className="h-4 w-4 text-amber-300 shrink-0 mt-0.5" aria-hidden="true" />
+          <div className="space-y-1">
+            <div className="font-semibold">
+              {t.hardening.notices.listTitle}: {notices.length}
+            </div>
+            <div className="flex flex-wrap gap-2 font-mono text-[11px]">
+              {notices.slice(0, 4).map((n) => (
+                <span key={n.id} className="rounded bg-black/30 px-2 py-0.5">
+                  {n.noticeType === 'revocation'
+                    ? t.hardening.notices.revokeBadge
+                    : t.hardening.notices.rotateBadge}
+                  : {n.subjectFingerprintShort}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <ChmExchangeView
         adapter={adapter}

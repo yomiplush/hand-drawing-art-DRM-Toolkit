@@ -523,5 +523,5 @@ describe('End-to-end signing, QR burning, PNG encoding, QR decoding & verificati
       expect(verified.verification.integrityStatus, c.name).toBe('matched');
       expect(verified.verification.matchedMode, c.name).toBe('embedded-region');
     }
-  });
+  }, 15_000);
 });

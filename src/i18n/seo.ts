@@ -29,35 +29,35 @@ export interface SeoTranslations {
 export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
   en: {
     home: {
-      title: 'Certified Handmade — Hand-Drawing Artist Local DRM, Encryption & Offline Provenance',
+      title: 'Certified Handmade — Cryptographic Artwork Provenance & Offline QR Certificates',
       description:
-        'Open-source, 100% local-first & standalone DRM toolkit for hand-drawing artists. Sign lossless PNG artwork with Ed25519, SHA-256 & AES-256-GCM encryption, embed verification QR codes, and verify offline without servers.',
+        'Open-source, 100% local-first & standalone Cryptographic Artwork Provenance toolkit for artists. Sign lossless PNG artwork with Ed25519, SHA-256 tamper detection & AES-256-GCM key backups—no copy-protection lock-in, no servers.',
       keywords:
         'Hand-drawing Artist, Hand-drawn Art DRM, DRM, Encryption, Local-First, Standalone, Offline PWA, Ed25519, SHA-256, AES-256-GCM, Cryptographic Art Provenance, QR Artwork Verification',
     },
     create: {
-      title: 'Create Hand-Drawn Art DRM Certificate & Encrypted PNG QR | Certified Handmade',
+      title: 'Create Cryptographic Artwork Provenance Certificate & PNG QR | Certified Handmade',
       description:
         'Sign your hand-drawn artwork locally with Ed25519 cryptographic signatures and SHA-256 pixel hashing. Export lossless PNGs with an outer QR frame or encrypted key proof—zero server upload.',
       keywords:
         'Create Art Certificate, Hand-drawn Art DRM, Ed25519 Signing, Lossless PNG QR, Local Encryption, Standalone Art Provenance',
     },
     createStudio: {
-      title: 'Manual In-Image QR Studio — Translucent PNG DRM Overlay | Certified Handmade',
+      title: 'Manual In-Image QR Studio — Translucent PNG Provenance Overlay | Certified Handmade',
       description:
         'Place, resize, rotate, and blend translucent cryptographic DRM QR codes directly inside your illustration canvas with real-time scannability checks and masked pixel integrity.',
       keywords:
         'In-Image QR Studio, Translucent QR Code Art, Hand-drawing DRM, Standalone PNG Signer, Masked Pixel Integrity',
     },
     verify: {
-      title: 'Verify Hand-Drawn Artwork, Ed25519 Signature & QR Proof | Certified Handmade',
+      title: 'Verify Artwork Provenance, Ed25519 Signature & QR Proof | Certified Handmade',
       description:
         'Verify Ed25519 artwork signatures, SHA-256 canonical pixel integrity, #proof= URL fragments, and locally trusted artist keys 100% locally offline via PNG upload, camera QR, or clipboard.',
       keywords:
         'Verify Artwork DRM, QR Proof Verifier, Ed25519 Signature Check, SHA-256 Pixel Integrity, Offline Verification',
     },
     tutorial: {
-      title: 'Step-by-Step Guide to Local Hand-Drawing Art DRM | Certified Handmade',
+      title: 'Step-by-Step Guide to Cryptographic Artwork Provenance | Certified Handmade',
       description:
         'Beginner-friendly standalone guide: generate an encrypted Ed25519 signing key, embed a verification QR into your hand-drawn PNG, and choose ARR or Creative Commons licenses.',
       keywords:
@@ -78,7 +78,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
         'Ed25519 Artist Key, AES-256-GCM Key Backup, Local Key Management, Standalone Cryptography, PBKDF2-SHA256',
     },
     docs: {
-      title: 'Cryptographic Architecture, SPEC & License Docs | Certified Handmade',
+      title: 'Cryptographic Architecture, SPEC & Offline Verifier Docs | Certified Handmade',
       description:
         'Technical reference for Certified Handmade: RFC 8949 CBOR proof schema, RGBA8 canonical SHA-256 digests, Protocol v1/v2 QR masks, AES-256-GCM backups, and license definitions.',
       keywords:
@@ -91,13 +91,13 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       keywords:
         'Privacy Policy, GDPR Compliance, Zero Telemetry, Local-Only Web App, Offline Privacy',
     },
-    homeFaqTitle: 'Frequently Asked Questions — Standalone Local Art DRM',
+    homeFaqTitle: 'Frequently Asked Questions — Cryptographic Artwork Provenance',
     homeFaqSubtitle:
       'Clear answers for hand-drawing artists looking for serverless encryption, offline provenance, and long-term proof.',
     homeFaqs: [
       {
-        q: 'What is Local Hand-Drawing Art DRM and how is it different from cloud platforms?',
-        a: 'Certified Handmade is a standalone, local-first DRM and cryptographic provenance toolkit. Instead of locking your illustrations inside a vendor cloud, database, or blockchain, it binds your Ed25519 digital signature, copyright license, and SHA-256 canonical pixel hash directly into a lossless PNG and scannable QR code on your own device.',
+        q: 'What is Cryptographic Artwork Provenance and how does Certified Handmade differ from copy-protection DRM?',
+        a: 'Certified Handmade is a standalone, local-first Cryptographic Artwork Provenance and tamper-detection toolkit—not copy-prevention DRM. It binds an Ed25519 signature, license claim, and SHA-256 canonical pixel hash directly into a lossless PNG and scannable QR code on your own device without cloud databases or blockchains.',
       },
       {
         q: 'Does it really run 100% locally and standalone offline without any server upload?',
@@ -119,7 +119,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
   },
   ja: {
     home: {
-      title: 'Certified Handmade — 手描きアーティスト向け 完全ローカル駆動・スタンドアローン手描きDRM＆暗号署名',
+      title: 'Certified Handmade — 手描きアーティスト向け 完全ローカル暗号来歴証明＆QR証明書（手描きDRM）',
       description:
         '手描きアーティストのためのオープンソース・完全ローカル駆動・スタンドアローン手描きDRMツール。サーバー送信ゼロでEd25519電子署名・SHA-256ピクセルハッシュ・AES-256-GCM暗号化バックアップを作成し、PNGへのQRコード埋め込みとオフライン検証を実現。',
       keywords:

@@ -192,8 +192,12 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.locator('[data-testid="verify-manifest-details"] > button').click();
     await expect(page.getByTestId('verify-manifest-details')).toContainText('Moonlight E2E');
 
-    // Trust this key locally from /verify
+    // Trust this key locally from /verify (requires explicit out-of-band confirmation checkbox)
+    await expect(page.getByTestId('verify-no-local-notice-note')).toBeVisible();
+    await expect(page.getByTestId('verify-trust-btn')).toBeDisabled();
     await page.getByTestId('verify-trust-label-input').fill('YomiPlush Official');
+    await page.getByTestId('verify-trust-confirm-checkbox').check();
+    await expect(page.getByTestId('verify-trust-btn')).toBeEnabled();
     await page.getByTestId('verify-trust-btn').click();
     await expect(page.getByTestId('status-identity')).toContainText('Trusted (YomiPlush Official)');
 
@@ -248,7 +252,7 @@ test.describe('Certified Handmade E2E suite', () => {
 
     // Home SEO metadata
     await page.goto('/');
-    await expect(page).toHaveTitle(/Hand-Drawing Artist Local DRM/);
+    await expect(page).toHaveTitle(/Cryptographic Artwork Provenance/);
     await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute(
       'href',
       'https://certified-handmade.com/',
@@ -264,7 +268,7 @@ test.describe('Certified Handmade E2E suite', () => {
     // Dynamic head tags update cleanly across SPA routes
     await page.goto('/create');
     await expect(page).toHaveURL(/\/create$/);
-    await expect(page).toHaveTitle(/Create Hand-Drawn Art DRM Certificate/);
+    await expect(page).toHaveTitle(/Create Cryptographic Artwork Provenance Certificate/);
     await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute(
       'href',
       'https://certified-handmade.com/create',
@@ -275,14 +279,14 @@ test.describe('Certified Handmade E2E suite', () => {
     await expect(page).toHaveTitle(/Manual In-Image QR Studio/);
 
     await page.goto('/verify');
-    await expect(page).toHaveTitle(/Verify Hand-Drawn Artwork/);
+    await expect(page).toHaveTitle(/Verify Artwork Provenance/);
     await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute(
       'href',
       'https://certified-handmade.com/verify',
     );
 
     await page.goto('/docs');
-    await expect(page).toHaveTitle(/Cryptographic Architecture, SPEC & License Docs/);
+    await expect(page).toHaveTitle(/Cryptographic Architecture, SPEC & Offline Verifier Docs/);
     await expect(page.getByTestId('docs-standalone-section')).toBeVisible();
     await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute(
       'href',
@@ -375,6 +379,10 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.getByTestId('create-image-input').setInputFiles(artPath);
     await expect(page.getByTestId('qrstudio-preview-canvas')).toBeVisible();
 
+    await expect(page.getByTestId('qrstudio-coverage-badge')).toBeVisible();
+    await page.getByTestId('qrstudio-highlight-mask-toggle').click();
+    await expect(page.getByTestId('qrstudio-highlight-mask-toggle')).toHaveAttribute('aria-pressed', 'true');
+    await page.getByTestId('qrstudio-optimize-size-btn').click();
     await page.getByTestId('qrstudio-preset-topLeft').click();
     await page.locator('[data-testid="create-qr-advanced"] > button').click();
     await page.getByTestId('qrstudio-opacity-slider').fill('75');
@@ -667,6 +675,101 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.getByTestId('verify-attach-artwork-input').setInputFiles(artPath);
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
     await context.setOffline(false);
+  });
+
+
+  test('out-of-band trust state, offline revocation notices, and key-possession challenge-response', async ({
+    page,
+  }, testInfo) => {
+    await page.goto('/');
+    await page.getByTestId('cookie-reject-btn').click();
+
+    // Generate key on /keys and verify passphrase strength indicator
+    await page.goto('/keys');
+    await page.getByTestId('keygen-label').fill('Hardening Artist Key');
+    await page.getByTestId('keygen-passphrase').fill('short');
+    await expect(page.getByTestId('keygen-passphrase-strength')).toContainText('Too short');
+    await page.getByTestId('keygen-passphrase').fill('very-strong-artist-passphrase-2026');
+    await expect(page.getByTestId('keygen-passphrase-strength')).toContainText('Strong');
+    await page.getByTestId('keygen-submit').click();
+    await expect(page.getByTestId('author-key-card')).toHaveCount(1);
+
+    // Offline Key-Possession Challenge-Response roundtrip
+    const pubLine = await page
+      .getByTestId('author-key-card')
+      .first()
+      .getByText(/^Ed25519 PK:/)
+      .innerText();
+    const pubB64 = pubLine.replace(/^Ed25519 PK:\s*/, '').trim();
+    await page.locator('[data-testid="keys-challenge-panel"] > button').click();
+    await page.getByTestId('challenge-target-input').fill(pubB64.trim());
+    await page.getByTestId('challenge-create-btn').click();
+    const challengeToken = await page.getByTestId('challenge-token-output').inputValue();
+    expect(challengeToken.startsWith('chm-challenge:')).toBe(true);
+
+    await page.getByTestId('challenge-sign-input').fill(challengeToken);
+    await page.getByTestId('challenge-sign-btn').click();
+    const responseToken = await page.getByTestId('challenge-response-output').inputValue();
+    expect(responseToken.startsWith('chm-response:')).toBe(true);
+
+    await page.getByTestId('challenge-verify-challenge-input').fill(challengeToken);
+    await page.getByTestId('challenge-verify-response-input').fill(responseToken);
+    await page.getByTestId('challenge-verify-btn').click();
+    await expect(page.getByTestId('challenge-verify-result')).toContainText(
+      'Key possession verified offline',
+    );
+
+    // Create signed PNG artwork first
+    const artPath = testInfo.outputPath('notice-art.png');
+    fs.writeFileSync(artPath, buildTestArtworkPng(120, 90));
+    await page.goto('/create');
+    await page.getByTestId('create-image-input').setInputFiles(artPath);
+    const dlPromise = page.waitForEvent('download');
+    await page.getByTestId('create-sign-button').click();
+    const dl = await dlPromise;
+    const signedPath = testInfo.outputPath('notice-signed.png');
+    await dl.saveAs(signedPath);
+
+    // Save key as Unconfirmed Only on /verify, confirm still Unknown until confirmed
+    await page.goto('/verify');
+    await page.getByTestId('verify-image-input').setInputFiles(signedPath);
+    await expect(page.getByTestId('verify-no-local-notice-note')).toBeVisible();
+    await page.getByTestId('verify-trust-unconfirmed-btn').click();
+    await expect(page.getByTestId('status-identity')).toContainText('Unverified');
+    await expect(page.getByTestId('verify-unconfirmed-trust-card')).toBeVisible();
+
+    // Now confirm fingerprint out-of-band on /verify
+    await page.getByTestId('verify-trust-confirm-checkbox').check();
+    await page.getByTestId('verify-confirm-now-btn').click();
+    await expect(page.getByTestId('status-identity')).toContainText('Trusted');
+
+    // Create & import an offline revocation notice on /keys
+    await page.goto('/keys');
+    await page.locator('[data-testid="keys-notices-panel"] > button').click();
+    await page.getByTestId('notice-type-select').selectOption('revocation');
+    await page.getByTestId('notice-reason-select').selectOption('retired');
+    await page.getByTestId('notice-create-btn').click();
+    const noticeToken = (
+      await page
+        .getByTestId('keys-notices-panel')
+        .getByText(/^chm-notice:/)
+        .innerText()
+    ).trim();
+    expect(noticeToken.startsWith('chm-notice:')).toBe(true);
+
+    await page.getByTestId('notice-import-input').fill(noticeToken);
+    await page.getByTestId('notice-import-btn').click();
+    await expect(page.getByTestId('stored-notice-item')).toHaveCount(1);
+
+    // Re-verify historical signed PNG: signature & pixel integrity remain valid while local notice banner warns
+    await page.goto('/verify');
+    await page.getByTestId('verify-image-input').setInputFiles(signedPath);
+    await expect(page.getByTestId('status-signature')).toContainText('Valid');
+    await expect(page.getByTestId('status-integrity')).toContainText('Matched');
+    await expect(page.getByTestId('verify-key-notice-banner')).toBeVisible();
+    await expect(page.getByTestId('verify-key-notice-banner')).toContainText(
+      'Local Revocation Notice Found',
+    );
   });
 
   test('respects prefers-reduced-motion cleanly', async ({ browser }) => {

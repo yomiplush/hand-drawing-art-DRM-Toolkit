@@ -1,15 +1,18 @@
 import React, { useCallback, useEffect, useId, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
+  AlertTriangle,
   Camera,
   CheckCircle2,
   ChevronDown,
   ClipboardPaste,
+  Eye,
   FileImage,
   Info,
   Link2,
   Loader2,
   Share2,
+  ShieldAlert,
 } from 'lucide-react';
 import { ImageDropzone } from '../components/ImageDropzone';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
@@ -18,10 +21,15 @@ import { StatusDimensionsGrid } from '../components/StatusBadge';
 import { AdvancedSettings } from '../components/ui/AdvancedSettings';
 import { HelpIconButton } from '../components/ui/HelpIconButton';
 import { base64UrlEncode, bytesToHex } from '../core/crypto/sha256';
+import {
+  comparePerceptualHashes,
+  computePerceptualHashes,
+} from '../core/image/perceptualHash';
+import type { PerceptualComparisonResult } from '../core/image/perceptualHash';
 import { decodeImageFileToCanonicalRgba8 } from '../core/image/pngCodec';
 import type { CanonicalRaster } from '../core/image/pngCodec';
 import type { PolicySignal, VerificationResult } from '../core/manifest/types';
-import { addTrustedKey } from '../core/storage/keyStore';
+import { addTrustedKey, confirmTrustedKey } from '../core/storage/keyStore';
 import { verifyImageWithEmbeddedQr, verifyProofAndArtwork } from '../core/verify/verifier';
 import { useI18n } from '../i18n/context';
 
@@ -78,12 +86,19 @@ export function VerifyCertificatePage() {
   const [pasteFeedback, setPasteFeedback] = useState<string | null>(null);
 
   const [trustLabelInput, setTrustLabelInput] = useState('');
+  const [trustConfirmChecked, setTrustConfirmChecked] = useState(false);
   const [trustSavedMsg, setTrustSavedMsg] = useState<string | null>(null);
+
+  const [simComparisonName, setSimComparisonName] = useState<string | null>(null);
+  const [simComparisonResult, setSimComparisonResult] =
+    useState<PerceptualComparisonResult | null>(null);
+  const [simComparisonError, setSimComparisonError] = useState<string | null>(null);
 
   const runProofVerify = useCallback(
     async (rawProof: string, raster: CanonicalRaster | null) => {
       setErrorMsg(null);
       setTrustSavedMsg(null);
+      setTrustConfirmChecked(false);
       setActiveProofRaw(rawProof);
       setVerifyingProof(true);
       try {
@@ -142,6 +157,10 @@ export function VerifyCertificatePage() {
     setQrInfoNote(null);
     setPasteFeedback(null);
     setTrustSavedMsg(null);
+    setTrustConfirmChecked(false);
+    setSimComparisonName(null);
+    setSimComparisonResult(null);
+    setSimComparisonError(null);
     setLaunchedWithHashProof(false);
     setCameraAutoVerified(false);
     try {
@@ -170,6 +189,9 @@ export function VerifyCertificatePage() {
         const { raster } = await decodeImageFileToCanonicalRgba8(rawBytes);
         setAttachedRaster(raster);
         setAttachedFileName(file.name);
+        setSimComparisonName(null);
+        setSimComparisonResult(null);
+        setSimComparisonError(null);
         if (activeProofRaw) {
           await runProofVerify(activeProofRaw, raster);
         }
@@ -363,6 +385,28 @@ export function VerifyCertificatePage() {
 
   const handleTrustThisKey = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!result?.manifest || !trustConfirmChecked) return;
+    const pubB64 = base64UrlEncode(result.manifest.publicKey);
+    const label =
+      trustLabelInput.trim() ||
+      result.manifest.authorName ||
+      result.publicKeyFingerprintShort ||
+      'Artist';
+    await addTrustedKey({
+      publicKeyInput: pubB64,
+      label,
+      note: 'Confirmed out-of-band from verification screen',
+      verificationState: 'confirmed',
+    });
+    setTrustLabelInput('');
+    setTrustConfirmChecked(false);
+    setTrustSavedMsg(label);
+    if (activeProofRaw) {
+      await runProofVerify(activeProofRaw, attachedRaster);
+    }
+  };
+
+  const handleSaveUnconfirmedKey = async () => {
     if (!result?.manifest) return;
     const pubB64 = base64UrlEncode(result.manifest.publicKey);
     const label =
@@ -373,12 +417,51 @@ export function VerifyCertificatePage() {
     await addTrustedKey({
       publicKeyInput: pubB64,
       label,
-      note: 'Added from verification screen',
+      note: 'Saved unconfirmed from verification screen',
+      verificationState: 'unconfirmed',
     });
     setTrustLabelInput('');
+    setTrustConfirmChecked(false);
+    if (activeProofRaw) {
+      await runProofVerify(activeProofRaw, attachedRaster);
+    }
+  };
+
+  const handleConfirmUnconfirmedKey = async () => {
+    if (!result?.manifest || !trustConfirmChecked) return;
+    const pubB64 = base64UrlEncode(result.manifest.publicKey);
+    await confirmTrustedKey(pubB64);
+    const label =
+      result.trustedKeyLabel ||
+      result.manifest.authorName ||
+      result.publicKeyFingerprintShort ||
+      'Artist';
+    setTrustConfirmChecked(false);
     setTrustSavedMsg(label);
     if (activeProofRaw) {
       await runProofVerify(activeProofRaw, attachedRaster);
+    }
+  };
+
+  const handleSimilarityCompareFile = async (file: File) => {
+    setSimComparisonError(null);
+    if (!attachedRaster) {
+      setSimComparisonError(t.hardening.similarity.noBaseline);
+      return;
+    }
+    try {
+      const rawBytes = new Uint8Array(await file.arrayBuffer());
+      const { raster: candidateRaster } = await decodeImageFileToCanonicalRgba8(rawBytes);
+      const refHashes = computePerceptualHashes(attachedRaster);
+      const candHashes = computePerceptualHashes(candidateRaster);
+      const comparison = comparePerceptualHashes(refHashes, candHashes);
+      setSimComparisonName(file.name);
+      setSimComparisonResult(comparison);
+    } catch (err) {
+      setSimComparisonResult(null);
+      setSimComparisonError(
+        err instanceof Error ? err.message : 'Failed to compare images visually',
+      );
     }
   };
 
@@ -628,8 +711,75 @@ export function VerifyCertificatePage() {
         integrityStatus={result.integrityStatus}
         identityStatus={result.identityStatus}
         trustedKeyLabel={result.trustedKeyLabel}
+        trustedKeyUnconfirmed={result.trustedKeyUnconfirmed}
         matchedMode={result.matchedMode}
       />
+
+      {result.manifest &&
+        (result.keyNoticeStatus === 'revocation-notice' ||
+          result.keyNoticeStatus === 'rotation-notice') && (
+          <div
+            role="alert"
+            data-testid="verify-key-notice-banner"
+            className="rounded-xl border border-amber-400/45 bg-amber-500/15 p-4 space-y-2.5 text-xs sm:text-sm text-amber-100"
+          >
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="h-5 w-5 text-amber-300 shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="space-y-1">
+                <p className="font-semibold text-amber-200">
+                  {result.keyNoticeStatus === 'revocation-notice'
+                    ? t.hardening.notices.localMatchBannerRevoked
+                    : t.hardening.notices.localMatchBannerRotated}
+                </p>
+                <p className="text-xs text-amber-100/90 leading-relaxed">
+                  {t.hardening.notices.historicalValidNote}
+                </p>
+              </div>
+            </div>
+            {(result.keyNotices ?? []).map((notice) => (
+              <div
+                key={notice.id}
+                className="rounded-lg border border-amber-300/25 bg-[#030b18]/65 p-3 space-y-1 text-xs"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-amber-200">
+                    {notice.noticeType === 'revocation'
+                      ? t.hardening.notices.revokeBadge
+                      : t.hardening.notices.rotateBadge}
+                  </span>
+                  <span className="font-mono text-slate-300">
+                    {t.hardening.notices.reasons[notice.reason]}
+                  </span>
+                  {notice.replacementFingerprintShort && (
+                    <span className="font-mono text-sky-200">
+                      → {notice.replacementFingerprintShort}
+                    </span>
+                  )}
+                </div>
+                <div className="font-mono text-[11px] text-slate-300">
+                  {t.hardening.notices.issuedAtLabel}:{' '}
+                  {new Date(notice.noticeIssuedAt * 1000).toISOString()}
+                </div>
+                {notice.note && <p className="text-slate-200 break-words">{notice.note}</p>}
+              </div>
+            ))}
+            <p className="text-[11px] text-amber-200/85 leading-relaxed">
+              {t.hardening.notices.compromiseWarning}
+            </p>
+          </div>
+        )}
+
+      {result.manifest &&
+        (!result.keyNoticeStatus || result.keyNoticeStatus === 'none-local') && (
+          <div
+            role="note"
+            data-testid="verify-no-local-notice-note"
+            className="rounded-xl border border-white/[0.1] bg-[#030b18]/60 p-3 flex items-start gap-2.5 text-xs text-slate-300"
+          >
+            <Info className="h-4 w-4 text-sky-300 shrink-0 mt-0.5" aria-hidden="true" />
+            <span>{t.hardening.notices.noneLocalInfo}</span>
+          </div>
+        )}
 
       {result.errors.length > 0 && (
         <div
@@ -730,15 +880,78 @@ export function VerifyCertificatePage() {
             </div>
           </div>
 
-          {result.signatureStatus === 'valid' && result.identityStatus === 'unknown' && (
-            <form
-              onSubmit={handleTrustThisKey}
-              className="rounded-xl border border-white/[0.1] bg-[#030b18]/65 p-4 space-y-3"
-            >
-              <p className="text-xs sm:text-sm font-medium text-slate-200">
-                {t.verify.trustKeyPrompt}
-              </p>
-              <div className="flex flex-col sm:flex-row gap-2">
+          {result.signatureStatus === 'valid' &&
+            result.identityStatus === 'unknown' &&
+            result.trustedKeyUnconfirmed && (
+              <div
+                data-testid="verify-unconfirmed-trust-card"
+                className="rounded-xl border border-amber-400/35 bg-amber-500/10 p-4 space-y-3"
+              >
+                <div className="flex items-start gap-2.5">
+                  <ShieldAlert
+                    className="h-4 w-4 text-amber-300 shrink-0 mt-0.5"
+                    aria-hidden="true"
+                  />
+                  <div className="space-y-1 text-xs">
+                    <p className="font-semibold text-amber-200">
+                      {t.hardening.trust.unconfirmedBadge}
+                    </p>
+                    <p className="text-slate-200 leading-relaxed">
+                      {t.hardening.trust.unconfirmedHelp}
+                    </p>
+                  </div>
+                </div>
+                {result.publicKeyFingerprintHex && (
+                  <div
+                    data-testid="verify-trust-fingerprint-hex"
+                    className="rounded-lg border border-white/[0.1] bg-[#030b18]/80 px-3 py-2 font-mono text-[11px] text-sky-200 break-all"
+                  >
+                    {result.publicKeyFingerprintHex}
+                  </div>
+                )}
+                <label className="flex items-start gap-2.5 text-xs text-slate-200 cursor-pointer min-h-[44px] py-1">
+                  <input
+                    type="checkbox"
+                    checked={trustConfirmChecked}
+                    onChange={(e) => setTrustConfirmChecked(e.target.checked)}
+                    data-testid="verify-trust-confirm-checkbox"
+                    className="mt-0.5 h-4 w-4 rounded accent-emerald-400 shrink-0"
+                  />
+                  <span>{t.hardening.trust.confirmCheckbox}</span>
+                </label>
+                <button
+                  type="button"
+                  disabled={!trustConfirmChecked}
+                  onClick={() => void handleConfirmUnconfirmedKey()}
+                  data-testid="verify-confirm-now-btn"
+                  className="rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-4 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-45 disabled:cursor-not-allowed min-h-[44px] cursor-pointer"
+                >
+                  {t.hardening.trust.confirmNowBtn}
+                </button>
+              </div>
+            )}
+
+          {result.signatureStatus === 'valid' &&
+            result.identityStatus === 'unknown' &&
+            !result.trustedKeyUnconfirmed && (
+              <form
+                onSubmit={handleTrustThisKey}
+                className="rounded-xl border border-white/[0.1] bg-[#030b18]/65 p-4 space-y-3"
+              >
+                <p className="text-xs sm:text-sm font-medium text-slate-200">
+                  {t.verify.trustKeyPrompt}
+                </p>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  {t.hardening.trust.outOfBandNote}
+                </p>
+                {result.publicKeyFingerprintHex && (
+                  <div
+                    data-testid="verify-trust-fingerprint-hex"
+                    className="rounded-lg border border-white/[0.1] bg-[#030b18] px-3 py-2 font-mono text-[11px] text-sky-200 break-all"
+                  >
+                    {result.publicKeyFingerprintHex}
+                  </div>
+                )}
                 <input
                   type="text"
                   value={trustLabelInput}
@@ -746,18 +959,38 @@ export function VerifyCertificatePage() {
                   placeholder={t.verify.trustKeyLabelInput}
                   maxLength={64}
                   data-testid="verify-trust-label-input"
-                  className="flex-1 rounded-lg border border-white/[0.14] bg-[#030b18] px-3 py-2 text-sm text-white min-h-[44px]"
+                  className="w-full rounded-lg border border-white/[0.14] bg-[#030b18] px-3 py-2 text-sm text-white min-h-[44px]"
                 />
-                <button
-                  type="submit"
-                  data-testid="verify-trust-btn"
-                  className="rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-4 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/30 min-h-[44px] cursor-pointer"
-                >
-                  {t.verify.trustKeyBtn}
-                </button>
-              </div>
-            </form>
-          )}
+                <label className="flex items-start gap-2.5 text-xs text-slate-200 cursor-pointer min-h-[44px] py-1">
+                  <input
+                    type="checkbox"
+                    checked={trustConfirmChecked}
+                    onChange={(e) => setTrustConfirmChecked(e.target.checked)}
+                    data-testid="verify-trust-confirm-checkbox"
+                    className="mt-0.5 h-4 w-4 rounded accent-emerald-400 shrink-0"
+                  />
+                  <span>{t.hardening.trust.confirmCheckbox}</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="submit"
+                    disabled={!trustConfirmChecked}
+                    data-testid="verify-trust-btn"
+                    className="rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-4 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-45 disabled:cursor-not-allowed min-h-[44px] cursor-pointer"
+                  >
+                    {t.verify.trustKeyBtn}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveUnconfirmedKey()}
+                    data-testid="verify-trust-unconfirmed-btn"
+                    className="rounded-lg border border-white/[0.16] bg-[#030b18]/80 px-4 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
+                  >
+                    {t.hardening.trust.saveUnconfirmedBtn}
+                  </button>
+                </div>
+              </form>
+            )}
 
           {trustSavedMsg && (
             <p role="status" className="text-xs text-emerald-300">
@@ -790,7 +1023,25 @@ export function VerifyCertificatePage() {
             <p className="text-sky-100/90 leading-relaxed">{t.verify.qrMaskNoticeBody}</p>
             <p className="font-mono text-xs text-sky-200">
               qrMask: [{result.manifest.qrMask.join(', ')}]
+              {result.qrMaskCoveragePct != null && (
+                <span data-testid="verify-qrmask-coverage" className="ms-2">
+                  · {t.hardening.qrMaskSafety.coverageLabel}: {result.qrMaskCoveragePct}%
+                </span>
+              )}
             </p>
+            {(result.qrMaskCoverageTier === 'caution' || result.qrMaskCoverageTier === 'high') && (
+              <p
+                role="alert"
+                data-testid="verify-qrmask-warning"
+                className={`text-xs font-medium mt-1 ${
+                  result.qrMaskCoverageTier === 'high' ? 'text-rose-200' : 'text-amber-200'
+                }`}
+              >
+                {result.qrMaskCoverageTier === 'high'
+                  ? t.hardening.qrMaskSafety.warnHigh
+                  : t.hardening.qrMaskSafety.warnCaution}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -814,6 +1065,100 @@ export function VerifyCertificatePage() {
       )}
 
       <p className="text-xs text-slate-400 px-1">{t.verify.trustReminder}</p>
+
+      {attachedRaster && (
+        <AdvancedSettings
+          label={t.hardening.similarity.sectionTitle}
+          testId="verify-similarity-panel"
+        >
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                data-testid="verify-similarity-noncrypto-badge"
+                className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-500/15 px-3 py-1 text-[11px] font-semibold text-amber-200"
+              >
+                <Eye className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span>{t.hardening.similarity.badgeNonCrypto}</span>
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {t.hardening.similarity.subtitle}
+            </p>
+            <ImageDropzone
+              onFileSelected={handleSimilarityCompareFile}
+              title={t.hardening.similarity.dropTitle}
+              testId="verify-similarity-input"
+            />
+            {simComparisonError && (
+              <p role="alert" className="text-xs text-rose-300">
+                {simComparisonError}
+              </p>
+            )}
+            {simComparisonResult && (
+              <div
+                data-testid="verify-similarity-result"
+                className="rounded-xl border border-white/[0.12] bg-[#030b18]/75 p-4 space-y-2.5 text-xs"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium text-sky-200 truncate">{simComparisonName}</span>
+                  <span className="rounded bg-white/[0.08] px-2 py-0.5 font-semibold text-slate-100">
+                    {simComparisonResult.band === 'high'
+                      ? t.hardening.similarity.bandHigh
+                      : simComparisonResult.band === 'moderate'
+                        ? t.hardening.similarity.bandModerate
+                        : t.hardening.similarity.bandLow}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono">
+                  <div className="rounded-lg border border-white/[0.08] bg-[#020813]/80 p-2.5">
+                    <div className="text-[11px] text-slate-400">
+                      {t.hardening.similarity.combinedLabel}
+                    </div>
+                    <div className="text-sm font-semibold text-white mt-0.5">
+                      {simComparisonResult.combinedSimilarityPct}%
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-white/[0.08] bg-[#020813]/80 p-2.5">
+                    <div className="text-[11px] text-slate-400">
+                      {t.hardening.similarity.dHashLabel}
+                    </div>
+                    <div className="text-sm text-sky-200 mt-0.5">
+                      {simComparisonResult.dHashSimilarityPct}% (d={simComparisonResult.dHashHamming}
+                      )
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-white/[0.08] bg-[#020813]/80 p-2.5">
+                    <div className="text-[11px] text-slate-400">
+                      {t.hardening.similarity.pHashLabel}
+                    </div>
+                    <div className="text-sm text-sky-200 mt-0.5">
+                      {simComparisonResult.pHashSimilarityPct}% (d={simComparisonResult.pHashHamming}
+                      )
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    data-testid="verify-similarity-clear-btn"
+                    onClick={() => {
+                      setSimComparisonName(null);
+                      setSimComparisonResult(null);
+                      setSimComparisonError(null);
+                    }}
+                    className="rounded-lg border border-white/[0.14] px-3 py-1.5 text-xs text-slate-200 hover:border-white/[0.3] min-h-[36px] cursor-pointer"
+                  >
+                    {t.hardening.similarity.clearBtn}
+                  </button>
+                </div>
+              </div>
+            )}
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              {t.hardening.similarity.disclaimer}
+            </p>
+          </div>
+        </AdvancedSettings>
+      )}
 
       {result.manifest && (
         <AdvancedSettings

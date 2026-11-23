@@ -1,4 +1,5 @@
 import type { QrErrorCorrectionLevel, QrMatrix } from '../qr/qrGenerator';
+import type { ArtworkRegion } from '../manifest/types';
 import type { CanonicalRaster } from './pngCodec';
 
 export type InImageQrStyle = 'frosted-light' | 'frosted-dark' | 'modules-dark' | 'modules-light';
@@ -23,7 +24,75 @@ export interface ClampedInImageQrOptions {
   quietZoneModules: number;
 }
 
+export type QrMaskCoverageTier = 'ok' | 'caution' | 'high';
+
+export interface QrMaskCoverageStats {
+  maskPixels: number;
+  artworkPixels: number;
+  coverageRatio: number;
+  coveragePct: number;
+  tier: QrMaskCoverageTier;
+}
+
 const DEFAULT_QUIET_ZONE_MODULES = 1;
+
+export function computeMaskCoverageStats(
+  artWidth: number,
+  artHeight: number,
+  qrMask: ArtworkRegion,
+): QrMaskCoverageStats {
+  if (artWidth < 1 || artHeight < 1) {
+    return {
+      maskPixels: 0,
+      artworkPixels: 0,
+      coverageRatio: 0,
+      coveragePct: 0,
+      tier: 'ok',
+    };
+  }
+  const [, , mw, mh] = qrMask;
+  const safeMw = Math.max(0, Math.min(artWidth, mw));
+  const safeMh = Math.max(0, Math.min(artHeight, mh));
+  const maskPixels = safeMw * safeMh;
+  const artworkPixels = artWidth * artHeight;
+  const coverageRatio = Math.min(1, maskPixels / artworkPixels);
+  const coveragePct = Math.round(coverageRatio * 1000) / 10;
+
+  let tier: QrMaskCoverageTier = 'ok';
+  if (coveragePct > 30) {
+    tier = 'high';
+  } else if (coveragePct > 15) {
+    tier = 'caution';
+  }
+
+  return {
+    maskPixels,
+    artworkPixels,
+    coverageRatio,
+    coveragePct,
+    tier,
+  };
+}
+
+/**
+ * Computes a minimal, crisp integer-module-aligned square boxSize for an in-image QR code
+ * so it remains readable by decoders while covering as little of the artwork as practical.
+ */
+export function recommendInImageBoxSize(params: {
+  artWidth: number;
+  artHeight: number;
+  qrModules: number;
+  quietZoneModules?: number;
+}): number {
+  const { artWidth, artHeight, qrModules, quietZoneModules = DEFAULT_QUIET_ZONE_MODULES } = params;
+  const maxBox = Math.min(artWidth, artHeight);
+  const totalModules = Math.max(21, qrModules) + Math.max(0, quietZoneModules) * 2;
+  const minScannablePx = 76;
+  const pxPerModule = Math.max(2, Math.ceil(minScannablePx / totalModules));
+  const preferred = totalModules * pxPerModule;
+  const minClamp = Math.min(maxBox, 64);
+  return Math.max(minClamp, Math.min(maxBox, preferred));
+}
 
 export function clampInImageQrOptions(
   artWidth: number,

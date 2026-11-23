@@ -137,6 +137,19 @@ export interface SignedManifest extends UnsignedManifest {
 export type SignatureStatus = 'valid' | 'invalid' | 'unsupported';
 export type ArtworkIntegrityStatus = 'matched' | 'mismatched' | 'not-checked';
 export type AuthorIdentityStatus = 'locally-trusted' | 'unknown';
+export type LocalKeyNoticeStatus = 'none-local' | 'revocation-notice' | 'rotation-notice';
+
+export interface VerificationKeyNoticeSummary {
+  id: string;
+  noticeType: 'revocation' | 'rotation';
+  reason: 'key-compromise' | 'key-superseded' | 'retired' | 'other';
+  subjectFingerprintShort: string;
+  replacementFingerprintShort?: string;
+  replacementPublicKeyBase64Url?: string;
+  noticeIssuedAt: number;
+  verifiedAt: number;
+  note?: string;
+}
 
 export interface VerificationResult {
   protocolVersion: number | null;
@@ -147,6 +160,11 @@ export interface VerificationResult {
   publicKeyFingerprintHex: string | null;
   publicKeyFingerprintShort: string | null;
   trustedKeyLabel: string | null;
+  trustedKeyUnconfirmed?: boolean;
+  keyNoticeStatus?: LocalKeyNoticeStatus;
+  keyNotices?: VerificationKeyNoticeSummary[];
+  qrMaskCoveragePct?: number | null;
+  qrMaskCoverageTier?: 'ok' | 'caution' | 'high' | null;
   matchedMode: 'embedded-region' | 'full-artwork' | 'in-image-masked' | null;
   computedArtworkSha256Hex: string | null;
   proofBytesLength: number | null;

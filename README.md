@@ -2,7 +2,7 @@
 
 **Your Art. Your Rights. Your Freedom.**
 
-Certified Handmade is a 100% free, open-source, offline-first digital artwork provenance and rights-declaration toolkit. Artists can cryptographically sign illustrations locally with Ed25519, embed self-contained verification QR codes into lossless PNG margins (Protocol v1) or masked in-image overlays (Protocol v2), and run either the **Web / PWA Edition** (`certified-handmade.com`) or the **Portable Standalone Edition** (`127.0.0.1:43777` for Linux x86_64 and Windows x86_64) completely offline—including on first launch.
+Certified Handmade is a 100% free, open-source, offline-first **Cryptographic Artwork Provenance** and rights-declaration toolkit. Artists can cryptographically sign illustrations locally with Ed25519, embed self-contained verification QR codes into lossless PNG margins (Protocol v1) or masked in-image overlays (Protocol v2), and run either the **Web / PWA Edition** (`certified-handmade.com`), the **Portable Standalone Edition** (`127.0.0.1:43777` for Linux x86_64 and Windows x86_64), or the **Independent Offline CLIs** completely offline—including on first launch.
 
 - **Website:** https://certified-handmade.com/
 - **Repository:** https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit
@@ -16,10 +16,10 @@ Certified Handmade is a 100% free, open-source, offline-first digital artwork pr
 - **Zero Paid Infrastructure** (no paid APIs, no cloud DBs, no VPS, no telemetry)
 - **No NFTs, No Blockchain, No Cryptocurrency, No Crypto Wallets**
 - **No Accounts, No Subscriptions, No Paywalls, No Ads**
-- **No Central Authentication Server or Server File Uploads**
-- **Local First & Offline First** (PWA + Portable Standalone Binaries)
+- **No Central Authentication Server, No Central CRL, or Server File Uploads**
+- **Local First & Offline First** (PWA + Portable Standalone Binaries + Independent CLIs)
 
-All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding/decoding, QR burning, QR scanning, and verification run **100% locally on your device**.
+All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding/decoding, QR burning, QR scanning, visual similarity checks, notice verification, and challenge-response checks run **100% locally on your device**.
 
 ---
 
@@ -28,7 +28,8 @@ All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding
 | Edition | Target | Internet Required? | Storage Origin |
 | --- | --- | --- | --- |
 | **Web / PWA Edition** | Desktop, iPhone, iPad, Android browsers | First visit over HTTPS caches PWA; subsequent use works offline | `https://certified-handmade.com` |
-| **Standalone Edition** | **Linux x86_64** (CachyOS / Arch / Debian / Fedora) & **Windows x86_64** | **No** — works 100% offline from launch #1 (zero Node.js/Go install needed) | `http://127.0.0.1:43777` |
+| **Standalone Edition** | **Linux x86_64** & **Windows x86_64** | **No** — works 100% offline from launch #1 (zero Node.js/Go install needed) | `http://127.0.0.1:43777` |
+| **Independent CLI Verifiers** | `tools/chm-verify` (Go) & `tools/chm-verify.mjs` (Node.js) | **No** — stateless verification importing zero files from `src/` | CLI / JSON stdout |
 
 > **Moving keys between Web & Standalone:** Because browsers isolate IndexedDB storage per origin, export a passphrase-encrypted `.chkey.json` backup in **Identity / Keys** (`/keys`) or during quick key generation and restore it on the other edition.
 
@@ -36,30 +37,54 @@ All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding
 
 ## Features
 
-1. **Local Ed25519 Key Management (`/keys`)**
+1. **Decentralized Ed25519 Key Management, Trust & Challenges (`/keys`, `/exchange`)**
    - Generates Ed25519 keypairs inside the browser (non-extractable Web Crypto `CryptoKey` in IndexedDB where supported, with audited `@noble/ed25519` fallback).
-   - Passphrase-encrypted private key backups (`.chkey.json` using 600,000-iteration PBKDF2-SHA256 + AES-256-GCM), backup verification without modifying IndexedDB ("Verify Backup Only"), and safe restore flow.
-   - Public key export and a personal **Locally Trusted Keys** list (no central CA).
+   - Passphrase-encrypted private key backups (`.chkey.json` using 600,000-iteration PBKDF2-SHA256 + AES-256-GCM) with live passphrase strength feedback (`8+` required, `12+` recommended), non-mutating backup verification ("Verify Backup Only"), and restore flow.
+   - Displays copyable full 64-hex SHA-256 key fingerprints and scannable fingerprint QR codes, integrates with `@yomiplush/chm-exchange`, and requires explicit out-of-band fingerprint confirmation before promoting a received key to **Trusted** (`unconfirmed` vs `confirmed`).
+   - Supports offline **Key Revocation & Rotation Notices** (`CHM-NOTICE1\0`, `.chnotice.json` / `chm-notice:`)—single-signed for revocation and dual-signed (old + new key) for rotation—and **Offline Key-Possession Challenge-Response** (`CHM-CHALLENGE1\0`).
 2. **Certificate Creation, Outer QR Border (v1) & In-Image QR Studio (v2) (`/create`)**
    - Normalizes PNG (lossless via `fast-png`, preserving exact straight RGBA8 including `alpha = 0`), JPEG, and WebP inputs into Canonical Artwork Raster (`RGBA8`).
    - Encodes artwork SHA-256, region `[x, y, width, height]`, optional `qrMask` (v2), declared timestamp, license (`All Rights Reserved`, `CC0-1.0`, `CC BY / BY-SA / BY-NC / BY-NC-SA / BY-ND / BY-NC-ND 4.0`), and non-binding intent flags (including AI training preference) into deterministic RFC 8949 CBOR signed with Ed25519.
+   - Protocol v2 Studio displays live `qrMask` excluded-area percentage warnings (`>15%` caution, `>30%` high), an optional excluded-mask highlight overlay on the preview canvas, and a one-click **Optimize QR Size** helper.
    - Post-render QR readability self-check verifies every generated PNG before export, and optionally exports a `.chproof.json` portable proof bundle alongside the PNG.
-3. **Independent Offline Verification (`/verify`)**
+3. **Independent Offline Verification & SNS Visual Helper (`/verify`)**
    - Accepts `/verify#proof=...` URL fragments, pasted proof tokens, `.chproof.json` proof bundles, clipboard images, PWA Web Share Target handoffs, uploaded signed PNGs, or live local camera QR scanning (`getUserMedia`).
    - Never automatically fetches or navigates to remote URLs during verification.
-   - Displays **three independent statuses** without conflating them:
+   - Displays **three independent statuses** plus local notice status without conflating them:
      - **A. Cryptographic Signature:** `Valid` / `Invalid` / `Unsupported`
-     - **B. Artwork Integrity:** `Matched` / `Mismatched` / `Not Checked` (with Protocol v2 `qrMask` boundary warning)
-     - **C. Author Identity:** `Locally Trusted Key` / `Unknown / Unverified Key`
-4. **13-Language UI** & Responsive Touch-First Design.
+     - **B. Artwork Integrity:** `Matched` / `Mismatched` / `Not Checked` (with Protocol v2 `qrMask` excluded-area percentage & bounds)
+     - **C. Author Identity:** `Locally Trusted Key` / `Unknown / Unverified Key` (with `Unconfirmed` indicator until fingerprint confirmed)
+     - **D. Local Key Notice Check:** Surfaces locally imported revocation/rotation notices (without rewriting historical signature math), or clearly states when no local notice exists on this device (never falsely saying "Not Revoked").
+   - Includes a collapsible, strictly **non-cryptographic** `dHash64` + `DCT pHash64` helper to visually compare SNS-recompressed copies locally.
+4. **13-Language UI & Touch-First Accessibility** across desktop and mobile viewports.
+
+---
+
+## Independent Offline CLI Verifiers (`tools/`)
+
+To verify artworks, proofs, and key notices independently of the web app (`zero src/ imports`):
+
+```bash
+# Node.js CLI (verify embedded QR PNG, #proof= URL / .chproof.json, or .chnotice.json)
+node tools/chm-verify.mjs signed-artwork.png
+node tools/chm-verify.mjs --proof art.chproof.json --artwork original.png --json
+node tools/chm-verify.mjs --notice notice.chnotice.json
+
+# Go CLI (standard library only)
+cd tools/chm-verify
+go run . --proof /path/to/art.chproof.json --artwork /path/to/original.png --json
+go run . --notice /path/to/notice.chnotice.json
+```
 
 ---
 
 ## Important Limitations & Scope
 
-- **Signature ≠ Proof of Hand-Drawing:** A valid Ed25519 signature proves only that the holder of a keypair signed the manifest and (when checked) that the artwork pixels match. It cannot mathematically prove from a finished image alone that no AI tools were used.
-- **Self-Declared Timestamps:** Without an external timestamp authority, `issuedAt` reflects the local device clock declared by the signer.
-- **Browser Storage Volatility:** IndexedDB keys can be deleted by browser eviction or clearing site data. Always export and safely store an encrypted `.chkey.json` backup.
+- **Cryptographic Provenance, Not Copy-Protection DRM:** Certified Handmade creates tamper-evident signatures and machine-readable rights declarations; it does **not** encrypt artwork pixels, block screenshots, or technically enforce `aiTraining: disallow`.
+- **Signature ≠ Proof of Hand-Drawing or Legal Copyright:** A valid Ed25519 signature (or passing an offline key-possession challenge) proves only that the holder of that private key signed the data and (when checked) that pixels match the signed SHA-256 hash. It cannot prove by math alone that no AI tools were used or prove legal copyright ownership.
+- **Self-Declared Timestamps & Decentralized Notices:** Without a central server or TSA, `issuedAt` and `noticeIssuedAt` are self-declared, and verifiers only see `.chnotice.json` notices imported locally. If a private key leaks, anyone holding that seed can sign notices or backdated manifests.
+- **Perceptual Similarity Is Auxiliary Only:** `dHash`/`pHash` visual scores are non-cryptographic aids for resized/recompressed social images and never replace `SHA-256`.
+- **Browser Storage Volatility:** IndexedDB keys (`authorKeys`, `trustedKeys`, `keyNotices`) can be deleted by browser eviction or clearing site data. Always export and verify an encrypted `.chkey.json` backup.
 
 ---
 
@@ -68,7 +93,7 @@ All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding
 ### Prerequisites
 
 - **Web / Tests:** Node.js 20+ (tested on Node 26), npm 10+
-- **Standalone Launcher (for building binaries from source):** Go 1.22+ (tested on Go 1.27.4, zero third-party Go modules — standard library only)
+- **Standalone Launcher & Go CLI:** Go 1.22+ (zero third-party Go modules — standard library only)
 
 ### Commands
 
@@ -86,6 +111,9 @@ npm run lint
 # Run unit & integration tests (Vitest)
 npm test
 
+# Run Go independent CLI tests
+cd tools/chm-verify && go test -v ./...
+
 # Production web build (static files + PWA Service Worker in dist/)
 npm run build
 
@@ -99,17 +127,6 @@ npm run test:e2e
 npm run test:standalone
 ```
 
-### Standalone Launcher Security & CLI Flags
-
-The Go launcher (`standalone/`) compiles a zero-external-dependency executable embedding `dist/` via `embed.FS`:
-
-- Binds strictly to `127.0.0.1:43777` (loopback only, stable IndexedDB storage origin).
-- Validates HTTP `Host` headers (`403 Forbidden` against DNS rebinding).
-- Enforces read-only `GET`/`HEAD` (`405 Method Not Allowed`) and blocks traversal paths (`400 Bad Request`).
-- Never handles private keys or accepts state-changing HTTP endpoints.
-- Supports `--port <port>`, `--no-browser`, `--open-path <path>`, and `--version`.
-- On bind conflict, safely probes `/__chm_health`: reuses a verified running Certified Handmade instance or fails cleanly without silently shifting the storage origin.
-
 ---
 
 ## Cloudflare Pages & GitHub Releases Deployment
@@ -122,7 +139,7 @@ See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for:
 
 ## Documentation Index
 
-- [`SPEC.md`](./SPEC.md) — Canonical manifest schema (Protocol v1 & v2), deterministic RFC 8949 CBOR format, RGBA8 normalization, `qrMask` hashing, `.chproof.json` bundle schema, and normative v1/v2 test vectors.
-- [`SECURITY.md`](./SECURITY.md) — Threat model, key storage architecture, loopback HTTP hardening, verification semantics, CSP, and residual risks.
+- [`SPEC.md`](./SPEC.md) — Canonical manifest schema (Protocol v1 & v2), `CHM-NOTICE1` & `CHM-CHALLENGE1` specifications, perceptual/CLI boundaries, and normative v1/v2 test vectors.
+- [`SECURITY.md`](./SECURITY.md) — Threat model, out-of-band key trust, key storage architecture, revocation/backdating limits, loopback HTTP hardening, CSP, and residual risks.
 - [`DEPLOYMENT.md`](./DEPLOYMENT.md) — Cloudflare Pages setup, portable standalone build/release workflow, and self-hosting guide.
 - [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md) — Open-source dependencies and licenses.

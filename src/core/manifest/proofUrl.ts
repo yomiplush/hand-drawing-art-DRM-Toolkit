@@ -3,13 +3,20 @@ import { parsePortableProofBundle } from './proofBundle';
 import { DEFAULT_VERIFY_BASE_URL, MAX_PROOF_BYTES } from './types';
 
 const MAX_PROOF_TOKEN_CHARS = Math.ceil((MAX_PROOF_BYTES * 4) / 3) + 16;
+const MAX_PROOF_INPUT_CHARS = 32_768;
 
 export function sanitizeVerifyBaseUrl(rawUrl: string): string {
   const trimmed = rawUrl.trim();
   if (!trimmed) {
     return DEFAULT_VERIFY_BASE_URL;
   }
+  if (trimmed.length > 2048) {
+    throw new Error('Verification base URL exceeds maximum length');
+  }
   if (trimmed.startsWith('/')) {
+    if (trimmed.startsWith('//')) {
+      throw new Error('Verification base URL must not be a protocol-relative URL');
+    }
     return trimmed.split('#')[0].split('?')[0];
   }
   let parsed: URL;
@@ -17,6 +24,9 @@ export function sanitizeVerifyBaseUrl(rawUrl: string): string {
     parsed = new URL(trimmed);
   } catch {
     throw new Error('Verification base URL must be a valid URL');
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error('Verification base URL must not contain userinfo credentials');
   }
   const isLocalHttp =
     parsed.protocol === 'http:' &&
@@ -42,6 +52,9 @@ export function extractProofBytesFromInput(rawInput: string): Uint8Array {
   const trimmed = rawInput.trim();
   if (!trimmed) {
     throw new Error('Proof input is empty');
+  }
+  if (trimmed.length > MAX_PROOF_INPUT_CHARS) {
+    throw new Error('Proof input exceeds maximum allowed character length');
   }
 
   // Case 0: Portable Proof Bundle JSON (.chproof.json)
@@ -75,7 +88,12 @@ export function extractProofBytesFromInput(rawInput: string): Uint8Array {
       throw new Error('URL query does not contain a "proof" parameter');
     }
   } else if (trimmed.includes('%23proof%3D') || trimmed.includes('%23proof=')) {
-    const decoded = decodeURIComponent(trimmed);
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(trimmed);
+    } catch {
+      throw new Error('Malformed percent-encoded verification URL');
+    }
     const hashIdx = decoded.indexOf('#');
     const fragment = hashIdx >= 0 ? decoded.slice(hashIdx + 1) : decoded;
     const params = new URLSearchParams(fragment);
