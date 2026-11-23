@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { SupportedLocale } from '../core/storage/consent';
+import type { DevicePairingTranslations } from './devicePairing';
 import type { Translations } from './en';
 import type { HardeningTranslations } from './hardening';
 import type { HowToTranslations } from './howto';
@@ -21,6 +22,7 @@ export type FullTranslations = Translations & {
   seo: SeoTranslations;
   minimal: MinimalUiTranslations;
   hardening: HardeningTranslations;
+  devices: DevicePairingTranslations;
 };
 
 export interface LocaleOption {

@@ -64,6 +64,17 @@ const ROUTES = [
       'Generate Ed25519 signing keys exclusively on your device, verify out-of-band fingerprints, and export passphrase-encrypted .chkey.json backups.',
   },
   {
+    slug: 'devices',
+    title: 'CHM Secure Device Pairing — Offline Multi-Device Enrollment | Certified Handmade',
+    description:
+      'Pair your PC, smartphone, and tablet to your CHM Identity offline via a 2-step QR handshake with zero servers, non-extractable Ed25519 device keys, and signed revocation notices.',
+    keywords:
+      'CHM-DEVICE-PAIRING-v1, Secure Device Pairing, Offline QR Pairing, Ed25519 Device Identity, Device Revocation, デバイス連携, 登録済みデバイス',
+    heading: 'CHM Secure Device Pairing & Management',
+    summary:
+      'Link secondary devices to your CHM Identity offline via deterministic RFC 8949 CBOR QR handshakes, manage paired devices, and export signed backups or revocations.',
+  },
+  {
     slug: 'exchange',
     title: 'CHM Public-Key Exchange — Share & Verify Ed25519 Keys | Certified Handmade',
     description:
@@ -153,7 +164,7 @@ for (const route of ROUTES) {
   );
   html = html.replace(
     /<main[\s\S]*?<\/main>/,
-    `<main style="max-width:56rem;margin:0 auto;padding:2rem 1.25rem;font-family:system-ui,-apple-system,sans-serif;line-height:1.6;color:#e2e8f0"><h1>${escapeHtml(route.heading)}</h1><p>${escapeHtml(route.summary)}</p><nav aria-label="Primary pages"><a href="/">Home</a> · <a href="/create">Create</a> · <a href="/verify">Verify</a> · <a href="/tutorial">Tutorial</a> · <a href="/keys">Keys</a> · <a href="/exchange">Exchange</a> · <a href="/docs">Docs</a></nav></main>`,
+    `<main style="max-width:56rem;margin:0 auto;padding:2rem 1.25rem;font-family:system-ui,-apple-system,sans-serif;line-height:1.6;color:#e2e8f0"><h1>${escapeHtml(route.heading)}</h1><p>${escapeHtml(route.summary)}</p><nav aria-label="Primary pages"><a href="/">Home</a> · <a href="/create">Create</a> · <a href="/verify">Verify</a> · <a href="/tutorial">Tutorial</a> · <a href="/keys">Keys</a> · <a href="/devices">Devices</a> · <a href="/exchange">Exchange</a> · <a href="/docs">Docs</a></nav></main>`,
   );
 
   const outPath = path.join(distDir, `${route.slug}.html`);

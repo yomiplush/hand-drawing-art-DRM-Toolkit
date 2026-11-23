@@ -14,6 +14,7 @@ import {
   Share2,
   Shield,
   ShieldCheck,
+  Smartphone,
   WifiOff,
   X,
 } from 'lucide-react';
@@ -96,6 +97,7 @@ export function Layout({
 
   const secondaryItems = [
     { to: '/keys', label: t.minimal.nav.myKeysItem, icon: KeyRound, testId: 'menu-keys-link' },
+    { to: '/devices', label: t.devices.navItem, icon: Smartphone, testId: 'menu-devices-link' },
     {
       to: '/exchange',
       label: t.minimal.nav.keyExchangeItem,

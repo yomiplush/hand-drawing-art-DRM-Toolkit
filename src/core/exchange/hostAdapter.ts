@@ -6,10 +6,17 @@ import {
 import type {
   AddTrustedKeyRequest,
   ChmExchangeHostAdapter,
+  HostDeviceIdentity,
   HostSigningIdentity,
   HostTrustedKey,
+  PairedDeviceRegistryEntry,
   TrustStatusResult,
 } from '@yomiplush/chm-exchange/core';
+import {
+  getLocalDeviceIdentity,
+  loadDevicePairingState,
+  toPublicHostDeviceIdentity,
+} from '../storage/devicePairingStore';
 import {
   addTrustedKey as storeAddTrustedKey,
   findTrustedKeyByPublicKey,
@@ -94,6 +101,37 @@ export function createCertifiedHandmadeExchangeAdapter(): ChmExchangeHostAdapter
     async removeTrustedKey(publicKeyBase64Url: string): Promise<void> {
       const publicKey32 = decodeAndValidateEd25519PublicKey(publicKeyBase64Url);
       await storeRemoveTrustedKey(base64UrlEncode(publicKey32));
+    },
+
+    async getLocalDeviceIdentity(): Promise<HostDeviceIdentity | null> {
+      const { device } = await getLocalDeviceIdentity();
+      return device ? toPublicHostDeviceIdentity(device) : null;
+    },
+
+    async listPairedDevices(ownerFingerprintHex?: string): Promise<PairedDeviceRegistryEntry[]> {
+      const { pairedDevices } = await loadDevicePairingState();
+      const filtered = ownerFingerprintHex
+        ? pairedDevices.filter((d) => d.ownerFingerprintHex === ownerFingerprintHex)
+        : pairedDevices;
+      return filtered.map((d) => ({
+        ownerFingerprintHex: d.ownerFingerprintHex,
+        ownerFingerprintShort: d.ownerFingerprintShort,
+        ownerPublicKeyBase64Url: d.ownerPublicKeyBase64Url,
+        ownerDisplayName: d.ownerDisplayName,
+        deviceIdHex: d.deviceIdHex,
+        devicePublicKeyBase64Url: d.devicePublicKeyBase64Url,
+        deviceFingerprintHex: d.deviceFingerprintHex,
+        deviceFingerprintShort: d.deviceFingerprintShort,
+        deviceName: d.deviceName,
+        permissions: [...d.permissions],
+        issuedAt: d.issuedAt,
+        enrollmentToken: d.enrollmentToken,
+        revocationNoticeToken: d.revocationNoticeToken,
+        revokedAt: d.revokedAt,
+        revocationReason: d.revocationReason,
+        revocationSequence: d.revocationSequence,
+        localVerificationStatus: d.localVerificationStatus,
+      }));
     },
   };
 }

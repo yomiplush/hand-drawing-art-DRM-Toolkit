@@ -139,6 +139,26 @@ export function signWithSeed(seed32: Uint8Array, message: Uint8Array): Uint8Arra
   return ed25519.sign(message, seed32);
 }
 
+export function isValidStrictEd25519PublicKey(publicKey32: Uint8Array): boolean {
+  if (!(publicKey32 instanceof Uint8Array) || publicKey32.length !== 32) {
+    return false;
+  }
+  let allZero = true;
+  for (let i = 0; i < publicKey32.length; i++) {
+    if (publicKey32[i] !== 0) {
+      allZero = false;
+      break;
+    }
+  }
+  if (allZero) return false;
+  try {
+    const point = ed25519.Point.fromBytes(publicKey32);
+    return !point.isSmallOrder() && point.isTorsionFree();
+  } catch {
+    return false;
+  }
+}
+
 export async function verifyEd25519Signature(
   publicKey32: Uint8Array,
   message: Uint8Array,
@@ -147,9 +167,12 @@ export async function verifyEd25519Signature(
   if (publicKey32.length !== 32 || signature64.length !== 64) {
     return false;
   }
+  if (!isValidStrictEd25519PublicKey(publicKey32)) {
+    return false;
+  }
   try {
-    // Audited @noble/ed25519 verifies canonical R/S and rejects small-order/malleated signatures
-    const nobleOk = ed25519.verify(signature64, message, publicKey32);
+    // Enforce non-ZIP-215 canonical R/S and cofactor checks
+    const nobleOk = ed25519.verify(signature64, message, publicKey32, { zip215: false });
     if (!nobleOk) return false;
 
     // If Web Crypto Ed25519 is available, cross-verify for defense-in-depth

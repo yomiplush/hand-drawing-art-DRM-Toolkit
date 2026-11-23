@@ -6,6 +6,7 @@ import {
 } from '../core/storage/consent';
 import { I18nContext, LOCALE_OPTIONS } from './context';
 import type { FullTranslations, Locale } from './context';
+import { DEVICE_PAIRING_I18N } from './devicePairing';
 import { en } from './en';
 import type { Translations } from './en';
 import { HARDENING_I18N } from './hardening';
@@ -103,6 +104,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     seo: SEO_I18N[locale] ?? SEO_I18N.en,
     minimal: MINIMAL_UI_I18N[locale] ?? MINIMAL_UI_I18N.en,
     hardening: HARDENING_I18N[locale] ?? HARDENING_I18N.en,
+    devices: DEVICE_PAIRING_I18N[locale] ?? DEVICE_PAIRING_I18N.en,
   };
 
   return (

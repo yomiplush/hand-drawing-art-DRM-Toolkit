@@ -22,6 +22,8 @@ Certified Handmade is a **Cryptographic Artwork Provenance** and rights-declarat
 | **Artwork swap against valid QR** | Verifier explicitly separates **Signature Valid** from **Artwork Integrity (`Not Checked` / `Matched` / `Mismatched`)**. |
 | **Decompression bombs / OOM images** | Pre-flight `IHDR` parser checks PNG dimensions (`<= 8192 px` input / `<= 10240 px` output, `<= 32 MP`) and file size (`<= 50 MB`) before `IDAT` decompression. |
 | **XSS / injection via QR / URLs / JSON bundles** | Strict base64url validation (no `=`, exact roundtrip), URL rejection for embedded credentials (`user:pass@`), protocol-relative (`//`) paths, overly long inputs (`> 32 KB` / `> 2048 B` CBOR), control characters, and malformed JSON. No `eval`, `dangerouslySetInnerHTML`, or auto-navigation. |
+| **Pairing QR tampering, replay & privilege escalation** | `CHM-DEVICE-PAIRING-v1` uses strict RFC 8949 canonical CBOR, small-order/non-torsion-free Ed25519 curve checks (`zip215: false`), domain prefixes (`CHM-DEVICE-PAIRING-v1:{REQ,CERT,REVOKE,REGISTRY}\0`), `requestHash` cryptographic binding, persistent `requestId` + 256-bit `nonce` replay tracking independent of clock, explicit user approval dialogs, and strict `[\x27device-identity\x27]` permission allowlisting. |
+| **Stale registry rollback & auto-trust** | Unknown owners imported via enrollment QR remain `active-unverified-owner` until explicit out-of-band confirmation. Local device revocations (`deviceRevocations`) are monotonic and never rolled back when importing older signed `.chdevreg.json`/`.chdevreg.cbor` snapshots. |
 | **Plaintext private key leakage** | Plaintext private keys are never stored in `localStorage` or `IndexedDB` and are never exposed by the Standalone HTTP server. Active keys use non-extractable Web Crypto `CryptoKey` handles where supported; `.chkey.json` backups require >= 8 chars (12+ chars recommended with passphrase strength feedback) using PBKDF2-SHA256 (`600,000` iterations) + AES-256-GCM with AAD-bound public key. |
 | **Unsupported protocol downgrade** | Outer envelope version `notin {1, 2}` explicitly returns `Unsupported` rather than silently coercing unknown fields; v1 explicitly forbids key `9` (`qrMask`). |
 | **Standalone DNS rebinding / LAN exposure** | `standalone/server.go` binds strictly to `127.0.0.1` (`43777`), rejects non-loopback `Host` headers with `403 Forbidden`, enforces read-only `GET`/`HEAD` (`405`), blocks path traversal (`400`), and mirrors `public/_headers` security policies. |
@@ -50,6 +52,13 @@ Certified Handmade is a **Cryptographic Artwork Provenance** and rights-declarat
    - `IndexedDB` (`authorKeys`, `trustedKeys`, `keyNotices`) is not guaranteed permanent across site-data clearing, and Web (`certified-handmade.com`) vs Standalone (`127.0.0.1:43777`) have distinct origins. Always export and verify encrypted `.chkey.json` backups.
 7. **Non-Binding Policy Signals:**
    - Preferences such as `aiTraining: disallow` are machine-readable metadata declarations only; they do not technically block scraping or training and do not alter Creative Commons legal terms.
+
+---
+
+8. **Serverless Multi-Device Sync & Offline Revocation (`CHM-DEVICE-PAIRING-v1`):**
+   - Because Certified Handmade uses zero central servers, device enrollments and revocations do **not** synchronize automatically across browsers or devices.
+   - An offline device cannot prove a paired device has not been revoked elsewhere; share signed revocation QR/tokens or `.chdevreg.{json,cbor}` backups out-of-band.
+   - Compromised browser origins/extensions or malicious JavaScript (XSS) on a device holding a non-extractable `CryptoKey` can still invoke Web Crypto `sign()` during an active session (mitigated by strict CSP, input bounds, and explicit UI confirmation).
 
 ---
 

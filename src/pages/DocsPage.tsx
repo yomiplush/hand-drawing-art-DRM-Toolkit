@@ -1,4 +1,5 @@
-import { BookOpen, Compass, KeyRound, Package, Scale, Terminal } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { BookOpen, Compass, KeyRound, Package, Scale, Smartphone, Terminal } from 'lucide-react';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
 import { StandaloneEditionSection } from '../components/StandaloneEditionSection';
 import { LICENSE_DEFINITIONS } from '../core/manifest/types';
@@ -100,6 +101,28 @@ export function DocsPage() {
           </h2>
           <p className="text-sm text-slate-300/90 leading-relaxed">
             {t.hardening.docsAddendum.noticesBody}
+          </p>
+        </section>
+
+        <section
+          id="device-pairing"
+          data-testid="docs-device-pairing-section"
+          className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-3"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <h2 className="text-base sm:text-lg font-medium text-slate-100 flex items-center gap-2">
+              <Smartphone className="h-4 w-4 text-cyan-300 shrink-0" aria-hidden="true" />
+              <span>{t.devices.docsPairingTitle}</span>
+            </h2>
+            <Link
+              to="/devices"
+              className="text-xs font-medium text-cyan-300 hover:text-cyan-200 underline underline-offset-4 shrink-0"
+            >
+              {t.devices.navItem} →
+            </Link>
+          </div>
+          <p className="text-sm text-slate-300/90 leading-relaxed">
+            {t.devices.docsPairingBody}
           </p>
         </section>
 

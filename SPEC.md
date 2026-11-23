@@ -339,3 +339,31 @@ To prevent single-implementation lock-in and support long-term auditability, the
 
 - **Go CLI (`tools/chm-verify/`):** Standard-library-only Go binary verifying `#proof=`, `.chproof.json`, lossless PNG `CAR-v1` `v1`/`v2` integrity (including `qrMask`), and `.chnotice.json` / `chm-notice:` tokens.
 - **Node.js CLI (`tools/chm-verify.mjs`):** Minimal Node.js verifier supporting PNG embedded-QR extraction, `--proof`, `--artwork`, `--notice`, and `--json`.
+
+---
+
+## 13. CHM Secure Device Pairing (`CHM-DEVICE-PAIRING-v1`)
+
+`CHM-DEVICE-PAIRING-v1` enables serverless, offline 2-step QR enrollment of secondary devices (PC, smartphone, tablet) under an existing **CHM Identity** (Ed25519 author public key) without copying the root private key. Core protocol implementation resides in `@yomiplush/chm-exchange/core` (`src/core/pairing/`) and host IndexedDB custody/reconciliation resides in `src/core/storage/devicePairingStore.ts`.
+
+### 13.1 Domain-Separated Envelopes & Canonical CBOR
+
+All envelopes use strict deterministic RFC 8949 CBOR maps (ascending integer keys, canonical re-encode byte-for-byte check, no floats/indefinite/duplicate keys, `MAX_PAIRING_CBOR_BYTES = 2048`, `MAX_PAIRING_TOKEN_CHARS = 3072`, `MAX_PAIRING_QR_URL_CHARS = 4096`):
+
+| Kind | Prefix / Fragment | Domain Prefix | Signer |
+| --- | --- | --- | --- |
+| `1` Pairing Request | `chm-pair-req:` / `#pair-req=` | `CHM-DEVICE-PAIRING-v1:REQ\0` | New Device Private Key |
+| `2` Enrollment Certificate | `chm-pair-cert:` / `#pair-cert=` | `CHM-DEVICE-PAIRING-v1:CERT\0` | Owner Root Private Key |
+| `3` Device Revocation Notice | `chm-pair-rev:` / `#pair-rev=` | `CHM-DEVICE-PAIRING-v1:REVOKE\0` | Owner Root Private Key |
+| `4` Signed Device Registry | `chm-pair-reg:` / `.chdevreg.{json,cbor}` | `CHM-DEVICE-PAIRING-v1:REGISTRY\0` | Owner Root Private Key |
+
+### 13.2 Key Custody, Cryptographic Binding & Replay Defense
+
+1. **Key Custody:** Each device generates an independent Ed25519 keypair locally (`webcrypto-non-extractable` in IndexedDB where supported, AES-256-GCM encrypted seed fallback otherwise). Root private keys are never transmitted or copied.
+2. **Proof of Possession & Request Binding:** Step 1 signs the pairing request (containing 256-bit `nonce`, `requestId`, `deviceId`, `devicePublicKey`, `deviceDisplayName`, `ownerTarget`, `issuedAt`, `expiresAt`, default TTL `300s`, max `3600s`) with the device private key. Step 2 verifies strict Ed25519 (`zip215: false`, small-order/torsion-free curve point check) and signs an Enrollment Certificate containing `requestHash = SHA-256(canonicalRequestEnvelopeBytes)`.
+3. **Replay Protection:** Both `req:<requestId>` and `nonce:<nonceHex>` are persisted in IndexedDB (`usedPairingNonces`) upon completion, rejection of replay, or cancellation—preventing QR replay even if the device clock is rolled back.
+4. **Trust & Revocation Semantics:** Scanning an Enrollment Certificate never promotes an unknown Owner Identity to `Trusted` automatically (`active-unverified-owner` until explicitly confirmed). Device revocations (`revocationSequence` monotonic) cannot be rolled back by re-importing older `.chdevreg.json` / `.chdevreg.cbor` registry snapshots.
+
+### 13.3 Separation of Future Delegated Signing (Not Implemented in v1)
+
+In `v1`, allowed permissions in pairing requests and enrollment certificates are restricted to `["device-identity"]`. Any non-v1 or elevated permission (such as delegated artwork signing or delegated device approval) MUST be rejected by `v1` validators. Supporting delegated artwork signing in a future `v2+` extension requires explicit scoped capability chains and verifier awareness inside `CHM1\0` and is intentionally omitted from `v1`.
