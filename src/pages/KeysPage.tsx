@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Copy,
   Download,
-  Info,
   KeyRound,
   PlusCircle,
   Share2,
@@ -14,6 +13,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
+import { HelpIconButton } from '../components/ui/HelpIconButton';
 import { decryptKeyBackup } from '../core/crypto/keyBackup';
 import type { EncryptedKeyBackup } from '../core/crypto/keyBackup';
 import {
@@ -39,7 +39,7 @@ function downloadJsonFile(data: unknown, filename: string) {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function KeysPage() {
@@ -215,43 +215,51 @@ export function KeysPage() {
     }
   };
 
+  const hasUnbackedKey = authorKeys.some((k) => !k.hasBackupDownloaded);
+
   return (
-    <div className="space-y-8">
-      <header className="space-y-2 border-b border-white/[0.08] pb-5">
-        <h1 className="text-2xl sm:text-3xl font-semibold text-white">{t.keys.title}</h1>
-        <p className="text-sm sm:text-base text-slate-300">{t.keys.subtitle}</p>
+    <div className="space-y-6">
+      <header className="flex items-start justify-between gap-4 border-b border-white/[0.08] pb-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl sm:text-3xl font-semibold text-white">{t.keys.title}</h1>
+          <p className="text-xs sm:text-sm text-slate-400">{t.keys.subtitle}</p>
+        </div>
+
+        <HelpIconButton
+          label={t.minimal.keys.helpLabel}
+          title={t.minimal.keys.helpLabel}
+          closeLabel={t.minimal.home.closeHelp}
+          testId="keys-help-btn"
+          panelTestId="keys-help-panel"
+        >
+          <div className="space-y-1.5">
+            <p className="font-semibold text-amber-200">{t.keys.storageWarningTitle}</p>
+            <p className="text-slate-200">{t.keys.storageWarningBody}</p>
+          </div>
+          <div
+            data-testid="keys-standalone-storage-note"
+            className="rounded-lg border border-sky-400/25 bg-sky-500/10 p-3 text-xs text-sky-100"
+          >
+            {t.keys.standaloneStorageNote}
+          </div>
+        </HelpIconButton>
       </header>
 
-      <div className="space-y-3">
+      {hasUnbackedKey && (
         <div
           role="note"
-          className="rounded-xl border border-amber-400/35 bg-amber-500/10 p-4 flex items-start gap-3"
+          data-testid="keys-unbacked-alert"
+          className="rounded-xl border border-amber-400/35 bg-amber-500/10 px-4 py-3 flex items-center gap-2.5 text-xs sm:text-sm text-amber-100"
         >
-          <AlertTriangle className="h-5 w-5 text-amber-300 shrink-0 mt-0.5" aria-hidden="true" />
-          <div className="space-y-1">
-            <h2 className="text-sm font-semibold text-amber-200">{t.keys.storageWarningTitle}</h2>
-            <p className="text-xs sm:text-sm text-amber-100/90 leading-relaxed">
-              {t.keys.storageWarningBody}
-            </p>
-          </div>
+          <AlertTriangle className="h-4 w-4 text-amber-300 shrink-0" aria-hidden="true" />
+          <span>{t.minimal.keys.unbackedAlertShort}</span>
         </div>
-
-        <div
-          role="note"
-          data-testid="keys-standalone-storage-note"
-          className="rounded-xl border border-sky-400/30 bg-sky-500/10 p-4 flex items-start gap-3"
-        >
-          <Info className="h-5 w-5 text-sky-300 shrink-0 mt-0.5" aria-hidden="true" />
-          <p className="text-xs sm:text-sm text-sky-100/90 leading-relaxed">
-            {t.keys.standaloneStorageNote}
-          </p>
-        </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
+        <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-5 space-y-4">
           <h2 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
-            <KeyRound className="h-5 w-5 text-cyan-400" aria-hidden="true" />
+            <KeyRound className="h-5 w-5 text-sky-300" aria-hidden="true" />
             <span>{t.keys.generateTitle}</span>
           </h2>
 
@@ -267,7 +275,7 @@ export function KeysPage() {
                 maxLength={64}
                 placeholder={t.keys.keyLabelPlaceholder}
                 data-testid="keygen-label"
-                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
               />
             </div>
 
@@ -281,7 +289,7 @@ export function KeysPage() {
                 onChange={(e) => setNewPassphrase(e.target.value)}
                 placeholder={t.keys.backupPassPlaceholder}
                 data-testid="keygen-passphrase"
-                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
               />
             </div>
 
@@ -294,7 +302,7 @@ export function KeysPage() {
             <button
               type="submit"
               data-testid="keygen-submit"
-              className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-white transition-colors min-h-[44px]"
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-white transition-colors min-h-[44px] cursor-pointer"
             >
               <PlusCircle className="h-4 w-4" aria-hidden="true" />
               <span>{t.keys.generateBtn}</span>
@@ -302,14 +310,14 @@ export function KeysPage() {
           </form>
 
           {pendingBackup && (
-            <div className="rounded-xl border border-cyan-400/40 bg-cyan-500/10 p-4 space-y-2.5">
-              <h3 className="text-sm font-semibold text-cyan-200">{t.keys.backupReadyTitle}</h3>
+            <div className="rounded-xl border border-sky-400/40 bg-sky-500/10 p-4 space-y-2.5">
+              <h3 className="text-sm font-semibold text-sky-200">{t.keys.backupReadyTitle}</h3>
               <p className="text-xs text-slate-200 leading-relaxed">{t.keys.backupReadyBody}</p>
               <button
                 type="button"
                 data-testid="download-pending-backup"
                 onClick={() => handleDownloadBackup(pendingBackup.keyId, pendingBackup.backup)}
-                className="inline-flex items-center gap-2 rounded-lg bg-cyan-400 px-3.5 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-300 min-h-[40px]"
+                className="inline-flex items-center gap-2 rounded-lg bg-sky-300 px-3.5 py-2 text-xs font-semibold text-slate-950 hover:bg-sky-200 min-h-[44px] cursor-pointer"
               >
                 <Download className="h-4 w-4" aria-hidden="true" />
                 <span>{t.keys.downloadBackupBtn}</span>
@@ -318,9 +326,9 @@ export function KeysPage() {
           )}
         </section>
 
-        <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
+        <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-5 space-y-4">
           <h2 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
-            <Upload className="h-5 w-5 text-cyan-400" aria-hidden="true" />
+            <Upload className="h-5 w-5 text-sky-300" aria-hidden="true" />
             <span>{t.keys.restoreTitle}</span>
           </h2>
 
@@ -351,7 +359,7 @@ export function KeysPage() {
                 value={restorePass}
                 onChange={(e) => setRestorePass(e.target.value)}
                 data-testid="restore-passphrase"
-                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
               />
             </div>
 
@@ -361,7 +369,7 @@ export function KeysPage() {
               </p>
             )}
             {restoreStatus && (
-              <p role="status" data-testid="restore-status-msg" className="text-xs text-cyan-300">
+              <p role="status" data-testid="restore-status-msg" className="text-xs text-sky-300">
                 {restoreStatus}
               </p>
             )}
@@ -370,7 +378,7 @@ export function KeysPage() {
               <button
                 type="submit"
                 data-testid="restore-submit"
-                className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-4 py-2.5 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/25 transition-colors min-h-[44px] cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-lg border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-semibold text-sky-100 hover:bg-sky-500/25 transition-colors min-h-[44px] cursor-pointer"
               >
                 <Upload className="h-4 w-4" aria-hidden="true" />
                 <span>{t.keys.restoreBtn}</span>
@@ -390,7 +398,7 @@ export function KeysPage() {
         </section>
       </div>
 
-      <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
+      <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-5 space-y-4">
         <h2 className="text-base sm:text-lg font-semibold text-white">{t.keys.myKeysTitle}</h2>
         {authorKeys.length === 0 ? (
           <p className="text-sm text-slate-400">{t.keys.noMyKeys}</p>
@@ -405,7 +413,7 @@ export function KeysPage() {
                 <div className="space-y-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-white">{k.label}</span>
-                    <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-[11px] font-medium text-cyan-300">
+                    <span className="rounded-full border border-sky-400/30 bg-sky-500/10 px-2.5 py-0.5 text-[11px] font-medium text-sky-200">
                       {k.storageMode === 'webcrypto-non-extractable'
                         ? t.keys.modeNonExtractable
                         : t.keys.modeEncryptedFallback}
@@ -419,7 +427,7 @@ export function KeysPage() {
                       </span>
                     )}
                   </div>
-                  <div className="text-xs font-mono text-cyan-300 break-all">
+                  <div className="text-xs font-mono text-sky-300 break-all">
                     {k.fingerprintShort} ({k.fingerprintHex.slice(0, 16)}…)
                   </div>
                   <div className="text-[11px] font-mono text-slate-400 break-all">
@@ -436,10 +444,10 @@ export function KeysPage() {
                   <button
                     type="button"
                     onClick={() => handleCopyPublicKey(k.id, k.publicKeyBase64Url)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-medium text-slate-200 hover:border-cyan-400/40 min-h-[38px]"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#051224] px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
                   >
                     {copiedId === k.id ? (
-                      <Check className="h-3.5 w-3.5 text-cyan-300" />
+                      <Check className="h-3.5 w-3.5 text-sky-300" />
                     ) : (
                       <Copy className="h-3.5 w-3.5" />
                     )}
@@ -454,7 +462,7 @@ export function KeysPage() {
                         `chm-public-${k.fingerprintHex.slice(0, 8)}.json`,
                       )
                     }
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-medium text-slate-200 hover:border-cyan-400/40 min-h-[38px]"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#051224] px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
                   >
                     <Download className="h-3.5 w-3.5" />
                     <span>{t.keys.exportPublicBtn}</span>
@@ -463,7 +471,7 @@ export function KeysPage() {
                   <Link
                     to={`/exchange?identity=${encodeURIComponent(k.id)}`}
                     data-testid="keys-share-exchange-link"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/35 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20 min-h-[38px]"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 hover:bg-sky-500/20 min-h-[44px]"
                   >
                     <Share2 className="h-3.5 w-3.5" />
                     <span>{t.keys.shareViaExchangeBtn}</span>
@@ -473,7 +481,7 @@ export function KeysPage() {
                     <button
                       type="button"
                       onClick={() => handleDownloadBackup(k.id, k.encryptedBackup!)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/35 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20 min-h-[38px]"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 hover:bg-sky-500/20 min-h-[44px] cursor-pointer"
                     >
                       <Download className="h-3.5 w-3.5" />
                       <span>{t.keys.downloadBackupBtn}</span>
@@ -483,7 +491,7 @@ export function KeysPage() {
                   <button
                     type="button"
                     onClick={() => handleDeleteAuthorKey(k.id)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/35 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200 hover:bg-rose-500/20 min-h-[38px]"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/35 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200 hover:bg-rose-500/20 min-h-[44px] cursor-pointer"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     <span>{t.keys.deleteKeyBtn}</span>
@@ -495,7 +503,7 @@ export function KeysPage() {
         )}
       </section>
 
-      <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-5">
+      <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-5 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-1">
             <h2 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
@@ -507,7 +515,7 @@ export function KeysPage() {
           <Link
             to="/exchange?tab=trusted"
             data-testid="keys-open-exchange-link"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/35 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20 self-start sm:self-center shrink-0 min-h-[38px]"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-500/10 px-3.5 py-2 text-xs font-medium text-sky-200 hover:bg-sky-500/20 self-start sm:self-center shrink-0 min-h-[44px]"
           >
             <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
             <span>{t.keys.openExchangeTrustedBtn}</span>
@@ -522,7 +530,7 @@ export function KeysPage() {
             onChange={(e) => setTrustPubInput(e.target.value)}
             placeholder={t.keys.addTrustedPubInput}
             data-testid="trusted-pub-input"
-            className="rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
+            className="rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
           />
           <input
             type="text"
@@ -532,7 +540,7 @@ export function KeysPage() {
             maxLength={64}
             placeholder={t.keys.addTrustedLabelInput}
             data-testid="trusted-label-input"
-            className="rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
+            className="rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
           />
           <div className="flex gap-2">
             <input
@@ -541,12 +549,12 @@ export function KeysPage() {
               onChange={(e) => setTrustNote(e.target.value)}
               maxLength={200}
               placeholder={t.keys.addTrustedNoteInput}
-              className="flex-1 rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
+              className="flex-1 rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
             />
             <button
               type="submit"
               data-testid="trusted-add-btn"
-              className="rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-4 py-2.5 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/30 shrink-0 min-h-[44px]"
+              className="rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-4 py-2.5 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/30 shrink-0 min-h-[44px] cursor-pointer"
             >
               {t.keys.addTrustedBtn}
             </button>
@@ -582,7 +590,7 @@ export function KeysPage() {
                     await removeTrustedKey(tk.publicKeyBase64Url);
                     await refreshAll();
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:border-rose-400/50 hover:text-rose-200 self-start sm:self-center"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] px-3 py-2 text-xs text-slate-300 hover:border-rose-400/50 hover:text-rose-200 self-start sm:self-center min-h-[44px] cursor-pointer"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   <span>{t.keys.removeBtn}</span>
