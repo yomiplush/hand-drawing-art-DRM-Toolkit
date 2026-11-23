@@ -197,11 +197,23 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.getByTestId('verify-trust-btn').click();
     await expect(page.getByTestId('status-identity')).toContainText('Trusted (YomiPlush Official)');
 
-    // 4. Direct navigation to /verify#proof=... (without image first -> Not Checked, then attach original PNG -> Matched, then tampered PNG)
+    // 4. Direct navigation to /verify#proof=... -> results & Quick DRM card prioritized ABOVE optional Step 2 CTA
     await page.goto(verifyHref!);
+    await expect(page.getByTestId('verify-auto-verified-pill')).toBeVisible();
+    await expect(page.getByTestId('verify-drm-quick-card')).toBeVisible();
+    await expect(page.getByTestId('verify-drm-quick-card')).toContainText('YomiPlush');
+    await expect(page.getByTestId('verify-drm-quick-card')).toContainText('Moonlight E2E');
+    await expect(page.getByTestId('verify-drm-quick-card')).toContainText('CC BY-NC 4.0');
+    await expect(page.getByTestId('verify-drm-policy-pills')).toContainText('Disallow');
     await expect(page.getByTestId('verify-proof-artwork-cta')).toBeVisible();
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
     await expect(page.getByTestId('status-integrity')).toContainText('Not Checked');
+
+    const resultsBox = await page.getByTestId('verification-results').boundingBox();
+    const step2Box = await page.getByTestId('verify-proof-artwork-cta').boundingBox();
+    expect(resultsBox).not.toBeNull();
+    expect(step2Box).not.toBeNull();
+    expect(resultsBox!.y).toBeLessThan(step2Box!.y);
 
     await page.getByTestId('verify-attach-artwork-input').setInputFiles(artPath);
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
@@ -357,7 +369,7 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.getByTestId('create-mode-studio').click();
     await expect(page).toHaveURL(/\/create\?mode=studio$/);
 
-    // Upload 320x240 artwork, adjust preset, expand Advanced QR Settings for opacity, verify readability, quick keygen & sign
+    // Upload 320x240 artwork, adjust preset, expand Advanced QR Settings for opacity & quiet zone, verify readability, quick keygen & sign
     const artPath = testInfo.outputPath('studio-art.png');
     fs.writeFileSync(artPath, buildTestArtworkPng(320, 240));
     await page.getByTestId('create-image-input').setInputFiles(artPath);
@@ -366,6 +378,7 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.getByTestId('qrstudio-preset-topLeft').click();
     await page.locator('[data-testid="create-qr-advanced"] > button').click();
     await page.getByTestId('qrstudio-opacity-slider').fill('75');
+    await page.getByTestId('qrstudio-quietzone-select').selectOption('0');
     await expect(page.getByTestId('qrstudio-readability-badge')).toContainText(
       'Scannable in live preview',
     );
@@ -420,6 +433,7 @@ test.describe('Certified Handmade E2E suite', () => {
 
     // Open /verify#proof=... -> Step 2 CTA visible, paste image via ClipboardEvent on window
     await page.goto(verifyHref!);
+    await expect(page.getByTestId('verify-drm-quick-card')).toBeVisible();
     await expect(page.getByTestId('verify-proof-artwork-cta')).toBeVisible();
     await expect(page.getByTestId('verify-paste-image-btn')).toBeVisible();
     await expect(page.getByTestId('status-integrity')).toContainText('Not Checked');

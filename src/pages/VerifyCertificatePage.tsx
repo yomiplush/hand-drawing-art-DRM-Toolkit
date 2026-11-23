@@ -2,11 +2,13 @@ import React, { useCallback, useEffect, useId, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Camera,
+  CheckCircle2,
   ChevronDown,
   ClipboardPaste,
   FileImage,
   Info,
   Link2,
+  Loader2,
   Share2,
 } from 'lucide-react';
 import { ImageDropzone } from '../components/ImageDropzone';
@@ -18,7 +20,7 @@ import { HelpIconButton } from '../components/ui/HelpIconButton';
 import { base64UrlEncode, bytesToHex } from '../core/crypto/sha256';
 import { decodeImageFileToCanonicalRgba8 } from '../core/image/pngCodec';
 import type { CanonicalRaster } from '../core/image/pngCodec';
-import type { VerificationResult } from '../core/manifest/types';
+import type { PolicySignal, VerificationResult } from '../core/manifest/types';
 import { addTrustedKey } from '../core/storage/keyStore';
 import { verifyImageWithEmbeddedQr, verifyProofAndArtwork } from '../core/verify/verifier';
 import { useI18n } from '../i18n/context';
@@ -28,13 +30,31 @@ type InputTab = 'image' | 'camera' | 'proof';
 const SHARE_TARGET_CACHE_NAME = 'chm-share-target-v1';
 const SHARE_TARGET_CACHE_KEY = '/__shared-artwork__';
 
+function detectUrlProofInput(routerHash: string, routerSearch: string): string | null {
+  const hash = routerHash || (typeof window !== 'undefined' ? window.location.hash : '');
+  if (hash && hash.includes('proof=')) {
+    return hash;
+  }
+  const search = routerSearch || (typeof window !== 'undefined' ? window.location.search : '');
+  if (search && search.includes('proof=')) {
+    return search;
+  }
+  if (typeof window !== 'undefined') {
+    const href = window.location.href;
+    if (href.includes('%23proof%3D') || href.includes('%23proof=')) {
+      return href;
+    }
+  }
+  return null;
+}
+
 export function VerifyCertificatePage() {
   const { t } = useI18n();
   const location = useLocation();
   const proofBundleInputId = useId();
 
-  const hasInitialHashProof =
-    typeof window !== 'undefined' && window.location.hash.includes('proof=');
+  const initialUrlProof = detectUrlProofInput(location.hash, location.search);
+  const hasInitialHashProof = Boolean(initialUrlProof);
 
   const [activeTab, setActiveTab] = useState<InputTab>(() =>
     hasInitialHashProof ? 'proof' : 'image',
@@ -42,12 +62,12 @@ export function VerifyCertificatePage() {
   const [launchedWithHashProof, setLaunchedWithHashProof] = useState<boolean>(
     () => hasInitialHashProof,
   );
+  const [cameraAutoVerified, setCameraAutoVerified] = useState<boolean>(false);
+  const [verifyingProof, setVerifyingProof] = useState<boolean>(() => hasInitialHashProof);
   const [proofInput, setProofInput] = useState(() =>
     hasInitialHashProof ? window.location.href : '',
   );
-  const [activeProofRaw, setActiveProofRaw] = useState<string | null>(() =>
-    hasInitialHashProof ? window.location.hash : null,
-  );
+  const [activeProofRaw, setActiveProofRaw] = useState<string | null>(() => initialUrlProof);
   const [attachedRaster, setAttachedRaster] = useState<CanonicalRaster | null>(null);
   const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
   const [result, setResult] = useState<VerificationResult | null>(null);
@@ -65,48 +85,65 @@ export function VerifyCertificatePage() {
       setErrorMsg(null);
       setTrustSavedMsg(null);
       setActiveProofRaw(rawProof);
-      const res = await verifyProofAndArtwork({
-        proofInput: rawProof,
-        artworkRaster: raster,
-      });
-      setResult(res);
+      setVerifyingProof(true);
+      try {
+        const res = await verifyProofAndArtwork({
+          proofInput: rawProof,
+          artworkRaster: raster,
+        });
+        setResult(res);
+      } finally {
+        setVerifyingProof(false);
+      }
     },
     [],
   );
 
-  // Automatically verify #proof=... when URL hash changes (and clear previous attached artwork)
+  // Automatically verify #proof= / ?proof= when QR link opens or URL changes
   useEffect(() => {
-    const hash = location.hash || window.location.hash;
-    if (!hash || !hash.includes('proof=')) return;
+    const urlProof = detectUrlProofInput(location.hash, location.search);
+    if (!urlProof) return;
     let active = true;
-    verifyProofAndArtwork({
-      proofInput: hash,
-      artworkRaster: null,
-    }).then((res) => {
-      if (active) {
-        setLaunchedWithHashProof(true);
-        setActiveTab('proof');
-        setProofInput(window.location.href);
-        setActiveProofRaw(hash);
-        setAttachedRaster(null);
-        setAttachedFileName(null);
-        setQrInfoNote(null);
-        setErrorMsg(null);
-        setPasteFeedback(null);
-        setTrustSavedMsg(null);
-        setResult(res);
+    void Promise.resolve().then(async () => {
+      if (!active) return;
+      setVerifyingProof(true);
+      try {
+        const res = await verifyProofAndArtwork({
+          proofInput: urlProof,
+          artworkRaster: null,
+        });
+        if (active) {
+          setLaunchedWithHashProof(true);
+          setCameraAutoVerified(false);
+          setActiveTab('proof');
+          setProofInput(window.location.href);
+          setActiveProofRaw(urlProof);
+          setAttachedRaster(null);
+          setAttachedFileName(null);
+          setQrInfoNote(null);
+          setErrorMsg(null);
+          setPasteFeedback(null);
+          setTrustSavedMsg(null);
+          setResult(res);
+        }
+      } finally {
+        if (active) {
+          setVerifyingProof(false);
+        }
       }
     });
     return () => {
       active = false;
     };
-  }, [location.hash]);
+  }, [location.hash, location.search]);
 
   const handleSignedImageUpload = useCallback(async (file: File) => {
     setErrorMsg(null);
     setQrInfoNote(null);
     setPasteFeedback(null);
     setTrustSavedMsg(null);
+    setLaunchedWithHashProof(false);
+    setCameraAutoVerified(false);
     try {
       const rawBytes = new Uint8Array(await file.arrayBuffer());
       const res = await verifyImageWithEmbeddedQr({ fileOrBytes: rawBytes });
@@ -174,6 +211,8 @@ export function VerifyCertificatePage() {
         try {
           const res = await verifyImageWithEmbeddedQr({ fileOrBytes: rawBytes });
           if (!active) return;
+          setLaunchedWithHashProof(false);
+          setCameraAutoVerified(false);
           setActiveTab('image');
           setAttachedRaster(res.raster);
           setAttachedFileName(rawName);
@@ -291,6 +330,7 @@ export function VerifyCertificatePage() {
   const handleManualProofSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setQrInfoNote(null);
+    setCameraAutoVerified(false);
     await runProofVerify(proofInput, attachedRaster);
   };
 
@@ -301,6 +341,7 @@ export function VerifyCertificatePage() {
     try {
       const text = await file.text();
       setProofInput(text);
+      setCameraAutoVerified(false);
       setQrInfoNote(`Loaded proof bundle: ${file.name}`);
       await runProofVerify(text, attachedRaster);
     } catch (err) {
@@ -311,6 +352,7 @@ export function VerifyCertificatePage() {
   const handleCameraDetected = useCallback(
     (rawText: string) => {
       setProofInput(rawText);
+      setCameraAutoVerified(true);
       setQrInfoNote(
         attachedRaster ? 'QR detected from local camera stream' : t.verifyMobile.cameraFollowUpHint,
       );
@@ -340,6 +382,22 @@ export function VerifyCertificatePage() {
     }
   };
 
+  const formatPolicySignal = (signal: PolicySignal) => {
+    if (signal === 'allow') return t.create.policyAllow;
+    if (signal === 'disallow') return t.create.policyDisallow;
+    return t.create.policyUnspecified;
+  };
+
+  const policyPillTone = (signal: PolicySignal) => {
+    if (signal === 'disallow') {
+      return 'border-rose-400/35 bg-rose-500/10 text-rose-200';
+    }
+    if (signal === 'allow') {
+      return 'border-emerald-400/35 bg-emerald-500/10 text-emerald-200';
+    }
+    return 'border-white/[0.12] bg-[#030b18]/65 text-slate-300';
+  };
+
   const tabClass = (tab: InputTab) =>
     `inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors min-h-[44px] cursor-pointer ${
       activeTab === tab
@@ -349,6 +407,8 @@ export function VerifyCertificatePage() {
 
   const showTopProofStep2Cta =
     Boolean(result?.manifest) && (activeTab === 'proof' || activeTab === 'camera');
+
+  const prioritizeResultsTop = launchedWithHashProof || cameraAutoVerified;
 
   const proofForm = (
     <form onSubmit={handleManualProofSubmit} className="space-y-3">
@@ -387,6 +447,465 @@ export function VerifyCertificatePage() {
     </form>
   );
 
+  const inputTabsSection = (
+    <section
+      data-testid="verify-input-section"
+      className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-5 space-y-4"
+    >
+      <div className="flex flex-wrap gap-2" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'image'}
+          onClick={() => setActiveTab('image')}
+          className={tabClass('image')}
+        >
+          <FileImage className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{t.minimal.verify.tabImage}</span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'camera'}
+          onClick={() => setActiveTab('camera')}
+          className={tabClass('camera')}
+        >
+          <Camera className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{t.minimal.verify.tabCamera}</span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'proof'}
+          onClick={() => setActiveTab('proof')}
+          data-testid="verify-tab-proof"
+          className={tabClass('proof')}
+        >
+          <Link2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{t.minimal.verify.tabProof}</span>
+        </button>
+      </div>
+
+      {activeTab === 'image' && (
+        <div className="space-y-3">
+          <ImageDropzone
+            onFileSelected={handleSignedImageUpload}
+            title={t.verify.imageDropText}
+            subtitle={t.verify.imageDropSub}
+            testId="verify-image-input"
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              disabled={pasteBusy}
+              onClick={() => void handlePasteButtonClick()}
+              data-testid="verify-paste-image-btn"
+              className="inline-flex items-center gap-2 rounded-lg border border-sky-300/35 bg-sky-500/15 px-4 py-2.5 text-sm font-medium text-sky-100 hover:bg-sky-500/25 disabled:opacity-50 min-h-[44px] cursor-pointer"
+            >
+              <ClipboardPaste className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{pasteBusy ? t.verifyMobile.pasteBusy : t.verifyMobile.pasteImageBtn}</span>
+            </button>
+            <span className="text-xs text-slate-400">{t.verifyMobile.pasteHint}</span>
+          </div>
+          {pasteFeedback && (
+            <p role="status" className="text-xs text-amber-200">
+              {pasteFeedback}
+            </p>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'camera' && <QrCameraScanner onDetected={handleCameraDetected} />}
+
+      {activeTab === 'proof' &&
+        (launchedWithHashProof ? (
+          <details className="group rounded-lg border border-white/[0.1] bg-[#030b18]/55 p-3">
+            <summary className="flex items-center justify-between gap-2 cursor-pointer text-xs sm:text-sm font-medium text-slate-200 list-none select-none min-h-[44px]">
+              <span>{t.verifyMobile.rawProofToggle}</span>
+              <ChevronDown
+                className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180 shrink-0"
+                aria-hidden="true"
+              />
+            </summary>
+            <div className="pt-3 mt-3 border-t border-white/[0.08]">{proofForm}</div>
+          </details>
+        ) : (
+          proofForm
+        ))}
+
+      {qrInfoNote && <p className="text-xs font-mono text-sky-300">{qrInfoNote}</p>}
+
+      {errorMsg && (
+        <div
+          role="alert"
+          className="rounded-lg border border-rose-500/40 bg-rose-500/15 p-3 text-sm text-rose-200"
+        >
+          {errorMsg}
+        </div>
+      )}
+    </section>
+  );
+
+  const step2ArtworkCtaSection = showTopProofStep2Cta ? (
+    <section
+      data-testid="verify-proof-artwork-cta"
+      className="rounded-xl border border-sky-400/40 bg-sky-500/10 backdrop-blur-md p-5 space-y-3"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base sm:text-lg font-semibold text-white">
+          {t.verifyMobile.proofStep2Title}
+        </h2>
+        {attachedFileName && (
+          <span className="rounded-full border border-sky-300/40 bg-sky-400/15 px-3 py-1 text-xs font-mono text-sky-100">
+            {t.verifyMobile.attachedReadyBadge}: {attachedFileName}
+          </span>
+        )}
+      </div>
+      <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+        {t.verifyMobile.proofStep2Desc}
+      </p>
+      <ImageDropzone
+        onFileSelected={handleAttachArtworkForProof}
+        title={
+          attachedFileName
+            ? `${t.verify.attachArtworkBtn} (${attachedFileName})`
+            : t.verify.attachArtworkBtn
+        }
+        testId="verify-attach-artwork-input"
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          disabled={pasteBusy}
+          onClick={() => void handlePasteButtonClick()}
+          data-testid="verify-paste-image-btn"
+          className="inline-flex items-center gap-2 rounded-lg border border-sky-300/40 bg-[#051224]/80 px-4 py-2.5 text-sm font-semibold text-sky-100 hover:bg-sky-500/20 disabled:opacity-50 min-h-[44px] cursor-pointer"
+        >
+          <ClipboardPaste className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{pasteBusy ? t.verifyMobile.pasteBusy : t.verifyMobile.pasteImageBtn}</span>
+        </button>
+        <span className="text-xs text-slate-300">{t.verifyMobile.pasteHint}</span>
+      </div>
+      {pasteFeedback && (
+        <p role="status" className="text-xs text-amber-200">
+          {pasteFeedback}
+        </p>
+      )}
+    </section>
+  ) : null;
+
+  const verifyingSpinnerCard =
+    verifyingProof && !result ? (
+      <div
+        role="status"
+        data-testid="verify-auto-status-banner"
+        className="rounded-xl border border-sky-400/35 bg-sky-500/10 p-4 flex items-center gap-3 text-sm text-sky-100"
+      >
+        <Loader2 className="h-4 w-4 text-sky-300 animate-spin shrink-0" aria-hidden="true" />
+        <span>{t.minimal.verify.verifyingProofLabel}</span>
+      </div>
+    ) : null;
+
+  const resultsSection = result ? (
+    <div className="space-y-5" data-testid="verification-results">
+      {prioritizeResultsTop && result.manifest && (
+        <div
+          data-testid="verify-auto-verified-pill"
+          className="inline-flex items-center gap-2 rounded-full border border-emerald-400/35 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-medium text-emerald-200"
+        >
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300 shrink-0" aria-hidden="true" />
+          <span>{t.minimal.verify.autoVerifiedBadge}</span>
+          <span className="font-mono text-[11px] text-emerald-100/80">
+            · Protocol v{result.manifest.version}
+          </span>
+        </div>
+      )}
+
+      <StatusDimensionsGrid
+        signatureStatus={result.signatureStatus}
+        integrityStatus={result.integrityStatus}
+        identityStatus={result.identityStatus}
+        trustedKeyLabel={result.trustedKeyLabel}
+        matchedMode={result.matchedMode}
+      />
+
+      {result.errors.length > 0 && (
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 space-y-1 text-xs sm:text-sm text-rose-200"
+        >
+          {result.errors.map((err, i) => (
+            <p key={i}>{err}</p>
+          ))}
+        </div>
+      )}
+
+      {result.manifest && (
+        <section
+          data-testid="verify-drm-quick-card"
+          className="rounded-xl border border-white/[0.12] bg-[#051224]/75 backdrop-blur-md p-5 space-y-4"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm sm:text-base font-semibold text-white">
+              {t.minimal.verify.declaredSummaryTitle}
+            </h2>
+            <span className="rounded-md border border-white/[0.1] bg-[#030b18]/75 px-2.5 py-1 text-xs font-mono text-sky-200">
+              v{result.manifest.version} · {result.publicKeyFingerprintShort ?? ''}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm">
+            <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/60 px-3.5 py-2.5">
+              <div className="text-[11px] text-slate-400">{t.verify.fields.artworkTitle}</div>
+              <div className="font-medium text-white mt-0.5 break-words">
+                {result.manifest.artworkTitle || t.verify.fields.none}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/60 px-3.5 py-2.5">
+              <div className="text-[11px] text-slate-400">{t.verify.fields.authorName}</div>
+              <div className="font-medium text-white mt-0.5 break-words">
+                {result.manifest.authorName || t.verify.fields.none}
+              </div>
+            </div>
+
+            {result.manifest.license.attributionName && (
+              <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/60 px-3.5 py-2.5">
+                <div className="text-[11px] text-slate-400">{t.verify.fields.attribution}</div>
+                <div className="font-medium text-white mt-0.5 break-words">
+                  {result.manifest.license.attributionName}
+                </div>
+              </div>
+            )}
+
+            <div
+              className={`rounded-lg border border-white/[0.08] bg-[#030b18]/60 px-3.5 py-2.5 ${
+                result.manifest.license.attributionName ? '' : 'sm:col-span-2'
+              }`}
+            >
+              <div className="text-[11px] text-slate-400">{t.verify.fields.issuedAt}</div>
+              <div className="font-mono text-xs text-slate-200 mt-0.5">
+                {new Date(result.manifest.issuedAt * 1000).toLocaleString()}
+              </div>
+            </div>
+          </div>
+
+          <LicenseSummaryCard
+            licenseId={result.manifest.license.licenseId}
+            compact
+            testId="verify-license-summary"
+          />
+
+          <div className="space-y-2" data-testid="verify-drm-policy-pills">
+            <div className="text-xs font-medium text-slate-400">
+              {t.minimal.verify.rightsSignalsLabel}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div
+                className={`rounded-lg border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.commercialUse)}`}
+              >
+                <div className="opacity-75 text-[11px]">{t.verify.fields.commercial}</div>
+                <div className="font-semibold mt-0.5">
+                  {formatPolicySignal(result.manifest.license.commercialUse)}
+                </div>
+              </div>
+              <div
+                className={`rounded-lg border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.redistribution)}`}
+              >
+                <div className="opacity-75 text-[11px]">{t.verify.fields.redistribution}</div>
+                <div className="font-semibold mt-0.5">
+                  {formatPolicySignal(result.manifest.license.redistribution)}
+                </div>
+              </div>
+              <div
+                className={`rounded-lg border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.aiTraining)}`}
+              >
+                <div className="opacity-75 text-[11px]">{t.verify.fields.aiTraining}</div>
+                <div className="font-semibold mt-0.5">
+                  {formatPolicySignal(result.manifest.license.aiTraining)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {result.signatureStatus === 'valid' && result.identityStatus === 'unknown' && (
+            <form
+              onSubmit={handleTrustThisKey}
+              className="rounded-xl border border-white/[0.1] bg-[#030b18]/65 p-4 space-y-3"
+            >
+              <p className="text-xs sm:text-sm font-medium text-slate-200">
+                {t.verify.trustKeyPrompt}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={trustLabelInput}
+                  onChange={(e) => setTrustLabelInput(e.target.value)}
+                  placeholder={t.verify.trustKeyLabelInput}
+                  maxLength={64}
+                  data-testid="verify-trust-label-input"
+                  className="flex-1 rounded-lg border border-white/[0.14] bg-[#030b18] px-3 py-2 text-sm text-white min-h-[44px]"
+                />
+                <button
+                  type="submit"
+                  data-testid="verify-trust-btn"
+                  className="rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-4 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/30 min-h-[44px] cursor-pointer"
+                >
+                  {t.verify.trustKeyBtn}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {trustSavedMsg && (
+            <p role="status" className="text-xs text-emerald-300">
+              {t.verify.trustedAlready} {trustSavedMsg}
+            </p>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <Link
+              to={`/exchange?inspect=${encodeURIComponent(base64UrlEncode(result.manifest.publicKey))}`}
+              data-testid="verify-inspect-exchange-link"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-300/35 bg-sky-400/10 px-3.5 py-2 text-xs sm:text-sm font-medium text-sky-200 hover:bg-sky-400/20 min-h-[44px]"
+            >
+              <Share2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>{t.verify.inspectInExchangeBtn}</span>
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {result.manifest?.qrMask && (
+        <div
+          role="note"
+          data-testid="verify-qr-mask-notice"
+          className="rounded-xl border border-sky-400/35 bg-sky-500/10 p-4 flex items-start gap-3 text-xs sm:text-sm text-sky-100"
+        >
+          <Info className="h-5 w-5 text-sky-300 shrink-0 mt-0.5" aria-hidden="true" />
+          <div className="space-y-1">
+            <h2 className="font-semibold text-sky-200">{t.verify.qrMaskNoticeTitle}</h2>
+            <p className="text-sky-100/90 leading-relaxed">{t.verify.qrMaskNoticeBody}</p>
+            <p className="font-mono text-xs text-sky-200">
+              qrMask: [{result.manifest.qrMask.join(', ')}]
+            </p>
+          </div>
+        </div>
+      )}
+
+      {result.manifest && !showTopProofStep2Cta && (
+        <section className="rounded-xl border border-white/[0.1] bg-[#051224]/65 backdrop-blur-md p-5 space-y-3">
+          <h2 className="text-sm sm:text-base font-semibold text-white">
+            {t.verify.attachArtworkTitle}
+          </h2>
+          <p className="text-xs text-slate-400">{t.verify.attachArtworkHint}</p>
+          <ImageDropzone
+            onFileSelected={handleAttachArtworkForProof}
+            title={
+              attachedFileName
+                ? `${t.verify.attachArtworkBtn} (${attachedFileName})`
+                : t.verify.attachArtworkBtn
+            }
+            testId="verify-attach-artwork-input"
+          />
+        </section>
+      )}
+
+      <p className="text-xs text-slate-400 px-1">{t.verify.trustReminder}</p>
+
+      {result.manifest && (
+        <AdvancedSettings
+          label={t.minimal.verify.detailsLabel}
+          testId="verify-manifest-details"
+        >
+          <dl className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs sm:text-sm">
+            <DetailRow
+              label={t.verify.fields.protocolVersion}
+              value={`v${result.manifest.version}`}
+              mono
+            />
+            <DetailRow
+              label={t.verify.fields.artworkId}
+              value={result.manifest.artworkIdHex}
+              mono
+            />
+            <DetailRow
+              label={t.verify.fields.authorName}
+              value={result.manifest.authorName || t.verify.fields.none}
+            />
+            <DetailRow
+              label={t.verify.fields.artworkTitle}
+              value={result.manifest.artworkTitle || t.verify.fields.none}
+            />
+            <DetailRow
+              label={t.verify.fields.issuedAt}
+              value={new Date(result.manifest.issuedAt * 1000).toISOString()}
+              mono
+            />
+            <DetailRow
+              label={t.verify.fields.region}
+              value={`[${result.manifest.region.join(', ')}]`}
+              mono
+            />
+            {result.manifest.qrMask && (
+              <DetailRow
+                label={t.qrStudio.maskRegionLabel}
+                value={`[${result.manifest.qrMask.join(', ')}]`}
+                mono
+              />
+            )}
+            <DetailRow
+              label={t.verify.fields.fingerprint}
+              value={`${result.publicKeyFingerprintShort ?? ''} (${result.publicKeyFingerprintHex ?? ''})`}
+              mono
+            />
+            <DetailRow
+              label={t.verify.fields.publicKeyB64}
+              value={base64UrlEncode(result.manifest.publicKey)}
+              mono
+            />
+            <DetailRow
+              label={t.verify.fields.artworkSha}
+              value={bytesToHex(result.manifest.sha256)}
+              mono
+            />
+            <DetailRow
+              label={t.verify.fields.computedSha}
+              value={
+                result.computedArtworkSha256Hex
+                  ? `${result.computedArtworkSha256Hex} (${result.matchedMode ?? 'checked'})`
+                  : t.verify.badges.intNotChecked
+              }
+              mono
+            />
+            <DetailRow
+              label={t.verify.fields.license}
+              value={`${result.manifest.license.licenseId} — ${t.licenses.items[result.manifest.license.licenseId].name}`}
+            />
+            <DetailRow
+              label={t.verify.fields.attribution}
+              value={result.manifest.license.attributionName || t.verify.fields.none}
+            />
+            <DetailRow
+              label={t.verify.fields.commercial}
+              value={result.manifest.license.commercialUse}
+            />
+            <DetailRow
+              label={t.verify.fields.redistribution}
+              value={result.manifest.license.redistribution}
+            />
+            <DetailRow
+              label={t.verify.fields.aiTraining}
+              value={result.manifest.license.aiTraining}
+            />
+          </dl>
+        </AdvancedSettings>
+      )}
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
       <header className="flex items-start justify-between gap-4 border-b border-white/[0.08] pb-4">
@@ -408,379 +927,20 @@ export function VerifyCertificatePage() {
         </HelpIconButton>
       </header>
 
-      <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-5 space-y-4">
-        <div className="flex flex-wrap gap-2" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'image'}
-            onClick={() => setActiveTab('image')}
-            className={tabClass('image')}
-          >
-            <FileImage className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>{t.minimal.verify.tabImage}</span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'camera'}
-            onClick={() => setActiveTab('camera')}
-            className={tabClass('camera')}
-          >
-            <Camera className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>{t.minimal.verify.tabCamera}</span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'proof'}
-            onClick={() => setActiveTab('proof')}
-            data-testid="verify-tab-proof"
-            className={tabClass('proof')}
-          >
-            <Link2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>{t.minimal.verify.tabProof}</span>
-          </button>
-        </div>
-
-        {activeTab === 'image' && (
-          <div className="space-y-3">
-            <ImageDropzone
-              onFileSelected={handleSignedImageUpload}
-              title={t.verify.imageDropText}
-              subtitle={t.verify.imageDropSub}
-              testId="verify-image-input"
-            />
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                disabled={pasteBusy}
-                onClick={() => void handlePasteButtonClick()}
-                data-testid="verify-paste-image-btn"
-                className="inline-flex items-center gap-2 rounded-lg border border-sky-300/35 bg-sky-500/15 px-4 py-2.5 text-sm font-medium text-sky-100 hover:bg-sky-500/25 disabled:opacity-50 min-h-[44px] cursor-pointer"
-              >
-                <ClipboardPaste className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>{pasteBusy ? t.verifyMobile.pasteBusy : t.verifyMobile.pasteImageBtn}</span>
-              </button>
-              <span className="text-xs text-slate-400">{t.verifyMobile.pasteHint}</span>
-            </div>
-            {pasteFeedback && (
-              <p role="status" className="text-xs text-amber-200">
-                {pasteFeedback}
-              </p>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'camera' && <QrCameraScanner onDetected={handleCameraDetected} />}
-
-        {activeTab === 'proof' &&
-          (launchedWithHashProof ? (
-            <details className="group rounded-lg border border-white/[0.1] bg-[#030b18]/55 p-3">
-              <summary className="flex items-center justify-between gap-2 cursor-pointer text-xs sm:text-sm font-medium text-slate-200 list-none select-none min-h-[44px]">
-                <span>{t.verifyMobile.rawProofToggle}</span>
-                <ChevronDown
-                  className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180 shrink-0"
-                  aria-hidden="true"
-                />
-              </summary>
-              <div className="pt-3 mt-3 border-t border-white/[0.08]">{proofForm}</div>
-            </details>
-          ) : (
-            proofForm
-          ))}
-
-        {qrInfoNote && <p className="text-xs font-mono text-sky-300">{qrInfoNote}</p>}
-
-        {errorMsg && (
-          <div
-            role="alert"
-            className="rounded-lg border border-rose-500/40 bg-rose-500/15 p-3 text-sm text-rose-200"
-          >
-            {errorMsg}
-          </div>
-        )}
-      </section>
-
-      {showTopProofStep2Cta && (
-        <section
-          data-testid="verify-proof-artwork-cta"
-          className="rounded-xl border border-sky-400/40 bg-sky-500/10 backdrop-blur-md p-5 space-y-3"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base sm:text-lg font-semibold text-white">
-              {t.verifyMobile.proofStep2Title}
-            </h2>
-            {attachedFileName && (
-              <span className="rounded-full border border-sky-300/40 bg-sky-400/15 px-3 py-1 text-xs font-mono text-sky-100">
-                {t.verifyMobile.attachedReadyBadge}: {attachedFileName}
-              </span>
-            )}
-          </div>
-          <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
-            {t.verifyMobile.proofStep2Desc}
-          </p>
-          <ImageDropzone
-            onFileSelected={handleAttachArtworkForProof}
-            title={
-              attachedFileName
-                ? `${t.verify.attachArtworkBtn} (${attachedFileName})`
-                : t.verify.attachArtworkBtn
-            }
-            testId="verify-attach-artwork-input"
-          />
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              disabled={pasteBusy}
-              onClick={() => void handlePasteButtonClick()}
-              data-testid="verify-paste-image-btn"
-              className="inline-flex items-center gap-2 rounded-lg border border-sky-300/40 bg-[#051224]/80 px-4 py-2.5 text-sm font-semibold text-sky-100 hover:bg-sky-500/20 disabled:opacity-50 min-h-[44px] cursor-pointer"
-            >
-              <ClipboardPaste className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>{pasteBusy ? t.verifyMobile.pasteBusy : t.verifyMobile.pasteImageBtn}</span>
-            </button>
-            <span className="text-xs text-slate-300">{t.verifyMobile.pasteHint}</span>
-          </div>
-          {pasteFeedback && (
-            <p role="status" className="text-xs text-amber-200">
-              {pasteFeedback}
-            </p>
-          )}
-        </section>
-      )}
-
-      {result && (
-        <div className="space-y-5" data-testid="verification-results">
-          <StatusDimensionsGrid
-            signatureStatus={result.signatureStatus}
-            integrityStatus={result.integrityStatus}
-            identityStatus={result.identityStatus}
-            trustedKeyLabel={result.trustedKeyLabel}
-            matchedMode={result.matchedMode}
-          />
-
-          {result.errors.length > 0 && (
-            <div
-              role="alert"
-              className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 space-y-1 text-xs sm:text-sm text-rose-200"
-            >
-              {result.errors.map((err, i) => (
-                <p key={i}>{err}</p>
-              ))}
-            </div>
-          )}
-
-          {result.manifest?.qrMask && (
-            <div
-              role="note"
-              data-testid="verify-qr-mask-notice"
-              className="rounded-xl border border-sky-400/35 bg-sky-500/10 p-4 flex items-start gap-3 text-xs sm:text-sm text-sky-100"
-            >
-              <Info className="h-5 w-5 text-sky-300 shrink-0 mt-0.5" aria-hidden="true" />
-              <div className="space-y-1">
-                <h2 className="font-semibold text-sky-200">{t.verify.qrMaskNoticeTitle}</h2>
-                <p className="text-sky-100/90 leading-relaxed">{t.verify.qrMaskNoticeBody}</p>
-                <p className="font-mono text-xs text-sky-200">
-                  qrMask: [{result.manifest.qrMask.join(', ')}]
-                </p>
-              </div>
-            </div>
-          )}
-
-          {result.manifest && (
-            <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-5 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-sm sm:text-base font-semibold text-white">
-                  {t.minimal.verify.declaredSummaryTitle}
-                </h2>
-                <span className="text-xs font-mono text-slate-400">
-                  {result.publicKeyFingerprintShort ?? ''}
-                </span>
-              </div>
-
-              {(result.manifest.authorName || result.manifest.artworkTitle) && (
-                <div className="flex flex-wrap gap-4 text-xs sm:text-sm text-slate-200">
-                  {result.manifest.authorName && (
-                    <div>
-                      <span className="text-slate-400">{t.verify.fields.authorName}: </span>
-                      <span className="font-medium text-white">{result.manifest.authorName}</span>
-                    </div>
-                  )}
-                  {result.manifest.artworkTitle && (
-                    <div>
-                      <span className="text-slate-400">{t.verify.fields.artworkTitle}: </span>
-                      <span className="font-medium text-white">{result.manifest.artworkTitle}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <LicenseSummaryCard
-                licenseId={result.manifest.license.licenseId}
-                compact
-                testId="verify-license-summary"
-              />
-
-              {result.signatureStatus === 'valid' && result.identityStatus === 'unknown' && (
-                <form
-                  onSubmit={handleTrustThisKey}
-                  className="rounded-xl border border-white/[0.1] bg-[#030b18]/65 p-4 space-y-3"
-                >
-                  <p className="text-xs sm:text-sm font-medium text-slate-200">
-                    {t.verify.trustKeyPrompt}
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      value={trustLabelInput}
-                      onChange={(e) => setTrustLabelInput(e.target.value)}
-                      placeholder={t.verify.trustKeyLabelInput}
-                      maxLength={64}
-                      data-testid="verify-trust-label-input"
-                      className="flex-1 rounded-lg border border-white/[0.14] bg-[#030b18] px-3 py-2 text-sm text-white min-h-[44px]"
-                    />
-                    <button
-                      type="submit"
-                      data-testid="verify-trust-btn"
-                      className="rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-4 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/30 min-h-[44px] cursor-pointer"
-                    >
-                      {t.verify.trustKeyBtn}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {trustSavedMsg && (
-                <p role="status" className="text-xs text-emerald-300">
-                  {t.verify.trustedAlready} {trustSavedMsg}
-                </p>
-              )}
-
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                <Link
-                  to={`/exchange?inspect=${encodeURIComponent(base64UrlEncode(result.manifest.publicKey))}`}
-                  data-testid="verify-inspect-exchange-link"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-sky-300/35 bg-sky-400/10 px-3.5 py-2 text-xs sm:text-sm font-medium text-sky-200 hover:bg-sky-400/20 min-h-[44px]"
-                >
-                  <Share2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  <span>{t.verify.inspectInExchangeBtn}</span>
-                </Link>
-              </div>
-            </section>
-          )}
-
-          {result.manifest && !showTopProofStep2Cta && (
-            <section className="rounded-xl border border-white/[0.1] bg-[#051224]/65 backdrop-blur-md p-5 space-y-3">
-              <h2 className="text-sm sm:text-base font-semibold text-white">
-                {t.verify.attachArtworkTitle}
-              </h2>
-              <p className="text-xs text-slate-400">{t.verify.attachArtworkHint}</p>
-              <ImageDropzone
-                onFileSelected={handleAttachArtworkForProof}
-                title={
-                  attachedFileName
-                    ? `${t.verify.attachArtworkBtn} (${attachedFileName})`
-                    : t.verify.attachArtworkBtn
-                }
-                testId="verify-attach-artwork-input"
-              />
-            </section>
-          )}
-
-          <p className="text-xs text-slate-400 px-1">{t.verify.trustReminder}</p>
-
-          {result.manifest && (
-            <AdvancedSettings
-              label={t.minimal.verify.detailsLabel}
-              testId="verify-manifest-details"
-            >
-              <dl className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs sm:text-sm">
-                <DetailRow
-                  label={t.verify.fields.protocolVersion}
-                  value={`v${result.manifest.version}`}
-                  mono
-                />
-                <DetailRow
-                  label={t.verify.fields.artworkId}
-                  value={result.manifest.artworkIdHex}
-                  mono
-                />
-                <DetailRow
-                  label={t.verify.fields.authorName}
-                  value={result.manifest.authorName || t.verify.fields.none}
-                />
-                <DetailRow
-                  label={t.verify.fields.artworkTitle}
-                  value={result.manifest.artworkTitle || t.verify.fields.none}
-                />
-                <DetailRow
-                  label={t.verify.fields.issuedAt}
-                  value={new Date(result.manifest.issuedAt * 1000).toISOString()}
-                  mono
-                />
-                <DetailRow
-                  label={t.verify.fields.region}
-                  value={`[${result.manifest.region.join(', ')}]`}
-                  mono
-                />
-                {result.manifest.qrMask && (
-                  <DetailRow
-                    label={t.qrStudio.maskRegionLabel}
-                    value={`[${result.manifest.qrMask.join(', ')}]`}
-                    mono
-                  />
-                )}
-                <DetailRow
-                  label={t.verify.fields.fingerprint}
-                  value={`${result.publicKeyFingerprintShort ?? ''} (${result.publicKeyFingerprintHex ?? ''})`}
-                  mono
-                />
-                <DetailRow
-                  label={t.verify.fields.publicKeyB64}
-                  value={base64UrlEncode(result.manifest.publicKey)}
-                  mono
-                />
-                <DetailRow
-                  label={t.verify.fields.artworkSha}
-                  value={bytesToHex(result.manifest.sha256)}
-                  mono
-                />
-                <DetailRow
-                  label={t.verify.fields.computedSha}
-                  value={
-                    result.computedArtworkSha256Hex
-                      ? `${result.computedArtworkSha256Hex} (${result.matchedMode ?? 'checked'})`
-                      : t.verify.badges.intNotChecked
-                  }
-                  mono
-                />
-                <DetailRow
-                  label={t.verify.fields.license}
-                  value={`${result.manifest.license.licenseId} — ${t.licenses.items[result.manifest.license.licenseId].name}`}
-                />
-                <DetailRow
-                  label={t.verify.fields.attribution}
-                  value={result.manifest.license.attributionName || t.verify.fields.none}
-                />
-                <DetailRow
-                  label={t.verify.fields.commercial}
-                  value={result.manifest.license.commercialUse}
-                />
-                <DetailRow
-                  label={t.verify.fields.redistribution}
-                  value={result.manifest.license.redistribution}
-                />
-                <DetailRow
-                  label={t.verify.fields.aiTraining}
-                  value={result.manifest.license.aiTraining}
-                />
-              </dl>
-            </AdvancedSettings>
-          )}
-        </div>
+      {prioritizeResultsTop ? (
+        <>
+          {verifyingSpinnerCard}
+          {resultsSection}
+          {step2ArtworkCtaSection}
+          {inputTabsSection}
+        </>
+      ) : (
+        <>
+          {verifyingSpinnerCard}
+          {inputTabsSection}
+          {step2ArtworkCtaSection}
+          {resultsSection}
+        </>
       )}
     </div>
   );

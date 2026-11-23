@@ -46,6 +46,25 @@ function flattenOnWhite(
   return out;
 }
 
+function addWhiteBorder(
+  flatRgba: Uint8ClampedArray,
+  width: number,
+  height: number,
+  padPx = 16,
+): { data: Uint8ClampedArray; width: number; height: number } {
+  const outW = width + padPx * 2;
+  const outH = height + padPx * 2;
+  const out = new Uint8ClampedArray(outW * outH * 4).fill(255);
+  const srcStride = width * 4;
+  const dstStride = outW * 4;
+  for (let y = 0; y < height; y++) {
+    const srcOff = y * srcStride;
+    const dstOff = (y + padPx) * dstStride + padPx * 4;
+    out.set(flatRgba.subarray(srcOff, srcOff + srcStride), dstOff);
+  }
+  return { data: out, width: outW, height: outH };
+}
+
 function scaleNearest(
   rgba: Uint8Array,
   width: number,
@@ -118,9 +137,29 @@ export function decodeQrFromRegion(
     const hit = tryJsQr(flat, cw, ch);
     if (hit) return { rawText: hit, strategy: 'region-native' };
 
+    // White border padding fallback helps decode minimal/zero quiet-zone QRs near image edges
+    const exactFlat = flattenOnWhite(
+      raster.data,
+      raster.width,
+      raster.height,
+      Math.max(0, region[0]),
+      Math.max(0, region[1]),
+      Math.min(raster.width - Math.max(0, region[0]), region[2]),
+      Math.min(raster.height - Math.max(0, region[1]), region[3]),
+    );
+    const padded = addWhiteBorder(
+      exactFlat,
+      Math.min(raster.width - Math.max(0, region[0]), region[2]),
+      Math.min(raster.height - Math.max(0, region[1]), region[3]),
+      16,
+    );
+    const paddedHit = tryJsQr(padded.data, padded.width, padded.height);
+    if (paddedHit) return { rawText: paddedHit, strategy: 'region-padded' };
+
     if (cw <= 400 && ch <= 400) {
       const up = scaleNearest(raster.data, raster.width, raster.height, cw * 2, ch * 2, x0, y0, cw, ch);
-      const upHit = tryJsQr(up.data, up.width, up.height);
+      const upPadded = addWhiteBorder(up.data, up.width, up.height, 16);
+      const upHit = tryJsQr(upPadded.data, upPadded.width, upPadded.height);
       if (upHit) return { rawText: upHit, strategy: 'region-upscaled-2x' };
     }
   } else {
@@ -139,6 +178,9 @@ export function decodeQrFromCanonicalRaster(raster: CanonicalRaster): QrDecodeRe
     const flat = flattenOnWhite(data, width, height);
     const hit = tryJsQr(flat, width, height);
     if (hit) return { rawText: hit, strategy: 'full-native' };
+    const padded = addWhiteBorder(flat, width, height, 16);
+    const paddedHit = tryJsQr(padded.data, padded.width, padded.height);
+    if (paddedHit) return { rawText: paddedHit, strategy: 'full-padded' };
   } else {
     // Downscaled full pass for large photos
     const scaled = downscaleNearest(data, width, height, 1400);
@@ -199,7 +241,8 @@ export function decodeQrFromCanonicalRaster(raster: CanonicalRaster): QrDecodeRe
     for (const crop of upQuads) {
       if (crop.w < 21 || crop.h < 21) continue;
       const up = scaleNearest(data, width, height, crop.w * 2, crop.h * 2, crop.x, crop.y, crop.w, crop.h);
-      const hit = tryJsQr(up.data, up.width, up.height);
+      const upPadded = addWhiteBorder(up.data, up.width, up.height, 16);
+      const hit = tryJsQr(upPadded.data, upPadded.width, upPadded.height);
       if (hit) return { rawText: hit, strategy: `crop-upscaled-2x:${crop.name}` };
     }
   }
@@ -232,7 +275,7 @@ export function decodeQrFromCanonicalRaster(raster: CanonicalRaster): QrDecodeRe
 
 export function decodeQrFromImageData(imageData: ImageData): string | null {
   const res = jsQR(imageData.data, imageData.width, imageData.height, {
-    inversionAttempts: 'dontInvert',
+    inversionAttempts: 'attemptBoth',
   });
   return res?.data ?? null;
 }

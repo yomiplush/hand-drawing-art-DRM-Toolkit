@@ -118,8 +118,9 @@ export function CreateCertificatePage() {
   // Outer Margin Frame options (Protocol v1)
   const [placement, setPlacement] = useState<QrPlacement>('bottom-right');
   const [theme, setTheme] = useState<FrameTheme>('dark-slate');
-  const [marginPx, setMarginPx] = useState<number>(24);
+  const [marginPx, setMarginPx] = useState<number>(12);
   const [moduleScale, setModuleScale] = useState<number>(0); // 0 = Auto
+  const [outerQuietZone, setOuterQuietZone] = useState<number>(1);
   const [showLabel, setShowLabel] = useState<boolean>(true);
 
   // In-Image Semi-Transparent QR Studio options (Protocol v2)
@@ -129,6 +130,7 @@ export function CreateCertificatePage() {
   const [qrOpacityPct, setQrOpacityPct] = useState<number>(72);
   const [qrStyle, setQrStyle] = useState<InImageQrStyle>('frosted-light');
   const [eccLevel, setEccLevel] = useState<QrErrorCorrectionLevel>('Q');
+  const [qrQuietZone, setQrQuietZone] = useState<number>(1);
 
   const [verifyBaseUrl, setVerifyBaseUrl] = useState<string>(DEFAULT_VERIFY_BASE_URL);
 
@@ -172,8 +174,9 @@ export function CreateCertificatePage() {
       opacity: qrOpacityPct / 100,
       style: qrStyle,
       eccLevel,
+      quietZoneModules: qrQuietZone,
     });
-  }, [artworkRaster, qrX, qrY, qrBoxSize, qrOpacityPct, qrStyle, eccLevel]);
+  }, [artworkRaster, qrX, qrY, qrBoxSize, qrOpacityPct, qrStyle, eccLevel, qrQuietZone]);
 
   const estimatedProofTokenChars = useMemo(() => {
     const extraBytes =
@@ -296,6 +299,7 @@ export function CreateCertificatePage() {
             opacity: clampedStudioOptions.opacity,
             style: qrStyle,
             eccLevel,
+            quietZoneModules: clampedStudioOptions.quietZoneModules,
           },
           verifyBaseUrl,
         });
@@ -319,6 +323,7 @@ export function CreateCertificatePage() {
             theme,
             marginPx,
             modulePx: moduleScale > 0 ? moduleScale : undefined,
+            quietZoneModules: outerQuietZone,
             showLabel,
           },
           verifyBaseUrl,
@@ -839,12 +844,12 @@ export function CreateCertificatePage() {
           {qrMode === 'outer-frame' && artworkPreviewUrl && (
             <div
               data-testid="create-outer-live-preview"
-              className={`rounded-xl border p-4 flex flex-col items-center gap-3 ${outerFrameColors}`}
+              className={`rounded-xl border p-3 flex flex-col items-center gap-2.5 ${outerFrameColors}`}
             >
               {placement === 'top-right' && (
                 <div className="w-full flex justify-end items-center gap-2 text-[11px] font-mono opacity-80">
                   {showLabel && <span>CHM v1 · {licenseId}</span>}
-                  <span className="inline-flex items-center justify-center rounded border border-current/40 p-1">
+                  <span className="inline-flex items-center justify-center rounded border border-current/40 p-0.5">
                     <QrCode className="h-5 w-5" aria-hidden="true" />
                   </span>
                 </div>
@@ -867,7 +872,7 @@ export function CreateCertificatePage() {
                   }`}
                 >
                   {showLabel && <span>CHM v1 · {licenseId}</span>}
-                  <span className="inline-flex items-center justify-center rounded border border-current/40 p-1">
+                  <span className="inline-flex items-center justify-center rounded border border-current/40 p-0.5">
                     <QrCode className="h-5 w-5" aria-hidden="true" />
                   </span>
                 </div>
@@ -949,7 +954,7 @@ export function CreateCertificatePage() {
                     <input
                       id="marginPx"
                       type="range"
-                      min={8}
+                      min={4}
                       max={80}
                       step={2}
                       value={marginPx}
@@ -979,6 +984,26 @@ export function CreateCertificatePage() {
                       <option value={6}>6 px / module</option>
                     </select>
                   </div>
+
+                  <div className="sm:col-span-2">
+                    <label
+                      htmlFor="outerQuietZone"
+                      className="block text-xs font-medium text-slate-300 mb-1"
+                    >
+                      {t.minimal.create.quietZoneLabel}
+                    </label>
+                    <select
+                      id="outerQuietZone"
+                      value={outerQuietZone}
+                      onChange={(e) => setOuterQuietZone(Number(e.target.value))}
+                      data-testid="create-outer-quietzone-select"
+                      className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+                    >
+                      <option value={1}>{t.minimal.create.quietZoneMinimal}</option>
+                      <option value={2}>{t.minimal.create.quietZoneCompact}</option>
+                      <option value={4}>{t.minimal.create.quietZoneStandard}</option>
+                    </select>
+                  </div>
                 </div>
 
                 <label className="inline-flex items-center gap-2.5 text-sm text-slate-200 cursor-pointer min-h-[44px]">
@@ -1001,12 +1026,14 @@ export function CreateCertificatePage() {
                 qrOpacityPct={qrOpacityPct}
                 qrStyle={qrStyle}
                 eccLevel={eccLevel}
+                qrQuietZone={qrQuietZone}
                 onChangeX={setQrX}
                 onChangeY={setQrY}
                 onChangeBoxSize={setQrBoxSize}
                 onChangeOpacityPct={setQrOpacityPct}
                 onChangeStyle={setQrStyle}
                 onChangeEcc={setEccLevel}
+                onChangeQuietZone={setQrQuietZone}
               />
             )}
 
