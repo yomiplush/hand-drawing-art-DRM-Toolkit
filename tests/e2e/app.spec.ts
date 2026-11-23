@@ -39,6 +39,11 @@ test.describe('Certified Handmade E2E suite', () => {
     await expect(page.getByTestId('home-manifesto')).toContainText(
       'Your artwork should outlive the platform that certifies it.',
     );
+    await expect(page.getByTestId('home-standalone-section')).toBeVisible();
+    await expect(page.getByTestId('home-standalone-download-link')).toHaveAttribute(
+      'href',
+      'https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit/releases',
+    );
 
     // PS3-inspired animated wave background canvas is mounted and sized
     const waveCanvas = page.getByTestId('ps3-wave-bg');
@@ -60,6 +65,7 @@ test.describe('Certified Handmade E2E suite', () => {
     await expect(page.getByTestId('home-manifesto')).toContainText(
       'あなたの作品は、それを証明するプラットフォームより長く生き続けるべきだ。',
     );
+    await expect(page.getByTestId('home-standalone-section')).toContainText('スタンドアローン版');
     await langSelect.selectOption('zh-CN');
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
     await langSelect.selectOption('ko');
@@ -221,6 +227,7 @@ test.describe('Certified Handmade E2E suite', () => {
 
     await page.goto('/docs');
     await expect(page).toHaveTitle(/Cryptographic Architecture, SPEC & License Docs/);
+    await expect(page.getByTestId('docs-standalone-section')).toBeVisible();
     await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute(
       'href',
       'https://certified-handmade.com/docs',

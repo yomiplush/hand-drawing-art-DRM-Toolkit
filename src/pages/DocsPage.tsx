@@ -1,5 +1,6 @@
 import { BookOpen, Compass, Package, Scale } from 'lucide-react';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
+import { StandaloneEditionSection } from '../components/StandaloneEditionSection';
 import { LICENSE_DEFINITIONS } from '../core/manifest/types';
 import { useI18n } from '../i18n/context';
 
@@ -34,6 +35,10 @@ export function DocsPage() {
           ))}
         </div>
       </section>
+
+      <div id="standalone">
+        <StandaloneEditionSection variant="docs" />
+      </div>
 
       <section
         data-testid="docs-licenses-section"

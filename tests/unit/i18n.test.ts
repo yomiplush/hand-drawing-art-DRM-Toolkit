@@ -10,6 +10,7 @@ import { ar, de, es, fr, it as itLocale, pt } from '../../src/i18n/locales/europ
 import { ru, uk } from '../../src/i18n/locales/slavic';
 import { QR_STUDIO_I18N } from '../../src/i18n/qrStudio';
 import { SEO_I18N } from '../../src/i18n/seo';
+import { STANDALONE_I18N } from '../../src/i18n/standalone';
 import { TUTORIAL_I18N } from '../../src/i18n/tutorial';
 import { VERIFY_MOBILE_I18N } from '../../src/i18n/verifyMobile';
 
@@ -142,6 +143,19 @@ describe('13-language license guide & simple how-to translations', () => {
       if (locale !== 'en') {
         expect(vm.proofStep2Title).not.toBe(VERIFY_MOBILE_I18N.en.proofStep2Title);
         expect(vm.pasteImageBtn).not.toBe(VERIFY_MOBILE_I18N.en.pasteImageBtn);
+      }
+    }
+  });
+
+  it('provides Standalone Edition copy for all 13 languages', () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      const st = STANDALONE_I18N[locale];
+      expect(st.title.trim().length).toBeGreaterThan(5);
+      expect(st.subtitle.trim().length).toBeGreaterThan(20);
+      expect(st.modes).toHaveLength(3);
+      expect(st.platforms).toHaveLength(2);
+      if (locale !== 'en') {
+        expect(st.title).not.toBe(STANDALONE_I18N.en.title);
       }
     }
   });

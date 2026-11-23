@@ -2,6 +2,7 @@ import { encode as cborEncode, rfc8949EncodeOptions } from 'cborg';
 import { describe, expect, it } from 'vitest';
 import {
   base64UrlEncode,
+  bytesToHex,
   derivePublicKeyFromSeed,
   hexToBytes,
   signWithSeed,
@@ -175,6 +176,67 @@ describe('Manifest deterministic CBOR encoding & proof URL handling', () => {
       decoded.signature,
     );
     expect(ok).toBe(true);
+  });
+
+  it('matches the normative SPEC.md v2 masked test vector and enforces qrMask boundary', async () => {
+    const token =
+      'gwJYlakBUP7cuph2VEMhgSNFZ4mrze8CWCDXWpgBgrEKt9VL_tPJZAc6DuFy89qmIyWvAhpo9wdRGgNYIL4T1EuxOwqo0mye468j4PtYPeqalKJhFPOd7lqlJZjzBIQAABgYGBgFGmsC6NIGhAACAgIHaVlvbWlQbHVzaAh1VGVzdCBWZWN0b3IgdjIgTWFza2VkCYQCAhUVWECCwvqH-yEO5EbIQlDNGeWAaR5d2Qyvzmbmd4tsSiDL2Wn1GAD3TWlZMeuWQtoajg5gONB9W_C_5dAYSeXxZ34D';
+
+    const width = 24;
+    const height = 24;
+    const data = new Uint8Array(width * height * 4);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        data[i] = (x * 10 + y) & 0xff;
+        data[i + 1] = (x + y * 10) & 0xff;
+        data[i + 2] = (x ^ y) & 0xff;
+        data[i + 3] = 255;
+      }
+    }
+
+    const decoded = decodeSignedProofEnvelope(extractProofBytesFromInput(token));
+    expect(decoded.version).toBe(2);
+    expect(decoded.manifest.artworkIdHex).toBe('fedcba98-7654-4321-8123-456789abcdef');
+    expect(decoded.manifest.region).toEqual([0, 0, 24, 24]);
+    expect(decoded.manifest.qrMask).toEqual([2, 2, 21, 21]);
+    expect(bytesToHex(decoded.manifest.sha256)).toBe(
+      'be13d44bb13b0aa8d26c9ee3af23e0fb583dea9a94a26114f39dee5aa52598f3',
+    );
+    expect(bytesToHex(decoded.signature)).toBe(
+      '82c2fa87fb210ee446c84250cd19e580691e5dd90cafce66e6778b6c4a20cbd969f51800f74d695931eb9642da1a8e0e6038d07d5bf0bfe5d01849e5f1677e03',
+    );
+
+    const exactVerify = await verifyProofAndArtwork({
+      proofInput: token,
+      artworkRaster: { width, height, data },
+      lookupTrustedKey: async () => undefined,
+    });
+    expect(exactVerify.signatureStatus).toBe('valid');
+    expect(exactVerify.integrityStatus).toBe('matched');
+    expect(exactVerify.matchedMode).toBe('in-image-masked');
+
+    // Mutating inside qrMask [2, 2, 21, 21] does not alter masked SHA-256
+    const insideMasked = new Uint8Array(data);
+    const insideIdx = (5 * width + 5) * 4;
+    insideMasked[insideIdx] ^= 0xff;
+    const insideVerify = await verifyProofAndArtwork({
+      proofInput: token,
+      artworkRaster: { width, height, data: insideMasked },
+      lookupTrustedKey: async () => undefined,
+    });
+    expect(insideVerify.integrityStatus).toBe('matched');
+
+    // Mutating outside qrMask (pixel 0, 0) must immediately fail integrity check
+    const outsideTampered = new Uint8Array(data);
+    outsideTampered[0] ^= 0xff;
+    const outsideVerify = await verifyProofAndArtwork({
+      proofInput: token,
+      artworkRaster: { width, height, data: outsideTampered },
+      lookupTrustedKey: async () => undefined,
+    });
+    expect(outsideVerify.signatureStatus).toBe('valid');
+    expect(outsideVerify.integrityStatus).toBe('mismatched');
   });
 
   it('rejects unsupported protocol versions explicitly (v0, v3, v99)', async () => {

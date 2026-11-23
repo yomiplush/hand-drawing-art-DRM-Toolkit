@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
+import { StandaloneEditionSection } from '../components/StandaloneEditionSection';
 import { useI18n } from '../i18n/context';
 
 export function HomePage() {
@@ -111,6 +112,8 @@ export function HomePage() {
           ))}
         </div>
       </section>
+
+      <StandaloneEditionSection variant="home" />
 
       <section className="space-y-4">
         <h2 className="text-sm font-mono uppercase tracking-[0.14em] text-slate-300">
