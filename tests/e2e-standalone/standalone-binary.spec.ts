@@ -126,6 +126,7 @@ test.describe('Standalone Linux Binary Offline E2E & HTTP Hardening', () => {
 
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByTestId('home-tagline')).toContainText('Your Art. Your Rights.');
     await page.getByTestId('cookie-reject-btn').click();
 
     // 1. Passphrase quick-keygen + encrypted backup on /create
@@ -148,17 +149,19 @@ test.describe('Standalone Linux Binary Offline E2E & HTTP Hardening', () => {
     fs.writeFileSync(artPath, artBuffer);
 
     await page.getByTestId('create-image-input').setInputFiles(artPath);
+    await page.locator('[data-testid="create-identity-advanced"] > button').click();
     await page.getByTestId('create-author-input').fill('OfflineArtist');
     await page.getByTestId('create-title-input').fill('Standalone V1');
-    await page.getByTestId('create-sign-button').click();
-    await expect(page.getByTestId('create-result-section')).toBeVisible();
 
     const v1PngDlPromise = page.waitForEvent('download');
-    await page.getByTestId('download-signed-png').click();
+    await page.getByTestId('create-sign-button').click();
     const v1PngDl = await v1PngDlPromise;
+    await expect(page.getByTestId('create-result-section')).toBeVisible();
+    await expect(page.getByTestId('download-signed-png')).toBeVisible();
     const v1PngPath = testInfo.outputPath('standalone-v1.certified-handmade.png');
     await v1PngDl.saveAs(v1PngPath);
 
+    await page.locator('[data-testid="create-result-technical"] > button').click();
     const bundleDlPromise = page.waitForEvent('download');
     await page.getByTestId('download-proof-bundle').click();
     const bundleDl = await bundleDlPromise;
@@ -170,7 +173,7 @@ test.describe('Standalone Linux Binary Offline E2E & HTTP Hardening', () => {
     await page.getByTestId('verify-image-input').setInputFiles(v1PngPath);
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
-    await expect(page.getByTestId('status-identity')).toContainText('Unknown / Unverified Key');
+    await expect(page.getByTestId('status-identity')).toContainText('Unverified');
 
     // Verify .chproof.json + tampered PNG rejection
     await page.goto('/verify');
@@ -194,16 +197,16 @@ test.describe('Standalone Linux Binary Offline E2E & HTTP Hardening', () => {
     await page.getByTestId('create-image-input').setInputFiles(studioArtPath);
     await expect(page.getByTestId('qrstudio-preview-canvas')).toBeVisible();
     await page.getByTestId('qrstudio-preset-bottomRight').click();
+    await page.locator('[data-testid="create-qr-advanced"] > button').click();
     await page.getByTestId('qrstudio-opacity-slider').fill('80');
     await expect(page.getByTestId('qrstudio-readability-badge')).toContainText(
       'Scannable in live preview',
     );
-    await page.getByTestId('create-sign-button').click();
-    await expect(page.getByTestId('create-result-section')).toBeVisible();
 
     const v2PngDlPromise = page.waitForEvent('download');
-    await page.getByTestId('download-signed-png').click();
+    await page.getByTestId('create-sign-button').click();
     const v2PngDl = await v2PngDlPromise;
+    await expect(page.getByTestId('create-result-section')).toBeVisible();
     const v2PngPath = testInfo.outputPath('standalone-v2.certified-handmade.png');
     await v2PngDl.saveAs(v2PngPath);
 
@@ -217,12 +220,15 @@ test.describe('Standalone Linux Binary Offline E2E & HTTP Hardening', () => {
     await page.getByTestId('verify-trust-label-input').fill('Standalone Local Artist');
     await page.getByTestId('verify-trust-btn').click();
     await expect(page.getByTestId('status-identity')).toContainText(
-      'Locally Trusted Key (Standalone Local Artist)',
+      'Trusted (Standalone Local Artist)',
     );
 
     // 5. Verify Backup Only on /keys without duplicating IndexedDB records
     await page.goto('/keys');
+    await page.getByTestId('keys-help-btn').click();
     await expect(page.getByTestId('keys-standalone-storage-note')).toBeVisible();
+    await page.keyboard.press('Escape');
+
     await expect(page.getByTestId('author-key-card')).toHaveCount(1);
     await page.getByTestId('restore-file-input').setInputFiles(backupPath);
     await page.getByTestId('restore-passphrase').fill('standalone-offline-pass');

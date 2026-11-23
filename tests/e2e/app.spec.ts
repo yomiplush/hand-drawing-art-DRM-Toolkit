@@ -18,7 +18,7 @@ function buildTestArtworkPng(width = 160, height = 120): Buffer {
 }
 
 test.describe('Certified Handmade E2E suite', () => {
-  test('full key lifecycle, signing, PNG QR burning, verification, tamper detection, trust, wave bg, motto, and multilingual switching', async ({
+  test('minimal homepage, contextual ? help, compact menu, key lifecycle, 4-step signing, compact verify rows, and multilingual switching', async ({
     page,
   }, testInfo) => {
     const externalRequests: string[] = [];
@@ -36,14 +36,13 @@ test.describe('Certified Handmade E2E suite', () => {
 
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(page.getByTestId('home-manifesto')).toContainText(
-      'Your artwork should outlive the platform that certifies it.',
-    );
-    await expect(page.getByTestId('home-standalone-section')).toBeVisible();
-    await expect(page.getByTestId('home-standalone-download-link')).toHaveAttribute(
-      'href',
-      'https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit/releases',
-    );
+    await expect(page.getByTestId('home-tagline')).toContainText('Your Art. Your Rights.');
+    await expect(page.getByTestId('home-cta-create')).toBeVisible();
+    await expect(page.getByTestId('home-cta-verify')).toBeVisible();
+
+    // Long-form sections stay out of the homepage by default
+    await expect(page.getByTestId('home-faq-section')).toHaveCount(0);
+    await expect(page.getByTestId('home-howto-section')).toHaveCount(0);
 
     // PS3-inspired animated wave background canvas is mounted and sized
     const waveCanvas = page.getByTestId('ps3-wave-bg');
@@ -58,14 +57,44 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.getByTestId('cookie-reject-btn').click();
     await expect(page.getByTestId('cookie-consent-banner')).toBeHidden();
 
-    // Multi-language switching (JA + motto check, zh-CN, ko, ru, uk, ar RTL, back to EN)
+    // Verify >=44x44 touch targets on key homepage controls
+    for (const tid of ['home-cta-create', 'home-cta-verify', 'home-help-btn', 'nav-menu-toggle']) {
+      const targetBox = await page.getByTestId(tid).boundingBox();
+      expect(targetBox).not.toBeNull();
+      expect(targetBox!.height).toBeGreaterThanOrEqual(44);
+      expect(targetBox!.width).toBeGreaterThanOrEqual(44);
+    }
+
+    // Open contextual ? Help dialog and close with Escape
+    await page.getByTestId('home-help-btn').click();
+    const helpPanel = page.getByTestId('home-help-panel');
+    await expect(helpPanel).toBeVisible();
+    await expect(helpPanel).toContainText('What Certified Handmade Does');
+    await expect(helpPanel).toContainText('Limits of Cryptographic Claims');
+    await expect(helpPanel.locator('a[href="/docs"]')).toBeVisible();
+    await expect(helpPanel.locator('a[href="/tutorial"]')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(helpPanel).toBeHidden();
+
+    // Open compact Menu and verify all secondary routes are present
+    await page.getByTestId('nav-menu-toggle').click();
+    await expect(page.getByTestId('nav-menu-panel')).toBeVisible();
+    await expect(page.getByTestId('menu-keys-link')).toBeVisible();
+    await expect(page.getByTestId('menu-exchange-link')).toBeVisible();
+    await expect(page.getByTestId('menu-docs-link')).toBeVisible();
+    await expect(page.getByTestId('menu-tutorial-link')).toBeVisible();
+    await expect(page.getByTestId('menu-standalone-link')).toHaveAttribute(
+      'href',
+      '/docs#standalone',
+    );
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('nav-menu-panel')).toBeHidden();
+
+    // Multi-language switching (JA tagline check, zh-CN, ko, ru, uk, ar RTL, back to EN)
     const langSelect = page.getByTestId('lang-select');
     await langSelect.selectOption('ja');
     await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
-    await expect(page.getByTestId('home-manifesto')).toContainText(
-      'あなたの作品は、それを証明するプラットフォームより長く生き続けるべきだ。',
-    );
-    await expect(page.getByTestId('home-standalone-section')).toContainText('スタンドアローン版');
+    await expect(page.getByTestId('home-tagline')).toContainText('あなたの作品。あなたの権利。');
     await langSelect.selectOption('zh-CN');
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
     await langSelect.selectOption('ko');
@@ -81,14 +110,18 @@ test.describe('Certified Handmade E2E suite', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
 
-    // 1. Go to Keys page, generate keypair with encrypted backup
+    // 1. Go to Keys page, open ? Help storage note, generate keypair with encrypted backup
     await page.goto('/keys');
+    await page.getByTestId('keys-help-btn').click();
     await expect(page.getByTestId('keys-standalone-storage-note')).toBeVisible();
+    await page.keyboard.press('Escape');
+
     await page.getByTestId('keygen-label').fill('E2E Studio Key');
     await page.getByTestId('keygen-passphrase').fill('e2e-strong-passphrase');
     await page.getByTestId('keygen-submit').click();
 
     await expect(page.getByTestId('author-key-card')).toHaveCount(1);
+    await expect(page.getByTestId('keys-unbacked-alert')).toBeVisible();
     const downloadBackupPromise = page.waitForEvent('download');
     await page.getByTestId('download-pending-backup').click();
     const backupDownload = await downloadBackupPromise;
@@ -96,6 +129,7 @@ test.describe('Certified Handmade E2E suite', () => {
     await backupDownload.saveAs(backupPath);
     const backupJson = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
     expect(backupJson.format).toBe('certified-handmade-key-backup');
+    await expect(page.getByTestId('keys-unbacked-alert')).toBeHidden();
 
     // Delete key, then restore from backup file
     page.once('dialog', (dialog) => dialog.accept());
@@ -107,25 +141,29 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.getByTestId('restore-submit').click();
     await expect(page.getByTestId('author-key-card')).toHaveCount(1);
 
-    // 2. Create signed PNG with burned-in QR
+    // 2. Create signed PNG via 4-step workflow & expandable metadata controls
     const artPath = testInfo.outputPath('artwork.png');
     fs.writeFileSync(artPath, buildTestArtworkPng());
 
     await page.goto('/create');
     await page.getByTestId('create-image-input').setInputFiles(artPath);
     await expect(page.getByText('160 × 120 px')).toBeVisible();
+    await expect(page.getByTestId('create-outer-live-preview')).toBeVisible();
 
+    // Optional metadata lives inside AdvancedSettings disclosure
+    await page.locator('[data-testid="create-identity-advanced"] > button').click();
     await page.getByTestId('create-author-input').fill('YomiPlush');
     await page.getByTestId('create-title-input').fill('Moonlight E2E');
+
     await expect(page.getByTestId('create-license-summary')).toBeVisible();
     await page.getByTestId('create-license-select').selectOption('CC-BY-NC-4.0');
     await expect(page.getByTestId('create-license-summary')).toContainText('CC BY-NC 4.0');
-    await page.getByTestId('create-sign-button').click();
 
-    await expect(page.getByTestId('create-result-section')).toBeVisible();
     const signedDownloadPromise = page.waitForEvent('download');
-    await page.getByTestId('download-signed-png').click();
+    await page.getByTestId('create-sign-button').click();
     const signedDownload = await signedDownloadPromise;
+    await expect(page.getByTestId('create-result-section')).toBeVisible();
+    await expect(page.getByTestId('download-signed-png')).toBeVisible();
     const signedPngPath = testInfo.outputPath('signed.certified-handmade.png');
     await signedDownload.saveAs(signedPngPath);
 
@@ -133,23 +171,31 @@ test.describe('Certified Handmade E2E suite', () => {
     const verifyHref = await page.getByTestId('open-local-verify').getAttribute('href');
     expect(verifyHref).toContain('/verify#proof=');
 
-    // 3. Upload signed PNG on /verify -> reads QR + matches embedded artwork region (3 crisp dimensions, no Dimension D)
+    // 3. Upload signed PNG on /verify -> compact rows + ? explanation toggles + technical disclosure
     await page.goto('/verify');
     await page.getByTestId('verify-image-input').setInputFiles(signedPngPath);
     await expect(page.getByTestId('verification-results')).toBeVisible();
     await expect(page.getByTestId('verify-license-summary')).toContainText('CC BY-NC 4.0');
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
-    await expect(page.getByTestId('status-identity')).toContainText('Unknown / Unverified Key');
-    await expect(page.getByTestId('status-assessment')).toHaveCount(0);
-    await expect(page.getByTestId('assessment-details-card')).toHaveCount(0);
+    await expect(page.getByTestId('status-identity')).toContainText('Unverified');
+
+    // Interactive ? explanations on status rows
+    await page.getByTestId('status-signature-help').click();
+    await expect(page.getByTestId('status-signature')).toContainText('Ed25519 signature check');
+    await page.getByTestId('status-integrity-help').click();
+    await expect(page.getByTestId('status-integrity')).toContainText('RGBA8 pixels');
+    await page.getByTestId('status-identity-help').click();
+    await expect(page.getByTestId('status-identity')).toContainText('Trusted Keys');
+
+    // Technical manifest details are collapsed until expanded
+    await page.locator('[data-testid="verify-manifest-details"] > button').click();
+    await expect(page.getByTestId('verify-manifest-details')).toContainText('Moonlight E2E');
 
     // Trust this key locally from /verify
     await page.getByTestId('verify-trust-label-input').fill('YomiPlush Official');
     await page.getByTestId('verify-trust-btn').click();
-    await expect(page.getByTestId('status-identity')).toContainText(
-      'Locally Trusted Key (YomiPlush Official)',
-    );
+    await expect(page.getByTestId('status-identity')).toContainText('Trusted (YomiPlush Official)');
 
     // 4. Direct navigation to /verify#proof=... (without image first -> Not Checked, then attach original PNG -> Matched, then tampered PNG)
     await page.goto(verifyHref!);
@@ -173,7 +219,7 @@ test.describe('Certified Handmade E2E suite', () => {
     expect(externalRequests).toEqual([]);
   });
 
-  test('SEO head metadata, ?hl=ja crawler support without GDPR bypass, FAQ section, static route shells, and zero CSP errors', async ({
+  test('SEO head metadata, ?hl=ja crawler support without GDPR bypass, static route shells, and zero CSP errors', async ({
     page,
     request,
   }) => {
@@ -188,7 +234,7 @@ test.describe('Certified Handmade E2E suite', () => {
       pageErrors.push(err.message);
     });
 
-    // Home SEO metadata & FAQ section
+    // Home SEO metadata
     await page.goto('/');
     await expect(page).toHaveTitle(/Hand-Drawing Artist Local DRM/);
     await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute(
@@ -199,9 +245,7 @@ test.describe('Certified Handmade E2E suite', () => {
       'content',
       /Ed25519/,
     );
-    const faqSection = page.getByTestId('home-faq-section');
-    await expect(faqSection).toBeVisible();
-    await expect(faqSection).toContainText('Frequently Asked Questions');
+    await expect(page.getByTestId('home-tagline')).toBeVisible();
 
     await page.getByTestId('cookie-reject-btn').click();
 
@@ -241,9 +285,7 @@ test.describe('Certified Handmade E2E suite', () => {
       'href',
       'https://certified-handmade.com/?hl=ja',
     );
-    await expect(page.getByTestId('home-manifesto')).toContainText(
-      'あなたの作品は、それを証明するプラットフォームより長く生き続けるべきだ。',
-    );
+    await expect(page.getByTestId('home-tagline')).toContainText('あなたの作品。あなたの権利。');
     const leakedLocaleStorage = await page.evaluate(() => ({
       lsLocale: localStorage.getItem('chm_locale'),
       cookie: document.cookie,
@@ -279,13 +321,14 @@ test.describe('Certified Handmade E2E suite', () => {
     expect(pageErrors).toEqual([]);
   });
 
-  test('header GitHub & Sponsor Heart links, /qr-studio removal/redirect, and unified In-Image QR Studio inside /create', async ({
+  test('menu GitHub & Sponsor links, /qr-studio redirect, and unified In-Image QR Studio inside /create', async ({
     page,
   }, testInfo) => {
     await page.goto('/');
     await page.getByTestId('cookie-reject-btn').click();
 
-    // Top-right GitHub link + adjacent Sponsor Heart link to its right
+    // Open Menu -> verify GitHub link + adjacent Sponsor Heart link
+    await page.getByTestId('nav-menu-toggle').click();
     const githubLink = page.getByTestId('header-github-link');
     const sponsorLink = page.getByTestId('header-sponsor-link');
     await expect(githubLink).toBeVisible();
@@ -301,6 +344,7 @@ test.describe('Certified Handmade E2E suite', () => {
     expect(githubBox).not.toBeNull();
     expect(sponsorBox).not.toBeNull();
     expect(sponsorBox!.x).toBeGreaterThan(githubBox!.x);
+    await page.keyboard.press('Escape');
 
     // /qr-studio removed from navigation & redirects to /create?mode=studio
     await expect(page.locator('a[href="/qr-studio"]')).toHaveCount(0);
@@ -313,13 +357,14 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.getByTestId('create-mode-studio').click();
     await expect(page).toHaveURL(/\/create\?mode=studio$/);
 
-    // Upload 320x240 artwork, adjust preset/opacity, verify readability, 1-click create key & sign
+    // Upload 320x240 artwork, adjust preset, expand Advanced QR Settings for opacity, verify readability, quick keygen & sign
     const artPath = testInfo.outputPath('studio-art.png');
     fs.writeFileSync(artPath, buildTestArtworkPng(320, 240));
     await page.getByTestId('create-image-input').setInputFiles(artPath);
     await expect(page.getByTestId('qrstudio-preview-canvas')).toBeVisible();
 
     await page.getByTestId('qrstudio-preset-topLeft').click();
+    await page.locator('[data-testid="create-qr-advanced"] > button').click();
     await page.getByTestId('qrstudio-opacity-slider').fill('75');
     await expect(page.getByTestId('qrstudio-readability-badge')).toContainText(
       'Scannable in live preview',
@@ -329,12 +374,10 @@ test.describe('Certified Handmade E2E suite', () => {
     await expect(page.getByTestId('create-key-select')).toBeVisible();
     await expect(page.getByTestId('create-key-backup-warning')).toBeVisible();
 
-    await page.getByTestId('create-sign-button').click();
-    await expect(page.getByTestId('create-result-section')).toBeVisible();
-
     const dlPromise = page.waitForEvent('download');
-    await page.getByTestId('download-signed-png').click();
+    await page.getByTestId('create-sign-button').click();
     const dl = await dlPromise;
+    await expect(page.getByTestId('create-result-section')).toBeVisible();
     const studioPngPath = testInfo.outputPath('studio.in-image-qr.png');
     await dl.saveAs(studioPngPath);
 
@@ -362,15 +405,15 @@ test.describe('Certified Handmade E2E suite', () => {
     const artPath = testInfo.outputPath('mobile-art.png');
     fs.writeFileSync(artPath, artBuffer);
     await page.getByTestId('create-image-input').setInputFiles(artPath);
+
+    const dlPromise = page.waitForEvent('download');
     await page.getByTestId('create-sign-button').click();
+    const dl = await dlPromise;
     await expect(page.getByTestId('create-result-section')).toBeVisible();
 
     const verifyHref = await page.getByTestId('open-local-verify').getAttribute('href');
     expect(verifyHref).toContain('/verify#proof=');
 
-    const dlPromise = page.waitForEvent('download');
-    await page.getByTestId('download-signed-png').click();
-    const dl = await dlPromise;
     const signedPath = testInfo.outputPath('mobile-signed.png');
     await dl.saveAs(signedPath);
     const signedBytes = Array.from(fs.readFileSync(signedPath));
@@ -463,22 +506,15 @@ test.describe('Certified Handmade E2E suite', () => {
 
   test('Tutorial menu navigation, guided flow into /create, and multilingual tutorial rendering', async ({
     page,
-    isMobile,
   }) => {
     await page.goto('/');
     await page.getByTestId('cookie-accept-btn').click();
 
-    // Check Tutorial link in menu (Primary desktop nav or Mobile hamburger drawer)
-    if (isMobile) {
-      await page.getByRole('button', { name: 'Menu' }).click();
-      const mobileNavLink = page.locator('nav[aria-label="Mobile"] a[href="/tutorial"]');
-      await expect(mobileNavLink).toBeVisible();
-      await mobileNavLink.click();
-    } else {
-      const desktopNavLink = page.locator('nav[aria-label="Primary"] a[href="/tutorial"]');
-      await expect(desktopNavLink).toBeVisible();
-      await desktopNavLink.click();
-    }
+    // Open compact Menu -> verify & click Tutorial link across desktop and mobile
+    await page.getByTestId('nav-menu-toggle').click();
+    const tutorialLink = page.getByTestId('menu-tutorial-link');
+    await expect(tutorialLink).toBeVisible();
+    await tutorialLink.click();
 
     await expect(page.getByTestId('tutorial-page')).toBeVisible();
     await expect(page.getByTestId('tutorial-step-0')).toBeVisible();
@@ -496,17 +532,17 @@ test.describe('Certified Handmade E2E suite', () => {
     await expect(page.getByTestId('create-quick-keygen')).toBeVisible();
   });
 
-  test('beginner-friendly 1-click keygen on /create and multilingual license guide on /docs', async ({
+  test('1-click keygen on /create with default ARR license and multilingual license guide on /docs', async ({
     page,
   }, testInfo) => {
     await page.goto('/');
     await page.getByTestId('cookie-accept-btn').click();
-    await expect(page.getByTestId('home-howto-section')).toBeVisible();
-    await expect(page.getByTestId('home-tutorial-link')).toBeVisible();
+    await expect(page.getByTestId('home-cta-create')).toBeVisible();
+    await expect(page.getByTestId('home-cta-verify')).toBeVisible();
 
-    // Switch to Japanese and verify beginner guide & 1-click keygen on /create
+    // Switch to Japanese and verify CTA + 1-click keygen on /create
     await page.getByTestId('lang-select').selectOption('ja');
-    await expect(page.getByTestId('home-howto-section')).toContainText('3ステップ');
+    await expect(page.getByTestId('home-cta-create')).toContainText('QR証明書を作成');
 
     await page.goto('/create');
     await expect(page.getByTestId('create-license-summary')).toContainText('無断使用');
@@ -583,13 +619,14 @@ test.describe('Certified Handmade E2E suite', () => {
     await keyDl.saveAs(keyBackupPath);
     await expect(page.getByTestId('create-key-backup-warning')).toBeHidden();
 
-    // Sign artwork and download portable .chproof.json
+    // Sign artwork and expand technical disclosure to download portable .chproof.json
     const artPath = testInfo.outputPath('bundle-art.png');
     fs.writeFileSync(artPath, buildTestArtworkPng(140, 100));
     await page.getByTestId('create-image-input').setInputFiles(artPath);
     await page.getByTestId('create-sign-button').click();
     await expect(page.getByTestId('create-result-section')).toBeVisible();
 
+    await page.locator('[data-testid="create-result-technical"] > button').click();
     const bundleDlPromise = page.waitForEvent('download');
     await page.getByTestId('download-proof-bundle').click();
     const bundleDl = await bundleDlPromise;
@@ -616,5 +653,18 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.getByTestId('verify-attach-artwork-input').setInputFiles(artPath);
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
     await context.setOffline(false);
+  });
+
+  test('respects prefers-reduced-motion cleanly', async ({ browser }) => {
+    const context = await browser.newContext({ reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    const pageErrors: string[] = [];
+    page.on('pageerror', (err) => pageErrors.push(err.message));
+
+    await page.goto('/');
+    await expect(page.getByTestId('home-tagline')).toBeVisible();
+    await expect(page.getByTestId('home-cta-create')).toBeVisible();
+    expect(pageErrors).toEqual([]);
+    await context.close();
   });
 });
