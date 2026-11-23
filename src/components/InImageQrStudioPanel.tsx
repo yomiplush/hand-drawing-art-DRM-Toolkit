@@ -30,33 +30,21 @@ function extractBoxSubRaster(
 export interface InImageQrStudioPanelProps {
   artworkRaster: CanonicalRaster;
   clampedOptions: ClampedInImageQrOptions;
-  qrOpacityPct: number;
-  qrStyle: InImageQrStyle;
   eccLevel: QrErrorCorrectionLevel;
   verifyBaseUrl: string;
   estimatedProofTokenChars?: number;
   onChangeX: (x: number) => void;
   onChangeY: (y: number) => void;
-  onChangeBoxSize: (size: number) => void;
-  onChangeOpacityPct: (pct: number) => void;
-  onChangeStyle: (style: InImageQrStyle) => void;
-  onChangeEcc: (ecc: QrErrorCorrectionLevel) => void;
 }
 
 export function InImageQrStudioPanel({
   artworkRaster,
   clampedOptions,
-  qrOpacityPct,
-  qrStyle,
   eccLevel,
   verifyBaseUrl,
   estimatedProofTokenChars = 310,
   onChangeX,
   onChangeY,
-  onChangeBoxSize,
-  onChangeOpacityPct,
-  onChangeStyle,
-  onChangeEcc,
 }: InImageQrStudioPanelProps) {
   const { t } = useI18n();
   const [isScannable, setIsScannable] = useState<boolean>(true);
@@ -73,10 +61,6 @@ export function InImageQrStudioPanel({
   const tokenLen = Math.max(260, Math.min(2800, Math.round(estimatedProofTokenChars)));
   const samplePreviewText = `${cleanBase}#proof=${'A'.repeat(tokenLen)}`;
 
-  const maxBoxSize = Math.min(artworkRaster.width, artworkRaster.height);
-  const minBoxSize = Math.min(maxBoxSize, 64);
-
-  // Cache offscreen base artwork canvas whenever artworkRaster changes
   useEffect(() => {
     if (typeof document === 'undefined') {
       baseCanvasRef.current = null;
@@ -98,7 +82,6 @@ export function InImageQrStudioPanel({
     baseCanvasRef.current = offscreen;
   }, [artworkRaster]);
 
-  // Draw live preview canvas + run local jsQR readability check on the composited box
   useEffect(() => {
     if (!canvasRef.current) return;
 
@@ -272,197 +255,235 @@ export function InImageQrStudioPanel({
   };
 
   return (
-    <section
+    <div
       data-testid="qrstudio-panel"
-      className="rounded-xl border border-sky-400/25 bg-[#051224]/75 backdrop-blur-md p-5 space-y-5"
+      className="rounded-xl border border-sky-400/25 bg-[#041021]/70 p-4 space-y-4"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
-            <Move className="h-4 w-4 text-sky-300" aria-hidden="true" />
-            <span>{t.qrStudio.previewTitle}</span>
-          </h2>
-          <p className="text-xs text-slate-300 mt-1">{t.qrStudio.previewHint}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-slate-200">
+          <Move className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+          <span>{t.qrStudio.previewTitle}</span>
         </div>
 
         <div
           data-testid="qrstudio-readability-badge"
-          className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium ${
+          className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
             isScannable
               ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200'
               : 'border-amber-400/45 bg-amber-500/15 text-amber-200'
           }`}
         >
           {isScannable ? (
-            <CheckCircle2 className="h-4 w-4 text-emerald-300 shrink-0" aria-hidden="true" />
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300 shrink-0" aria-hidden="true" />
           ) : (
-            <AlertTriangle className="h-4 w-4 text-amber-300 shrink-0" aria-hidden="true" />
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-300 shrink-0" aria-hidden="true" />
           )}
           <span>{isScannable ? t.qrStudio.readabilityOk : t.qrStudio.readabilityWarn}</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <div className="lg:col-span-7 flex flex-col items-center justify-center rounded-xl border border-white/[0.1] bg-[#020813]/85 p-3">
-          <canvas
-            ref={canvasRef}
-            data-testid="qrstudio-preview-canvas"
-            onPointerDown={handleCanvasPointerDown}
-            onPointerMove={handleCanvasPointerMove}
-            onPointerUp={handleCanvasPointerUp}
-            onPointerCancel={handleCanvasPointerUp}
-            className="max-h-[480px] max-w-full w-auto h-auto rounded cursor-grab active:cursor-grabbing touch-none select-none"
-          />
-          <p className="text-[11px] text-slate-400 mt-2">{t.qrStudio.readabilityHint}</p>
-        </div>
+      <div className="flex flex-col items-center justify-center rounded-xl border border-white/[0.08] bg-[#020813]/85 p-3">
+        <canvas
+          ref={canvasRef}
+          data-testid="qrstudio-preview-canvas"
+          onPointerDown={handleCanvasPointerDown}
+          onPointerMove={handleCanvasPointerMove}
+          onPointerUp={handleCanvasPointerUp}
+          onPointerCancel={handleCanvasPointerUp}
+          className="max-h-[360px] max-w-full w-auto h-auto rounded cursor-grab active:cursor-grabbing touch-none select-none"
+        />
+      </div>
 
-        <div className="lg:col-span-5 space-y-4">
-          <div className="space-y-2">
-            <div className="text-xs font-medium text-slate-300">{t.qrStudio.presetsLabel}</div>
-            <div className="flex flex-wrap gap-1.5">
-              {(
-                [
-                  ['topLeft', t.qrStudio.presets.topLeft],
-                  ['topRight', t.qrStudio.presets.topRight],
-                  ['bottomLeft', t.qrStudio.presets.bottomLeft],
-                  ['bottomRight', t.qrStudio.presets.bottomRight],
-                  ['center', t.qrStudio.presets.center],
-                ] as const
-              ).map(([presetKey, label]) => (
-                <button
-                  key={presetKey}
-                  type="button"
-                  onClick={() => applyPreset(presetKey)}
-                  data-testid={`qrstudio-preset-${presetKey}`}
-                  className="rounded-md border border-white/[0.14] bg-[#030b18]/75 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:border-sky-400/50 hover:text-white transition-colors cursor-pointer"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-3 rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3.5">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-              {t.qrStudio.controlsTitle}
-            </h3>
-
-            <div>
-              <label htmlFor="qrX" className="flex justify-between text-xs text-slate-300">
-                <span>{t.qrStudio.xLabel}</span>
-                <span className="font-mono text-white">{clampedOptions.x} px</span>
-              </label>
-              <input
-                id="qrX"
-                type="range"
-                min={0}
-                max={Math.max(0, artworkRaster.width - clampedOptions.boxSize)}
-                value={clampedOptions.x}
-                onChange={(e) => onChangeX(Number(e.target.value))}
-                data-testid="qrstudio-x-slider"
-                className="w-full accent-sky-300 mt-1"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="qrY" className="flex justify-between text-xs text-slate-300">
-                <span>{t.qrStudio.yLabel}</span>
-                <span className="font-mono text-white">{clampedOptions.y} px</span>
-              </label>
-              <input
-                id="qrY"
-                type="range"
-                min={0}
-                max={Math.max(0, artworkRaster.height - clampedOptions.boxSize)}
-                value={clampedOptions.y}
-                onChange={(e) => onChangeY(Number(e.target.value))}
-                data-testid="qrstudio-y-slider"
-                className="w-full accent-sky-300 mt-1"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="qrBoxSize" className="flex justify-between text-xs text-slate-300">
-                <span>{t.qrStudio.sizeLabel}</span>
-                <span className="font-mono text-white">{clampedOptions.boxSize} px</span>
-              </label>
-              <input
-                id="qrBoxSize"
-                type="range"
-                min={minBoxSize}
-                max={maxBoxSize}
-                value={clampedOptions.boxSize}
-                onChange={(e) => onChangeBoxSize(Number(e.target.value))}
-                data-testid="qrstudio-size-slider"
-                className="w-full accent-sky-300 mt-1"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="qrOpacity" className="flex justify-between text-xs text-slate-300">
-                <span>{t.qrStudio.opacityLabel}</span>
-                <span className="font-mono text-white">{qrOpacityPct}%</span>
-              </label>
-              <input
-                id="qrOpacity"
-                type="range"
-                min={20}
-                max={100}
-                step={1}
-                value={qrOpacityPct}
-                onChange={(e) => onChangeOpacityPct(Number(e.target.value))}
-                data-testid="qrstudio-opacity-slider"
-                className="w-full accent-sky-300 mt-1"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="qrStyle" className="block text-xs text-slate-300 mb-1">
-                {t.qrStudio.styleLabel}
-              </label>
-              <select
-                id="qrStyle"
-                value={qrStyle}
-                onChange={(e) => onChangeStyle(e.target.value as InImageQrStyle)}
-                data-testid="qrstudio-style-select"
-                className="w-full rounded-lg border border-white/[0.14] bg-[#061224] px-3 py-2 text-xs sm:text-sm text-white"
-              >
-                <option value="frosted-light">{t.qrStudio.styles['frosted-light']}</option>
-                <option value="frosted-dark">{t.qrStudio.styles['frosted-dark']}</option>
-                <option value="modules-dark">{t.qrStudio.styles['modules-dark']}</option>
-                <option value="modules-light">{t.qrStudio.styles['modules-light']}</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="eccLevel" className="block text-xs text-slate-300 mb-1">
-                {t.qrStudio.eccLabel}
-              </label>
-              <select
-                id="eccLevel"
-                value={eccLevel}
-                onChange={(e) => onChangeEcc(e.target.value as QrErrorCorrectionLevel)}
-                data-testid="qrstudio-ecc-select"
-                className="w-full rounded-lg border border-white/[0.14] bg-[#061224] px-3 py-2 text-xs sm:text-sm text-white"
-              >
-                <option value="M">{t.qrStudio.eccOptions.M}</option>
-                <option value="Q">{t.qrStudio.eccOptions.Q}</option>
-                <option value="H">{t.qrStudio.eccOptions.H}</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/50 p-3 text-xs text-slate-300 space-y-1">
-            <div className="font-mono text-sky-300">
-              {t.qrStudio.maskRegionLabel}: [{clampedOptions.x}, {clampedOptions.y},{' '}
-              {clampedOptions.boxSize}, {clampedOptions.boxSize}]
-            </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              {t.qrStudio.maskedDigestNote}
-            </p>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs text-slate-400">{t.qrStudio.presetsLabel}</span>
+        <div className="flex flex-wrap gap-1.5">
+          {(
+            [
+              ['topLeft', t.qrStudio.presets.topLeft],
+              ['topRight', t.qrStudio.presets.topRight],
+              ['bottomLeft', t.qrStudio.presets.bottomLeft],
+              ['bottomRight', t.qrStudio.presets.bottomRight],
+              ['center', t.qrStudio.presets.center],
+            ] as const
+          ).map(([presetKey, label]) => (
+            <button
+              key={presetKey}
+              type="button"
+              onClick={() => applyPreset(presetKey)}
+              data-testid={`qrstudio-preset-${presetKey}`}
+              className="rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-sky-400/50 hover:text-white transition-colors min-h-[38px] cursor-pointer"
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
-    </section>
+    </div>
+  );
+}
+
+export interface InImageAdvancedControlsProps {
+  artworkRaster: CanonicalRaster | null;
+  clampedOptions: ClampedInImageQrOptions | null;
+  qrX: number;
+  qrY: number;
+  qrBoxSize: number;
+  qrOpacityPct: number;
+  qrStyle: InImageQrStyle;
+  eccLevel: QrErrorCorrectionLevel;
+  onChangeX: (x: number) => void;
+  onChangeY: (y: number) => void;
+  onChangeBoxSize: (size: number) => void;
+  onChangeOpacityPct: (pct: number) => void;
+  onChangeStyle: (style: InImageQrStyle) => void;
+  onChangeEcc: (ecc: QrErrorCorrectionLevel) => void;
+}
+
+export function InImageAdvancedControls({
+  artworkRaster,
+  clampedOptions,
+  qrX,
+  qrY,
+  qrBoxSize,
+  qrOpacityPct,
+  qrStyle,
+  eccLevel,
+  onChangeX,
+  onChangeY,
+  onChangeBoxSize,
+  onChangeOpacityPct,
+  onChangeStyle,
+  onChangeEcc,
+}: InImageAdvancedControlsProps) {
+  const { t } = useI18n();
+  const maxBoxSize = artworkRaster ? Math.min(artworkRaster.width, artworkRaster.height) : 480;
+  const minBoxSize = Math.min(maxBoxSize, 64);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="qrX" className="flex justify-between text-xs text-slate-300">
+            <span>{t.qrStudio.xLabel}</span>
+            <span className="font-mono text-white">{clampedOptions?.x ?? qrX} px</span>
+          </label>
+          <input
+            id="qrX"
+            type="range"
+            min={0}
+            max={
+              artworkRaster && clampedOptions
+                ? Math.max(0, artworkRaster.width - clampedOptions.boxSize)
+                : 1000
+            }
+            value={clampedOptions?.x ?? qrX}
+            onChange={(e) => onChangeX(Number(e.target.value))}
+            data-testid="qrstudio-x-slider"
+            className="w-full accent-sky-300 mt-1"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="qrY" className="flex justify-between text-xs text-slate-300">
+            <span>{t.qrStudio.yLabel}</span>
+            <span className="font-mono text-white">{clampedOptions?.y ?? qrY} px</span>
+          </label>
+          <input
+            id="qrY"
+            type="range"
+            min={0}
+            max={
+              artworkRaster && clampedOptions
+                ? Math.max(0, artworkRaster.height - clampedOptions.boxSize)
+                : 1000
+            }
+            value={clampedOptions?.y ?? qrY}
+            onChange={(e) => onChangeY(Number(e.target.value))}
+            data-testid="qrstudio-y-slider"
+            className="w-full accent-sky-300 mt-1"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="qrBoxSize" className="flex justify-between text-xs text-slate-300">
+            <span>{t.qrStudio.sizeLabel}</span>
+            <span className="font-mono text-white">{clampedOptions?.boxSize ?? qrBoxSize} px</span>
+          </label>
+          <input
+            id="qrBoxSize"
+            type="range"
+            min={minBoxSize}
+            max={maxBoxSize}
+            value={clampedOptions?.boxSize ?? qrBoxSize}
+            onChange={(e) => onChangeBoxSize(Number(e.target.value))}
+            data-testid="qrstudio-size-slider"
+            className="w-full accent-sky-300 mt-1"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="qrOpacity" className="flex justify-between text-xs text-slate-300">
+            <span>{t.qrStudio.opacityLabel}</span>
+            <span className="font-mono text-white">{qrOpacityPct}%</span>
+          </label>
+          <input
+            id="qrOpacity"
+            type="range"
+            min={20}
+            max={100}
+            step={1}
+            value={qrOpacityPct}
+            onChange={(e) => onChangeOpacityPct(Number(e.target.value))}
+            data-testid="qrstudio-opacity-slider"
+            className="w-full accent-sky-300 mt-1"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="qrStyle" className="block text-xs text-slate-300 mb-1">
+            {t.qrStudio.styleLabel}
+          </label>
+          <select
+            id="qrStyle"
+            value={qrStyle}
+            onChange={(e) => onChangeStyle(e.target.value as InImageQrStyle)}
+            data-testid="qrstudio-style-select"
+            className="w-full rounded-lg border border-white/[0.14] bg-[#061224] px-3 py-2 text-xs sm:text-sm text-white min-h-[44px]"
+          >
+            <option value="frosted-light">{t.qrStudio.styles['frosted-light']}</option>
+            <option value="frosted-dark">{t.qrStudio.styles['frosted-dark']}</option>
+            <option value="modules-dark">{t.qrStudio.styles['modules-dark']}</option>
+            <option value="modules-light">{t.qrStudio.styles['modules-light']}</option>
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="eccLevel" className="block text-xs text-slate-300 mb-1">
+            {t.qrStudio.eccLabel}
+          </label>
+          <select
+            id="eccLevel"
+            value={eccLevel}
+            onChange={(e) => onChangeEcc(e.target.value as QrErrorCorrectionLevel)}
+            data-testid="qrstudio-ecc-select"
+            className="w-full rounded-lg border border-white/[0.14] bg-[#061224] px-3 py-2 text-xs sm:text-sm text-white min-h-[44px]"
+          >
+            <option value="M">{t.qrStudio.eccOptions.M}</option>
+            <option value="Q">{t.qrStudio.eccOptions.Q}</option>
+            <option value="H">{t.qrStudio.eccOptions.H}</option>
+          </select>
+        </div>
+      </div>
+
+      {clampedOptions && (
+        <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/50 p-3 text-xs text-slate-300 space-y-1">
+          <div className="font-mono text-sky-300">
+            {t.qrStudio.maskRegionLabel}: [{clampedOptions.x}, {clampedOptions.y},{' '}
+            {clampedOptions.boxSize}, {clampedOptions.boxSize}]
+          </div>
+          <p className="text-[11px] text-slate-400 leading-relaxed">{t.qrStudio.maskedDigestNote}</p>
+        </div>
+      )}
+    </div>
   );
 }

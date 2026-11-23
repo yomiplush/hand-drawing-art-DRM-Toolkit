@@ -1,26 +1,30 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
   Check,
-  ChevronDown,
   Copy,
   Download,
   ExternalLink,
   FileJson,
   FileSignature,
   Frame,
+  ImagePlus,
   Info,
   KeyRound,
   QrCode,
   Sparkles,
 } from 'lucide-react';
 import { ImageDropzone } from '../components/ImageDropzone';
-import { InImageQrStudioPanel } from '../components/InImageQrStudioPanel';
+import {
+  InImageAdvancedControls,
+  InImageQrStudioPanel,
+} from '../components/InImageQrStudioPanel';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
+import { AdvancedSettings } from '../components/ui/AdvancedSettings';
+import { HelpIconButton } from '../components/ui/HelpIconButton';
 import { computePublicKeyFingerprint } from '../core/crypto/ed25519';
 import { bytesToHex } from '../core/crypto/sha256';
-import { hashCanonicalRasterHex } from '../core/image/canonicalRaster';
 import { clampInImageQrOptions } from '../core/image/inImageQr';
 import type { InImageQrStyle } from '../core/image/inImageQr';
 import { decodeImageFileToCanonicalRgba8 } from '../core/image/pngCodec';
@@ -59,9 +63,24 @@ type UnifiedSignResult =
   | (SignedArtworkResult & { mode: 'outer-frame'; qrMask?: undefined })
   | (InImageSignedArtworkResult & { mode: 'in-image'; qrMask: ArtworkRegion });
 
+function triggerPngDownload(pngBytes: Uint8Array, filename: string) {
+  const pngCopy = new Uint8Array(pngBytes.byteLength);
+  pngCopy.set(pngBytes);
+  const blob = new Blob([pngCopy.buffer], { type: 'image/png' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function CreateCertificatePage() {
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
+  const replaceInputId = useId();
 
   const qrMode: QrCreationMode =
     searchParams.get('mode') === 'studio' ? 'in-image' : 'outer-frame';
@@ -86,7 +105,6 @@ export function CreateCertificatePage() {
   const [sourceFileName, setSourceFileName] = useState<string>('');
   const [sourceFormat, setSourceFormat] = useState<string>('');
   const [artworkRaster, setArtworkRaster] = useState<CanonicalRaster | null>(null);
-  const [artworkShaHex, setArtworkShaHex] = useState<string>('');
   const [artworkPreviewUrl, setArtworkPreviewUrl] = useState<string | null>(null);
 
   const [authorName, setAuthorName] = useState('');
@@ -165,6 +183,13 @@ export function CreateCertificatePage() {
     return 310 + Math.ceil((extraBytes * 4) / 3);
   }, [authorName, artworkTitle, attributionName]);
 
+  const buildDownloadFilename = (mode: QrCreationMode) => {
+    const base = sourceFileName.replace(/\.[^.]+$/, '') || 'artwork';
+    return mode === 'in-image'
+      ? `${base}.in-image-qr.certified-handmade.png`
+      : `${base}.certified-handmade.png`;
+  };
+
   const handleQuickCreateKey = async () => {
     setErrorMsg(null);
     setQuickKeyError(null);
@@ -201,7 +226,7 @@ export function CreateCertificatePage() {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     await markAuthorKeyBackedUp(selectedKey.id);
     const updated = await listAuthorKeys();
     setKeys(updated);
@@ -213,11 +238,9 @@ export function CreateCertificatePage() {
     try {
       const rawFileBytes = new Uint8Array(await file.arrayBuffer());
       const { raster, sourceFormat: fmt } = await decodeImageFileToCanonicalRgba8(rawFileBytes);
-      const shaHex = await hashCanonicalRasterHex(raster);
       if (artworkPreviewUrl) URL.revokeObjectURL(artworkPreviewUrl);
       const url = URL.createObjectURL(file);
 
-      // Initialize sensible studio coordinates for the newly selected artwork
       const minDim = Math.min(raster.width, raster.height);
       const defaultBox = Math.max(
         Math.min(minDim, 148),
@@ -228,7 +251,6 @@ export function CreateCertificatePage() {
       setSourceFileName(file.name);
       setSourceFormat(fmt);
       setArtworkRaster(raster);
-      setArtworkShaHex(shaHex);
       setArtworkPreviewUrl(url);
       setQrBoxSize(defaultBox);
       setQrX(Math.max(0, raster.width - defaultBox - pad));
@@ -311,6 +333,7 @@ export function CreateCertificatePage() {
       const previewUrl = URL.createObjectURL(blob);
       setSignedPreviewUrl(previewUrl);
       setSignedResult(res);
+      triggerPngDownload(res.pngBytes, buildDownloadFilename(res.mode));
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Signing failed');
     } finally {
@@ -320,21 +343,7 @@ export function CreateCertificatePage() {
 
   const handleDownloadSignedPng = () => {
     if (!signedResult) return;
-    const base = sourceFileName.replace(/\.[^.]+$/, '') || 'artwork';
-    const pngCopy = new Uint8Array(signedResult.pngBytes.byteLength);
-    pngCopy.set(signedResult.pngBytes);
-    const blob = new Blob([pngCopy.buffer], { type: 'image/png' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download =
-      signedResult.mode === 'in-image'
-        ? `${base}.in-image-qr.certified-handmade.png`
-        : `${base}.certified-handmade.png`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    triggerPngDownload(signedResult.pngBytes, buildDownloadFilename(signedResult.mode));
   };
 
   const handleDownloadProofBundle = async () => {
@@ -358,7 +367,7 @@ export function CreateCertificatePage() {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const handleCopyProofUrl = async () => {
@@ -376,298 +385,107 @@ export function CreateCertificatePage() {
     ? `/verify#proof=${signedResult.proofUrl.split('#proof=')[1] ?? ''}`
     : '/verify';
 
+  const outerFrameColors =
+    theme === 'pure-white'
+      ? 'bg-slate-100 text-slate-900 border-slate-300'
+      : theme === 'transparent-margin'
+        ? 'bg-[#030b18]/40 text-slate-100 border-dashed border-white/25'
+        : 'bg-[#0c1a30] text-slate-100 border-sky-400/25';
+
   return (
-    <div className="space-y-8">
-      <header className="space-y-2 border-b border-white/[0.08] pb-5">
-        <h1 className="text-2xl sm:text-3xl font-semibold text-white">
-          {qrMode === 'in-image' ? t.qrStudio.title : t.create.title}
-        </h1>
-        <p className="text-sm sm:text-base text-slate-300">
-          {qrMode === 'in-image' ? t.qrStudio.subtitle : t.create.subtitle}
-        </p>
-        <p className="text-xs sm:text-sm text-sky-200/90 pt-1">{t.howTo.simpleFlowHint}</p>
+    <div className="space-y-6 max-w-3xl mx-auto">
+      <header className="flex items-start justify-between gap-4 border-b border-white/[0.08] pb-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl sm:text-3xl font-semibold text-white">
+            {t.home.ctaCreate}
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-400">{t.minimal.create.step1Hint}</p>
+        </div>
+
+        <HelpIconButton
+          label={t.minimal.create.helpLabel}
+          title={t.minimal.create.helpLabel}
+          closeLabel={t.minimal.home.closeHelp}
+          testId="create-help-btn"
+        >
+          <p>{t.minimal.create.helpBody}</p>
+          <p className="text-xs text-slate-400">{t.create.timestampNote}</p>
+        </HelpIconButton>
       </header>
 
-      <section
-        aria-label={t.qrStudio.modeSectionTitle}
-        className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-3"
-      >
-        <h2 className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-slate-300">
-          {t.qrStudio.modeSectionTitle}
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={qrMode === 'outer-frame'}
-            onClick={() => setQrMode('outer-frame')}
-            data-testid="create-mode-margin"
-            className={`text-start rounded-xl border p-3.5 transition-colors cursor-pointer ${
-              qrMode === 'outer-frame'
-                ? 'border-sky-300/60 bg-sky-500/15 text-white'
-                : 'border-white/[0.1] bg-[#030b18]/60 text-slate-300 hover:border-white/[0.22]'
-            }`}
-          >
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <Frame className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
-              <span>{t.qrStudio.modeOuterLabel}</span>
-            </div>
-            <p className="mt-1 text-xs text-slate-300/90 leading-relaxed">
-              {t.qrStudio.modeOuterDesc}
-            </p>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={qrMode === 'in-image'}
-            onClick={() => setQrMode('in-image')}
-            data-testid="create-mode-studio"
-            className={`text-start rounded-xl border p-3.5 transition-colors cursor-pointer ${
-              qrMode === 'in-image'
-                ? 'border-sky-300/60 bg-sky-500/15 text-white'
-                : 'border-white/[0.1] bg-[#030b18]/60 text-slate-300 hover:border-white/[0.22]'
-            }`}
-          >
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <QrCode className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
-              <span>{t.qrStudio.modeStudioLabel}</span>
-            </div>
-            <p className="mt-1 text-xs text-slate-300/90 leading-relaxed">
-              {t.qrStudio.modeStudioDesc}
-            </p>
-          </button>
-        </div>
-      </section>
-
       <form onSubmit={handleSignAndBurn} className="space-y-6">
-        <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
-          <div>
-            <h2 className="text-base sm:text-lg font-semibold text-white">{t.create.step1}</h2>
-            <p className="text-xs text-slate-400 mt-1">{t.create.step1Hint}</p>
-          </div>
+        {/* Step 1 — Select Artwork */}
+        <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-5 space-y-4">
+          <h2 className="text-base sm:text-lg font-semibold text-white">
+            {t.minimal.create.step1Title}
+          </h2>
 
-          <ImageDropzone
-            onFileSelected={handleFileSelected}
-            title={t.create.dropzoneText}
-            subtitle={t.create.dropzoneSub}
-            testId="create-image-input"
-          />
-
-          {artworkRaster && artworkPreviewUrl && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center rounded-xl border border-white/[0.09] bg-[#030b18]/65 p-4">
-              <div className="md:col-span-1 flex justify-center bg-[#020813]/80 rounded-lg p-2 border border-white/[0.08]">
+          {!artworkRaster || !artworkPreviewUrl ? (
+            <ImageDropzone
+              onFileSelected={handleFileSelected}
+              title={t.create.dropzoneText}
+              subtitle={t.minimal.create.step1Hint}
+              testId="create-image-input"
+            />
+          ) : (
+            <div className="flex flex-col sm:flex-row items-center gap-4 rounded-xl border border-white/[0.09] bg-[#030b18]/70 p-4">
+              <div className="flex justify-center bg-[#020813] rounded-lg p-2 border border-white/[0.08] shrink-0">
                 <img
                   src={artworkPreviewUrl}
                   alt={artworkTitle || sourceFileName}
-                  className="max-h-48 object-contain rounded"
+                  className="max-h-36 max-w-[180px] object-contain rounded"
                 />
               </div>
-              <div className="md:col-span-2 space-y-2 text-xs sm:text-sm">
-                <div className="font-semibold text-sky-200">{sourceFileName}</div>
-                <div className="text-slate-300">
-                  {t.create.imageInfo}:{' '}
-                  <span className="font-mono text-white">
-                    {artworkRaster.width} × {artworkRaster.height} px (RGBA8 · {sourceFormat})
-                  </span>
+
+              <div className="flex-1 min-w-0 space-y-2 text-center sm:text-start">
+                <div className="font-medium text-sky-100 truncate">{sourceFileName}</div>
+                <div className="font-mono text-xs text-slate-300">
+                  {artworkRaster.width} × {artworkRaster.height} px · {sourceFormat}
                 </div>
-                <div className="space-y-0.5">
-                  <div className="text-xs text-slate-400">{t.create.artworkShaLabel}</div>
-                  <div className="font-mono text-xs text-sky-300 break-all">{artworkShaHex}</div>
+                <div className="pt-1">
+                  <input
+                    id={replaceInputId}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/*"
+                    data-testid="create-image-input"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void handleFileSelected(file);
+                      e.target.value = '';
+                    }}
+                    className="sr-only"
+                  />
+                  <label
+                    htmlFor={replaceInputId}
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/[0.16] bg-white/[0.05] px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-100 hover:border-sky-400/40 hover:text-white transition-colors min-h-[44px] cursor-pointer"
+                  >
+                    <ImagePlus className="h-4 w-4 text-sky-300" aria-hidden="true" />
+                    <span>{t.minimal.create.changeImageBtn}</span>
+                  </label>
                 </div>
               </div>
             </div>
           )}
         </section>
 
-        {qrMode === 'in-image' &&
-          (artworkRaster && clampedStudioOptions ? (
-            <InImageQrStudioPanel
-              artworkRaster={artworkRaster}
-              clampedOptions={clampedStudioOptions}
-              qrOpacityPct={qrOpacityPct}
-              qrStyle={qrStyle}
-              eccLevel={eccLevel}
-              verifyBaseUrl={verifyBaseUrl}
-              estimatedProofTokenChars={estimatedProofTokenChars}
-              onChangeX={setQrX}
-              onChangeY={setQrY}
-              onChangeBoxSize={setQrBoxSize}
-              onChangeOpacityPct={setQrOpacityPct}
-              onChangeStyle={setQrStyle}
-              onChangeEcc={setEccLevel}
-            />
-          ) : (
-            <div className="rounded-xl border border-sky-400/25 bg-sky-500/[0.07] p-4 text-xs sm:text-sm text-sky-100 flex items-center gap-2.5">
-              <QrCode className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
-              <span>{t.qrStudio.uploadFirstHint}</span>
-            </div>
-          ))}
+        {/* Step 2 — Identity and License */}
+        <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-5 space-y-4">
+          <h2 className="text-base sm:text-lg font-semibold text-white">
+            {t.minimal.create.step2Title}
+          </h2>
 
-        <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
-          <h2 className="text-base sm:text-lg font-semibold text-white">{t.create.step2}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <div className="flex justify-between text-xs text-slate-300 mb-1">
-                <label htmlFor="authorName">{t.create.authorLabel}</label>
-                <span className="font-mono text-slate-400">
-                  {utf8ByteLength(authorName)} / {MAX_AUTHOR_UTF8_BYTES} {t.create.bytesUsed}
-                </span>
-              </div>
-              <input
-                id="authorName"
-                type="text"
-                value={authorName}
-                onChange={(e) => setAuthorName(e.target.value)}
-                placeholder={t.create.authorPlaceholder}
-                data-testid="create-author-input"
-                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between text-xs text-slate-300 mb-1">
-                <label htmlFor="artworkTitle">{t.create.titleLabel}</label>
-                <span className="font-mono text-slate-400">
-                  {utf8ByteLength(artworkTitle)} / {MAX_TITLE_UTF8_BYTES} {t.create.bytesUsed}
-                </span>
-              </div>
-              <input
-                id="artworkTitle"
-                type="text"
-                value={artworkTitle}
-                onChange={(e) => setArtworkTitle(e.target.value)}
-                placeholder={t.create.titlePlaceholder}
-                data-testid="create-title-input"
-                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
-              />
-            </div>
-          </div>
-        </section>
-
-        <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
-          <h2 className="text-base sm:text-lg font-semibold text-white">{t.create.step3}</h2>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="licenseId" className="block text-xs font-medium text-slate-300 mb-1">
-                {t.create.licenseLabel}
-              </label>
-              <select
-                id="licenseId"
-                value={licenseId}
-                onChange={(e) => setLicenseId(e.target.value as LicenseId)}
-                data-testid="create-license-select"
-                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
-              >
-                {LICENSE_DEFINITIONS.map((lic) => (
-                  <option key={lic.id} value={lic.id}>
-                    {lic.id} — {t.licenses.items[lic.id].name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-xs text-slate-300 mb-1">
-                <label htmlFor="attributionName">{t.create.attributionLabel}</label>
-                <span className="font-mono text-slate-400">
-                  {utf8ByteLength(attributionName)} / {MAX_ATTRIBUTION_UTF8_BYTES}{' '}
-                  {t.create.bytesUsed}
-                </span>
-              </div>
-              <input
-                id="attributionName"
-                type="text"
-                value={attributionName}
-                onChange={(e) => setAttributionName(e.target.value)}
-                placeholder={t.create.attributionPlaceholder}
-                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
-              />
-            </div>
-          </div>
-
-          <LicenseSummaryCard
-            licenseId={licenseId}
-            compact
-            testId="create-license-summary"
-          />
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label
-                htmlFor="commercialUse"
-                className="block text-xs font-medium text-slate-300 mb-1"
-              >
-                {t.create.commercialLabel}
-              </label>
-              <select
-                id="commercialUse"
-                value={commercialUse}
-                onChange={(e) => setCommercialUse(e.target.value as PolicySignal)}
-                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
-              >
-                <option value="unspecified">{t.create.policyUnspecified}</option>
-                <option value="allow">{t.create.policyAllow}</option>
-                <option value="disallow">{t.create.policyDisallow}</option>
-              </select>
-            </div>
-
-            <div>
-              <label
-                htmlFor="redistribution"
-                className="block text-xs font-medium text-slate-300 mb-1"
-              >
-                {t.create.redistributionLabel}
-              </label>
-              <select
-                id="redistribution"
-                value={redistribution}
-                onChange={(e) => setRedistribution(e.target.value as PolicySignal)}
-                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
-              >
-                <option value="unspecified">{t.create.policyUnspecified}</option>
-                <option value="allow">{t.create.policyAllow}</option>
-                <option value="disallow">{t.create.policyDisallow}</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="aiTraining" className="block text-xs font-medium text-slate-300 mb-1">
-                {t.create.aiTrainingLabel}
-              </label>
-              <select
-                id="aiTraining"
-                value={aiTraining}
-                onChange={(e) => setAiTraining(e.target.value as PolicySignal)}
-                data-testid="create-ai-select"
-                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
-              >
-                <option value="disallow">{t.create.policyDisallow}</option>
-                <option value="allow">{t.create.policyAllow}</option>
-                <option value="unspecified">{t.create.policyUnspecified}</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/50 p-3 flex items-start gap-2.5 text-xs text-slate-300">
-            <Info className="h-4 w-4 text-sky-300 shrink-0 mt-0.5" aria-hidden="true" />
-            <span>{t.licenses.signalGuideBody}</span>
-          </div>
-        </section>
-
-        <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
-          <h2 className="text-base sm:text-lg font-semibold text-white">{t.create.step4}</h2>
           {keys.length === 0 ? (
-            <div className="rounded-lg border border-sky-400/30 bg-sky-500/10 p-4 space-y-3">
-              <div className="space-y-1">
-                <h3 className="text-sm font-semibold text-sky-100 flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
-                  <span>{t.howTo.quickKeyTitle}</span>
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
-                  {t.howTo.quickKeyBody}
-                </p>
+            <div className="rounded-xl border border-sky-400/30 bg-sky-500/10 p-4 space-y-3">
+              <div className="flex items-start gap-2.5">
+                <Sparkles className="h-4 w-4 text-sky-300 shrink-0 mt-0.5" aria-hidden="true" />
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold text-sky-100">
+                    {t.minimal.create.createSigningKeyBtn}
+                  </h3>
+                  <p className="text-xs text-slate-200 leading-relaxed">
+                    {t.minimal.create.keyRequiredNote}
+                  </p>
+                </div>
               </div>
 
               <div>
@@ -684,7 +502,7 @@ export function CreateCertificatePage() {
                   onChange={(e) => setQuickPassphrase(e.target.value)}
                   placeholder={t.create.quickPassPlaceholder}
                   data-testid="create-quick-passphrase"
-                  className="w-full max-w-md rounded-lg border border-white/[0.16] bg-[#030b18]/80 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                  className="w-full rounded-lg border border-white/[0.16] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
                 />
               </div>
 
@@ -700,28 +518,30 @@ export function CreateCertificatePage() {
                   disabled={quickKeyBusy}
                   onClick={handleQuickCreateKey}
                   data-testid="create-quick-keygen"
-                  className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-950 hover:bg-white disabled:opacity-50 min-h-[42px] cursor-pointer"
+                  className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-white disabled:opacity-50 min-h-[44px] cursor-pointer"
                 >
                   <KeyRound className="h-4 w-4" aria-hidden="true" />
-                  <span>{quickKeyBusy ? t.howTo.quickKeyBusy : t.howTo.quickKeyBtn}</span>
+                  <span>
+                    {quickKeyBusy ? t.howTo.quickKeyBusy : t.minimal.create.createSigningKeyBtn}
+                  </span>
                 </button>
 
                 <Link
                   to="/keys"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.16] bg-[#030b18]/65 px-3.5 py-2 text-xs font-medium text-slate-200 hover:border-white/[0.3] min-h-[42px]"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.16] bg-[#030b18]/65 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:border-white/[0.3] min-h-[44px]"
                 >
-                  <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>{t.create.goToKeys}</span>
                 </Link>
               </div>
-
-              <p className="text-[11px] text-slate-300/80">{t.howTo.quickKeyTip}</p>
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="signingKey" className="block text-xs font-medium text-slate-300 mb-1">
+                  <label
+                    htmlFor="signingKey"
+                    className="block text-xs font-medium text-slate-300 mb-1"
+                  >
                     {t.create.selectKeyLabel}
                   </label>
                   <select
@@ -729,7 +549,7 @@ export function CreateCertificatePage() {
                     value={selectedKeyId}
                     onChange={(e) => setSelectedKeyId(e.target.value)}
                     data-testid="create-key-select"
-                    className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
+                    className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
                   >
                     {keys.map((k) => (
                       <option key={k.id} value={k.id}>
@@ -753,7 +573,7 @@ export function CreateCertificatePage() {
                       required
                       value={keyPassphrase}
                       onChange={(e) => setKeyPassphrase(e.target.value)}
-                      className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
+                      className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
                     />
                   </div>
                 )}
@@ -763,7 +583,7 @@ export function CreateCertificatePage() {
                 <div
                   role="note"
                   data-testid="create-key-backup-warning"
-                  className="rounded-lg border border-amber-400/35 bg-amber-500/10 p-3.5 space-y-2.5 text-xs text-amber-100"
+                  className="rounded-xl border border-amber-400/35 bg-amber-500/10 p-3.5 space-y-2.5 text-xs text-amber-100"
                 >
                   <div className="flex items-start gap-2.5">
                     <AlertTriangle
@@ -781,13 +601,13 @@ export function CreateCertificatePage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2.5 pl-6">
+                  <div className="flex flex-wrap items-center gap-2.5 ps-6">
                     {selectedKey.encryptedBackup && (
                       <button
                         type="button"
                         data-testid="create-download-pending-backup"
                         onClick={() => void handleDownloadSelectedKeyBackup()}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-300 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-amber-200 cursor-pointer"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-300 px-3.5 py-2 text-xs font-semibold text-slate-950 hover:bg-amber-200 min-h-[40px] cursor-pointer"
                       >
                         <Download className="h-3.5 w-3.5" aria-hidden="true" />
                         <span>{t.keys.downloadBackupBtn}</span>
@@ -795,7 +615,7 @@ export function CreateCertificatePage() {
                     )}
                     <Link
                       to="/keys"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300/40 bg-[#030b18]/60 px-3 py-1.5 text-xs font-medium text-amber-100 hover:bg-amber-500/20"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300/40 bg-[#030b18]/60 px-3.5 py-2 text-xs font-medium text-amber-100 hover:bg-amber-500/20 min-h-[40px]"
                     >
                       <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>{t.create.goToKeys}</span>
@@ -805,24 +625,282 @@ export function CreateCertificatePage() {
               )}
             </div>
           )}
+
+          <div className="space-y-2.5 pt-1">
+            <div>
+              <label htmlFor="licenseId" className="block text-xs font-medium text-slate-300 mb-1">
+                {t.create.licenseLabel}
+              </label>
+              <select
+                id="licenseId"
+                value={licenseId}
+                onChange={(e) => setLicenseId(e.target.value as LicenseId)}
+                data-testid="create-license-select"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+              >
+                {LICENSE_DEFINITIONS.map((lic) => (
+                  <option key={lic.id} value={lic.id}>
+                    {lic.id} — {t.licenses.items[lic.id].name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <LicenseSummaryCard
+              licenseId={licenseId}
+              compact
+              testId="create-license-summary"
+            />
+          </div>
+
+          <AdvancedSettings
+            label={t.minimal.create.advancedIdentityLabel}
+            testId="create-identity-advanced"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <div className="flex justify-between text-xs text-slate-300 mb-1">
+                  <label htmlFor="authorName">{t.create.authorLabel}</label>
+                  <span className="font-mono text-slate-400">
+                    {utf8ByteLength(authorName)} / {MAX_AUTHOR_UTF8_BYTES}
+                  </span>
+                </div>
+                <input
+                  id="authorName"
+                  type="text"
+                  value={authorName}
+                  onChange={(e) => setAuthorName(e.target.value)}
+                  placeholder={t.create.authorPlaceholder}
+                  data-testid="create-author-input"
+                  className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between text-xs text-slate-300 mb-1">
+                  <label htmlFor="artworkTitle">{t.create.titleLabel}</label>
+                  <span className="font-mono text-slate-400">
+                    {utf8ByteLength(artworkTitle)} / {MAX_TITLE_UTF8_BYTES}
+                  </span>
+                </div>
+                <input
+                  id="artworkTitle"
+                  type="text"
+                  value={artworkTitle}
+                  onChange={(e) => setArtworkTitle(e.target.value)}
+                  placeholder={t.create.titlePlaceholder}
+                  data-testid="create-title-input"
+                  className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs text-slate-300 mb-1">
+                <label htmlFor="attributionName">{t.create.attributionLabel}</label>
+                <span className="font-mono text-slate-400">
+                  {utf8ByteLength(attributionName)} / {MAX_ATTRIBUTION_UTF8_BYTES}
+                </span>
+              </div>
+              <input
+                id="attributionName"
+                type="text"
+                value={attributionName}
+                onChange={(e) => setAttributionName(e.target.value)}
+                placeholder={t.create.attributionPlaceholder}
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label
+                  htmlFor="commercialUse"
+                  className="block text-xs font-medium text-slate-300 mb-1"
+                >
+                  {t.create.commercialLabel}
+                </label>
+                <select
+                  id="commercialUse"
+                  value={commercialUse}
+                  onChange={(e) => setCommercialUse(e.target.value as PolicySignal)}
+                  className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+                >
+                  <option value="unspecified">{t.create.policyUnspecified}</option>
+                  <option value="allow">{t.create.policyAllow}</option>
+                  <option value="disallow">{t.create.policyDisallow}</option>
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="redistribution"
+                  className="block text-xs font-medium text-slate-300 mb-1"
+                >
+                  {t.create.redistributionLabel}
+                </label>
+                <select
+                  id="redistribution"
+                  value={redistribution}
+                  onChange={(e) => setRedistribution(e.target.value as PolicySignal)}
+                  className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+                >
+                  <option value="unspecified">{t.create.policyUnspecified}</option>
+                  <option value="allow">{t.create.policyAllow}</option>
+                  <option value="disallow">{t.create.policyDisallow}</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="aiTraining" className="block text-xs font-medium text-slate-300 mb-1">
+                  {t.create.aiTrainingLabel}
+                </label>
+                <select
+                  id="aiTraining"
+                  value={aiTraining}
+                  onChange={(e) => setAiTraining(e.target.value as PolicySignal)}
+                  data-testid="create-ai-select"
+                  className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+                >
+                  <option value="disallow">{t.create.policyDisallow}</option>
+                  <option value="allow">{t.create.policyAllow}</option>
+                  <option value="unspecified">{t.create.policyUnspecified}</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/50 p-3 flex items-start gap-2.5 text-xs text-slate-300">
+              <Info className="h-4 w-4 text-sky-300 shrink-0 mt-0.5" aria-hidden="true" />
+              <span>{t.licenses.signalGuideBody}</span>
+            </div>
+          </AdvancedSettings>
         </section>
 
-        <details
-          data-testid="create-advanced-settings"
-          className="group rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5"
-        >
-          <summary className="flex items-center justify-between gap-2 cursor-pointer text-sm sm:text-base font-medium text-slate-200 list-none select-none">
-            <span>{t.howTo.advancedToggle}</span>
-            <ChevronDown
-              className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180 shrink-0"
-              aria-hidden="true"
-            />
-          </summary>
+        {/* Step 3 — QR Placement */}
+        <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-5 space-y-4">
+          <h2 className="text-base sm:text-lg font-semibold text-white">
+            {t.minimal.create.step3Title}
+          </h2>
 
-          <div className="pt-4 mt-4 border-t border-white/[0.08] space-y-4">
-            {qrMode === 'outer-frame' && (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={qrMode === 'outer-frame'}
+              onClick={() => setQrMode('outer-frame')}
+              data-testid="create-mode-margin"
+              className={`text-start rounded-xl border p-4 transition-colors cursor-pointer min-h-[44px] ${
+                qrMode === 'outer-frame'
+                  ? 'border-sky-300/60 bg-sky-500/15 text-white'
+                  : 'border-white/[0.1] bg-[#030b18]/60 text-slate-300 hover:border-white/[0.22]'
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                  <Frame className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+                  <span>{t.minimal.create.modeOutsideTitle}</span>
+                </span>
+                <span className="rounded bg-sky-400/15 border border-sky-300/30 px-2 py-0.5 text-[10px] font-mono text-sky-200">
+                  {t.minimal.create.modeOutsideBadge}
+                </span>
+              </div>
+              <p className="mt-1.5 text-xs text-slate-300/90 leading-relaxed">
+                {t.minimal.create.modeOutsideDesc}
+              </p>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={qrMode === 'in-image'}
+              onClick={() => setQrMode('in-image')}
+              data-testid="create-mode-studio"
+              className={`text-start rounded-xl border p-4 transition-colors cursor-pointer min-h-[44px] ${
+                qrMode === 'in-image'
+                  ? 'border-sky-300/60 bg-sky-500/15 text-white'
+                  : 'border-white/[0.1] bg-[#030b18]/60 text-slate-300 hover:border-white/[0.22]'
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                  <QrCode className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+                  <span>{t.minimal.create.modeInsideTitle}</span>
+                </span>
+                <span className="rounded bg-white/[0.08] border border-white/[0.14] px-2 py-0.5 text-[10px] font-mono text-slate-200">
+                  {t.minimal.create.modeInsideBadge}
+                </span>
+              </div>
+              <p className="mt-1.5 text-xs text-slate-300/90 leading-relaxed">
+                {t.minimal.create.modeInsideDesc}
+              </p>
+            </button>
+          </div>
+
+          {qrMode === 'outer-frame' && artworkPreviewUrl && (
+            <div
+              data-testid="create-outer-live-preview"
+              className={`rounded-xl border p-4 flex flex-col items-center gap-3 ${outerFrameColors}`}
+            >
+              {placement === 'top-right' && (
+                <div className="w-full flex justify-end items-center gap-2 text-[11px] font-mono opacity-80">
+                  {showLabel && <span>CHM v1 · {licenseId}</span>}
+                  <span className="inline-flex items-center justify-center rounded border border-current/40 p-1">
+                    <QrCode className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                </div>
+              )}
+
+              <img
+                src={artworkPreviewUrl}
+                alt={artworkTitle || sourceFileName}
+                className="max-h-52 object-contain rounded border border-white/[0.08]"
+              />
+
+              {placement !== 'top-right' && (
+                <div
+                  className={`w-full flex items-center gap-2 text-[11px] font-mono opacity-80 ${
+                    placement === 'bottom-left'
+                      ? 'justify-start'
+                      : placement === 'bottom-center'
+                        ? 'justify-center'
+                        : 'justify-end'
+                  }`}
+                >
+                  {showLabel && <span>CHM v1 · {licenseId}</span>}
+                  <span className="inline-flex items-center justify-center rounded border border-current/40 p-1">
+                    <QrCode className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                </div>
+              )}
+              <p className="text-[11px] opacity-75 text-center">{t.minimal.create.outerPreviewNote}</p>
+            </div>
+          )}
+
+          {qrMode === 'in-image' &&
+            (artworkRaster && clampedStudioOptions ? (
+              <InImageQrStudioPanel
+                artworkRaster={artworkRaster}
+                clampedOptions={clampedStudioOptions}
+                eccLevel={eccLevel}
+                verifyBaseUrl={verifyBaseUrl}
+                estimatedProofTokenChars={estimatedProofTokenChars}
+                onChangeX={setQrX}
+                onChangeY={setQrY}
+              />
+            ) : (
+              <div className="rounded-xl border border-sky-400/25 bg-sky-500/[0.07] p-4 text-xs sm:text-sm text-sky-100 flex items-center gap-2.5">
+                <QrCode className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+                <span>{t.qrStudio.uploadFirstHint}</span>
+              </div>
+            ))}
+
+          <AdvancedSettings
+            label={t.minimal.create.advancedQrLabel}
+            testId="create-qr-advanced"
+          >
+            {qrMode === 'outer-frame' ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label
                       htmlFor="placement"
@@ -834,7 +912,7 @@ export function CreateCertificatePage() {
                       id="placement"
                       value={placement}
                       onChange={(e) => setPlacement(e.target.value as QrPlacement)}
-                      className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
+                      className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
                     >
                       <option value="bottom-right">{t.create.placements['bottom-right']}</option>
                       <option value="bottom-left">{t.create.placements['bottom-left']}</option>
@@ -851,7 +929,7 @@ export function CreateCertificatePage() {
                       id="theme"
                       value={theme}
                       onChange={(e) => setTheme(e.target.value as FrameTheme)}
-                      className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
+                      className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
                     >
                       <option value="dark-slate">{t.create.themes['dark-slate']}</option>
                       <option value="pure-white">{t.create.themes['pure-white']}</option>
@@ -891,7 +969,7 @@ export function CreateCertificatePage() {
                       id="moduleScale"
                       value={moduleScale}
                       onChange={(e) => setModuleScale(Number(e.target.value))}
-                      className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2.5 text-sm text-white"
+                      className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
                     >
                       <option value={0}>{t.create.autoScale}</option>
                       <option value={2}>2 px / module</option>
@@ -903,7 +981,7 @@ export function CreateCertificatePage() {
                   </div>
                 </div>
 
-                <label className="inline-flex items-center gap-2.5 text-sm text-slate-200 cursor-pointer min-h-[40px]">
+                <label className="inline-flex items-center gap-2.5 text-sm text-slate-200 cursor-pointer min-h-[44px]">
                   <input
                     type="checkbox"
                     checked={showLabel}
@@ -912,11 +990,31 @@ export function CreateCertificatePage() {
                   />
                   <span>{t.create.showLabelToggle}</span>
                 </label>
-              </>
+              </div>
+            ) : (
+              <InImageAdvancedControls
+                artworkRaster={artworkRaster}
+                clampedOptions={clampedStudioOptions}
+                qrX={qrX}
+                qrY={qrY}
+                qrBoxSize={qrBoxSize}
+                qrOpacityPct={qrOpacityPct}
+                qrStyle={qrStyle}
+                eccLevel={eccLevel}
+                onChangeX={setQrX}
+                onChangeY={setQrY}
+                onChangeBoxSize={setQrBoxSize}
+                onChangeOpacityPct={setQrOpacityPct}
+                onChangeStyle={setQrStyle}
+                onChangeEcc={setEccLevel}
+              />
             )}
 
-            <div>
-              <label htmlFor="verifyBaseUrl" className="block text-xs font-medium text-slate-300 mb-1">
+            <div className="pt-2 border-t border-white/[0.08]">
+              <label
+                htmlFor="verifyBaseUrl"
+                className="block text-xs font-medium text-slate-300 mb-1"
+              >
                 {t.create.verifyUrlLabel}
               </label>
               <input
@@ -924,12 +1022,12 @@ export function CreateCertificatePage() {
                 type="url"
                 value={verifyBaseUrl}
                 onChange={(e) => setVerifyBaseUrl(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2 text-xs font-mono text-slate-200"
+                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2 text-xs font-mono text-slate-200 min-h-[44px]"
               />
               <p className="text-[11px] text-slate-400 mt-1">{t.create.verifyUrlHint}</p>
             </div>
-          </div>
-        </details>
+          </AdvancedSettings>
+        </section>
 
         {errorMsg && (
           <div
@@ -940,72 +1038,79 @@ export function CreateCertificatePage() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-4">
+        {/* Step 4 — Sign and Download */}
+        <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-5 space-y-4">
+          <h2 className="text-base sm:text-lg font-semibold text-white">
+            {t.minimal.create.step4Title}
+          </h2>
+
           <button
             type="submit"
             disabled={busy || !artworkRaster || !selectedKey}
             data-testid="create-sign-button"
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-6 py-3 text-sm font-semibold text-slate-950 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px] cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-xl bg-slate-100 px-7 py-3.5 text-base font-semibold text-slate-950 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[48px] cursor-pointer"
           >
-            <FileSignature className="h-4 w-4" aria-hidden="true" />
+            <FileSignature className="h-5 w-5 shrink-0" aria-hidden="true" />
             <span>
               {busy
                 ? qrMode === 'in-image'
                   ? t.qrStudio.signingBusy
                   : t.create.signingBusy
-                : qrMode === 'in-image'
-                  ? t.qrStudio.signInImageBtn
-                  : t.create.signButton}
+                : t.minimal.create.signAndDownloadBtn}
             </span>
           </button>
-          <span className="text-xs text-slate-400">{t.create.timestampNote}</span>
-        </div>
+        </section>
       </form>
 
       {signedResult && signedPreviewUrl && (
         <section
           data-testid="create-result-section"
-          className="rounded-xl border border-white/[0.14] bg-[#051224]/75 backdrop-blur-md p-6 space-y-5"
+          className="rounded-xl border border-sky-400/30 bg-[#051224]/80 backdrop-blur-md p-5 space-y-5"
         >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-sky-200">{t.create.resultTitle}</h2>
-            <div className="flex flex-wrap gap-2.5">
+          <div className="flex flex-col items-center gap-4">
+            <h2 className="text-base sm:text-lg font-semibold text-sky-200 self-start">
+              {t.create.resultTitle}
+            </h2>
+
+            <div className="w-full rounded-xl border border-white/[0.09] bg-[#020813]/85 p-3 flex justify-center">
+              <img
+                src={signedPreviewUrl}
+                alt="Signed artwork with QR code"
+                className="max-h-[380px] object-contain rounded"
+              />
+            </div>
+
+            <div className="w-full flex flex-wrap gap-2.5">
               <button
                 type="button"
                 onClick={handleDownloadSignedPng}
                 data-testid="download-signed-png"
-                className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-white min-h-[44px] cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-white min-h-[44px] cursor-pointer"
               >
-                <Download className="h-4 w-4" aria-hidden="true" />
+                <Download className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{t.create.downloadPng}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => void handleDownloadProofBundle()}
-                data-testid="download-proof-bundle"
-                className="inline-flex items-center gap-2 rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-4 py-2.5 text-sm font-medium text-slate-100 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
-              >
-                <FileJson className="h-4 w-4" aria-hidden="true" />
-                <span>{t.create.downloadProofBundle}</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleCopyProofUrl}
                 data-testid="copy-proof-url"
-                className="inline-flex items-center gap-2 rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-4 py-2.5 text-sm font-medium text-slate-100 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/[0.16] bg-[#030b18]/80 px-4 py-2.5 text-sm font-medium text-slate-100 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
               >
-                {copiedUrl ? <Check className="h-4 w-4 text-sky-300" /> : <Copy className="h-4 w-4" />}
+                {copiedUrl ? (
+                  <Check className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+                ) : (
+                  <Copy className="h-4 w-4 shrink-0" aria-hidden="true" />
+                )}
                 <span>{copiedUrl ? t.create.copied : t.create.copyProofUrl}</span>
               </button>
 
               <Link
                 to={localVerifyRoute}
                 data-testid="open-local-verify"
-                className="inline-flex items-center gap-2 rounded-lg border border-sky-300/35 bg-sky-400/10 px-4 py-2.5 text-sm font-medium text-sky-200 hover:bg-sky-400/20 min-h-[44px]"
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-sky-300/35 bg-sky-400/10 px-4 py-2.5 text-sm font-medium text-sky-200 hover:bg-sky-400/20 min-h-[44px]"
               >
-                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{t.nav.verify}</span>
               </Link>
             </div>
@@ -1022,13 +1127,20 @@ export function CreateCertificatePage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-            <div className="rounded-xl border border-white/[0.09] bg-[#020813]/80 p-3 flex justify-center">
-              <img
-                src={signedPreviewUrl}
-                alt="Signed artwork with QR code"
-                className="max-h-[420px] object-contain"
-              />
+          <AdvancedSettings
+            label={t.minimal.create.technicalDetailsLabel}
+            testId="create-result-technical"
+          >
+            <div>
+              <button
+                type="button"
+                onClick={() => void handleDownloadProofBundle()}
+                data-testid="download-proof-bundle"
+                className="inline-flex items-center gap-2 rounded-lg border border-white/[0.16] bg-[#030b18]/80 px-4 py-2.5 text-xs sm:text-sm font-medium text-slate-100 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
+              >
+                <FileJson className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+                <span>{t.create.downloadProofBundle}</span>
+              </button>
             </div>
 
             <dl className="space-y-3 text-xs sm:text-sm">
@@ -1072,7 +1184,7 @@ export function CreateCertificatePage() {
                 </div>
               </div>
             </dl>
-          </div>
+          </AdvancedSettings>
         </section>
       )}
     </div>
