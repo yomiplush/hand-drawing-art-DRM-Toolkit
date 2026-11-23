@@ -15,6 +15,7 @@ import type { ConsentStatus } from './core/storage/consent';
 import { I18nProvider } from './i18n';
 import { useI18n } from './i18n/context';
 import { CreateCertificatePage } from './pages/CreateCertificatePage';
+import { DevicesPage } from './pages/DevicesPage';
 import { DocsPage } from './pages/DocsPage';
 import { ExchangePage } from './pages/ExchangePage';
 import { HomePage } from './pages/HomePage';
@@ -114,6 +115,7 @@ function AppRoutes() {
           <Route path="/qr-studio" element={<Navigate to="/create?mode=studio" replace />} />
           <Route path="/verify" element={<VerifyCertificatePage />} />
           <Route path="/keys" element={<KeysPage />} />
+          <Route path="/devices" element={<DevicesPage />} />
           <Route path="/exchange" element={<ExchangePage />} />
           <Route path="/docs" element={<DocsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -76,6 +76,13 @@ export function SeoHead() {
     } else if (pathname === '/keys') {
       canonicalPath = '/keys';
       meta = t.seo.keys;
+    } else if (pathname === '/devices') {
+      canonicalPath = '/devices';
+      meta = {
+        title: `${t.devices.title} | Certified Handmade`,
+        description: t.devices.subtitle,
+        keywords: t.seo.keys.keywords,
+      };
     } else if (pathname === '/exchange') {
       canonicalPath = '/exchange';
       meta = t.seo.exchange ?? t.seo.keys;

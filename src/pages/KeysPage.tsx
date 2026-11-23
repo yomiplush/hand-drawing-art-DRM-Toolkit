@@ -13,6 +13,7 @@ import {
   Share2,
   ShieldAlert,
   ShieldCheck,
+  Smartphone,
   Trash2,
   Upload,
 } from 'lucide-react';
@@ -631,7 +632,17 @@ export function KeysPage() {
       </div>
 
       <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-4 min-w-0">
-        <h2 className="text-base sm:text-lg font-semibold text-white">{t.keys.myKeysTitle}</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
+          <h2 className="text-base sm:text-lg font-semibold text-white">{t.keys.myKeysTitle}</h2>
+          <Link
+            to="/devices"
+            data-testid="keys-manage-devices-link"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg border border-cyan-400/35 bg-cyan-500/10 px-3.5 py-2 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20 min-h-[44px] shrink-0 text-center"
+          >
+            <Smartphone className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>{t.devices.keysPageManageDevicesBtn}</span>
+          </Link>
+        </div>
         {authorKeys.length === 0 ? (
           <p className="text-sm text-slate-400">{t.keys.noMyKeys}</p>
         ) : (

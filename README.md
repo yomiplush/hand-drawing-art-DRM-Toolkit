@@ -56,7 +56,11 @@ All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding
      - **C. Author Identity:** `Locally Trusted Key` / `Unknown / Unverified Key` (with `Unconfirmed` indicator until fingerprint confirmed)
      - **D. Local Key Notice Check:** Surfaces locally imported revocation/rotation notices (without rewriting historical signature math), or clearly states when no local notice exists on this device (never falsely saying "Not Revoked").
    - Includes a collapsible, strictly **non-cryptographic** `dHash64` + `DCT pHash64` helper to visually compare SNS-recompressed copies locally.
-4. **13-Language UI & Touch-First Accessibility** across desktop and mobile viewports.
+4. **CHM Secure Device Pairing (`/devices`, `CHM-DEVICE-PAIRING-v1`)**
+   - Pairs PC, smartphone, and tablet browsers to an existing CHM Identity 100% offline via a 2-step QR handshake (with PNG/JPEG/WebP QR upload and paste fallback).
+   - Each device creates an independent local Ed25519 device key (non-extractable Web Crypto preferred, encrypted fallback supported) without ever copying the root author private key.
+   - Supports explicit approval confirmation, manual owner trust confirmation, persistent `requestId`/`nonce` replay defense, signed device revocations, and monotonic signed registry backups (`.chdevreg.json` / `.chdevreg.cbor`).
+5. **13-Language UI & Touch-First Accessibility** across desktop and mobile viewports.
 
 ---
 

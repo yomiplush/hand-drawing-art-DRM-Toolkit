@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, KeyRound, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, KeyRound, ShieldCheck, Smartphone } from 'lucide-react';
 import { ChmExchangeView } from '@yomiplush/chm-exchange/react';
 import type { ChmExchangeTheme, ExchangeTab } from '@yomiplush/chm-exchange/react';
 import '@yomiplush/chm-exchange/styles.css';
@@ -77,12 +77,22 @@ export function ExchangePage() {
           <ShieldCheck className="h-4 w-4 text-sky-300 shrink-0 mt-0.5" aria-hidden="true" />
           <span>{t.hardening.trust.outOfBandNote}</span>
         </div>
-        <Link
-          to="/keys"
-          className="text-xs font-medium text-sky-300 hover:text-sky-200 underline underline-offset-4 shrink-0"
-        >
-          {t.hardening.notices.sectionTitle}
-        </Link>
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <Link
+            to="/devices"
+            data-testid="exchange-devices-link"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-cyan-300 hover:text-cyan-200 underline underline-offset-4"
+          >
+            <Smartphone className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>{t.devices.exchangePagePairingLink}</span>
+          </Link>
+          <Link
+            to="/keys"
+            className="text-xs font-medium text-sky-300 hover:text-sky-200 underline underline-offset-4"
+          >
+            {t.hardening.notices.sectionTitle}
+          </Link>
+        </div>
       </div>
 
       {notices.length > 0 && (
