@@ -48,6 +48,7 @@ import {
   inspectEnrollmentCertificateForDevice,
   inspectPairingRequestForApproval,
   loadDevicePairingState,
+  removePairedDeviceEntry,
   revokePairedDevice,
   startDevicePairingRequestSession,
 } from '../core/storage/devicePairingStore';
@@ -190,6 +191,10 @@ export function DevicesPage() {
   const [revokeNote, setRevokeNote] = useState('');
   const [revokePassphrase, setRevokePassphrase] = useState('');
   const [revokeError, setRevokeError] = useState<string | null>(null);
+  const [revokeAndRemove, setRevokeAndRemove] = useState(false);
+  const [removingKey, setRemovingKey] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [deviceListMsg, setDeviceListMsg] = useState<string | null>(null);
   const [generatedRevocation, setGeneratedRevocation] = useState<{
     revocation: SignedDeviceRevocationNotice;
     qrUrl: string;
@@ -629,6 +634,8 @@ export function DevicesPage() {
 
   const handleRevokeSubmit = async (device: PairedDeviceRecord) => {
     setRevokeError(null);
+    setRemoveError(null);
+    setDeviceListMsg(null);
     const matchingOwner = authorKeys.find((k) => k.fingerprintHex === device.ownerFingerprintHex);
     if (!matchingOwner) {
       setRevokeError('This browser does not hold the Owner root key needed to sign a revocation.');
@@ -655,13 +662,35 @@ export function DevicesPage() {
       } catch {
         // Non-blocking: offline revocation QR must always succeed
       }
+      if (revokeAndRemove) {
+        await removePairedDeviceEntry(device.key);
+        setDeviceListMsg(`${t.devices.deviceRemovedMsg} (${device.deviceName})`);
+      }
       setGeneratedRevocation(res);
       setRevokingKey(null);
+      setRemovingKey(null);
+      setRevokeAndRemove(false);
       setRevokeNote('');
       setRevokePassphrase('');
       await refreshAll();
     } catch (err) {
       setRevokeError(err instanceof Error ? err.message : 'Failed to revoke device');
+    }
+  };
+
+  const handleRemoveDeviceSubmit = async (device: PairedDeviceRecord) => {
+    setRemoveError(null);
+    setDeviceListMsg(null);
+    try {
+      await removePairedDeviceEntry(device.key);
+      setRemovingKey(null);
+      if (revokingKey === device.key) {
+        setRevokingKey(null);
+      }
+      setDeviceListMsg(`${t.devices.deviceRemovedMsg} (${device.deviceName})`);
+      await refreshAll();
+    } catch (err) {
+      setRemoveError(err instanceof Error ? err.message : 'Failed to remove device entry');
     }
   };
 
@@ -1773,6 +1802,17 @@ export function DevicesPage() {
           <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-4 min-w-0">
             <h2 className="text-lg font-semibold text-white">{t.devices.registeredDevicesTitle}</h2>
 
+            {removeError && (
+              <p role="alert" data-testid="device-list-error-msg" className="text-xs text-rose-300">
+                {removeError}
+              </p>
+            )}
+            {deviceListMsg && (
+              <p role="status" data-testid="device-list-status-msg" className="text-xs text-emerald-300">
+                {deviceListMsg}
+              </p>
+            )}
+
             {pairedDevices.length === 0 ? (
               <p className="text-sm text-slate-400">{t.devices.noDevicesYet}</p>
             ) : (
@@ -1872,6 +1912,8 @@ export function DevicesPage() {
                             data-testid="revoke-device-open-btn"
                             onClick={() => {
                               setRevokingKey(revokingKey === d.key ? null : d.key);
+                              setRemovingKey(null);
+                              setRevokeAndRemove(false);
                               setRevokeError(null);
                             }}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/35 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200 hover:bg-rose-500/20 min-h-[44px] cursor-pointer"
@@ -1880,7 +1922,59 @@ export function DevicesPage() {
                             <span>{t.devices.revokeDeviceBtn}</span>
                           </button>
                         )}
+
+                        {(isRevoked || !canSignRevocation) && (
+                          <button
+                            type="button"
+                            data-testid="remove-device-open-btn"
+                            onClick={() => {
+                              setRemovingKey(removingKey === d.key ? null : d.key);
+                              setRevokingKey(null);
+                              setRemoveError(null);
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-500/40 bg-slate-800/60 px-3 py-2 text-xs font-medium text-slate-200 hover:border-rose-400/50 hover:text-rose-200 min-h-[44px] cursor-pointer"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                            <span>{isRevoked ? t.devices.removeDeviceBtn : t.devices.removeLocalOnlyBtn}</span>
+                          </button>
+                        )}
                       </div>
+
+                      {removingKey === d.key && (
+                        <div
+                          data-testid="remove-device-confirm-panel"
+                          className="rounded-xl border border-amber-400/40 bg-amber-950/20 p-4 space-y-3 text-xs"
+                        >
+                          <div className="font-semibold text-sm text-amber-100">
+                            {isRevoked
+                              ? t.devices.removeConfirmTitleRevoked
+                              : t.devices.removeConfirmTitleLocalOnly}
+                          </div>
+                          <p className="text-slate-300 leading-relaxed">
+                            {isRevoked
+                              ? t.devices.removeConfirmDescRevoked
+                              : t.devices.removeConfirmDescLocalOnly}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              data-testid="remove-device-confirm-btn"
+                              onClick={() => void handleRemoveDeviceSubmit(d)}
+                              className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-400 min-h-[44px] cursor-pointer"
+                            >
+                              {t.devices.removeConfirmSubmitBtn}
+                            </button>
+                            <button
+                              type="button"
+                              data-testid="remove-device-cancel-btn"
+                              onClick={() => setRemovingKey(null)}
+                              className="rounded-lg border border-white/[0.16] px-4 py-2 text-xs font-medium text-slate-200 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
+                            >
+                              {t.devices.confirmCancelBtn}
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {revokingKey === d.key && (
                         <div
@@ -1940,6 +2034,17 @@ export function DevicesPage() {
                               />
                             </div>
                           )}
+
+                          <label className="flex items-start gap-2 text-slate-200 cursor-pointer pt-1">
+                            <input
+                              type="checkbox"
+                              checked={revokeAndRemove}
+                              onChange={(e) => setRevokeAndRemove(e.target.checked)}
+                              data-testid="revoke-and-remove-checkbox"
+                              className="mt-0.5 h-4 w-4 rounded border-slate-500 shrink-0"
+                            />
+                            <span>{t.devices.revokeAndRemoveLabel}</span>
+                          </label>
 
                           {revokeError && (
                             <p role="alert" className="text-rose-300">

@@ -821,6 +821,7 @@ export function resolveDeterministicSyncState(params: {
         note: p.note,
         token: rev.token,
         importedAt: nowIso,
+        dismissedFromList: prev?.dismissedFromList ? true : undefined,
       });
     }
     revokedDevicePubs.add(p.devicePublicKeyBase64Url);

@@ -1136,15 +1136,26 @@ export async function runDecentralizedSyncCycle(params?: {
         const devStore = tx.objectStore(STORE_PAIRED_DEVICES);
         const idStore = tx.objectStore(STORE_DEVICE_IDENTITIES);
 
+        const dismissedKeys = new Set<string>();
         for (const rev of resolved.revocations) {
           const prev = (await idbReqToPromise(revStore.get(rev.key))) as
             | DeviceRevocationRecord
             | undefined;
+          const dismissedFromList =
+            prev?.dismissedFromList || rev.dismissedFromList ? true : undefined;
+          if (dismissedFromList) {
+            dismissedKeys.add(rev.key);
+          }
           if (!prev || rev.sequence >= prev.sequence) {
-            revStore.put(rev);
+            revStore.put({ ...rev, dismissedFromList });
+          } else if (dismissedFromList && !prev.dismissedFromList) {
+            revStore.put({ ...prev, dismissedFromList: true });
           }
         }
         for (const dev of resolved.pairedDevices) {
+          if (dismissedKeys.has(dev.key) && dev.localVerificationStatus !== 'conflict-revoked') {
+            continue;
+          }
           devStore.put(dev);
         }
 

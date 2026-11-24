@@ -45,6 +45,8 @@ import {
   STORE_DEVICE_REVOCATIONS,
   STORE_PAIRED_DEVICES,
   STORE_PAIRING_SESSIONS,
+  STORE_SYNC_OUTBOX,
+  STORE_SYNC_PEER_BINDINGS,
   STORE_USED_PAIRING_NONCES,
   addTrustedKey,
   getAuthorKey,
@@ -55,6 +57,7 @@ import {
   signWithAuthorKey,
   withChmStore,
 } from './keyStore';
+import type { SyncOutboxRecord, VerifiedPeerBinding } from '../sync/types';
 
 export interface DeviceIdentityRecord {
   deviceIdHex: string;
@@ -115,6 +118,15 @@ export interface DeviceRevocationRecord {
   note?: string;
   token: string;
   importedAt: string;
+  dismissedFromList?: boolean;
+}
+
+export interface RemovePairedDeviceResult {
+  removed: boolean;
+  pairedDevice?: PairedDeviceRecord;
+  removedBindingsCount: number;
+  removedOutboxCount: number;
+  preservedRevocation: boolean;
 }
 
 export interface StorageCorruptionWarning {
@@ -1187,6 +1199,119 @@ export async function importDeviceRevocationNotice(
   return parsed.revocation;
 }
 
+export async function removePairedDeviceEntry(
+  pairedDeviceKey: string,
+): Promise<RemovePairedDeviceResult> {
+  let removedDevice: PairedDeviceRecord | undefined;
+  let removedBindingsCount = 0;
+  let removedOutboxCount = 0;
+  let preservedRevocation = false;
+  let didRemove = false;
+
+  await runChmTransaction(
+    [
+      STORE_PAIRED_DEVICES,
+      STORE_DEVICE_REVOCATIONS,
+      STORE_SYNC_PEER_BINDINGS,
+      STORE_SYNC_OUTBOX,
+    ],
+    'readwrite',
+    async (tx) => {
+      const devStore = tx.objectStore(STORE_PAIRED_DEVICES);
+      const revStore = tx.objectStore(STORE_DEVICE_REVOCATIONS);
+      const bindingStore = tx.objectStore(STORE_SYNC_PEER_BINDINGS);
+      const outboxStore = tx.objectStore(STORE_SYNC_OUTBOX);
+
+      const rawExisting = await idbReqToPromise(devStore.get(pairedDeviceKey));
+      if (!rawExisting) {
+        return;
+      }
+
+      didRemove = true;
+      if (isValidPairedDeviceRecord(rawExisting)) {
+        removedDevice = rawExisting;
+      }
+      devStore.delete(pairedDeviceKey);
+
+      const fallbackPartial = rawExisting as Partial<PairedDeviceRecord>;
+      const targetOwnerFp =
+        removedDevice?.ownerFingerprintHex ??
+        (typeof fallbackPartial.ownerFingerprintHex === 'string'
+          ? fallbackPartial.ownerFingerprintHex
+          : undefined);
+      const targetDeviceIdHex =
+        removedDevice?.deviceIdHex ??
+        (typeof fallbackPartial.deviceIdHex === 'string'
+          ? fallbackPartial.deviceIdHex
+          : undefined);
+      const targetDevicePub =
+        removedDevice?.devicePublicKeyBase64Url ??
+        (typeof fallbackPartial.devicePublicKeyBase64Url === 'string'
+          ? fallbackPartial.devicePublicKeyBase64Url
+          : undefined);
+
+      // Monotonic security invariant: NEVER delete cryptographic revocations!
+      // Mark matching revocations as dismissed from the UI list so sync / stale backups
+      // continue enforcing the revocation without resurrecting the removed card.
+      const allRevs = (await idbReqToPromise(revStore.getAll())) as DeviceRevocationRecord[];
+      for (const rev of allRevs ?? []) {
+        if (!rev || typeof rev.key !== 'string') continue;
+        const matchesRev =
+          rev.key === pairedDeviceKey ||
+          (targetDevicePub && rev.devicePublicKeyBase64Url === targetDevicePub) ||
+          (targetOwnerFp &&
+            targetDeviceIdHex &&
+            rev.ownerFingerprintHex === targetOwnerFp &&
+            rev.deviceIdHex === targetDeviceIdHex);
+        if (matchesRev) {
+          preservedRevocation = true;
+          if (!rev.dismissedFromList) {
+            revStore.put({ ...rev, dismissedFromList: true } satisfies DeviceRevocationRecord);
+          }
+        }
+      }
+
+      const allBindings = (await idbReqToPromise(bindingStore.getAll())) as VerifiedPeerBinding[];
+      for (const b of allBindings ?? []) {
+        if (!b || typeof b.key !== 'string') continue;
+        const matchesBinding =
+          (targetOwnerFp &&
+            targetDeviceIdHex &&
+            b.ownerFingerprintHex === targetOwnerFp &&
+            b.deviceIdHex === targetDeviceIdHex) ||
+          (targetDevicePub && b.devicePublicKeyBase64Url === targetDevicePub);
+        if (matchesBinding) {
+          bindingStore.delete(b.key);
+          removedBindingsCount++;
+        }
+      }
+
+      if (targetOwnerFp && targetDeviceIdHex) {
+        const allOutbox = (await idbReqToPromise(outboxStore.getAll())) as SyncOutboxRecord[];
+        for (const item of allOutbox ?? []) {
+          if (
+            item &&
+            typeof item.id === 'string' &&
+            item.ownerFingerprintHex === targetOwnerFp &&
+            item.recipientDeviceIdHex === targetDeviceIdHex
+          ) {
+            outboxStore.delete(item.id);
+            removedOutboxCount++;
+          }
+        }
+      }
+    },
+  );
+
+  return {
+    removed: didRemove,
+    pairedDevice: removedDevice,
+    removedBindingsCount,
+    removedOutboxCount,
+    preservedRevocation,
+  };
+}
+
 async function persistVerifiedRevocationNotice(
   revocation: SignedDeviceRevocationNotice,
 ): Promise<void> {
@@ -1217,6 +1342,7 @@ async function persistVerifiedRevocationNotice(
           note: p.note,
           token: revocation.token,
           importedAt: new Date().toISOString(),
+          dismissedFromList: existingRev?.dismissedFromList ? true : undefined,
         } satisfies DeviceRevocationRecord);
       }
 
@@ -1234,7 +1360,7 @@ async function persistVerifiedRevocationNotice(
           localVerificationStatus: pubChanged ? 'conflict-revoked' : 'revoked',
           updatedAt: new Date().toISOString(),
         } satisfies PairedDeviceRecord);
-      } else {
+      } else if (!existingRev?.dismissedFromList) {
         devStore.put({
           key,
           ownerFingerprintHex: p.ownerFingerprintHex,
@@ -1332,9 +1458,53 @@ export async function importSignedDeviceRegistry(
     getAllTrustedOwnerKeysSet(),
   ]);
 
+  const existingMap = new Map(state.pairedDevices.map((e) => [e.key, e]));
+  const revByKey = new Map(state.revocations.map((r) => [r.key, r]));
+  const revByPub = new Set(state.revocations.map((r) => r.devicePublicKeyBase64Url));
+  const dismissedRevokedKeys = new Set(
+    state.revocations
+      .filter((r) => r.dismissedFromList && !existingMap.has(r.key))
+      .map((r) => r.key),
+  );
+
+  // Include stored revocations even if the user removed their card from pairedDevices,
+  // so stale pre-revocation snapshots can NEVER resurrect a revoked device.
+  const syntheticRevokedEntries: PairedDeviceRecord[] = [];
+  for (const rev of state.revocations) {
+    if (existingMap.has(rev.key)) continue;
+    try {
+      const ownerFp = computePublicKeyFingerprintSync(base64UrlDecode(rev.ownerPublicKeyBase64Url));
+      const devFp = computePublicKeyFingerprintSync(base64UrlDecode(rev.devicePublicKeyBase64Url));
+      syntheticRevokedEntries.push({
+        key: rev.key,
+        ownerFingerprintHex: rev.ownerFingerprintHex,
+        ownerFingerprintShort: ownerFp.shortDisplay,
+        ownerPublicKeyBase64Url: rev.ownerPublicKeyBase64Url,
+        ownerDisplayName: ownerFp.shortDisplay,
+        deviceIdHex: rev.deviceIdHex,
+        devicePublicKeyBase64Url: rev.devicePublicKeyBase64Url,
+        deviceFingerprintHex: devFp.fullHex,
+        deviceFingerprintShort: devFp.shortDisplay,
+        deviceName: `Revoked Device (${devFp.shortDisplay})`,
+        permissions: ['device-identity'],
+        issuedAt: rev.revokedAt,
+        enrollmentToken: '',
+        revocationNoticeToken: rev.token,
+        revokedAt: rev.revokedAt,
+        revocationReason: rev.reason,
+        revocationSequence: rev.sequence,
+        localVerificationStatus: 'revoked',
+        ownerConfirmedTrust: false,
+        updatedAt: rev.importedAt,
+      });
+    } catch {
+      // Ignore malformed entry (already filtered by loadDevicePairingState)
+    }
+  }
+
   const reconciled = reconcileRegistrySnapshotImport({
     input,
-    existingEntries: state.pairedDevices,
+    existingEntries: [...state.pairedDevices, ...syntheticRevokedEntries],
     trustedOwnerPublicKeys: Array.from(trustedOwnerKeys),
   });
 
@@ -1342,13 +1512,15 @@ export async function importSignedDeviceRegistry(
     await persistVerifiedRevocationNotice(rev);
   }
 
-  const existingMap = new Map(state.pairedDevices.map((e) => [e.key, e]));
   await runChmTransaction([STORE_PAIRED_DEVICES], 'readwrite', (tx) => {
     const devStore = tx.objectStore(STORE_PAIRED_DEVICES);
     for (const entry of reconciled.entries) {
       const key = `${entry.ownerFingerprintHex}:${entry.deviceIdHex}`;
       const prev = existingMap.get(key);
+      const storedRev = revByKey.get(key);
       const isLocallyRevoked =
+        Boolean(storedRev) ||
+        revByPub.has(entry.devicePublicKeyBase64Url) ||
         prev?.localVerificationStatus === 'revoked' ||
         prev?.localVerificationStatus === 'conflict-revoked' ||
         Boolean(prev?.revocationNoticeToken);
@@ -1358,6 +1530,10 @@ export async function importSignedDeviceRegistry(
       let nextStatus = entry.localVerificationStatus;
       if (isLocallyRevoked && nextStatus !== 'conflict-revoked') {
         nextStatus = 'revoked';
+      }
+
+      if (dismissedRevokedKeys.has(key) && nextStatus !== 'conflict-revoked') {
+        continue;
       }
 
       devStore.put({
