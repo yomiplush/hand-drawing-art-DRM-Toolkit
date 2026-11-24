@@ -7,6 +7,7 @@ import type { HardeningTranslations } from './hardening';
 import type { HowToTranslations } from './howto';
 import type { LicenseGuideTranslations } from './licenses';
 import type { MinimalUiTranslations } from './minimalUi';
+import type { NextGenTranslations } from './nextGen';
 import type { QrStudioTranslations } from './qrStudio';
 import type { SeoTranslations } from './seo';
 import type { TutorialTranslations } from './tutorial';
@@ -27,6 +28,7 @@ export type FullTranslations = Translations & {
   devices: DevicePairingTranslations;
   artworkDetails: ArtworkDetailsTranslations;
   vault: VaultTranslations;
+  nextGen: NextGenTranslations;
 };
 
 export interface LocaleOption {

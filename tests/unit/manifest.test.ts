@@ -239,8 +239,8 @@ describe('Manifest deterministic CBOR encoding & proof URL handling', () => {
     expect(outsideVerify.integrityStatus).toBe('mismatched');
   });
 
-  it('rejects unsupported protocol versions explicitly (v0, v3, v99)', async () => {
-    for (const ver of [0, 3, 99]) {
+  it('rejects unsupported protocol versions explicitly (v0, v4, v99)', async () => {
+    for (const ver of [0, 4, 99]) {
       const fakeEnvelope = cborEncode(
         [ver, new Uint8Array([1, 2, 3]), new Uint8Array(64)],
         rfc8949EncodeOptions,

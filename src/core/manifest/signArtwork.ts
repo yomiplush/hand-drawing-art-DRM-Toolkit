@@ -18,8 +18,35 @@ import {
   generateArtworkId,
 } from './cborCodec';
 import { buildProofUrl } from './proofUrl';
-import { DEFAULT_VERIFY_BASE_URL, PROTOCOL_VERSION, PROTOCOL_VERSION_MASKED } from './types';
-import type { ArtworkRegion, LicenseDeclaration, SignedManifest, UnsignedManifest } from './types';
+import {
+  DEFAULT_VERIFY_BASE_URL,
+  PROTOCOL_VERSION,
+  PROTOCOL_VERSION_COMPACT,
+  PROTOCOL_VERSION_MASKED,
+} from './types';
+import type {
+  ArtworkRegion,
+  CompactSnsLink,
+  CreationEnvironmentData,
+  CreationMethod,
+  CreatorProfileLink,
+  EvidenceHashRecord,
+  LicenseDeclaration,
+  SignedManifest,
+  UnsignedManifest,
+} from './types';
+
+export interface CompactPublicMetadataParams {
+  protocolVersion?: 1 | 2 | 3;
+  description?: string;
+  website?: string;
+  snsLinks?: CompactSnsLink[];
+  portfolioLinks?: CreatorProfileLink[];
+  creationMethod?: CreationMethod;
+  creationEnvironment?: CreationEnvironmentData;
+  evidenceHashes?: EvidenceHashRecord[];
+  policyNote?: string;
+}
 
 export interface SignedArtworkResult {
   pngBytes: Uint8Array;
@@ -46,17 +73,60 @@ export interface InImageSignedArtworkResult {
   qrVerifiedReadable: boolean;
 }
 
-export async function createSignedArtworkPng(params: {
-  artworkRaster: CanonicalRaster;
-  authorKey: AuthorKeyRecord;
-  passphraseIfEncrypted?: string;
-  authorName?: string;
-  artworkTitle?: string;
-  license: LicenseDeclaration;
-  burnOptions: QrBurnOptions;
-  verifyBaseUrl?: string;
-  issuedAt?: number;
-}): Promise<SignedArtworkResult> {
+function shouldUseV3(
+  params: CompactPublicMetadataParams & { license: LicenseDeclaration },
+): boolean {
+  if (params.protocolVersion === PROTOCOL_VERSION_COMPACT) return true;
+  if (
+    params.description !== undefined ||
+    params.website !== undefined ||
+    (params.snsLinks && params.snsLinks.length > 0) ||
+    (params.portfolioLinks && params.portfolioLinks.length > 0) ||
+    params.creationMethod !== undefined ||
+    params.creationEnvironment !== undefined ||
+    (params.evidenceHashes && params.evidenceHashes.length > 0) ||
+    params.policyNote !== undefined ||
+    params.license.allowsDerivatives !== undefined ||
+    params.license.allowsModifications !== undefined ||
+    params.license.requiresAttribution !== undefined
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function pickOptionalV3Fields(params: CompactPublicMetadataParams) {
+  return {
+    ...(params.description !== undefined ? { description: params.description } : {}),
+    ...(params.website !== undefined ? { website: params.website } : {}),
+    ...(params.snsLinks && params.snsLinks.length > 0 ? { snsLinks: params.snsLinks } : {}),
+    ...(params.portfolioLinks && params.portfolioLinks.length > 0
+      ? { portfolioLinks: params.portfolioLinks }
+      : {}),
+    ...(params.creationMethod !== undefined ? { creationMethod: params.creationMethod } : {}),
+    ...(params.creationEnvironment !== undefined
+      ? { creationEnvironment: params.creationEnvironment }
+      : {}),
+    ...(params.evidenceHashes && params.evidenceHashes.length > 0
+      ? { evidenceHashes: params.evidenceHashes }
+      : {}),
+    ...(params.policyNote !== undefined ? { policyNote: params.policyNote } : {}),
+  };
+}
+
+export async function createSignedArtworkPng(
+  params: CompactPublicMetadataParams & {
+    artworkRaster: CanonicalRaster;
+    authorKey: AuthorKeyRecord;
+    passphraseIfEncrypted?: string;
+    authorName?: string;
+    artworkTitle?: string;
+    license: LicenseDeclaration;
+    burnOptions: QrBurnOptions;
+    verifyBaseUrl?: string;
+    issuedAt?: number;
+  },
+): Promise<SignedArtworkResult> {
   const {
     artworkRaster,
     authorKey,
@@ -70,6 +140,9 @@ export async function createSignedArtworkPng(params: {
   } = params;
 
   assertArtworkInputBounds(artworkRaster);
+
+  const effectiveVersion = shouldUseV3(params) ? PROTOCOL_VERSION_COMPACT : PROTOCOL_VERSION;
+  const v3Fields = effectiveVersion === PROTOCOL_VERSION_COMPACT ? pickOptionalV3Fields(params) : {};
 
   const sha256 = await hashCanonicalRaster(artworkRaster);
   const artworkId = generateArtworkId();
@@ -87,7 +160,7 @@ export async function createSignedArtworkPng(params: {
 
   for (let pass = 0; pass < 3; pass++) {
     const prelimManifest: UnsignedManifest = {
-      version: PROTOCOL_VERSION,
+      version: effectiveVersion,
       artworkId,
       publicKey: authorKey.publicKey,
       sha256,
@@ -96,9 +169,10 @@ export async function createSignedArtworkPng(params: {
       license,
       authorName,
       artworkTitle,
+      ...v3Fields,
     };
     const prelimPayload = encodeUnsignedPayload(prelimManifest);
-    const prelimProof = encodeSignedProofEnvelope(prelimPayload, dummySig);
+    const prelimProof = encodeSignedProofEnvelope(prelimPayload, dummySig, effectiveVersion);
     const prelimUrl = buildProofUrl(prelimProof, verifyBaseUrl);
     const prelimQr = generateQrMatrix(prelimUrl, 'M');
     const prelimLayout = computeBurnLayout(
@@ -122,7 +196,7 @@ export async function createSignedArtworkPng(params: {
   }
 
   const unsignedManifest: UnsignedManifest = {
-    version: PROTOCOL_VERSION,
+    version: effectiveVersion,
     artworkId,
     publicKey: authorKey.publicKey,
     sha256,
@@ -131,12 +205,13 @@ export async function createSignedArtworkPng(params: {
     license,
     authorName,
     artworkTitle,
+    ...v3Fields,
   };
 
   const payloadBytes = encodeUnsignedPayload(unsignedManifest);
-  const signingMessage = buildSigningMessage(payloadBytes);
+  const signingMessage = buildSigningMessage(payloadBytes, effectiveVersion);
   const signature = await signWithAuthorKey(authorKey, signingMessage, passphraseIfEncrypted);
-  const proofBytes = encodeSignedProofEnvelope(payloadBytes, signature);
+  const proofBytes = encodeSignedProofEnvelope(payloadBytes, signature, effectiveVersion);
   const proofUrl = buildProofUrl(proofBytes, verifyBaseUrl);
   const qrMatrix = generateQrMatrix(proofUrl, 'M');
 
@@ -155,9 +230,9 @@ export async function createSignedArtworkPng(params: {
     // Re-sign once with exact converged region if boundary crossed
     unsignedManifest.region = convergedLayout.artRegion;
     const retryPayload = encodeUnsignedPayload(unsignedManifest);
-    const retryMsg = buildSigningMessage(retryPayload);
+    const retryMsg = buildSigningMessage(retryPayload, effectiveVersion);
     const retrySig = await signWithAuthorKey(authorKey, retryMsg, passphraseIfEncrypted);
-    const retryProof = encodeSignedProofEnvelope(retryPayload, retrySig);
+    const retryProof = encodeSignedProofEnvelope(retryPayload, retrySig, effectiveVersion);
     const retryUrl = buildProofUrl(retryProof, verifyBaseUrl);
     const retryQr = generateQrMatrix(retryUrl, 'M');
     return finalizeSignedPng({
@@ -232,8 +307,8 @@ async function finalizeSignedPng(params: {
   const qrVerifiedReadable = decodedCheck !== null && decodedCheck.rawText === proofUrl;
 
   const pngBytes = encodeCanonicalRgba8ToPng(raster, {
-    Software: 'Certified Handmade v1',
-    'CHM-Protocol': '1',
+    Software: `Certified Handmade v${unsignedManifest.version}`,
+    'CHM-Protocol': String(unsignedManifest.version),
     'CHM-Artwork-ID': artworkIdHex,
   });
 
@@ -255,21 +330,24 @@ async function finalizeSignedPng(params: {
 }
 
 /**
- * Signs an artwork using Protocol v2 (`qrMask`) and embeds a semi-transparent or styled
- * QR code directly inside the illustration at the user's manually chosen coordinates.
+ * Signs an artwork using Protocol v2 (`qrMask`) or v3 (`qrMask` + compact public details)
+ * and embeds a semi-transparent or styled QR code directly inside the illustration at the
+ * user's manually chosen coordinates.
  * Every pixel outside `qrMask` is hashed into the signed SHA-256 digest and preserved untouched.
  */
-export async function createInImageSignedArtworkPng(params: {
-  artworkRaster: CanonicalRaster;
-  authorKey: AuthorKeyRecord;
-  passphraseIfEncrypted?: string;
-  authorName?: string;
-  artworkTitle?: string;
-  license: LicenseDeclaration;
-  qrOptions: InImageQrOptions;
-  verifyBaseUrl?: string;
-  issuedAt?: number;
-}): Promise<InImageSignedArtworkResult> {
+export async function createInImageSignedArtworkPng(
+  params: CompactPublicMetadataParams & {
+    artworkRaster: CanonicalRaster;
+    authorKey: AuthorKeyRecord;
+    passphraseIfEncrypted?: string;
+    authorName?: string;
+    artworkTitle?: string;
+    license: LicenseDeclaration;
+    qrOptions: InImageQrOptions;
+    verifyBaseUrl?: string;
+    issuedAt?: number;
+  },
+): Promise<InImageSignedArtworkResult> {
   const {
     artworkRaster,
     authorKey,
@@ -284,6 +362,11 @@ export async function createInImageSignedArtworkPng(params: {
 
   assertArtworkInputBounds(artworkRaster);
 
+  const effectiveVersion = shouldUseV3(params)
+    ? PROTOCOL_VERSION_COMPACT
+    : PROTOCOL_VERSION_MASKED;
+  const v3Fields = effectiveVersion === PROTOCOL_VERSION_COMPACT ? pickOptionalV3Fields(params) : {};
+
   const clamped = clampInImageQrOptions(artworkRaster.width, artworkRaster.height, qrOptions);
   const region: ArtworkRegion = [0, 0, artworkRaster.width, artworkRaster.height];
   const qrMask: ArtworkRegion = [clamped.x, clamped.y, clamped.boxSize, clamped.boxSize];
@@ -293,7 +376,7 @@ export async function createInImageSignedArtworkPng(params: {
   const artworkIdHex = formatUuidHex(artworkId);
 
   const unsignedManifest: UnsignedManifest = {
-    version: PROTOCOL_VERSION_MASKED,
+    version: effectiveVersion,
     artworkId,
     publicKey: authorKey.publicKey,
     sha256,
@@ -303,16 +386,13 @@ export async function createInImageSignedArtworkPng(params: {
     license,
     authorName,
     artworkTitle,
+    ...v3Fields,
   };
 
   const payloadBytes = encodeUnsignedPayload(unsignedManifest);
-  const signingMessage = buildSigningMessage(payloadBytes);
+  const signingMessage = buildSigningMessage(payloadBytes, effectiveVersion);
   const signature = await signWithAuthorKey(authorKey, signingMessage, passphraseIfEncrypted);
-  const proofBytes = encodeSignedProofEnvelope(
-    payloadBytes,
-    signature,
-    PROTOCOL_VERSION_MASKED,
-  );
+  const proofBytes = encodeSignedProofEnvelope(payloadBytes, signature, effectiveVersion);
   const proofUrl = buildProofUrl(proofBytes, verifyBaseUrl);
   const qrMatrix = generateQrMatrix(proofUrl, clamped.eccLevel);
 
@@ -326,8 +406,8 @@ export async function createInImageSignedArtworkPng(params: {
   const qrVerifiedReadable = decodedCheck !== null && decodedCheck.rawText === proofUrl;
 
   const pngBytes = encodeCanonicalRgba8ToPng(raster, {
-    Software: 'Certified Handmade v2',
-    'CHM-Protocol': '2',
+    Software: `Certified Handmade v${effectiveVersion}`,
+    'CHM-Protocol': String(effectiveVersion),
     'CHM-Artwork-ID': artworkIdHex,
   });
 

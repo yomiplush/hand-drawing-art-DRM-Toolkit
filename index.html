@@ -7,7 +7,7 @@
     <meta name="referrer" content="no-referrer" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self'; connect-src 'self' wss: https:; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+      content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; frame-src https://accounts.google.com/gsi/; img-src 'self' blob: data:; font-src 'self'; connect-src 'self' wss: https:; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
     />
     <title>Certified Handmade — Cryptographic Artwork Provenance &amp; Offline QR Certificates | 手描きDRM</title>
     <meta
@@ -109,7 +109,7 @@
                 "name": "Does it really run 100% locally and standalone offline without any server upload?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Yes. Key generation, SHA-256 hashing, Ed25519 signing, AES-256-GCM key backup encryption, and QR processing all run in your browser with strict CSP enforcement (connect-src 'self' wss: allowing only opt-in encrypted sync relays when enabled) and full offline PWA support."
+                  "text": "Yes. Key generation, SHA-256 hashing, Ed25519 signing, AES-256-GCM key backup encryption, and QR processing all run in your browser with strict CSP enforcement (connect-src 'self' wss: https: allowing only opt-in relays or optional user-owned Google Drive sync when enabled) and full offline PWA support."
                 }
               },
               {

@@ -9,12 +9,15 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { decode as cborDecode, encode as cborEncode, rfc8949EncodeOptions } from 'cborg';
 import { decode as decodePng, hasPngSignature } from 'fast-png';
 import jsQR from 'jsqr';
 
 const PROTOCOL_V1 = 1;
 const PROTOCOL_V2 = 2;
+const PROTOCOL_V3 = 3;
+const MAX_V3_DECOMPRESSED_BYTES = 8192;
 const EVIDENCE_EXTENSION_FORMAT = 'certified-handmade-evidence';
 const EVIDENCE_EXTENSION_VERSION = 1;
 const EVIDENCE_TOKEN_PREFIX = 'chm-evidence:';
@@ -43,6 +46,7 @@ const MAX_EVIDENCE_LABEL_UTF8_BYTES = 128;
 const MAX_EVIDENCE_MIME_UTF8_BYTES = 96;
 
 const DOMAIN_PROOF = Buffer.from('CHM1\0', 'ascii');
+const DOMAIN_PROOF_V3 = Buffer.from('CHM3\0', 'ascii');
 const DOMAIN_NOTICE = Buffer.from('CHM-NOTICE1\0', 'ascii');
 const DOMAIN_EVIDENCE = Buffer.from('CHM-EVIDENCE1\0', 'ascii');
 const ED25519_SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
@@ -79,6 +83,29 @@ const CREATION_METHOD_NAMES = {
   3: 'ai-generated',
   4: 'other',
   5: 'prefer-not-to-disclose',
+};
+const V3_URL_PREFIX_DICT = {
+  1: 'https://',
+  2: 'http://',
+  3: 'https://x.com/',
+  4: 'https://bsky.app/profile/',
+  5: 'https://www.pixiv.net/users/',
+  6: 'https://skeb.jp/@',
+  7: 'https://vgen.co/',
+  8: 'https://mastodon.social/@',
+  9: 'https://misskey.io/@',
+  10: 'https://njump.me/',
+  11: 'https://www.furaffinity.net/user/',
+  12: 'https://www.deviantart.com/',
+  13: 'https://www.instagram.com/',
+  14: 'https://www.youtube.com/@',
+  15: 'https://github.com/',
+};
+const V3_SNS_PLATFORMS = {
+  0: 'custom', 1: 'x', 2: 'bluesky', 3: 'mastodon', 4: 'misskey',
+  5: 'nostr', 6: 'pixiv', 7: 'skeb', 8: 'booth', 9: 'vgen',
+  10: 'furaffinity', 11: 'deviantart', 12: 'tumblr', 13: 'instagram',
+  14: 'youtube', 15: 'github',
 };
 const EVIDENCE_CATEGORY_NAMES = {
   1: 'sketch',
@@ -393,26 +420,127 @@ function computeArtworkDigest(raster, region, qrMask) {
   throw new Error('Image dimensions smaller than declared region');
 }
 
+function decodeV3CompactUrl(raw, fieldName) {
+  if (!Array.isArray(raw) || raw.length !== 2) {
+    throw new Error(`${fieldName} compact URL must be a 2-element array`);
+  }
+  const [code, suffix] = raw;
+  const prefix = V3_URL_PREFIX_DICT[code];
+  if (typeof code !== 'number' || !prefix || typeof suffix !== 'string') {
+    throw new Error(`${fieldName} invalid compact URL entry`);
+  }
+  const full = validateProfileUrl(prefix + suffix, fieldName);
+  let bestCode = 0;
+  let bestLen = 0;
+  for (const [k, p] of Object.entries(V3_URL_PREFIX_DICT)) {
+    if (full.startsWith(p) && p.length > bestLen) {
+      bestLen = p.length;
+      bestCode = Number(k);
+    }
+  }
+  if (bestCode !== code) {
+    throw new Error(`${fieldName} uses non-canonical compact URL prefix code`);
+  }
+  return full;
+}
+
+function unpackV3PolicyFlags(flags) {
+  if (typeof flags !== 'number' || !Number.isSafeInteger(flags) || flags < 0 || flags > 0xfff) {
+    throw new Error('Invalid v3 policyFlags integer');
+  }
+  const c = POLICIES[flags & 0x3];
+  const r = POLICIES[(flags >>> 2) & 0x3];
+  const a = POLICIES[(flags >>> 4) & 0x3];
+  const d = POLICIES[(flags >>> 6) & 0x3];
+  const m = POLICIES[(flags >>> 8) & 0x3];
+  if (!c || !r || !a || !d || !m) {
+    throw new Error('Invalid 2-bit policy signal in v3 policyFlags');
+  }
+  const hasAttr = (flags & 0x400) !== 0;
+  const attrVal = (flags & 0x800) !== 0;
+  if (!hasAttr && attrVal) {
+    throw new Error('Invalid v3 policyFlags attribution presence/value combination');
+  }
+  return {
+    commercialUse: c,
+    redistribution: r,
+    aiTraining: a,
+    allowsDerivatives: d === 'unspecified' ? null : d,
+    allowsModifications: m === 'unspecified' ? null : m,
+    requiresAttribution: hasAttr ? attrVal : null,
+  };
+}
+
 function verifyProofData(proofInput, raster) {
   const proofBytes = extractProofBytes(proofInput);
   const outer = cborDecode(proofBytes, STRICT_CBOR);
-  if (!Array.isArray(outer) || outer.length !== 3) {
+  if (!Array.isArray(outer) || outer.length < 3) {
     throw new Error('Invalid proof envelope structure');
   }
-  const [ver, payloadBytes, sig] = outer;
-  if (ver !== PROTOCOL_V1 && ver !== PROTOCOL_V2) {
+  const ver = outer[0];
+  if (ver !== PROTOCOL_V1 && ver !== PROTOCOL_V2 && ver !== PROTOCOL_V3) {
     throw new Error(`Unsupported protocol version: ${String(ver)}`);
   }
-  if (!(payloadBytes instanceof Uint8Array) || !(sig instanceof Uint8Array) || sig.length !== 64) {
-    throw new Error('Invalid payload or signature byte strings');
-  }
-  const reOuter = cborEncode([ver, payloadBytes, sig], rfc8949EncodeOptions);
-  if (!Buffer.from(reOuter).equals(Buffer.from(proofBytes))) {
-    throw new Error('Non-canonical outer proof CBOR');
+
+  let payloadBytes;
+  let sig;
+  let usedDeflate = false;
+
+  if (ver === PROTOCOL_V3) {
+    if (outer.length !== 4) {
+      throw new Error('Protocol v3 envelope must be a 4-element CBOR array');
+    }
+    const compFlag = outer[1];
+    const transportBytes = outer[2];
+    sig = outer[3];
+    if (compFlag !== 0 && compFlag !== 1) {
+      throw new Error('Protocol v3 compression flag must be 0 or 1');
+    }
+    if (!(transportBytes instanceof Uint8Array) || transportBytes.length === 0 || !(sig instanceof Uint8Array) || sig.length !== 64) {
+      throw new Error('Invalid v3 payload or signature byte strings');
+    }
+    const reOuter = cborEncode([ver, compFlag, transportBytes, sig], rfc8949EncodeOptions);
+    if (!Buffer.from(reOuter).equals(Buffer.from(proofBytes))) {
+      throw new Error('Non-canonical outer proof CBOR');
+    }
+    if (compFlag === 1) {
+      usedDeflate = true;
+      payloadBytes = new Uint8Array(
+        zlib.inflateRawSync(Buffer.from(transportBytes), { maxOutputLength: MAX_V3_DECOMPRESSED_BYTES }),
+      );
+      if (transportBytes.length >= payloadBytes.length) {
+        throw new Error('Compressed v3 payload is not strictly smaller than uncompressed payload');
+      }
+    } else {
+      if (transportBytes.length > MAX_V3_DECOMPRESSED_BYTES) {
+        throw new Error('v3 payload exceeds maximum size');
+      }
+      payloadBytes = transportBytes;
+    }
+  } else {
+    if (outer.length !== 3) {
+      throw new Error('Invalid proof envelope structure');
+    }
+    payloadBytes = outer[1];
+    sig = outer[2];
+    if (!(payloadBytes instanceof Uint8Array) || !(sig instanceof Uint8Array) || sig.length !== 64) {
+      throw new Error('Invalid payload or signature byte strings');
+    }
+    const reOuter = cborEncode([ver, payloadBytes, sig], rfc8949EncodeOptions);
+    if (!Buffer.from(reOuter).equals(Buffer.from(proofBytes))) {
+      throw new Error('Non-canonical outer proof CBOR');
+    }
   }
 
   const m = cborDecode(payloadBytes, STRICT_CBOR);
   if (!(m instanceof Map)) throw new Error('Manifest payload must be a CBOR map');
+  const allowedKeys =
+    ver === PROTOCOL_V3
+      ? new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+      : ver === PROTOCOL_V2
+        ? new Set([1, 2, 3, 4, 5, 6, 7, 8, 9])
+        : new Set([1, 2, 3, 4, 5, 6, 7, 8]);
+  assertAllowedMapKeys(m, allowedKeys, 'manifestPayload');
 
   const artworkId = m.get(1);
   const pubKey = m.get(2);
@@ -428,8 +556,130 @@ function verifyProofData(proofInput, raster) {
   if (!(pubKey instanceof Uint8Array) || pubKey.length !== 32) throw new Error('Invalid publicKey');
   if (!(sha instanceof Uint8Array) || sha.length !== 32) throw new Error('Invalid sha256');
   if (!Array.isArray(region) || region.length !== 4) throw new Error('Invalid region');
-  if (!Array.isArray(lic) || (lic.length !== 4 && lic.length !== 5)) throw new Error('Invalid license');
-  if (ver === PROTOCOL_V1 && qrMask !== undefined) throw new Error('qrMask requires protocol v2');
+  if (typeof issuedAt !== 'number' || !Number.isSafeInteger(issuedAt) || issuedAt < 0) throw new Error('Invalid issuedAt');
+  if (ver === PROTOCOL_V1 && qrMask !== undefined) throw new Error('qrMask requires protocol v2 or v3');
+
+  let policySummary;
+  let attributionName = null;
+  if (ver === PROTOCOL_V3) {
+    if (!Array.isArray(lic) || (lic.length !== 2 && lic.length !== 3)) throw new Error('Invalid v3 license');
+    if (!LICENSES[lic[0]]) throw new Error('Unknown license code');
+    policySummary = unpackV3PolicyFlags(lic[1]);
+    if (lic.length === 3) {
+      attributionName = validateCanonicalText(lic[2], 48, false, 'attributionName');
+    }
+  } else {
+    if (!Array.isArray(lic) || (lic.length !== 4 && lic.length !== 5)) throw new Error('Invalid license');
+    if (!LICENSES[lic[0]] || !POLICIES[lic[1]] || !POLICIES[lic[2]] || !POLICIES[lic[3]]) {
+      throw new Error('Invalid license or policy code');
+    }
+    policySummary = {
+      commercialUse: POLICIES[lic[1]],
+      redistribution: POLICIES[lic[2]],
+      aiTraining: POLICIES[lic[3]],
+      allowsDerivatives: null,
+      allowsModifications: null,
+      requiresAttribution: null,
+    };
+    if (lic.length === 5) {
+      attributionName = validateCanonicalText(lic[4], 48, false, 'attributionName');
+    }
+  }
+
+  if (authorName !== undefined) {
+    validateCanonicalText(authorName, ver === PROTOCOL_V3 ? 64 : 48, false, 'authorName');
+  }
+  if (artworkTitle !== undefined) {
+    validateCanonicalText(artworkTitle, ver === PROTOCOL_V3 ? 128 : 64, false, 'artworkTitle');
+  }
+
+  let description = null;
+  let website = null;
+  let snsLinks = null;
+  let portfolioLinks = null;
+  let creationMethod = null;
+  let creationEnvironment = null;
+  let evidenceHashes = null;
+  let policyNote = null;
+
+  if (ver === PROTOCOL_V3) {
+    if (m.has(10)) description = validateCanonicalText(m.get(10), 600, true, 'description');
+    if (m.has(11)) website = decodeV3CompactUrl(m.get(11), 'website');
+    if (m.has(12)) {
+      const rawSns = m.get(12);
+      if (!Array.isArray(rawSns) || rawSns.length === 0 || rawSns.length > 12) throw new Error('Invalid snsLinks');
+      snsLinks = rawSns.map((entry, idx) => {
+        if (!Array.isArray(entry) || entry.length < 2 || entry.length > 4) throw new Error(`Invalid snsLinks[${idx}]`);
+        const url = decodeV3CompactUrl([entry[0], entry[1]], `snsLinks[${idx}].url`);
+        const out = { url };
+        if (entry.length >= 3) {
+          const pCode = entry[2];
+          if (typeof pCode !== 'number' || !(pCode in V3_SNS_PLATFORMS)) throw new Error('Invalid SNS platform');
+          if (entry.length === 3 && pCode === 0) throw new Error('Non-canonical zero SNS platform');
+          if (pCode !== 0) out.platform = V3_SNS_PLATFORMS[pCode];
+        }
+        if (entry.length === 4) out.label = validateCanonicalText(entry[3], 48, false, `snsLinks[${idx}].label`);
+        return out;
+      });
+    }
+    if (m.has(13)) {
+      const rawPort = m.get(13);
+      if (!Array.isArray(rawPort) || rawPort.length === 0 || rawPort.length > 8) throw new Error('Invalid portfolioLinks');
+      portfolioLinks = rawPort.map((entry, idx) => {
+        if (!Array.isArray(entry) || entry.length < 2 || entry.length > 3) throw new Error(`Invalid portfolioLinks[${idx}]`);
+        const url = decodeV3CompactUrl([entry[0], entry[1]], `portfolioLinks[${idx}].url`);
+        return entry.length === 3
+          ? { url, label: validateCanonicalText(entry[2], 48, false, `portfolioLinks[${idx}].label`) }
+          : { url };
+      });
+    }
+    if (m.has(14)) {
+      const mc = m.get(14);
+      if (typeof mc !== 'number' || !CREATION_METHOD_NAMES[mc]) throw new Error('Invalid creationMethod');
+      creationMethod = CREATION_METHOD_NAMES[mc];
+    }
+    if (m.has(15)) {
+      const rawEnv = m.get(15);
+      if (!(rawEnv instanceof Map) || rawEnv.size === 0) throw new Error('Invalid creationEnvironment');
+      assertAllowedMapKeys(rawEnv, new Set([1, 2, 3, 4]), 'creationEnvironment');
+      creationEnvironment = {};
+      if (rawEnv.has(1)) creationEnvironment.software = validateCanonicalText(rawEnv.get(1), 96, false, 'creationEnvironment.software');
+      if (rawEnv.has(2)) creationEnvironment.hardware = validateCanonicalText(rawEnv.get(2), 96, false, 'creationEnvironment.hardware');
+      if (rawEnv.has(3)) creationEnvironment.inputDevice = validateCanonicalText(rawEnv.get(3), 96, false, 'creationEnvironment.inputDevice');
+      if (rawEnv.has(4)) creationEnvironment.notes = validateCanonicalText(rawEnv.get(4), 240, true, 'creationEnvironment.notes');
+    }
+    if (m.has(16)) {
+      const rawHashes = m.get(16);
+      if (!Array.isArray(rawHashes) || rawHashes.length === 0 || rawHashes.length > 8) throw new Error('Invalid evidenceHashes');
+      evidenceHashes = rawHashes.map((entry, idx) => {
+        if (!Array.isArray(entry) || entry.length < 2 || entry.length > 5) throw new Error(`Invalid evidenceHashes[${idx}]`);
+        const h = entry[0];
+        const bl = entry[1];
+        if (!(h instanceof Uint8Array) || h.length !== 32) throw new Error(`Invalid evidenceHashes[${idx}].sha256`);
+        if (typeof bl !== 'number' || !Number.isSafeInteger(bl) || bl < 0) throw new Error(`Invalid evidenceHashes[${idx}].byteLength`);
+        const rec = { sha256Hex: Buffer.from(h).toString('hex'), byteLength: bl };
+        if (entry.length >= 3) {
+          const cat = entry[2];
+          if (typeof cat !== 'number' || (entry.length === 3 && cat === 0)) throw new Error(`Invalid evidenceHashes[${idx}].category`);
+          if (cat !== 0) {
+            if (!EVIDENCE_CATEGORY_NAMES[cat]) throw new Error(`Unknown evidenceHashes[${idx}].category`);
+            rec.category = EVIDENCE_CATEGORY_NAMES[cat];
+          }
+        }
+        if (entry.length >= 4) {
+          if (typeof entry[3] !== 'string' || (entry.length === 4 && entry[3] === '')) {
+            throw new Error(`Invalid evidenceHashes[${idx}].label`);
+          }
+          if (entry[3] !== '') rec.label = validateCanonicalText(entry[3], 96, false, `evidenceHashes[${idx}].label`);
+        }
+        if (entry.length === 5) {
+          rec.mimeType = validateCanonicalText(entry[4], 64, false, `evidenceHashes[${idx}].mimeType`);
+        }
+        return rec;
+      });
+    }
+    if (m.has(17)) policyNote = validateCanonicalText(m.get(17), 240, true, 'policyNote');
+  }
 
   const reMap = new Map();
   for (const [k, v] of m.entries()) reMap.set(k, v);
@@ -438,7 +688,8 @@ function verifyProofData(proofInput, raster) {
     throw new Error('Non-canonical inner manifest CBOR');
   }
 
-  const signingMsg = Buffer.concat([DOMAIN_PROOF, Buffer.from(payloadBytes)]);
+  const domainPrefix = ver === PROTOCOL_V3 ? DOMAIN_PROOF_V3 : DOMAIN_PROOF;
+  const signingMsg = Buffer.concat([domainPrefix, Buffer.from(payloadBytes)]);
   const signatureValid = verifyEd25519(pubKey, signingMsg, sig);
   const fp = fingerprintFor(pubKey);
 
@@ -466,6 +717,7 @@ function verifyProofData(proofInput, raster) {
   return {
     summary: {
       protocolVersion: ver,
+      usedDeflate,
       signatureValid,
       integrityStatus,
       matchedMode,
@@ -480,12 +732,23 @@ function verifyProofData(proofInput, raster) {
       issuedAtUnix: issuedAt,
       issuedAtIso: new Date(issuedAt * 1000).toISOString(),
       license: LICENSES[lic[0]] ?? `code-${lic[0]}`,
-      commercialUse: POLICIES[lic[1]] ?? 'unknown',
-      redistribution: POLICIES[lic[2]] ?? 'unknown',
-      aiTraining: POLICIES[lic[3]] ?? 'unknown',
-      attributionName: lic[4] ?? null,
+      commercialUse: policySummary.commercialUse,
+      redistribution: policySummary.redistribution,
+      aiTraining: policySummary.aiTraining,
+      allowsDerivatives: policySummary.allowsDerivatives,
+      allowsModifications: policySummary.allowsModifications,
+      requiresAttribution: policySummary.requiresAttribution,
+      attributionName,
       authorName: authorName ?? null,
       artworkTitle: artworkTitle ?? null,
+      description,
+      website,
+      snsLinks,
+      portfolioLinks,
+      creationMethod,
+      creationEnvironment,
+      evidenceHashes,
+      policyNote,
       integrityError,
     },
     raw: {
@@ -983,6 +1246,12 @@ async function main() {
       if (res.qrMask) {
         console.log(`Excluded qrMask: [${res.qrMask.join(', ')}] (${res.qrMaskCoveragePct}% of artwork)`);
       }
+      if (res.authorName) console.log(`Author (signed): ${res.authorName}`);
+      if (res.artworkTitle) console.log(`Title (signed): ${res.artworkTitle}`);
+      if (res.creationMethod) console.log(`Creation Method (signed declaration): ${res.creationMethod}`);
+      if (res.website) console.log(`Author Website (signed): ${res.website}`);
+      if (res.snsLinks?.length) console.log(`SNS Links (signed): ${res.snsLinks.map((l) => l.url).join(', ')}`);
+      if (res.evidenceHashes?.length) console.log(`Embedded Evidence Hashes: ${res.evidenceHashes.length} record(s)`);
       if (res.integrityError) {
         console.error(`Integrity Error: ${res.integrityError}`);
       }

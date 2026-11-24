@@ -6,9 +6,12 @@ import {
   CheckCircle2,
   ChevronDown,
   ClipboardPaste,
+  Cpu,
+  ExternalLink,
   Eye,
   FileCheck2,
   FileImage,
+  HelpCircle,
   Info,
   Link2,
   Loader2,
@@ -16,6 +19,7 @@ import {
   ShieldAlert,
   Trash2,
   Upload,
+  User,
 } from 'lucide-react';
 import { ImageDropzone } from '../components/ImageDropzone';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
@@ -33,15 +37,25 @@ import type { PerceptualComparisonResult } from '../core/image/perceptualHash';
 import { decodeImageFileToCanonicalRgba8 } from '../core/image/pngCodec';
 import type { CanonicalRaster } from '../core/image/pngCodec';
 import { isLikelyEvidenceExtensionText } from '../core/manifest/evidenceExtension';
+import { PROTOCOL_VERSION_COMPACT } from '../core/manifest/types';
 import type {
+  CreationMethod,
+  EvidenceCategory,
   EvidenceVerificationSummary,
   PolicySignal,
   SignedManifest,
   VerificationResult,
 } from '../core/manifest/types';
+import { SNS_PLATFORM_PRESETS, trySanitizeProfileUrl } from '../core/profiles';
 import { addTrustedKey, confirmTrustedKey } from '../core/storage/keyStore';
-import { verifyEvidenceExtension } from '../core/verify/evidenceVerifier';
-import type { SuppliedEvidenceFileInput } from '../core/verify/evidenceVerifier';
+import {
+  matchSuppliedEvidenceRecords,
+  verifyEvidenceExtension,
+} from '../core/verify/evidenceVerifier';
+import type {
+  EvidenceRecordsMatchResult,
+  SuppliedEvidenceFileInput,
+} from '../core/verify/evidenceVerifier';
 import { verifyImageWithEmbeddedQr, verifyProofAndArtwork } from '../core/verify/verifier';
 import { useI18n } from '../i18n/context';
 
@@ -102,6 +116,7 @@ export function VerifyCertificatePage() {
     [],
   );
   const [evidenceSummary, setEvidenceSummary] = useState<EvidenceVerificationSummary | null>(null);
+  const [v3EvidenceMatch, setV3EvidenceMatch] = useState<EvidenceRecordsMatchResult | null>(null);
   const [evidenceHashProgress, setEvidenceHashProgress] = useState<string | null>(null);
   const [standaloneEvidenceError, setStandaloneEvidenceError] = useState<string | null>(null);
 
@@ -124,19 +139,38 @@ export function VerifyCertificatePage() {
       nextManifest: SignedManifest | null | undefined,
       nextSuppliedFiles: SuppliedEvidenceFileInput[],
     ) => {
-      if (!nextEvidenceRaw || !nextEvidenceRaw.trim()) {
-        setEvidenceSummary(null);
-        setStandaloneEvidenceError(null);
-        return;
-      }
-      if (!nextProofBytes || !nextManifest) {
-        setEvidenceSummary(null);
-        setStandaloneEvidenceError(t.artworkDetails.verifyStandaloneError);
-        return;
-      }
+      const hasRawEvidence = Boolean(nextEvidenceRaw && nextEvidenceRaw.trim());
+      const v3Hashes = nextManifest?.evidenceHashes ?? [];
 
-      setStandaloneEvidenceError(null);
       try {
+        if (v3Hashes.length > 0) {
+          const v3Match = await matchSuppliedEvidenceRecords({
+            records: v3Hashes,
+            suppliedEvidenceFiles: nextSuppliedFiles,
+            onEvidenceHashProgress: (fileIdx, totalFiles, done, total) => {
+              const pct = total > 0 ? Math.round((done / total) * 100) : 100;
+              setEvidenceHashProgress(
+                `${t.artworkDetails.evidenceHashingBusy} (${fileIdx + 1}/${totalFiles}, ${pct}%)`,
+              );
+            },
+          });
+          setV3EvidenceMatch(v3Match);
+        } else {
+          setV3EvidenceMatch(null);
+        }
+
+        if (!hasRawEvidence || !nextEvidenceRaw) {
+          setEvidenceSummary(null);
+          setStandaloneEvidenceError(null);
+          return;
+        }
+        if (!nextProofBytes || !nextManifest) {
+          setEvidenceSummary(null);
+          setStandaloneEvidenceError(t.artworkDetails.verifyStandaloneError);
+          return;
+        }
+
+        setStandaloneEvidenceError(null);
         const summary = await verifyEvidenceExtension({
           evidenceInput: nextEvidenceRaw,
           proofBytes: nextProofBytes,
@@ -164,6 +198,7 @@ export function VerifyCertificatePage() {
       setTrustConfirmChecked(false);
       if (isLikelyEvidenceExtensionText(rawProof)) {
         setResult(null);
+        setV3EvidenceMatch(null);
         setActiveProofRaw(null);
         setStandaloneEvidenceError(t.artworkDetails.verifyStandaloneError);
         return;
@@ -276,6 +311,7 @@ export function VerifyCertificatePage() {
       } catch (err) {
         setResult(null);
         setEvidenceSummary(null);
+        setV3EvidenceMatch(null);
         setErrorMsg(err instanceof Error ? err.message : 'Failed to verify image');
       }
     },
@@ -632,6 +668,43 @@ export function VerifyCertificatePage() {
     return t.create.policyUnspecified;
   };
 
+  const formatCreationMethod = (method: CreationMethod): string => {
+    switch (method) {
+      case 'hand-drawn-no-ai':
+        return t.artworkDetails.methodHandDrawnNoAi;
+      case 'hand-drawn-ai-assisted':
+        return t.artworkDetails.methodHandDrawnAiAssisted;
+      case 'ai-generated':
+        return t.artworkDetails.methodAiGenerated;
+      case 'other':
+        return t.artworkDetails.methodOther;
+      case 'prefer-not-to-disclose':
+        return t.artworkDetails.methodPreferNotToDisclose;
+    }
+  };
+
+  const formatCategory = (cat?: EvidenceCategory): string => {
+    switch (cat) {
+      case 'sketch':
+        return t.artworkDetails.catSketch;
+      case 'wip':
+        return t.artworkDetails.catWip;
+      case 'intermediate':
+        return t.artworkDetails.catIntermediate;
+      case 'timelapse':
+        return t.artworkDetails.catTimelapse;
+      case 'project-file':
+        return t.artworkDetails.catProjectFile;
+      default:
+        return t.artworkDetails.catOther;
+    }
+  };
+
+  const formatPlatformLabel = (platform?: string): string | undefined => {
+    if (!platform) return undefined;
+    return SNS_PLATFORM_PRESETS.find((p) => p.id === platform)?.label ?? platform;
+  };
+
   const policyPillTone = (signal: PolicySignal) => {
     if (signal === 'disallow') {
       return 'border-rose-400/35 bg-rose-500/10 text-rose-200';
@@ -653,6 +726,54 @@ export function VerifyCertificatePage() {
     Boolean(result?.manifest) && (activeTab === 'proof' || activeTab === 'camera');
 
   const prioritizeResultsTop = launchedWithHashProof || cameraAutoVerified;
+  const canAttachLocalEvidenceFiles = Boolean(
+    evidenceInputRaw || (result?.manifest?.evidenceHashes && result.manifest.evidenceHashes.length > 0),
+  );
+
+  const manifestV3 = result?.manifest;
+  const safeV3Website = trySanitizeProfileUrl(manifestV3?.website);
+  const safeV3SnsLinks = (manifestV3?.snsLinks ?? [])
+    .map((item) => {
+      const safeUrl = trySanitizeProfileUrl(item.url);
+      if (!safeUrl) return null;
+      return {
+        ...item,
+        url: safeUrl,
+        platformLabel: formatPlatformLabel(item.platform),
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
+  const safeV3PortfolioLinks = (manifestV3?.portfolioLinks ?? [])
+    .map((item) => {
+      const safeUrl = trySanitizeProfileUrl(item.url);
+      if (!safeUrl) return null;
+      return {
+        ...item,
+        url: safeUrl,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
+
+  const hasV3ExtendedPolicy = Boolean(
+    manifestV3 &&
+      (manifestV3.license.allowsDerivatives !== undefined ||
+        manifestV3.license.allowsModifications !== undefined ||
+        manifestV3.license.requiresAttribution !== undefined ||
+        manifestV3.policyNote),
+  );
+
+  const hasV3SelfContainedMetadata = Boolean(
+    manifestV3 &&
+      manifestV3.version === PROTOCOL_VERSION_COMPACT &&
+      (manifestV3.description ||
+        safeV3Website ||
+        safeV3SnsLinks.length > 0 ||
+        safeV3PortfolioLinks.length > 0 ||
+        manifestV3.creationMethod !== undefined ||
+        manifestV3.creationEnvironment ||
+        (manifestV3.evidenceHashes && manifestV3.evidenceHashes.length > 0) ||
+        hasV3ExtendedPolicy),
+  );
 
   const proofForm = (
     <form onSubmit={handleManualProofSubmit} className="space-y-3">
@@ -716,40 +837,33 @@ export function VerifyCertificatePage() {
           <span>{t.artworkDetails.verifyAttachEvidenceBtn}</span>
         </label>
 
-        {evidenceInputRaw && (
-          <>
-            <input
-              id={localFilesInputId}
-              type="file"
-              multiple
-              data-testid="verify-local-evidence-files-input"
-              onChange={(e) => void handleLocalEvidenceFilesChange(e)}
-              className="sr-only"
-            />
-            <label
-              htmlFor={localFilesInputId}
-              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.16] bg-[#030b18]/75 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-100 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
-            >
-              <Upload className="h-4 w-4 shrink-0 text-sky-300" aria-hidden="true" />
-              <span>{t.artworkDetails.verifyAttachFilesBtn}</span>
-            </label>
+        {canAttachLocalEvidenceFiles && (
+          <label
+            htmlFor={localFilesInputId}
+            className="inline-flex items-center gap-2 rounded-lg border border-white/[0.16] bg-[#030b18]/75 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-100 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
+          >
+            <Upload className="h-4 w-4 shrink-0 text-sky-300" aria-hidden="true" />
+            <span>{t.artworkDetails.verifyAttachFilesBtn}</span>
+          </label>
+        )}
 
-            <button
-              type="button"
-              data-testid="verify-clear-evidence-btn"
-              onClick={() => {
-                setEvidenceInputRaw(null);
-                setEvidenceFileName(null);
-                setSuppliedEvidenceFiles([]);
-                setEvidenceSummary(null);
-                setStandaloneEvidenceError(null);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] px-3 py-2 text-xs text-slate-300 hover:border-rose-400/40 hover:text-rose-200 min-h-[44px] cursor-pointer"
-            >
-              <Trash2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span>{t.artworkDetails.verifyClearEvidenceBtn}</span>
-            </button>
-          </>
+        {evidenceInputRaw && (
+          <button
+            type="button"
+            data-testid="verify-clear-evidence-btn"
+            onClick={() => {
+              setEvidenceInputRaw(null);
+              setEvidenceFileName(null);
+              setSuppliedEvidenceFiles([]);
+              setEvidenceSummary(null);
+              setStandaloneEvidenceError(null);
+              void runEvidenceVerification(null, result?.proofBytes, result?.manifest, []);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] px-3 py-2 text-xs text-slate-300 hover:border-rose-400/40 hover:text-rose-200 min-h-[44px] cursor-pointer"
+          >
+            <Trash2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>{t.artworkDetails.verifyClearEvidenceBtn}</span>
+          </button>
         )}
 
         {suppliedEvidenceFiles.length > 0 && (
@@ -1147,6 +1261,55 @@ export function VerifyCertificatePage() {
                 </div>
               </div>
             </div>
+
+            {hasV3ExtendedPolicy && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                {result.manifest.license.allowsDerivatives !== undefined && (
+                  <div
+                    className={`rounded-lg border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.allowsDerivatives)}`}
+                  >
+                    <div className="opacity-75 text-[11px]">{t.nextGen.verify.v3DerivativesLabel}</div>
+                    <div className="font-semibold mt-0.5">
+                      {formatPolicySignal(result.manifest.license.allowsDerivatives)}
+                    </div>
+                  </div>
+                )}
+                {result.manifest.license.allowsModifications !== undefined && (
+                  <div
+                    className={`rounded-lg border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.allowsModifications)}`}
+                  >
+                    <div className="opacity-75 text-[11px]">
+                      {t.nextGen.verify.v3ModificationsLabel}
+                    </div>
+                    <div className="font-semibold mt-0.5">
+                      {formatPolicySignal(result.manifest.license.allowsModifications)}
+                    </div>
+                  </div>
+                )}
+                {result.manifest.license.requiresAttribution !== undefined && (
+                  <div className="rounded-lg border border-white/[0.12] bg-[#030b18]/65 px-3 py-2 text-xs text-slate-200">
+                    <div className="opacity-75 text-[11px]">
+                      {t.nextGen.verify.v3RequiresAttributionLabel}
+                    </div>
+                    <div className="font-semibold mt-0.5">
+                      {result.manifest.license.requiresAttribution
+                        ? t.nextGen.verify.v3Yes
+                        : t.nextGen.verify.v3No}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {result.manifest.policyNote && (
+              <div
+                data-testid="verify-v3-policy-note"
+                className="rounded-lg border border-white/[0.1] bg-[#030b18]/65 px-3 py-2 text-xs text-slate-200"
+              >
+                <span className="text-[11px] text-slate-400">{t.nextGen.verify.v3PolicyNoteLabel}: </span>
+                <span className="break-words">{result.manifest.policyNote}</span>
+              </div>
+            )}
           </div>
 
           {result.signatureStatus === 'valid' &&
@@ -1277,6 +1440,290 @@ export function VerifyCertificatePage() {
               <span>{t.verify.inspectInExchangeBtn}</span>
             </Link>
           </div>
+        </section>
+      )}
+
+      {hasV3SelfContainedMetadata && result.manifest && (
+        <section
+          data-testid="verify-v3-metadata-card"
+          className="rounded-xl border border-sky-400/25 bg-[#051224]/75 backdrop-blur-md p-5 space-y-4"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm sm:text-base font-semibold text-white">
+              {t.nextGen.verify.v3MetadataTitle}
+            </h2>
+            <span className="rounded-full border border-sky-400/35 bg-sky-500/10 px-2.5 py-0.5 text-[11px] font-mono text-sky-200">
+              {t.nextGen.create.qrV3SelfContainedBadge}
+            </span>
+          </div>
+
+          {result.manifest.description && (
+            <div
+              data-testid="verify-v3-description"
+              className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-1.5"
+            >
+              <div className="text-[11px] text-slate-400">{t.artworkDetails.descriptionLabel}</div>
+              <p className="text-xs sm:text-sm text-slate-200 whitespace-pre-wrap break-words leading-relaxed">
+                {result.manifest.description}
+              </p>
+            </div>
+          )}
+
+          {(safeV3Website || safeV3SnsLinks.length > 0 || safeV3PortfolioLinks.length > 0) && (
+            <div
+              data-testid="verify-v3-creator-links"
+              className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-3"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="flex items-center gap-2 text-xs font-semibold text-sky-200">
+                  <User className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span>{t.artworkDetails.groupCreator}</span>
+                </span>
+                <span className="rounded-full border border-white/[0.12] bg-[#020813]/75 px-2.5 py-0.5 text-[10px] text-slate-300">
+                  {t.artworkDetails.verifyProfileSelfDeclared}
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                {t.nextGen.verify.v3ProfileSnapshotNote}
+              </p>
+
+              {safeV3Website && (
+                <div>
+                  <a
+                    href={safeV3Website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="verify-v3-website"
+                    className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-sky-300 hover:text-sky-200 underline underline-offset-4 break-all"
+                  >
+                    <span>{safeV3Website}</span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  </a>
+                </div>
+              )}
+
+              {safeV3SnsLinks.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-[11px] text-slate-400">
+                    {t.nextGen.verify.v3SnsLinksLabel}
+                  </div>
+                  <ul className="flex flex-wrap gap-2">
+                    {safeV3SnsLinks.map((link, idx) => (
+                      <li key={idx}>
+                        <a
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-[#020813]/75 px-3 py-1.5 text-xs text-sky-200 hover:border-sky-400/40 break-all"
+                        >
+                          <span>
+                            {link.platformLabel ? `[${link.platformLabel}] ` : ''}
+                            {link.label ? `${link.label}: ${link.url}` : link.url}
+                          </span>
+                          <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {safeV3PortfolioLinks.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-[11px] text-slate-400">
+                    {t.nextGen.verify.v3PortfolioLinksLabel}
+                  </div>
+                  <ul className="flex flex-wrap gap-2">
+                    {safeV3PortfolioLinks.map((link, idx) => (
+                      <li key={idx}>
+                        <a
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-[#020813]/75 px-3 py-1.5 text-xs text-sky-200 hover:border-sky-400/40 break-all"
+                        >
+                          <span>{link.label ? `${link.label}: ${link.url}` : link.url}</span>
+                          <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {(result.manifest.creationMethod !== undefined ||
+            result.manifest.creationEnvironment) && (
+            <div
+              data-testid="verify-v3-creation"
+              className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-3"
+            >
+              <div className="flex items-center gap-2 text-xs font-semibold text-sky-200">
+                <Cpu className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span>{t.artworkDetails.groupCreation}</span>
+              </div>
+
+              {result.manifest.creationMethod && (
+                <div
+                  data-testid="verify-v3-creation-method"
+                  className="rounded-lg border border-sky-400/25 bg-sky-500/10 px-3 py-2 text-xs sm:text-sm text-sky-100"
+                >
+                  <span className="font-semibold">
+                    {t.artworkDetails.verifyMethodPrefix}{' '}
+                    {formatCreationMethod(result.manifest.creationMethod)}{' '}
+                    {t.artworkDetails.verifyMethodDeclaredSuffix}
+                  </span>
+                </div>
+              )}
+
+              {result.manifest.creationEnvironment && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                  {result.manifest.creationEnvironment.software && (
+                    <div className="rounded-lg border border-white/[0.08] bg-[#020813]/70 p-2.5">
+                      <div className="text-[11px] text-slate-400">
+                        {t.artworkDetails.softwareLabel}
+                      </div>
+                      <div className="text-white mt-0.5 break-words">
+                        {result.manifest.creationEnvironment.software}
+                      </div>
+                    </div>
+                  )}
+                  {result.manifest.creationEnvironment.hardware && (
+                    <div className="rounded-lg border border-white/[0.08] bg-[#020813]/70 p-2.5">
+                      <div className="text-[11px] text-slate-400">
+                        {t.artworkDetails.hardwareLabel}
+                      </div>
+                      <div className="text-white mt-0.5 break-words">
+                        {result.manifest.creationEnvironment.hardware}
+                      </div>
+                    </div>
+                  )}
+                  {result.manifest.creationEnvironment.inputDevice && (
+                    <div className="rounded-lg border border-white/[0.08] bg-[#020813]/70 p-2.5">
+                      <div className="text-[11px] text-slate-400">
+                        {t.artworkDetails.inputDeviceLabel}
+                      </div>
+                      <div className="text-white mt-0.5 break-words">
+                        {result.manifest.creationEnvironment.inputDevice}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {result.manifest.creationEnvironment?.notes && (
+                <div>
+                  <div className="text-[11px] text-slate-400">
+                    {t.artworkDetails.creationNotesLabel}
+                  </div>
+                  <p className="text-xs text-slate-200 whitespace-pre-wrap break-words mt-0.5">
+                    {result.manifest.creationEnvironment.notes}
+                  </p>
+                </div>
+              )}
+
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                {t.artworkDetails.verifyStatementOnlyNote}
+              </p>
+            </div>
+          )}
+
+          {result.manifest.evidenceHashes && result.manifest.evidenceHashes.length > 0 && (
+            <div
+              data-testid="verify-v3-evidence-hashes"
+              className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-3"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="flex items-center gap-2 text-xs font-semibold text-sky-200">
+                  <FileCheck2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span>{t.nextGen.verify.v3EvidenceHashesTitle}</span>
+                </span>
+                <label
+                  htmlFor={localFilesInputId}
+                  data-testid="verify-v3-attach-local-files-btn"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-sky-300/35 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-100 hover:bg-sky-500/25 cursor-pointer"
+                >
+                  <Upload className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span>{t.artworkDetails.verifyAttachFilesBtn}</span>
+                </label>
+              </div>
+
+              <ul className="space-y-2">
+                {(v3EvidenceMatch?.recordChecks ?? []).map((rec) => (
+                  <li
+                    key={rec.index}
+                    data-testid={`verify-v3-evidence-record-${rec.index}`}
+                    className="rounded-lg border border-white/[0.08] bg-[#020813]/75 p-3 space-y-1.5 text-xs"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium text-white break-words">
+                        {rec.label || `Evidence #${rec.index + 1}`}
+                        <span className="ms-2 rounded bg-white/[0.08] px-2 py-0.5 text-[10px] text-slate-300">
+                          {formatCategory(rec.category)}
+                        </span>
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
+                          rec.status === 'verified'
+                            ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200'
+                            : 'border-white/[0.14] bg-white/[0.05] text-slate-300'
+                        }`}
+                      >
+                        {rec.status === 'verified' ? (
+                          <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden="true" />
+                        ) : (
+                          <HelpCircle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                        )}
+                        <span>
+                          {rec.status === 'verified'
+                            ? t.artworkDetails.verifyEvidenceStatusVerified
+                            : t.artworkDetails.verifyEvidenceStatusUnavailable}
+                        </span>
+                      </span>
+                    </div>
+                    <div className="font-mono text-[11px] text-slate-400 break-all">
+                      SHA-256: {rec.sha256Hex} · {rec.byteLength.toLocaleString()} bytes
+                      {rec.matchedFileName && (
+                        <span className="ms-2 text-emerald-300">
+                          ({t.artworkDetails.verifyMatchedLocalFile} {rec.matchedFileName})
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              {v3EvidenceMatch && v3EvidenceMatch.mismatchedSuppliedFiles.length > 0 && !evidenceSummary && (
+                <div
+                  role="alert"
+                  data-testid="verify-v3-evidence-mismatched-files"
+                  className="rounded-xl border border-rose-400/40 bg-rose-500/15 p-3 space-y-1.5 text-xs text-rose-100"
+                >
+                  <div className="flex items-center gap-2 font-semibold text-rose-200">
+                    <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span>{t.artworkDetails.verifyEvidenceMismatchTitle}</span>
+                  </div>
+                  <p>{t.artworkDetails.verifyEvidenceMismatchHint}</p>
+                  <ul className="space-y-1 font-mono text-[11px] text-rose-200 break-all">
+                    {v3EvidenceMatch.mismatchedSuppliedFiles.map((f, idx) => (
+                      <li key={idx}>
+                        {f.fileName} ({f.byteLength.toLocaleString()} bytes) · SHA-256:{' '}
+                        {f.computedSha256Hex}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!evidenceInputRaw && (
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              {t.nextGen.verify.v3NoExtensionNeededNote}
+            </p>
+          )}
         </section>
       )}
 
@@ -1516,6 +1963,49 @@ export function VerifyCertificatePage() {
               label={t.verify.fields.aiTraining}
               value={result.manifest.license.aiTraining}
             />
+            {result.manifest.license.allowsDerivatives !== undefined && (
+              <DetailRow
+                label={t.nextGen.verify.v3DerivativesLabel}
+                value={result.manifest.license.allowsDerivatives}
+              />
+            )}
+            {result.manifest.license.allowsModifications !== undefined && (
+              <DetailRow
+                label={t.nextGen.verify.v3ModificationsLabel}
+                value={result.manifest.license.allowsModifications}
+              />
+            )}
+            {result.manifest.license.requiresAttribution !== undefined && (
+              <DetailRow
+                label={t.nextGen.verify.v3RequiresAttributionLabel}
+                value={
+                  result.manifest.license.requiresAttribution
+                    ? t.nextGen.verify.v3Yes
+                    : t.nextGen.verify.v3No
+                }
+              />
+            )}
+            {result.manifest.policyNote && (
+              <DetailRow
+                label={t.nextGen.verify.v3PolicyNoteLabel}
+                value={result.manifest.policyNote}
+              />
+            )}
+            {result.manifest.description && (
+              <DetailRow
+                label={t.artworkDetails.descriptionLabel}
+                value={result.manifest.description}
+              />
+            )}
+            {safeV3Website && (
+              <DetailRow label={t.artworkDetails.websiteLabel} value={safeV3Website} />
+            )}
+            {result.manifest.creationMethod && (
+              <DetailRow
+                label={t.artworkDetails.creationMethodLabel}
+                value={formatCreationMethod(result.manifest.creationMethod)}
+              />
+            )}
           </dl>
         </AdvancedSettings>
       )}
@@ -1542,6 +2032,17 @@ export function VerifyCertificatePage() {
           <p className="text-xs text-slate-400">{t.verify.trustReminder}</p>
         </HelpIconButton>
       </header>
+
+      {canAttachLocalEvidenceFiles && (
+        <input
+          id={localFilesInputId}
+          type="file"
+          multiple
+          data-testid="verify-local-evidence-files-input"
+          onChange={(e) => void handleLocalEvidenceFilesChange(e)}
+          className="sr-only"
+        />
+      )}
 
       {prioritizeResultsTop ? (
         <>

@@ -7,6 +7,7 @@ import {
   extractEvidenceBytesFromInput,
 } from '../manifest/evidenceExtension';
 import type {
+  EvidenceHashRecord,
   EvidenceRecordCheckResult,
   EvidenceVerificationSummary,
   MismatchedSuppliedEvidenceFile,
@@ -16,6 +17,109 @@ import type {
 export interface SuppliedEvidenceFileInput {
   name: string;
   data: Blob | Uint8Array;
+}
+
+export interface EvidenceRecordsMatchResult {
+  recordChecks: EvidenceRecordCheckResult[];
+  verifiedRecordCount: number;
+  unavailableRecordCount: number;
+  mismatchedSuppliedFiles: MismatchedSuppliedEvidenceFile[];
+  warnings: string[];
+}
+
+export async function matchSuppliedEvidenceRecords(params: {
+  records: EvidenceHashRecord[];
+  suppliedEvidenceFiles?: SuppliedEvidenceFileInput[];
+  onEvidenceHashProgress?: (
+    fileIndex: number,
+    totalFiles: number,
+    processedBytes: number,
+    totalBytes: number,
+  ) => void;
+}): Promise<EvidenceRecordsMatchResult> {
+  const { records, suppliedEvidenceFiles = [], onEvidenceHashProgress } = params;
+
+  const hashedSupplied: Array<{
+    fileName: string;
+    digest: Uint8Array;
+    hex: string;
+    byteLength: number;
+  }> = [];
+
+  for (let i = 0; i < suppliedEvidenceFiles.length; i++) {
+    const file = suppliedEvidenceFiles[i];
+    const hashed = await sha256Streamed(file.data, {
+      onProgress: (processed, total) => {
+        onEvidenceHashProgress?.(i, suppliedEvidenceFiles.length, processed, total);
+      },
+    });
+    hashedSupplied.push({
+      fileName: file.name,
+      digest: hashed.digest,
+      hex: hashed.hex,
+      byteLength: hashed.byteLength,
+    });
+  }
+
+  const matchedSuppliedIndices = new Set<number>();
+  const recordChecks: EvidenceRecordCheckResult[] = records.map((rec, index) => {
+    const shaHex = bytesToHex(rec.sha256);
+    const matchIndex = hashedSupplied.findIndex(
+      (sup) => sup.byteLength === rec.byteLength && constantTimeEqual(sup.digest, rec.sha256),
+    );
+    if (matchIndex >= 0) {
+      matchedSuppliedIndices.add(matchIndex);
+      return {
+        index,
+        sha256Hex: shaHex,
+        byteLength: rec.byteLength,
+        label: rec.label,
+        category: rec.category,
+        mimeType: rec.mimeType,
+        status: 'verified',
+        matchedFileName: hashedSupplied[matchIndex].fileName,
+      };
+    }
+    return {
+      index,
+      sha256Hex: shaHex,
+      byteLength: rec.byteLength,
+      label: rec.label,
+      category: rec.category,
+      mimeType: rec.mimeType,
+      status: 'unavailable',
+    };
+  });
+
+  const mismatchedSuppliedFiles: MismatchedSuppliedEvidenceFile[] = [];
+  for (let i = 0; i < hashedSupplied.length; i++) {
+    if (!matchedSuppliedIndices.has(i)) {
+      const sup = hashedSupplied[i];
+      mismatchedSuppliedFiles.push({
+        fileName: sup.fileName,
+        byteLength: sup.byteLength,
+        computedSha256Hex: sup.hex,
+      });
+    }
+  }
+
+  const warnings: string[] = [];
+  if (mismatchedSuppliedFiles.length > 0) {
+    warnings.push(
+      `${mismatchedSuppliedFiles.length} local evidence file(s) did not match any SHA-256 record in the signed manifest.`,
+    );
+  }
+
+  const verifiedRecordCount = recordChecks.filter((r) => r.status === 'verified').length;
+  const unavailableRecordCount = recordChecks.filter((r) => r.status === 'unavailable').length;
+
+  return {
+    recordChecks,
+    verifiedRecordCount,
+    unavailableRecordCount,
+    mismatchedSuppliedFiles,
+    warnings,
+  };
 }
 
 function emptyEvidenceSummary(
@@ -156,78 +260,12 @@ export async function verifyEvidenceExtension(params: {
   }
 
   const records = extension.evidenceRecords ?? [];
-  const hashedSupplied: Array<{
-    fileName: string;
-    digest: Uint8Array;
-    hex: string;
-    byteLength: number;
-  }> = [];
-
-  for (let i = 0; i < suppliedEvidenceFiles.length; i++) {
-    const file = suppliedEvidenceFiles[i];
-    const hashed = await sha256Streamed(file.data, {
-      onProgress: (processed, total) => {
-        onEvidenceHashProgress?.(i, suppliedEvidenceFiles.length, processed, total);
-      },
-    });
-    hashedSupplied.push({
-      fileName: file.name,
-      digest: hashed.digest,
-      hex: hashed.hex,
-      byteLength: hashed.byteLength,
-    });
-  }
-
-  const matchedSuppliedIndices = new Set<number>();
-  const recordChecks: EvidenceRecordCheckResult[] = records.map((rec, index) => {
-    const shaHex = bytesToHex(rec.sha256);
-    const matchIndex = hashedSupplied.findIndex(
-      (sup) => sup.byteLength === rec.byteLength && constantTimeEqual(sup.digest, rec.sha256),
-    );
-    if (matchIndex >= 0) {
-      matchedSuppliedIndices.add(matchIndex);
-      return {
-        index,
-        sha256Hex: shaHex,
-        byteLength: rec.byteLength,
-        label: rec.label,
-        category: rec.category,
-        mimeType: rec.mimeType,
-        status: 'verified',
-        matchedFileName: hashedSupplied[matchIndex].fileName,
-      };
-    }
-    return {
-      index,
-      sha256Hex: shaHex,
-      byteLength: rec.byteLength,
-      label: rec.label,
-      category: rec.category,
-      mimeType: rec.mimeType,
-      status: 'unavailable',
-    };
+  const matchRes = await matchSuppliedEvidenceRecords({
+    records,
+    suppliedEvidenceFiles,
+    onEvidenceHashProgress,
   });
-
-  const mismatchedSuppliedFiles: MismatchedSuppliedEvidenceFile[] = [];
-  for (let i = 0; i < hashedSupplied.length; i++) {
-    if (!matchedSuppliedIndices.has(i)) {
-      const sup = hashedSupplied[i];
-      mismatchedSuppliedFiles.push({
-        fileName: sup.fileName,
-        byteLength: sup.byteLength,
-        computedSha256Hex: sup.hex,
-      });
-    }
-  }
-
-  if (mismatchedSuppliedFiles.length > 0) {
-    warnings.push(
-      `${mismatchedSuppliedFiles.length} local evidence file(s) did not match any SHA-256 record in the signed extension.`,
-    );
-  }
-
-  const verifiedRecordCount = recordChecks.filter((r) => r.status === 'verified').length;
-  const unavailableRecordCount = recordChecks.filter((r) => r.status === 'unavailable').length;
+  warnings.push(...matchRes.warnings);
 
   return {
     status,
@@ -239,10 +277,10 @@ export async function verifyEvidenceExtension(params: {
     proofSha256MatchesProof,
     extension,
     evidenceBytesLength: evidenceBytes.length,
-    recordChecks,
-    verifiedRecordCount,
-    unavailableRecordCount,
-    mismatchedSuppliedFiles,
+    recordChecks: matchRes.recordChecks,
+    verifiedRecordCount: matchRes.verifiedRecordCount,
+    unavailableRecordCount: matchRes.unavailableRecordCount,
+    mismatchedSuppliedFiles: matchRes.mismatchedSuppliedFiles,
     errors,
     warnings,
   };

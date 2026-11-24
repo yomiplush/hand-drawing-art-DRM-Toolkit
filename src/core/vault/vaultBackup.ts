@@ -3,16 +3,20 @@ import {
   MIN_PASSPHRASE_LENGTH,
 } from '../crypto/keyBackup';
 import { base64UrlDecode, base64UrlEncode } from '../crypto/sha256';
+import { listPolicyPresets, upsertPolicyPresetsBatch } from '../policies/policyStore';
+import { listAuthorProfiles, upsertAuthorProfilesBatch } from '../profiles/profileStore';
 import {
   addTrustedKey,
   loadCreatorProfileDefaults,
   listTrustedKeys,
   saveCreatorProfileDefaults,
 } from '../storage/keyStore';
+import { loadVaultSettings, saveVaultSettings } from './settingsStore';
 import {
   CHM_VAULT_BACKUP_FORMAT,
   CHM_VAULT_ENCRYPTED_BACKUP_FORMAT,
   CHM_VAULT_SCHEMA_VERSION,
+  CHM_VAULT_SCHEMA_VERSION_V1,
   type EncryptedVaultBackupV1,
   type VaultBackupBundleV1,
   type VaultProofRecord,
@@ -26,8 +30,8 @@ import {
 const utf8Encoder = new TextEncoder();
 const utf8Decoder = new TextDecoder();
 
-function buildVaultBackupAad(proofCount: number): Uint8Array<ArrayBuffer> {
-  const encoded = utf8Encoder.encode(`CHM-VAULT-ENCRYPTED-v1:${proofCount}`);
+function buildVaultBackupAad(proofCount: number, version: number): Uint8Array<ArrayBuffer> {
+  const encoded = utf8Encoder.encode(`CHM-VAULT-ENCRYPTED-v${version}:${proofCount}`);
   const out = new Uint8Array(new ArrayBuffer(encoded.byteLength));
   out.set(encoded);
   return out;
@@ -73,10 +77,15 @@ async function deriveVaultAesKey(
 export async function exportVaultBackupBundle(params?: {
   includeProfile?: boolean;
   includeTrustedArtists?: boolean;
+  includePolicyPresets?: boolean;
+  includeSettings?: boolean;
 }): Promise<VaultBackupBundleV1> {
-  const [proofs, profile, trusted] = await Promise.all([
+  const [proofs, legacyProfile, authorProfiles, policyPresets, settings, trusted] = await Promise.all([
     listAllVaultProofs(),
     params?.includeProfile !== false ? loadCreatorProfileDefaults() : Promise.resolve(undefined),
+    params?.includeProfile !== false ? listAuthorProfiles() : Promise.resolve([]),
+    params?.includePolicyPresets !== false ? listPolicyPresets() : Promise.resolve([]),
+    params?.includeSettings !== false ? loadVaultSettings() : Promise.resolve(undefined),
     params?.includeTrustedArtists !== false ? listTrustedKeys() : Promise.resolve([]),
   ]);
 
@@ -85,14 +94,17 @@ export async function exportVaultBackupBundle(params?: {
     version: CHM_VAULT_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     containsPrivateKeys: false,
-    profile: profile
+    profile: legacyProfile
       ? {
-          displayName: profile.displayName,
-          website: profile.website,
-          links: profile.links,
-          updatedAt: profile.updatedAt,
+          displayName: legacyProfile.displayName,
+          website: legacyProfile.website,
+          links: legacyProfile.links,
+          updatedAt: legacyProfile.updatedAt,
         }
       : undefined,
+    ...(authorProfiles.length > 0 ? { authorProfiles } : {}),
+    ...(policyPresets.length > 0 ? { policyPresets } : {}),
+    ...(settings ? { settings } : {}),
     trustedArtists: trusted.map((t) => ({
       publicKeyBase64Url: t.publicKeyBase64Url,
       fingerprintHex: t.fingerprintHex,
@@ -104,6 +116,7 @@ export async function exportVaultBackupBundle(params?: {
       proofBase64Url: p.proofBase64Url,
       syncSelected: p.syncSelected,
       creationMethod: p.creationMethod,
+      ...(p.detailsSnapshot ? { detailsSnapshot: p.detailsSnapshot } : {}),
       createdAt: p.createdAt,
     })),
   };
@@ -125,7 +138,7 @@ export async function exportEncryptedVaultBackup(params: {
   globalThis.crypto.getRandomValues(iv);
 
   const key = await deriveVaultAesKey(params.passphrase, salt, iterations, ['encrypt']);
-  const aad = buildVaultBackupAad(bundle.proofs.length);
+  const aad = buildVaultBackupAad(bundle.proofs.length, CHM_VAULT_SCHEMA_VERSION);
   const ciphertextBuf = await globalThis.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv: toArrayBufferView(iv), additionalData: aad },
     key,
@@ -153,6 +166,9 @@ export async function importVaultBackupJson(params: {
   importedProofs: number;
   rejectedProofs: number;
   importedTrustedArtists: number;
+  importedProfiles: number;
+  importedPresets: number;
+  restoredSettings: boolean;
   restoredProfile: boolean;
 }> {
   const rawObj =
@@ -171,7 +187,9 @@ export async function importVaultBackupJson(params: {
     if (!params.passphraseIfEncrypted) {
       throw new Error('Passphrase is required to decrypt an encrypted vault backup');
     }
+    const encVer = candidate.version;
     if (
+      (encVer !== CHM_VAULT_SCHEMA_VERSION_V1 && encVer !== CHM_VAULT_SCHEMA_VERSION) ||
       typeof candidate.salt !== 'string' ||
       typeof candidate.iv !== 'string' ||
       typeof candidate.ciphertext !== 'string' ||
@@ -189,7 +207,7 @@ export async function importVaultBackupJson(params: {
       candidate.iterations,
       ['decrypt'],
     );
-    const aad = buildVaultBackupAad(candidate.proofCount);
+    const aad = buildVaultBackupAad(candidate.proofCount, encVer);
     const plainBuf = await globalThis.crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: toArrayBufferView(iv), additionalData: aad },
       key,
@@ -203,7 +221,8 @@ export async function importVaultBackupJson(params: {
   if (
     !bundle ||
     bundle.format !== CHM_VAULT_BACKUP_FORMAT ||
-    bundle.version !== CHM_VAULT_SCHEMA_VERSION ||
+    (bundle.version !== CHM_VAULT_SCHEMA_VERSION_V1 &&
+      bundle.version !== CHM_VAULT_SCHEMA_VERSION) ||
     !Array.isArray(bundle.proofs)
   ) {
     throw new Error('Unsupported or malformed CHM Vault backup bundle');
@@ -217,6 +236,25 @@ export async function importVaultBackupJson(params: {
       links: bundle.profile.links,
     });
     restoredProfile = true;
+  }
+
+  let importedProfiles = 0;
+  if (Array.isArray(bundle.authorProfiles) && bundle.authorProfiles.length > 0) {
+    await upsertAuthorProfilesBatch(bundle.authorProfiles);
+    importedProfiles = bundle.authorProfiles.length;
+    restoredProfile = true;
+  }
+
+  let importedPresets = 0;
+  if (Array.isArray(bundle.policyPresets) && bundle.policyPresets.length > 0) {
+    await upsertPolicyPresetsBatch(bundle.policyPresets);
+    importedPresets = bundle.policyPresets.length;
+  }
+
+  let restoredSettings = false;
+  if (bundle.settings && typeof bundle.settings === 'object') {
+    await saveVaultSettings(bundle.settings);
+    restoredSettings = true;
   }
 
   let importedTrustedArtists = 0;
@@ -247,6 +285,7 @@ export async function importVaultBackupJson(params: {
       const rec = await verifyAndBuildVaultProofRecord({
         proofInput: base64UrlDecode(entry.proofBase64Url),
         creationMethod: entry.creationMethod,
+        detailsSnapshot: entry.detailsSnapshot,
         syncSelected: entry.syncSelected === true,
         createdAt: entry.createdAt,
       });
@@ -262,6 +301,9 @@ export async function importVaultBackupJson(params: {
     importedProofs: verifiedRecords.length,
     rejectedProofs,
     importedTrustedArtists,
+    importedProfiles,
+    importedPresets,
+    restoredSettings,
     restoredProfile,
   };
 }

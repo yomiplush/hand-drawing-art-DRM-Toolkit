@@ -33,7 +33,13 @@ export type GracefulFallbackReason =
 
 export type SyncPriority = 0 | 1 | 2 | 3;
 
-export const DEFAULT_ONLINE_SYNC_BUDGET_BYTES = 1_048_576; // 1 MiB soft rolling 30-day online sync budget
+/**
+ * 256 KiB rolling 30-day soft budget sized for compact device registration,
+ * binding, checkpoint, and revocation messages only.
+ * Priority 0 revocations and critical Priority 1 device auth ops are never
+ * blocked by this soft cap.
+ */
+export const DEFAULT_ONLINE_SYNC_BUDGET_BYTES = 262_144;
 export const SYNC_BUDGET_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface RelayConfig {
@@ -66,9 +72,10 @@ export interface RelayRuntimeStatus {
 }
 
 /**
- * Optional public community Nostr relay presets.
- * - Never enabled or contacted until the user explicitly consents to Decentralized Sync.
- * - No uptime SLA, retention guarantee, or CHM authority is assumed.
+ * Optional public community Nostr relay presets used strictly for multi-device
+ * authentication, binding, and revocation messages.
+ * - Never enabled or contacted until the user explicitly consents to Device Auth Sync.
+ * - Artwork details, proofs, profiles, SNS links, and policy presets are never sent here.
  */
 export const CURATED_DEFAULT_RELAY_PRESETS: readonly RelayConfig[] = [
   {
@@ -112,7 +119,9 @@ export interface SyncSettings {
   onlineSyncBudgetBytes: number;
   syncWindowBytesUsed: number;
   syncWindowStartedAt?: string;
+  /** @deprecated Vault proof sync over Nostr is permanently disabled; kept only for schema migration. */
   syncVaultProofs: boolean;
+  migratedAuthOnlyAt?: string;
   lastSyncAttemptAt?: string;
   lastSuccessfulSyncAt?: string;
 }

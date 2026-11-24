@@ -1,11 +1,21 @@
 export const PROTOCOL_VERSION = 1 as const;
 export const PROTOCOL_VERSION_MASKED = 2 as const;
+export const PROTOCOL_VERSION_COMPACT = 3 as const;
 export const DOMAIN_SEPARATION_PREFIX = new Uint8Array([0x43, 0x48, 0x4d, 0x31, 0x00]); // "CHM1\0"
+export const DOMAIN_SEPARATION_PREFIX_V3 = new Uint8Array([0x43, 0x48, 0x4d, 0x33, 0x00]); // "CHM3\0"
 export const DEFAULT_VERIFY_BASE_URL = 'https://certified-handmade.com/verify';
 
 export const MAX_AUTHOR_UTF8_BYTES = 48;
 export const MAX_TITLE_UTF8_BYTES = 64;
 export const MAX_ATTRIBUTION_UTF8_BYTES = 48;
+export const MAX_V3_AUTHOR_UTF8_BYTES = 64;
+export const MAX_V3_TITLE_UTF8_BYTES = 128;
+export const MAX_V3_DESCRIPTION_UTF8_BYTES = 600;
+export const MAX_V3_POLICY_NOTE_UTF8_BYTES = 240;
+export const MAX_V3_SNS_LINKS = 12;
+export const MAX_V3_PORTFOLIO_LINKS = 8;
+export const MAX_V3_EVIDENCE_HASHES = 8;
+export const MAX_V3_DECOMPRESSED_BYTES = 8192;
 export const MAX_PROOF_BYTES = 2048;
 export const MAX_IMAGE_DIMENSION = 8192;
 export const MAX_OUTPUT_DIMENSION = 10240;
@@ -112,12 +122,41 @@ export interface LicenseDeclaration {
   commercialUse: PolicySignal;
   redistribution: PolicySignal;
   aiTraining: PolicySignal;
+  /** Optional extended policy flags supported by Protocol v3 */
+  allowsDerivatives?: PolicySignal;
+  allowsModifications?: PolicySignal;
+  requiresAttribution?: boolean;
+}
+
+export interface CompactSnsLink {
+  url: string;
+  platform?: string;
+  label?: string;
+}
+
+export type QrSizeTier = 'compact' | 'standard' | 'large' | 'capacity-exceeded';
+
+export interface QrSizingMetrics {
+  uncompressedPayloadBytes: number;
+  compressedPayloadBytes: number;
+  usedDeflate: boolean;
+  proofBytesLength: number;
+  proofUrlChars: number;
+  qrVersion: number | null;
+  qrModules: number | null;
+  eccLevel: 'L' | 'M' | 'Q' | 'H';
+  tier: QrSizeTier;
+  savingsBytes: number;
+  savingsPct: number;
 }
 
 export type ArtworkRegion = readonly [x: number, y: number, width: number, height: number];
 
 export interface UnsignedManifest {
-  version: typeof PROTOCOL_VERSION | typeof PROTOCOL_VERSION_MASKED;
+  version:
+    | typeof PROTOCOL_VERSION
+    | typeof PROTOCOL_VERSION_MASKED
+    | typeof PROTOCOL_VERSION_COMPACT;
   artworkId: Uint8Array;
   publicKey: Uint8Array;
   sha256: Uint8Array;
@@ -127,6 +166,15 @@ export interface UnsignedManifest {
   license: LicenseDeclaration;
   authorName?: string;
   artworkTitle?: string;
+  // Protocol v3 self-contained public metadata (offline QR readable)
+  description?: string;
+  website?: string;
+  snsLinks?: CompactSnsLink[];
+  portfolioLinks?: CreatorProfileLink[];
+  creationMethod?: CreationMethod;
+  creationEnvironment?: CreationEnvironmentData;
+  evidenceHashes?: EvidenceHashRecord[];
+  policyNote?: string;
 }
 
 export interface SignedManifest extends UnsignedManifest {

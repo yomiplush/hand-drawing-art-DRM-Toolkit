@@ -123,7 +123,10 @@ export async function loadSyncSettings(): Promise<SyncSettings> {
       syncWindowStartedAt: windowExpired
         ? new Date(nowMs).toISOString()
         : (r.syncWindowStartedAt as string),
-      syncVaultProofs: r.syncVaultProofs === true,
+      // Nostr vault sync is permanently disabled
+      syncVaultProofs: false,
+      migratedAuthOnlyAt:
+        typeof r.migratedAuthOnlyAt === 'string' ? r.migratedAuthOnlyAt : undefined,
       lastSyncAttemptAt: typeof r.lastSyncAttemptAt === 'string' ? r.lastSyncAttemptAt : undefined,
       lastSuccessfulSyncAt:
         typeof r.lastSuccessfulSyncAt === 'string' ? r.lastSuccessfulSyncAt : undefined,
@@ -156,12 +159,58 @@ export async function saveSyncSettings(settings: SyncSettings): Promise<SyncSett
         ? Math.floor(settings.syncWindowBytesUsed)
         : 0,
     syncWindowStartedAt: settings.syncWindowStartedAt ?? new Date().toISOString(),
-    syncVaultProofs: settings.syncVaultProofs === true,
+    syncVaultProofs: false,
+    migratedAuthOnlyAt: settings.migratedAuthOnlyAt,
     lastSyncAttemptAt: settings.lastSyncAttemptAt,
     lastSuccessfulSyncAt: settings.lastSuccessfulSyncAt,
   };
   await withChmStore(STORE_SYNC_SETTINGS, 'readwrite', (s) => s.put(clean));
   return clean;
+}
+
+/**
+ * Safely migrates legacy Nostr sync settings & outbox records:
+ * - Disables `syncVaultProofs` in persisted settings without altering device identities or Nostr keys
+ * - Removes any stale low-priority (`priority >= 2`) vault-proof outbox entries while keeping
+ *   Priority 0 revocations and Priority 1 device-auth ops intact.
+ */
+export async function migrateLegacyNostrToAuthOnly(): Promise<{
+  settingsUpdated: boolean;
+  prunedLegacyOutboxCount: number;
+}> {
+  let settingsUpdated = false;
+  let prunedLegacyOutboxCount = 0;
+
+  try {
+    const raw = await withChmStore<unknown>(STORE_SYNC_SETTINGS, 'readonly', (s) => s.get('default'));
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      const r = raw as Partial<SyncSettings>;
+      if (r.syncVaultProofs === true || !r.migratedAuthOnlyAt) {
+        const current = await loadSyncSettings();
+        await saveSyncSettings({
+          ...current,
+          syncVaultProofs: false,
+          migratedAuthOnlyAt: current.migratedAuthOnlyAt ?? new Date().toISOString(),
+        });
+        settingsUpdated = true;
+      }
+    }
+  } catch {
+    // Ignore if IDB unavailable
+  }
+
+  try {
+    const outbox = await listSyncOutbox();
+    const staleIds = outbox.filter((item) => (item.priority ?? 1) >= 2).map((item) => item.id);
+    if (staleIds.length > 0) {
+      await removeSyncOutboxItems(staleIds);
+      prunedLegacyOutboxCount = staleIds.length;
+    }
+  } catch {
+    // Ignore
+  }
+
+  return { settingsUpdated, prunedLegacyOutboxCount };
 }
 
 export async function listSyncOpLog(ownerFingerprintHex?: string): Promise<SyncOpLogRecord[]> {

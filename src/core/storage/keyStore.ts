@@ -15,7 +15,7 @@ import type { KeyNoticeReason, KeyNoticeType, VerifiedKeyNoticeResult } from '..
 import type { CreatorProfileLink } from '../manifest/types';
 
 export const CHM_DB_NAME = 'certified-handmade-store';
-export const CHM_DB_VERSION = 6;
+export const CHM_DB_VERSION = 7;
 export const STORE_AUTHOR_KEYS = 'authorKeys';
 export const STORE_TRUSTED_KEYS = 'trustedKeys';
 export const STORE_KEY_NOTICES = 'keyNotices';
@@ -32,6 +32,9 @@ export const STORE_SYNC_OUTBOX = 'syncOutbox';
 export const STORE_SYNC_PEER_BINDINGS = 'syncPeerBindings';
 export const STORE_PROOF_VAULT = 'proofVault';
 export const STORE_VAULT_META = 'vaultMeta';
+export const STORE_POLICY_PRESETS = 'policyPresets';
+export const STORE_STORAGE_STATE = 'storageState';
+export const STORE_VAULT_TOMBSTONES = 'vaultTombstones';
 
 export interface CreatorProfileDefaultsRecord {
   id: 'default';
@@ -150,6 +153,15 @@ export function openChmDatabase(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_VAULT_META)) {
         db.createObjectStore(STORE_VAULT_META, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_POLICY_PRESETS)) {
+        db.createObjectStore(STORE_POLICY_PRESETS, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_STORAGE_STATE)) {
+        db.createObjectStore(STORE_STORAGE_STATE, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_VAULT_TOMBSTONES)) {
+        db.createObjectStore(STORE_VAULT_TOMBSTONES, { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);

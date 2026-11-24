@@ -48,8 +48,8 @@ async function removeAllRelaysSequentially(page: import('@playwright/test').Page
   }
 }
 
-test.describe('Zero-Cost Decentralized Sync & Proof Vault E2E', () => {
-  test('enforces zero traffic at rest, Vault local storage/JSON backup/restore, paid relay blocking & TLS mock-relay sync across contexts', async ({
+test.describe('Zero-Cost Decentralized Device Auth Sync & Strict Nostr Isolation E2E', () => {
+  test('enforces zero traffic at rest, Vault local storage/JSON backup/restore, paid relay blocking & strict auth-only Nostr sync (never copies proofs over Nostr)', async ({
     browser,
   }, testInfo) => {
     test.setTimeout(90_000);
@@ -119,7 +119,7 @@ test.describe('Zero-Cost Decentralized Sync & Proof Vault E2E', () => {
       await dlPromise;
       await expect(page1.getByTestId('create-result-section')).toBeVisible();
 
-      // Verify Vault page records it compactly (< 2 KiB) & supports JSON export/delete/restore
+      // Verify Vault page records it compactly & supports JSON export/delete/restore
       await page1.goto('/vault');
       await expect(page1.getByTestId('vault-total-count')).toHaveText('1');
       await expect(page1.getByTestId('vault-proof-item')).toHaveCount(1);
@@ -148,7 +148,7 @@ test.describe('Zero-Cost Decentralized Sync & Proof Vault E2E', () => {
       await page1.locator('[data-testid^="vault-sync-toggle-"]').first().check();
       await expect(page1.getByTestId('vault-sync-count')).toHaveText('1');
 
-      // 3. Pair Device 2 offline & test Opt-In Sync + Free NIP-11 Policy + Paid Relay Block + Cross-Device Vault Sync
+      // 3. Pair Device 2 offline & test Opt-In Device Auth Sync + Free NIP-11 Policy + Paid Relay Block
       await page2.goto('/devices');
       await dismissCookieBannerIfVisible(page2);
       await page2.getByTestId('pairing-device-name-input').fill('Studio iPad');
@@ -171,6 +171,8 @@ test.describe('Zero-Cost Decentralized Sync & Proof Vault E2E', () => {
 
       // Enable Sync on Page 1 with local TLS free relay (remove external preset relays cleanly)
       await page1.getByTestId('devices-tab-sync').click();
+      await expect(page1.getByTestId('nostr-auth-only-notice')).toBeVisible();
+      await expect(page1.getByTestId('sync-vault-proofs-btn')).toHaveCount(0);
       await expect(page1.getByTestId('sync-enable-btn')).toBeDisabled();
       await page1.getByTestId('sync-consent-checkbox').check();
       await page1.getByTestId('sync-enable-btn').click();
@@ -211,16 +213,16 @@ test.describe('Zero-Cost Decentralized Sync & Proof Vault E2E', () => {
       await page1.getByTestId('sync-peer-import-btn').click();
       await expect(page1.getByTestId('sync-peer-import-msg')).toBeVisible();
 
-      // Push selected Vault proof from Device 1 -> Sync on Device 2 -> verify Device 2's /vault has it!
-      await page1.getByTestId('sync-vault-proofs-btn').click();
-      await expect(page1.getByTestId('sync-vault-msg')).toBeVisible();
+      // Sync device auth logs between Device 1 and Device 2 -> verify artwork proofs do NOT sync over Nostr
+      await page1.getByTestId('sync-now-btn').click();
+      await expect(page1.getByTestId('sync-now-btn')).toBeEnabled();
       await expect(page1.getByTestId('sync-budget-usage')).toBeVisible();
 
       await page2.getByTestId('sync-now-btn').click();
       await expect(page2.getByTestId('sync-now-btn')).toBeEnabled();
       await page2.goto('/vault');
-      await expect(page2.getByTestId('vault-total-count')).toHaveText('1');
-      await expect(page2.getByTestId('vault-proof-item').first()).toContainText('Vault E2E Piece');
+      await expect(page2.getByTestId('vault-total-count')).toHaveText('0');
+      await expect(page2.getByTestId('vault-empty-state')).toBeVisible();
 
       expect(externalRequests).toEqual([]);
       expect(pageErrors).toEqual([]);
