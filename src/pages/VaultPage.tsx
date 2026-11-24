@@ -9,6 +9,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
+import { StorageSettingsPanel } from '../components/vault/StorageSettingsPanel';
 import { createPortableProofBundle } from '../core/manifest/proofBundle';
 import { buildProofUrl } from '../core/manifest/proofUrl';
 import { loadSyncSettings } from '../core/sync';
@@ -45,7 +46,7 @@ function triggerJsonDownload(data: unknown, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-export function VaultPage() {
+export function VaultPage({ focusStorage = false }: { focusStorage?: boolean }) {
   const { t } = useI18n();
   const v = t.vault;
 
@@ -197,42 +198,57 @@ export function VaultPage() {
     }
   };
 
+  const statsSection = (
+    <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="rounded-xl border border-white/[0.1] bg-[#051224]/70 p-4">
+        <div className="text-xs text-slate-400">{v.statsTotalProofs}</div>
+        <div className="text-xl font-semibold text-white mt-1" data-testid="vault-total-count">
+          {stats.totalProofs}
+        </div>
+      </div>
+      <div className="rounded-xl border border-white/[0.1] bg-[#051224]/70 p-4">
+        <div className="text-xs text-slate-400">{v.statsSyncSelected}</div>
+        <div className="text-xl font-semibold text-sky-200 mt-1" data-testid="vault-sync-count">
+          {stats.syncSelectedCount}
+        </div>
+      </div>
+      <div className="rounded-xl border border-white/[0.1] bg-[#051224]/70 p-4">
+        <div className="text-xs text-slate-400">{v.statsEstimatedStorage}</div>
+        <div className="text-xl font-semibold text-emerald-200 mt-1" data-testid="vault-total-bytes">
+          {formatBytes(stats.estimatedTotalBytes)}
+        </div>
+      </div>
+    </section>
+  );
+
   return (
     <div data-testid="vault-page" className="space-y-6 max-w-4xl mx-auto">
       <header className="space-y-2 border-b border-white/[0.08] pb-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-2xl sm:text-3xl font-semibold text-white flex items-center gap-2.5">
             <Archive className="h-6 w-6 text-sky-300 shrink-0" aria-hidden="true" />
-            <span>{v.title}</span>
+            <span>{focusStorage ? t.nextGen.storage.pageTitle : v.title}</span>
           </h1>
           <span className="rounded-full border border-emerald-400/35 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200">
             {v.zeroCostNote}
           </span>
         </div>
-        <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">{v.subtitle}</p>
+        <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+          {focusStorage ? t.nextGen.storage.pageSubtitle : v.subtitle}
+        </p>
       </header>
 
-      {/* Stats */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="rounded-xl border border-white/[0.1] bg-[#051224]/70 p-4">
-          <div className="text-xs text-slate-400">{v.statsTotalProofs}</div>
-          <div className="text-xl font-semibold text-white mt-1" data-testid="vault-total-count">
-            {stats.totalProofs}
-          </div>
-        </div>
-        <div className="rounded-xl border border-white/[0.1] bg-[#051224]/70 p-4">
-          <div className="text-xs text-slate-400">{v.statsSyncSelected}</div>
-          <div className="text-xl font-semibold text-sky-200 mt-1" data-testid="vault-sync-count">
-            {stats.syncSelectedCount}
-          </div>
-        </div>
-        <div className="rounded-xl border border-white/[0.1] bg-[#051224]/70 p-4">
-          <div className="text-xs text-slate-400">{v.statsEstimatedStorage}</div>
-          <div className="text-xl font-semibold text-emerald-200 mt-1" data-testid="vault-total-bytes">
-            {formatBytes(stats.estimatedTotalBytes)}
-          </div>
-        </div>
-      </section>
+      {focusStorage ? (
+        <>
+          <StorageSettingsPanel onVaultChanged={refreshVault} />
+          {statsSection}
+        </>
+      ) : (
+        <>
+          {statsSection}
+          <StorageSettingsPanel onVaultChanged={refreshVault} />
+        </>
+      )}
 
       {/* Search & List */}
       <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 p-4 sm:p-5 space-y-4">
@@ -282,8 +298,13 @@ export function VaultPage() {
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="space-y-1 min-w-0">
-                    <div className="text-sm font-semibold text-white truncate">
-                      {rec.artworkTitle || `Artwork ${rec.artworkIdHex.slice(0, 8)}`}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-white truncate">
+                        {rec.artworkTitle || `Artwork ${rec.artworkIdHex.slice(0, 8)}`}
+                      </span>
+                      <span className="rounded-full border border-sky-400/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-mono text-sky-200">
+                        v{rec.protocolVersion}
+                      </span>
                     </div>
                     <div className="text-xs text-slate-300 flex flex-wrap gap-x-3 gap-y-1">
                       <span>{rec.authorName || rec.authorFingerprintShort}</span>
@@ -291,6 +312,11 @@ export function VaultPage() {
                       {rec.creationMethod && <span>{rec.creationMethod}</span>}
                       <span>{new Date(rec.issuedAt * 1000).toLocaleDateString()}</span>
                     </div>
+                    {rec.detailsSnapshot?.customNote && (
+                      <div className="text-[11px] text-slate-300">
+                        {rec.detailsSnapshot.customNote}
+                      </div>
+                    )}
                     <div className="text-[11px] font-mono text-slate-400 break-all">
                       SHA-256: {rec.imageSha256Hex.slice(0, 16)}… · ID: {rec.artworkIdHex.slice(0, 8)}
                     </div>
@@ -421,7 +447,7 @@ export function VaultPage() {
         )}
       </section>
 
-      {/* Optional Public Relay Proof Search (Opt-In) */}
+      {/* Legacy Read-Only Public Relay Lookup (Nostr new publishing disabled) */}
       <details className="rounded-xl border border-white/[0.1] bg-[#051224]/60 p-4 text-xs text-slate-300">
         <summary className="cursor-pointer font-semibold text-slate-200 hover:text-white">
           {v.publicLookupSummary}

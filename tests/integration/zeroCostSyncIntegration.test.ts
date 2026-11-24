@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createSignedArtworkPng } from '../../src/core/manifest/signArtwork';
-import { generateNostrKeypair } from '../../src/core/nostr';
+import { createSignedNostrEvent, generateNostrKeypair } from '../../src/core/nostr';
 import {
   approvePairingRequestAsOwner,
   completeDevicePairingWithCertificate,
@@ -29,6 +29,9 @@ import {
 } from '../../src/core/sync';
 import type { RelayConfig } from '../../src/core/sync';
 import {
+  CHM_PUBLIC_PROOF_EVENT_KIND,
+  CHM_PUBLIC_PROOF_PROTOCOL_ID,
+  CHM_PUBLIC_PROOF_TAG,
   buildPublicProofIndexEvent,
   listAllVaultProofs,
   queryPublicProofsFromRelays,
@@ -48,7 +51,7 @@ function makeTestRaster(w = 128, h = 128) {
   return { width: w, height: h, data };
 }
 
-describe('Zero-Cost Sync Policy, Priority Budget & Selective Vault Sync Integration', () => {
+describe('Zero-Cost Sync Policy, Strict Nostr Auth-Only Isolation & Priority Budget', () => {
   const originalIdb = globalThis.indexedDB;
   let freeRelay: MockNostrRelay;
   let freeUrl: string;
@@ -108,7 +111,7 @@ describe('Zero-Cost Sync Policy, Priority Budget & Selective Vault Sync Integrat
     });
   });
 
-  it('rejects paid relays via NIP-11, auto-pauses runtime payment-required relays, syncs selective Vault proofs & lets revocations bypass soft budget', async () => {
+  it('rejects paid relays via NIP-11, auto-pauses runtime payment-required relays, blocks vault proofs over Nostr & lets revocations bypass soft budget', async () => {
     const cfg: RelayConfig[] = [{ url: freeUrl, enabled: true, read: true, write: true }];
 
     // 1. Setup Owner + Device B + Device C over QR pairing
@@ -236,13 +239,13 @@ describe('Zero-Cost Sync Policy, Priority Budget & Selective Vault Sync Integrat
       nostrPassphraseIfFallback: ownerPass,
     });
 
-    // 2. Owner signs an artwork locally -> saves to Vault -> syncs selected proof to Device B & C
+    // 2. Owner signs an artwork locally -> saves to Vault -> Vault sync over Nostr is strictly disabled
     const signedArt = await createSignedArtworkPng({
       artworkRaster: makeTestRaster(128, 128),
       authorKey: ownerAuthor,
       passphraseIfEncrypted: ownerPass,
       authorName: 'Artist Owner',
-      artworkTitle: 'Zero-Cost Synced Piece',
+      artworkTitle: 'Zero-Cost Local Only Piece',
       license: {
         licenseId: 'ARR',
         commercialUse: 'disallow',
@@ -262,22 +265,21 @@ describe('Zero-Cost Sync Policy, Priority Budget & Selective Vault Sync Integrat
       proofIds: [savedProof.id],
       nostrPassphraseIfFallback: ownerPass,
     });
-    expect(vaultPush.syncedProofCount).toBe(1);
-    expect(vaultPush.publishedRelays).toBe(1);
+    expect(vaultPush.disabledOverNostr).toBe(true);
+    expect(vaultPush.syncedProofCount).toBe(0);
+    expect(vaultPush.publishedRelays).toBe(0);
 
-    // Device B pulls encrypted NIP-59 vault bundle and verifies proof Ed25519 signature into its Vault
+    // Device B pulls Nostr auth events only and never receives vault proof records over Nostr
     setBackend(deviceBBackend);
     const pullReport = await runDecentralizedSyncCycle({
       devicePassphrase: devPass,
       nostrPassphraseIfFallback: devPass,
     });
-    expect(pullReport.importedVaultProofsCount).toBe(1);
+    expect(pullReport.importedVaultProofsCount).toBe(0);
     const devBVault = await listAllVaultProofs();
-    expect(devBVault).toHaveLength(1);
-    expect(devBVault[0].id).toBe(savedProof.id);
-    expect(devBVault[0].artworkTitle).toBe('Zero-Cost Synced Piece');
+    expect(devBVault).toHaveLength(0);
 
-    // 3. Test runtime payment-required auto-pause (simulate a free relay later turning paywalled)
+    // 3. Test runtime payment-required auto-pause (simulate a free relay later turning paywalled on auth checkpoint)
     setBackend(ownerBackend);
     const paywallRuntimeRelay = new MockNostrRelay({
       rejectEventsWithReason: 'payment-required: pay 5000 sats membership fee',
@@ -285,8 +287,10 @@ describe('Zero-Cost Sync Policy, Priority Budget & Selective Vault Sync Integrat
     const paywallRuntimeUrl = await paywallRuntimeRelay.start();
     try {
       await addRelayConfig(paywallRuntimeUrl, { skipNip11Check: true });
-      await syncSelectedVaultProofs({
-        proofIds: [savedProof.id],
+      await recordAndBroadcastOwnerSyncMutation({
+        authorKeyId: ownerAuthor.id,
+        ownerPassphrase: ownerPass,
+        opKind: 'checkpoint',
         nostrPassphraseIfFallback: ownerPass,
       });
       const updatedSettings = await loadSyncSettings();
@@ -297,8 +301,7 @@ describe('Zero-Cost Sync Policy, Priority Budget & Selective Vault Sync Integrat
       await paywallRuntimeRelay.stop();
     }
 
-    // 4. Test soft monthly budget: Priority 2 Vault sync is deferred when budget exceeded,
-    //    while Priority 0 Revocation STILL transmits to active peer Device C without being blocked!
+    // 4. Test soft monthly budget: Priority 0 Revocation STILL transmits to active peer Device C even when budget exceeded!
     const currentSettings = await loadSyncSettings();
     await saveSyncSettings({
       ...currentSettings,
@@ -308,13 +311,6 @@ describe('Zero-Cost Sync Policy, Priority Budget & Selective Vault Sync Integrat
     const budgetSummary = await getSyncStatusSummary();
     expect(budgetSummary.budgetPaused).toBe(true);
     expect(budgetSummary.gracefulFallbackReason).toBe('budget-limit');
-
-    const deferredVault = await syncSelectedVaultProofs({
-      proofIds: [savedProof.id],
-      nostrPassphraseIfFallback: ownerPass,
-    });
-    expect(deferredVault.skippedDueToBudget).toBe(true);
-    expect(deferredVault.syncedProofCount).toBe(0);
 
     const revokedB = await revokePairedDevice({
       authorKeyId: ownerAuthor.id,
@@ -340,11 +336,29 @@ describe('Zero-Cost Sync Policy, Priority Budget & Selective Vault Sync Integrat
     });
     expect(pullRevC.importedOpsCount).toBeGreaterThanOrEqual(1);
 
-    // 5. Optional opt-in Public Proof lookup verifies Ed25519 signature and rejects tampered events
+    // 5. Public Proof Index publishing over Nostr is permanently disabled; read-only parser verifies legacy archived events safely
     const { secretKey: skPub } = generateNostrKeypair();
-    freeRelay.injectEventDirect(
+    expect(() =>
       buildPublicProofIndexEvent({ proofRecord: savedProof, secretKey: skPub }),
+    ).toThrow(/disabled/i);
+
+    const legacyArchivedEv = createSignedNostrEvent(
+      {
+        kind: CHM_PUBLIC_PROOF_EVENT_KIND,
+        tags: [
+          ['d', savedProof.id],
+          ['t', CHM_PUBLIC_PROOF_TAG],
+        ],
+        content: JSON.stringify({
+          protocol: CHM_PUBLIC_PROOF_PROTOCOL_ID,
+          proofBase64Url: savedProof.proofBase64Url,
+          authorFingerprintHex: savedProof.authorFingerprintHex,
+          creationMethod: savedProof.creationMethod,
+        }),
+      },
+      skPub,
     );
+    freeRelay.injectEventDirect(legacyArchivedEv);
     const pubSearch = await queryPublicProofsFromRelays({
       relays: cfg,
       allowInsecureLocalWsForTest: true,

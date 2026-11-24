@@ -111,7 +111,7 @@ export async function verifyProofAndArtwork(params: {
   }
 
   const { manifest, payloadBytes, signature } = decoded;
-  const signingMessage = buildSigningMessage(payloadBytes);
+  const signingMessage = buildSigningMessage(payloadBytes, manifest.version);
   const sigValid = await verifyEd25519Signature(manifest.publicKey, signingMessage, signature);
   const signatureStatus: SignatureStatus = sigValid ? 'valid' : 'invalid';
   if (!sigValid) {
@@ -176,11 +176,11 @@ export async function verifyProofAndArtwork(params: {
     qrMaskCoverageTier = cov.tier;
     if (cov.tier === 'high') {
       warnings.push(
-        `Protocol v2 qrMask excludes ${cov.coveragePct}% of artwork area from SHA-256 hashing (>30%). Inspect the excluded region carefully.`,
+        `Protocol v${manifest.version} qrMask excludes ${cov.coveragePct}% of artwork area from SHA-256 hashing (>30%). Inspect the excluded region carefully.`,
       );
     } else if (cov.tier === 'caution') {
       warnings.push(
-        `Protocol v2 qrMask excludes ${cov.coveragePct}% of artwork area from SHA-256 hashing (>15%).`,
+        `Protocol v${manifest.version} qrMask excludes ${cov.coveragePct}% of artwork area from SHA-256 hashing (>15%).`,
       );
     }
   }

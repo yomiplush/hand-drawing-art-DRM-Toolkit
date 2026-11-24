@@ -2,9 +2,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { computePublicKeyFingerprint } from '../../src/core/crypto/ed25519';
 import { createSignedArtworkPng } from '../../src/core/manifest/signArtwork';
-import { generateNostrKeypair } from '../../src/core/nostr';
+import { createSignedNostrEvent, generateNostrKeypair } from '../../src/core/nostr';
 import { createAuthorKey, openChmDatabase } from '../../src/core/storage/keyStore';
 import {
+  CHM_PUBLIC_PROOF_EVENT_KIND,
+  CHM_PUBLIC_PROOF_PROTOCOL_ID,
+  CHM_PUBLIC_PROOF_TAG,
   buildCompactVaultRecordFromDecodedProof,
   buildPublicProofIndexEvent,
   computeVaultStats,
@@ -122,10 +125,29 @@ describe('CHM Vault Storage, Scale (1,000–10,000 Proofs) & Portable Zero-Cost 
     });
     expect(restoreEnc.importedProofs).toBe(1);
 
-    // Public index verification: rejects forged inner CHM proof even inside valid Nostr event
+    // Public index publishing over Nostr is disabled; legacy archived event reader verifies inner Ed25519 proof
     const { secretKey: sk } = generateNostrKeypair();
-    const publicEv = buildPublicProofIndexEvent({ proofRecord: saved, secretKey: sk });
-    const verifiedPub = await parseAndVerifyPublicProofEvent(publicEv);
+    expect(() =>
+      buildPublicProofIndexEvent({ proofRecord: saved, secretKey: sk }),
+    ).toThrow(/disabled/i);
+
+    const archivedLegacyEv = createSignedNostrEvent(
+      {
+        kind: CHM_PUBLIC_PROOF_EVENT_KIND,
+        tags: [
+          ['d', saved.id],
+          ['t', CHM_PUBLIC_PROOF_TAG],
+        ],
+        content: JSON.stringify({
+          protocol: CHM_PUBLIC_PROOF_PROTOCOL_ID,
+          proofBase64Url: saved.proofBase64Url,
+          authorFingerprintHex: saved.authorFingerprintHex,
+          creationMethod: saved.creationMethod,
+        }),
+      },
+      sk,
+    );
+    const verifiedPub = await parseAndVerifyPublicProofEvent(archivedLegacyEv);
     expect(verifiedPub.record.id).toBe(saved.id);
 
     // Scale test: 10,000 records batch insert & search query

@@ -1,13 +1,39 @@
-export const CHM_VAULT_SCHEMA_VERSION = 1 as const;
+import type { AuthorProfile, AuthorProfilePublicSnapshot } from '../profiles/types';
+import type { PolicyPreset } from '../policies/types';
+import type { CreationEnvironmentData, EvidenceCategory, PolicySignal } from '../manifest/types';
+
+export const CHM_VAULT_SCHEMA_VERSION = 2 as const;
+export const CHM_VAULT_SCHEMA_VERSION_V1 = 1 as const;
 export const CHM_VAULT_BACKUP_FORMAT = 'certified-handmade-vault-backup' as const;
 export const CHM_VAULT_ENCRYPTED_BACKUP_FORMAT = 'certified-handmade-vault-encrypted-backup' as const;
 export const CHM_VAULT_SYNC_PROTOCOL_ID = 'CHM-VAULT-v1' as const;
 
+export interface VaultEvidenceHashSummary {
+  sha256Hex: string;
+  byteLength: number;
+  label?: string;
+  category?: EvidenceCategory;
+  mimeType?: string;
+}
+
+export interface VaultProofDetailsSnapshot {
+  description?: string;
+  creationMethod?: string;
+  creationEnvironment?: CreationEnvironmentData;
+  policyPresetId?: string;
+  allowsDerivatives?: PolicySignal;
+  allowsModifications?: PolicySignal;
+  requiresAttribution?: boolean;
+  customNote?: string;
+  authorProfileSnapshot?: AuthorProfilePublicSnapshot;
+  evidenceHashes?: VaultEvidenceHashSummary[];
+}
+
 export interface VaultProofRecord {
   /** Deterministic SHA-256 hex digest of the canonical proof bytes. */
   id: string;
-  schemaVersion: typeof CHM_VAULT_SCHEMA_VERSION;
-  protocolVersion: 1 | 2;
+  schemaVersion: 1 | 2;
+  protocolVersion: 1 | 2 | 3;
   artworkIdHex: string;
   authorPublicKeyBase64Url: string;
   authorFingerprintHex: string;
@@ -21,10 +47,13 @@ export interface VaultProofRecord {
   aiTraining: string;
   imageSha256Hex: string;
   issuedAt: number;
-  /** Compact Base64URL-encoded signed CBOR proof envelope (CHM1 / CHM2). Never contains pixels or keys. */
+  /** Compact Base64URL-encoded signed proof envelope (CHM1 / CHM2 / CHM3). Never contains pixels or keys. */
   proofBase64Url: string;
-  /** Optional opt-in flags for selective decentralized relay synchronization */
+  /** Optional rich public details captured at signing time (never pixels or private keys). */
+  detailsSnapshot?: VaultProofDetailsSnapshot;
+  /** Legacy flag retained only for safe migration; Nostr vault sync is disabled. */
   syncSelected: boolean;
+  /** Legacy flag retained only for safe migration; Nostr public proof index publishing is disabled. */
   publicIndexOptIn: boolean;
   lastSyncedAt?: string;
   lastSyncedEventId?: string;
@@ -69,25 +98,39 @@ export interface VaultTrustedArtistEntry {
   addedAt: string;
 }
 
+export interface VaultSettingsSnapshot {
+  verifyBaseUrl?: string;
+  preferredQrMode?: 'outer' | 'masked';
+  preferredLocale?: string;
+  activeAuthorProfileId?: string;
+  activePolicyPresetId?: string;
+  updatedAt: string;
+  version: number;
+}
+
 export interface VaultBackupBundleV1 {
   format: typeof CHM_VAULT_BACKUP_FORMAT;
-  version: typeof CHM_VAULT_SCHEMA_VERSION;
+  version: 1 | 2;
   exportedAt: string;
   /** Strictly non-secret: private keys, passphrases, and raw artwork pixels are never included. */
   containsPrivateKeys: false;
   profile?: VaultPublicProfileSnapshot;
+  authorProfiles?: AuthorProfile[];
+  policyPresets?: PolicyPreset[];
+  settings?: VaultSettingsSnapshot;
   trustedArtists: VaultTrustedArtistEntry[];
   proofs: Array<{
     proofBase64Url: string;
     syncSelected?: boolean;
     creationMethod?: string;
+    detailsSnapshot?: VaultProofDetailsSnapshot;
     createdAt?: string;
   }>;
 }
 
 export interface EncryptedVaultBackupV1 {
   format: typeof CHM_VAULT_ENCRYPTED_BACKUP_FORMAT;
-  version: typeof CHM_VAULT_SCHEMA_VERSION;
+  version: 1 | 2;
   kdf: 'PBKDF2-SHA256';
   iterations: number;
   cipher: 'AES-256-GCM';

@@ -8,7 +8,7 @@ export const PROOF_BUNDLE_VERSION = 1 as const;
 export interface PortableProofBundle {
   format: typeof PROOF_BUNDLE_FORMAT;
   version: typeof PROOF_BUNDLE_VERSION;
-  protocolVersion: 1 | 2;
+  protocolVersion: 1 | 2 | 3;
   artworkId: string;
   publicKeyFingerprint: string;
   proofBase64Url: string;
@@ -19,7 +19,7 @@ export interface PortableProofBundle {
 const MAX_PROOF_TOKEN_CHARS = Math.ceil((MAX_PROOF_BYTES * 4) / 3) + 16;
 
 export function createPortableProofBundle(params: {
-  protocolVersion: 1 | 2;
+  protocolVersion: 1 | 2 | 3;
   artworkId: string;
   publicKeyFingerprint: string;
   proofBytes: Uint8Array;
@@ -70,7 +70,8 @@ export function parsePortableProofBundle(raw: unknown): {
     bundle: {
       format: PROOF_BUNDLE_FORMAT,
       version: PROOF_BUNDLE_VERSION,
-      protocolVersion: obj.protocolVersion === 2 ? 2 : 1,
+      protocolVersion:
+        obj.protocolVersion === 3 ? 3 : obj.protocolVersion === 2 ? 2 : 1,
       artworkId: typeof obj.artworkId === 'string' ? obj.artworkId : '',
       publicKeyFingerprint:
         typeof obj.publicKeyFingerprint === 'string' ? obj.publicKeyFingerprint : '',

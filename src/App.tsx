@@ -118,6 +118,7 @@ function AppRoutes() {
           <Route path="/keys" element={<KeysPage />} />
           <Route path="/devices" element={<DevicesPage />} />
           <Route path="/vault" element={<VaultPage />} />
+          <Route path="/storage" element={<VaultPage focusStorage />} />
           <Route path="/exchange" element={<ExchangePage />} />
           <Route path="/docs" element={<DocsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

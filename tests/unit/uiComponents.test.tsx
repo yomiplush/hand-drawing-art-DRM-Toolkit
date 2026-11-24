@@ -2,12 +2,13 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   ArtworkDetailsPanel,
   createEmptyArtworkDetailsDraft,
   type ArtworkDetailsDraft,
 } from '../../src/components/ArtworkDetailsPanel';
+import { StorageSettingsPanel } from '../../src/components/vault/StorageSettingsPanel';
 import { VerifiedArtworkDetailsCard } from '../../src/components/VerifiedArtworkDetailsCard';
 import { AdvancedSettings } from '../../src/components/ui/AdvancedSettings';
 import { CompactStatus } from '../../src/components/ui/CompactStatus';
@@ -239,18 +240,12 @@ describe('Reusable progressive disclosure UI components', () => {
     expect(container.querySelectorAll('a')).toHaveLength(0);
   });
 
-  it('ArtworkDetailsPanel stays collapsed by default, validates profile URLs, and groups creation options concisely', () => {
+  it('ArtworkDetailsPanel stays collapsed by default, groups creation & local evidence controls, and lists all 6 creation options', () => {
     function Harness() {
       const [draft, setDraft] = useState<ArtworkDetailsDraft>(createEmptyArtworkDetailsDraft);
       return (
         <I18nProvider>
-          <ArtworkDetailsPanel
-            draft={draft}
-            onChange={setDraft}
-            onSaveProfileDefaults={vi.fn(async () => {})}
-            onClearProfileDefaults={vi.fn(async () => {})}
-            profileSavedIndicator={false}
-          />
+          <ArtworkDetailsPanel draft={draft} onChange={setDraft} />
         </I18nProvider>
       );
     }
@@ -259,19 +254,13 @@ describe('Reusable progressive disclosure UI components', () => {
 
     const disclosureBtn = screen.getByTestId('create-artwork-details').querySelector('button')!;
     expect(disclosureBtn.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByTestId('details-ext-title')).toBeNull();
+    expect(screen.queryByTestId('details-creation-method')).toBeNull();
 
     fireEvent.click(disclosureBtn);
     expect(disclosureBtn.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByTestId('details-ext-title')).toBeTruthy();
+    expect(screen.getByTestId('details-group-creation')).toBeTruthy();
+    expect(screen.getByTestId('details-group-evidence')).toBeTruthy();
 
-    fireEvent.click(screen.getByTestId('details-group-creator'));
-    fireEvent.change(screen.getByTestId('details-creator-website'), {
-      target: { value: 'javascript:alert(1)' },
-    });
-    expect(screen.getByRole('alert')).toBeTruthy();
-
-    fireEvent.click(screen.getByTestId('details-group-creation'));
     const select = screen.getByTestId('details-creation-method') as HTMLSelectElement;
     const optionValues = Array.from(select.querySelectorAll('option')).map((o) => o.value);
     expect(optionValues).toEqual([
@@ -282,5 +271,34 @@ describe('Reusable progressive disclosure UI components', () => {
       'other',
       'prefer-not-to-disclose',
     ]);
+
+    fireEvent.change(select, { target: { value: 'hand-drawn-no-ai' } });
+    expect(select.value).toBe('hand-drawn-no-ai');
+
+    fireEvent.click(screen.getByTestId('details-group-evidence'));
+    expect(screen.getByTestId('details-evidence-file-input')).toBeTruthy();
+  });
+
+  it('StorageSettingsPanel renders IndexedDB, Portable File, and lazy Google Drive controls safely', () => {
+    render(
+      <I18nProvider>
+        <StorageSettingsPanel />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByTestId('storage-provider-indexeddb')).toBeTruthy();
+    expect(screen.getByTestId('storage-provider-portable')).toBeTruthy();
+    expect(screen.getByTestId('storage-provider-google-drive')).toBeTruthy();
+
+    // GIS script must NOT be eagerly injected on initial render
+    expect(document.querySelector('script[src="https://accounts.google.com/gsi/client"]')).toBeNull();
+
+    const exportBtn = screen.getByTestId('portable-export-btn') as HTMLButtonElement;
+    expect(exportBtn.disabled).toBe(true);
+
+    fireEvent.change(screen.getByTestId('portable-passphrase-input'), {
+      target: { value: 'strong-passphrase-2026' },
+    });
+    expect(exportBtn.disabled).toBe(false);
   });
 });

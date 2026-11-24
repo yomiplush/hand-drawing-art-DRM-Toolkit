@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"compress/flate"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
@@ -13,6 +14,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -444,5 +446,138 @@ func TestEvidenceExtensionModesAndSecurity(t *testing.T) {
 	stderr.Reset()
 	if code := run([]string{"--proof", normativeV1Token, "--evidence", nonCanonEv}, &stdout, &stderr); code != 1 {
 		t.Fatalf("expected exit 1 for non-canonical CBOR evidence, got %d", code)
+	}
+}
+
+func TestProtocolV3AndBombDefense(t *testing.T) {
+	seed, _ := hex.DecodeString("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+	priv := ed25519.NewKeyFromSeed(seed)
+	pub := priv.Public().(ed25519.PublicKey)
+
+	// Pack policyFlags: commercial=disallow(2), redistribution=disallow(2), aiTraining=disallow(2),
+	// allowsDerivatives=allow(1), allowsModifications=disallow(2), hasAttr(0x400), attrVal(0x800)
+	policyFlags := uint64(2 | (2 << 2) | (2 << 4) | (1 << 6) | (2 << 8) | 0x400 | 0x800)
+	artworkHash := sha256.Sum256([]byte("v3-go-test-pixels"))
+	artworkID := bytes.Repeat([]byte{0x12}, 16)
+
+	var payload bytes.Buffer
+	cborWriteMajorUint(&payload, 5, 12) // keys: 1,2,3,4,5,6,7,8,11,12,14,17
+
+	cborWriteMajorUint(&payload, 0, 1) // artworkId
+	cborWriteBytes(&payload, artworkID)
+
+	cborWriteMajorUint(&payload, 0, 2) // publicKey
+	cborWriteBytes(&payload, pub)
+
+	cborWriteMajorUint(&payload, 0, 3) // sha256
+	cborWriteBytes(&payload, artworkHash[:])
+
+	cborWriteMajorUint(&payload, 0, 4) // region
+	cborWriteMajorUint(&payload, 4, 4)
+	cborWriteMajorUint(&payload, 0, 10)
+	cborWriteMajorUint(&payload, 0, 10)
+	cborWriteMajorUint(&payload, 0, 80)
+	cborWriteMajorUint(&payload, 0, 80)
+
+	cborWriteMajorUint(&payload, 0, 5) // issuedAt
+	cborWriteMajorUint(&payload, 0, 1795352800)
+
+	cborWriteMajorUint(&payload, 0, 6) // license [code, flags]
+	cborWriteMajorUint(&payload, 4, 2)
+	cborWriteMajorUint(&payload, 0, 0) // ARR
+	cborWriteMajorUint(&payload, 0, policyFlags)
+
+	cborWriteMajorUint(&payload, 0, 7) // authorName
+	cborWriteText(&payload, "Yomi")
+
+	cborWriteMajorUint(&payload, 0, 8) // artworkTitle
+	cborWriteText(&payload, "Go Parity Sketch")
+
+	cborWriteMajorUint(&payload, 0, 11) // website
+	cborWriteMajorUint(&payload, 4, 2)
+	cborWriteMajorUint(&payload, 0, 1) // https://
+	cborWriteText(&payload, "certified-handmade.com")
+
+	cborWriteMajorUint(&payload, 0, 12) // snsLinks
+	cborWriteMajorUint(&payload, 4, 1)
+	cborWriteMajorUint(&payload, 4, 3)
+	cborWriteMajorUint(&payload, 0, 3) // https://x.com/
+	cborWriteText(&payload, "yomi_art")
+	cborWriteMajorUint(&payload, 0, 1) // x
+
+	cborWriteMajorUint(&payload, 0, 14) // creationMethod
+	cborWriteMajorUint(&payload, 0, 1)  // hand-drawn-no-ai
+
+	cborWriteMajorUint(&payload, 0, 17) // policyNote
+	cborWriteText(&payload, "Personal study only")
+
+	// Sign CHM3\0 || canonical payload
+	signingMsg := append([]byte{}, domainProofPrefixV3...)
+	signingMsg = append(signingMsg, payload.Bytes()...)
+	sig := ed25519.Sign(priv, signingMsg)
+
+	var compressed bytes.Buffer
+	fw, err := flate.NewWriter(&compressed, flate.DefaultCompression)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = fw.Write(payload.Bytes())
+	_ = fw.Close()
+
+	var env bytes.Buffer
+	cborWriteMajorUint(&env, 4, 4)
+	cborWriteMajorUint(&env, 0, 3)
+	cborWriteMajorUint(&env, 0, 1) // deflate flag
+	cborWriteBytes(&env, compressed.Bytes())
+	cborWriteBytes(&env, sig)
+
+	token := base64.RawURLEncoding.EncodeToString(env.Bytes())
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"--proof", token, "--json"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("expected v3 deflated proof exit 0, got %d; stderr=%s", code, stderr.String())
+	}
+	var report ProofSummary
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatal(err)
+	}
+	if report.ProtocolVersion != 3 || !report.UsedDeflate || !report.SignatureValid {
+		t.Fatalf("unexpected v3 flags: %+v", report)
+	}
+	if report.ArtworkTitle != "Go Parity Sketch" || report.Website != "https://certified-handmade.com" {
+		t.Fatalf("unexpected v3 metadata: %+v", report)
+	}
+	if len(report.SnsLinks) != 1 || report.SnsLinks[0].URL != "https://x.com/yomi_art" || report.SnsLinks[0].Platform != "x" {
+		t.Fatalf("unexpected v3 SNS link: %+v", report.SnsLinks)
+	}
+	if report.AllowsDerivatives != "allow" || report.AllowsModifications != "disallow" || report.RequiresAttribution == nil || !*report.RequiresAttribution {
+		t.Fatalf("unexpected v3 policy flags: %+v", report)
+	}
+	if report.PolicyNote != "Personal study only" {
+		t.Fatalf("unexpected v3 policy note: %s", report.PolicyNote)
+	}
+
+	// Text output should include v3 deflate label
+	stdout.Reset()
+	stderr.Reset()
+	if code := run([]string{"--proof", token}, &stdout, &stderr); code != 0 {
+		t.Fatalf("expected v3 text exit 0, got %d", code)
+	}
+	if !strings.Contains(stdout.String(), "Protocol: v3 (deflate)") {
+		t.Fatalf("expected Protocol: v3 (deflate) in output, got: %s", stdout.String())
+	}
+
+	// Non-canonical URL prefix code (using code 1 https:// for x.com/ instead of code 3) must fail
+	if _, err := decodeV3CompactURL([]any{uint64(1), "x.com/yomi_art"}, "snsLinks[0].url"); err == nil {
+		t.Fatalf("expected non-canonical URL prefix to be rejected")
+	}
+
+	// Decompression bomb (> 8192 bytes) must be bounded and rejected
+	bombRaw := bytes.Repeat([]byte("A"), MaxV3DecompressedBytes+64)
+	var bombDef bytes.Buffer
+	bw, _ := flate.NewWriter(&bombDef, flate.BestCompression)
+	_, _ = bw.Write(bombRaw)
+	_ = bw.Close()
+	if _, err := inflateRawBoundedGo(bombDef.Bytes(), MaxV3DecompressedBytes); err == nil {
+		t.Fatalf("expected decompression bomb > %d bytes to fail", MaxV3DecompressedBytes)
 	}
 }

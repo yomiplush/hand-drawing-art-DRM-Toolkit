@@ -2,13 +2,16 @@ import { computePublicKeyFingerprint, verifyEd25519Signature } from '../crypto/e
 import { base64UrlDecode, base64UrlEncode, bytesToHex, sha256, sha256Sync } from '../crypto/sha256';
 import { buildSigningMessage, decodeSignedProofEnvelope } from '../manifest/cborCodec';
 import { extractProofBytesFromInput } from '../manifest/proofUrl';
+import type { VaultTombstoneRecord } from '../policies/policyStore';
 import {
   STORE_PROOF_VAULT,
+  STORE_VAULT_TOMBSTONES,
   runChmTransaction,
   withChmStore,
 } from '../storage/keyStore';
 import {
   CHM_VAULT_SCHEMA_VERSION,
+  type VaultProofDetailsSnapshot,
   type VaultProofRecord,
   type VaultQueryOptions,
   type VaultQueryResult,
@@ -20,6 +23,7 @@ const utf8Encoder = new TextEncoder();
 export async function verifyAndBuildVaultProofRecord(params: {
   proofInput: string | Uint8Array;
   creationMethod?: string;
+  detailsSnapshot?: VaultProofDetailsSnapshot;
   syncSelected?: boolean;
   publicIndexOptIn?: boolean;
   createdAt?: string;
@@ -30,7 +34,7 @@ export async function verifyAndBuildVaultProofRecord(params: {
       : extractProofBytesFromInput(params.proofInput);
 
   const decoded = decodeSignedProofEnvelope(proofBytes);
-  const signingMsg = buildSigningMessage(decoded.payloadBytes);
+  const signingMsg = buildSigningMessage(decoded.payloadBytes, decoded.version);
   const sigValid = await verifyEd25519Signature(
     decoded.manifest.publicKey,
     signingMsg,
@@ -45,17 +49,20 @@ export async function verifyAndBuildVaultProofRecord(params: {
   const fp = await computePublicKeyFingerprint(decoded.manifest.publicKey);
   const now = new Date().toISOString();
 
+  const protocolVersion: 1 | 2 | 3 =
+    decoded.version === 3 ? 3 : decoded.version === 2 ? 2 : 1;
+
   return {
     id,
     schemaVersion: CHM_VAULT_SCHEMA_VERSION,
-    protocolVersion: decoded.version === 2 ? 2 : 1,
+    protocolVersion,
     artworkIdHex: decoded.manifest.artworkIdHex,
     authorPublicKeyBase64Url: base64UrlEncode(decoded.manifest.publicKey),
     authorFingerprintHex: fp.fullHex,
     authorFingerprintShort: fp.shortDisplay,
     authorName: decoded.manifest.authorName,
     artworkTitle: decoded.manifest.artworkTitle,
-    creationMethod: params.creationMethod?.slice(0, 64),
+    creationMethod: (params.creationMethod ?? decoded.manifest.creationMethod)?.slice(0, 64),
     licenseId: decoded.manifest.license.licenseId,
     commercialUse: decoded.manifest.license.commercialUse,
     redistribution: decoded.manifest.license.redistribution,
@@ -63,6 +70,7 @@ export async function verifyAndBuildVaultProofRecord(params: {
     imageSha256Hex: bytesToHex(decoded.manifest.sha256),
     issuedAt: decoded.manifest.issuedAt,
     proofBase64Url: base64UrlEncode(proofBytes),
+    ...(params.detailsSnapshot ? { detailsSnapshot: params.detailsSnapshot } : {}),
     syncSelected: params.syncSelected === true,
     publicIndexOptIn: params.publicIndexOptIn === true,
     createdAt: params.createdAt ?? now,
@@ -79,23 +87,26 @@ export function buildCompactVaultRecordFromDecodedProof(params: {
   authorFingerprintHex: string;
   authorFingerprintShort: string;
   creationMethod?: string;
+  detailsSnapshot?: VaultProofDetailsSnapshot;
   syncSelected?: boolean;
   publicIndexOptIn?: boolean;
 }): VaultProofRecord {
   const decoded = decodeSignedProofEnvelope(params.proofBytes);
   const id = bytesToHex(sha256Sync(params.proofBytes));
   const now = new Date().toISOString();
+  const protocolVersion: 1 | 2 | 3 =
+    decoded.version === 3 ? 3 : decoded.version === 2 ? 2 : 1;
   return {
     id,
     schemaVersion: CHM_VAULT_SCHEMA_VERSION,
-    protocolVersion: decoded.version === 2 ? 2 : 1,
+    protocolVersion,
     artworkIdHex: decoded.manifest.artworkIdHex,
     authorPublicKeyBase64Url: base64UrlEncode(decoded.manifest.publicKey),
     authorFingerprintHex: params.authorFingerprintHex,
     authorFingerprintShort: params.authorFingerprintShort,
     authorName: decoded.manifest.authorName,
     artworkTitle: decoded.manifest.artworkTitle,
-    creationMethod: params.creationMethod?.slice(0, 64),
+    creationMethod: (params.creationMethod ?? decoded.manifest.creationMethod)?.slice(0, 64),
     licenseId: decoded.manifest.license.licenseId,
     commercialUse: decoded.manifest.license.commercialUse,
     redistribution: decoded.manifest.license.redistribution,
@@ -103,6 +114,7 @@ export function buildCompactVaultRecordFromDecodedProof(params: {
     imageSha256Hex: bytesToHex(decoded.manifest.sha256),
     issuedAt: decoded.manifest.issuedAt,
     proofBase64Url: base64UrlEncode(params.proofBytes),
+    ...(params.detailsSnapshot ? { detailsSnapshot: params.detailsSnapshot } : {}),
     syncSelected: params.syncSelected === true,
     publicIndexOptIn: params.publicIndexOptIn === true,
     createdAt: now,
@@ -113,6 +125,7 @@ export function buildCompactVaultRecordFromDecodedProof(params: {
 export async function saveProofToVault(params: {
   proofInput: string | Uint8Array;
   creationMethod?: string;
+  detailsSnapshot?: VaultProofDetailsSnapshot;
   syncSelected?: boolean;
   publicIndexOptIn?: boolean;
 }): Promise<VaultProofRecord> {
@@ -122,6 +135,7 @@ export async function saveProofToVault(params: {
     ? {
         ...existing,
         ...next,
+        detailsSnapshot: params.detailsSnapshot ?? existing.detailsSnapshot,
         syncSelected: params.syncSelected ?? existing.syncSelected,
         publicIndexOptIn: params.publicIndexOptIn ?? existing.publicIndexOptIn,
         lastSyncedAt: existing.lastSyncedAt,
@@ -130,7 +144,10 @@ export async function saveProofToVault(params: {
         updatedAt: new Date().toISOString(),
       }
     : next;
-  await withChmStore(STORE_PROOF_VAULT, 'readwrite', (s) => s.put(merged));
+  await runChmTransaction([STORE_PROOF_VAULT, STORE_VAULT_TOMBSTONES], 'readwrite', (tx) => {
+    tx.objectStore(STORE_PROOF_VAULT).put(merged);
+    tx.objectStore(STORE_VAULT_TOMBSTONES).delete(`proof:${merged.id}`);
+  });
   return merged;
 }
 
@@ -273,7 +290,18 @@ export async function markVaultProofsSynced(
 }
 
 export async function deleteVaultProof(id: string): Promise<void> {
-  await withChmStore(STORE_PROOF_VAULT, 'readwrite', (s) => s.delete(id));
+  const deletedAt = new Date().toISOString();
+  await runChmTransaction([STORE_PROOF_VAULT, STORE_VAULT_TOMBSTONES], 'readwrite', (tx) => {
+    tx.objectStore(STORE_PROOF_VAULT).delete(id);
+    const tombstone: VaultTombstoneRecord = {
+      id: `proof:${id}`,
+      entityType: 'proof',
+      entityId: id,
+      deletedAt,
+      version: 1,
+    };
+    tx.objectStore(STORE_VAULT_TOMBSTONES).put(tombstone);
+  });
 }
 
 export async function clearVaultProofs(): Promise<void> {

@@ -22,12 +22,9 @@ import {
   STORE_DEVICE_IDENTITIES,
   STORE_DEVICE_REVOCATIONS,
   STORE_PAIRED_DEVICES,
-  addTrustedKey,
   getAuthorKey,
   idbReqToPromise,
   listAuthorKeys,
-  listTrustedKeys,
-  loadCreatorProfileDefaults,
   runChmTransaction,
   signWithAuthorKey,
 } from '../storage/keyStore';
@@ -42,13 +39,6 @@ import {
   signWithLocalDeviceIdentity,
 } from '../storage/devicePairingStore';
 import {
-  type VaultProofRecord,
-  listAllVaultProofs,
-  markVaultProofsSynced,
-  saveVaultProofBatch,
-  verifyAndBuildVaultProofRecord,
-} from '../vault';
-import {
   NostrSyncTransport,
   computeBackoffMs,
   measureUtf8Bytes,
@@ -57,10 +47,6 @@ import {
 import {
   type DecodedBindingAttestation,
   type DecodedSyncOperation,
-  MAX_VAULT_PROOFS_PER_BUNDLE,
-  type SyncTrustedArtistWireEntry,
-  type SyncVaultProfileWireSnapshot,
-  type SyncVaultProofWireItem,
   ZERO_HASH_BYTES_32,
   bindingToRecord,
   createSignedBindingAttestation,
@@ -80,6 +66,7 @@ import {
   listSyncOutbox,
   listVerifiedPeerBindings,
   loadSyncSettings,
+  migrateLegacyNostrToAuthOnly,
   removeSyncOutboxItems,
   saveSyncOpRecords,
   saveSyncSettings,
@@ -644,9 +631,6 @@ async function queueBundleForActivePeers(params: {
   ownerFingerprintHex: string;
   ops: DecodedSyncOperation[];
   bindings?: DecodedBindingAttestation[];
-  vaultProofs?: SyncVaultProofWireItem[];
-  profileSnapshot?: SyncVaultProfileWireSnapshot;
-  trustedArtists?: SyncTrustedArtistWireEntry[];
   priority?: SyncPriority;
   excludeDeviceIdHex?: string;
   targetDeviceIdHex?: string;
@@ -691,9 +675,6 @@ async function queueBundleForActivePeers(params: {
   const content = encodeSyncRumorPayload({
     ops: params.ops,
     bindings: allBindings,
-    vaultProofs: params.vaultProofs,
-    profileSnapshot: params.profileSnapshot,
-    trustedArtists: params.trustedArtists,
   });
   const effectivePriority: SyncPriority =
     params.priority ??
@@ -894,6 +875,7 @@ export async function runDecentralizedSyncCycle(params?: {
   devicePassphrase?: string;
   nostrPassphraseIfFallback?: string;
 }): Promise<SyncCycleReport> {
+  await migrateLegacyNostrToAuthOnly();
   const settings = await loadSyncSettings();
   if (!settings.enabled || !settings.consentAccepted) {
     return {
@@ -991,11 +973,9 @@ export async function runDecentralizedSyncCycle(params?: {
     bytesDelta: fetchRes.bytesReceived ?? 0,
   });
 
-  // 4. Decrypt & strictly validate every received event without mutating trust prematurely
+  // 4. Decrypt & strictly validate device auth ops and bindings (vault/profile payloads are disallowed over Nostr)
   const verifiedOps: DecodedSyncOperation[] = [];
   const verifiedBindings: DecodedBindingAttestation[] = [];
-  const incomingVaultItems: SyncVaultProofWireItem[] = [];
-  const incomingTrustedArtists: SyncTrustedArtistWireEntry[] = [];
   let rejectedEventCount = 0;
 
   const existingBindingsAll = await listVerifiedPeerBindings();
@@ -1017,9 +997,6 @@ export async function runDecentralizedSyncCycle(params?: {
           const unwrapped = unwrapGiftWrapEvent(item.rawEvent, recipientSecret);
           const bundle = decodeAndVerifySyncRumorPayload(unwrapped.rumor.content);
 
-          // Sender verification: Nostr seal/rumor pubkey MUST match either:
-          // - an already-verified non-revoked binding for that sender, OR
-          // - a verified CHM-signed BindingAttestation included in the same bundle
           const bundledMatchingBindings = bundle.bindings.filter(
             (b) => b.nostrPubkeyHex === unwrapped.senderNostrPubkeyHex,
           );
@@ -1034,12 +1011,6 @@ export async function runDecentralizedSyncCycle(params?: {
 
           verifiedOps.push(...bundle.ops);
           verifiedBindings.push(...bundle.bindings);
-          if (bundle.vaultProofs.length > 0) {
-            incomingVaultItems.push(...bundle.vaultProofs);
-          }
-          if (bundle.trustedArtists.length > 0) {
-            incomingTrustedArtists.push(...bundle.trustedArtists);
-          }
         } catch {
           rejectedEventCount++;
         }
@@ -1047,46 +1018,7 @@ export async function runDecentralizedSyncCycle(params?: {
     },
   );
 
-  // Import only cryptographically verified CHM vault proofs & non-elevating trusted-artist records
-  let importedVaultProofsCount = 0;
-  if (incomingVaultItems.length > 0) {
-    const existingVault = await listAllVaultProofs();
-    const existingIds = new Set(existingVault.map((v) => v.id));
-    const recordsToSave: VaultProofRecord[] = [];
-    for (const vp of incomingVaultItems) {
-      try {
-        const rec = await verifyAndBuildVaultProofRecord({
-          proofInput: base64UrlDecode(vp.proofBase64Url),
-          creationMethod: vp.creationMethod,
-          syncSelected: true,
-          createdAt: vp.createdAt,
-        });
-        if (!existingIds.has(rec.id)) {
-          existingIds.add(rec.id);
-          recordsToSave.push(rec);
-        }
-      } catch {
-        // Forged or corrupted proof signature rejected deterministically
-      }
-    }
-    if (recordsToSave.length > 0) {
-      await saveVaultProofBatch(recordsToSave);
-      importedVaultProofsCount = recordsToSave.length;
-    }
-  }
-  if (incomingTrustedArtists.length > 0) {
-    for (const ta of incomingTrustedArtists) {
-      try {
-        await addTrustedKey({
-          publicKeyInput: ta.publicKeyBase64Url,
-          label: ta.label,
-          verificationState: ta.verificationState ?? 'unconfirmed',
-        });
-      } catch {
-        // Ignore malformed trusted artist entry
-      }
-    }
-  }
+  const importedVaultProofsCount = 0;
 
   // 5. Determine all owner fingerprints touched by local state + verified incoming ops
   const ownerSet = new Set<string>();
@@ -1389,7 +1321,12 @@ export async function getSyncStatusSummary(
   };
 }
 
-export async function syncSelectedVaultProofs(params?: {
+/**
+ * @deprecated Syncing artwork proof vaults, profiles, SNS links, or policies over Nostr
+ * is permanently disabled. Nostr is strictly restricted to device registration, bindings,
+ * checkpoints, and revocations. Use Local Storage, Portable Encrypted Files, or Google Drive.
+ */
+export async function syncSelectedVaultProofs(_params?: {
   proofIds?: string[];
   includeProfile?: boolean;
   includeTrustedArtists?: boolean;
@@ -1399,95 +1336,16 @@ export async function syncSelectedVaultProofs(params?: {
   publishedRelays: number;
   syncedProofCount: number;
   skippedDueToBudget: boolean;
+  disabledOverNostr: boolean;
 }> {
-  const settings = await loadSyncSettings();
-  if (!settings.enabled || !settings.consentAccepted) {
-    return { queued: 0, publishedRelays: 0, syncedProofCount: 0, skippedDueToBudget: false };
-  }
-  if (settings.syncWindowBytesUsed >= settings.onlineSyncBudgetBytes) {
-    return { queued: 0, publishedRelays: 0, syncedProofCount: 0, skippedDueToBudget: true };
-  }
-
-  const pairing = await loadDevicePairingState();
-  const localDev = pairing.localDevice;
-  if (!localDev || localDev.revokedLocally) {
-    return { queued: 0, publishedRelays: 0, syncedProofCount: 0, skippedDueToBudget: false };
-  }
-
-  const ctx = await resolveOwnerBindingContext({
-    authorKeyId: settings.activeAuthorKeyId,
-    localDevice: localDev,
-    pairedDevices: pairing.pairedDevices,
-  });
-  if (!ctx) {
-    return { queued: 0, publishedRelays: 0, syncedProofCount: 0, skippedDueToBudget: false };
-  }
-
-  const [allVault, profile, trusted] = await Promise.all([
-    listAllVaultProofs(),
-    params?.includeProfile ? loadCreatorProfileDefaults() : Promise.resolve(undefined),
-    params?.includeTrustedArtists ? listTrustedKeys() : Promise.resolve([]),
-  ]);
-
-  const idSet = params?.proofIds ? new Set(params.proofIds) : null;
-  const selectedProofs = allVault.filter((p) => (idSet ? idSet.has(p.id) : p.syncSelected));
-  if (selectedProofs.length === 0 && !profile && trusted.length === 0) {
-    return { queued: 0, publishedRelays: 0, syncedProofCount: 0, skippedDueToBudget: false };
-  }
-
-  const chunkSize = Math.min(16, MAX_VAULT_PROOFS_PER_BUNDLE);
-  let totalQueued = 0;
-  const sentProofIds: string[] = [];
-
-  for (let i = 0; i < Math.max(1, selectedProofs.length); i += chunkSize) {
-    const chunk = selectedProofs.slice(i, i + chunkSize);
-    const queued = await queueBundleForActivePeers({
-      ownerFingerprintHex: ctx.ownerFingerprintHex,
-      ops: [],
-      vaultProofs: chunk.map((p) => ({
-        proofBase64Url: p.proofBase64Url,
-        creationMethod: p.creationMethod,
-        createdAt: p.createdAt,
-      })),
-      profileSnapshot: i === 0 && profile
-        ? {
-            displayName: profile.displayName,
-            website: profile.website,
-            links: profile.links,
-            updatedAt: profile.updatedAt,
-          }
-        : undefined,
-      trustedArtists:
-        i === 0 && trusted.length > 0
-          ? trusted.map((t) => ({
-              publicKeyBase64Url: t.publicKeyBase64Url,
-              label: t.label,
-              verificationState: t.verificationState,
-            }))
-          : undefined,
-      priority: 2,
-      nostrPassphraseIfFallback: params?.nostrPassphraseIfFallback,
-    });
-    totalQueued += queued;
-    for (const p of chunk) sentProofIds.push(p.id);
-    if (i + chunkSize >= selectedProofs.length) break;
-  }
-
-  if (totalQueued === 0) {
-    return { queued: 0, publishedRelays: 0, syncedProofCount: 0, skippedDueToBudget: false };
-  }
-
-  const latestSettings = await loadSyncSettings();
-  const flush = await flushOutbox(latestSettings, params?.nostrPassphraseIfFallback);
-  if (flush.sentCount > 0 && sentProofIds.length > 0) {
-    await markVaultProofsSynced(sentProofIds);
-  }
-
+  void _params;
+  await migrateLegacyNostrToAuthOnly();
   return {
-    queued: totalQueued,
-    publishedRelays: flush.succeededRelays,
-    syncedProofCount: flush.sentCount > 0 ? sentProofIds.length : 0,
-    skippedDueToBudget: flush.budgetDeferredCount > 0 && flush.sentCount === 0,
+    queued: 0,
+    publishedRelays: 0,
+    syncedProofCount: 0,
+    skippedDueToBudget: false,
+    disabledOverNostr: true,
   };
 }
 

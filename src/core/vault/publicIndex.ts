@@ -1,5 +1,5 @@
 import { base64UrlDecode } from '../crypto/sha256';
-import { createSignedNostrEvent, type NostrEvent, verifyNostrEvent } from '../nostr/nip01';
+import { type NostrEvent, verifyNostrEvent } from '../nostr/nip01';
 import { validateRelayUrl, type WebSocketFactory, type WebSocketLike } from '../sync/relayManager';
 import type { RelayConfig } from '../sync/types';
 import type { VaultProofRecord } from './types';
@@ -8,6 +8,7 @@ import { verifyAndBuildVaultProofRecord } from './vaultStore';
 export const CHM_PUBLIC_PROOF_EVENT_KIND = 30078;
 export const CHM_PUBLIC_PROOF_PROTOCOL_ID = 'CHM-PUBLIC-PROOF-v1';
 export const CHM_PUBLIC_PROOF_TAG = 'certified-handmade-proof';
+export const NOSTR_PUBLIC_PROOF_PUBLISHING_DISABLED = true as const;
 
 export interface PublicProofWireContent {
   protocol: typeof CHM_PUBLIC_PROOF_PROTOCOL_ID;
@@ -16,33 +17,26 @@ export interface PublicProofWireContent {
   creationMethod?: string;
 }
 
-export function buildPublicProofIndexEvent(params: {
+/**
+ * @deprecated Publishing new Public Proof Index events to public Nostr relays has been
+ * permanently disabled to prevent unencrypted metadata leaks and enforce strict separation
+ * of Nostr to device authentication/revocation only.
+ */
+export function buildPublicProofIndexEvent(_params: {
   proofRecord: VaultProofRecord;
   secretKey: Uint8Array;
   createdAtUnix?: number;
 }): NostrEvent {
-  const payload: PublicProofWireContent = {
-    protocol: CHM_PUBLIC_PROOF_PROTOCOL_ID,
-    proofBase64Url: params.proofRecord.proofBase64Url,
-    authorFingerprintHex: params.proofRecord.authorFingerprintHex,
-    creationMethod: params.proofRecord.creationMethod,
-  };
-
-  return createSignedNostrEvent(
-    {
-      kind: CHM_PUBLIC_PROOF_EVENT_KIND,
-      created_at: params.createdAtUnix,
-      tags: [
-        ['d', `chm-proof:${params.proofRecord.id}`],
-        ['t', CHM_PUBLIC_PROOF_TAG],
-        ['chm_author', params.proofRecord.authorFingerprintHex],
-      ],
-      content: JSON.stringify(payload),
-    },
-    params.secretKey,
+  void _params;
+  throw new Error(
+    'Public Proof Index publishing over Nostr is disabled. Use local storage, Portable Encrypted Files, or your personal Google Drive.',
   );
 }
 
+/**
+ * @deprecated Read-only legacy parser retained strictly for verifying historical Nostr events
+ * if already archived offline. New publishing is disabled.
+ */
 export async function parseAndVerifyPublicProofEvent(
   rawEvent: unknown,
 ): Promise<{ record: VaultProofRecord; nostrEvent: NostrEvent }> {
@@ -77,6 +71,9 @@ export async function parseAndVerifyPublicProofEvent(
   return { record, nostrEvent: verifiedEv.event };
 }
 
+/**
+ * @deprecated Historical Public Proof relay queries remain read-only; no new events are published.
+ */
 export async function queryPublicProofsFromRelays(params: {
   relays: RelayConfig[];
   authorFingerprintHex?: string;

@@ -554,31 +554,29 @@ export function encodeSyncRumorPayload(params: {
   profileSnapshot?: SyncVaultProfileWireSnapshot;
   trustedArtists?: SyncTrustedArtistWireEntry[];
 }): string {
-  const vaultProofsCount = params.vaultProofs?.length ?? 0;
-  const trustedCount = params.trustedArtists?.length ?? 0;
-  const hasMetadata = Boolean(params.profileSnapshot) || trustedCount > 0;
   if (
-    params.ops.length + (params.bindings?.length ?? 0) + vaultProofsCount === 0 &&
-    !hasMetadata
+    (params.vaultProofs && params.vaultProofs.length > 0) ||
+    params.profileSnapshot ||
+    (params.trustedArtists && params.trustedArtists.length > 0)
   ) {
-    throw new Error('Sync bundle item count out of bounds');
+    throw new Error(
+      "Nostr transport is strictly limited to device authentication and revocation; vault proofs, artwork details, profiles, and policies cannot be transmitted over Nostr.",
+    );
+  }
+  if (params.ops.length + (params.bindings?.length ?? 0) === 0) {
+    throw new Error("Sync bundle item count out of bounds");
   }
   if (
     params.ops.length > MAX_SYNC_BUNDLE_ITEMS ||
-    (params.bindings?.length ?? 0) > MAX_SYNC_BUNDLE_ITEMS ||
-    vaultProofsCount > MAX_VAULT_PROOFS_PER_BUNDLE ||
-    trustedCount > MAX_SYNC_BUNDLE_ITEMS
+    (params.bindings?.length ?? 0) > MAX_SYNC_BUNDLE_ITEMS
   ) {
-    throw new Error('Sync bundle item count out of bounds');
+    throw new Error("Sync bundle item count out of bounds");
   }
   const payload: SyncRumorWirePayload = {
     protocol: CHM_SYNC_PROTOCOL_ID,
-    payloadKind: 'sync-bundle',
+    payloadKind: "sync-bundle",
     opsBase64Url: params.ops.map((o) => base64UrlEncode(o.envelopeBytes)),
     bindingsBase64Url: (params.bindings ?? []).map((b) => base64UrlEncode(b.envelopeBytes)),
-    ...(vaultProofsCount > 0 ? { vaultProofs: params.vaultProofs } : {}),
-    ...(params.profileSnapshot ? { profileSnapshot: params.profileSnapshot } : {}),
-    ...(trustedCount > 0 ? { trustedArtists: params.trustedArtists } : {}),
   };
   const encoded = JSON.stringify(payload);
   if (encoded.length > MAX_SYNC_RUMOR_JSON_CHARS) {
@@ -596,116 +594,71 @@ export function decodeAndVerifySyncRumorPayload(
   vaultProofs: SyncVaultProofWireItem[];
   profileSnapshot?: SyncVaultProfileWireSnapshot;
   trustedArtists: SyncTrustedArtistWireEntry[];
+  ignoredLegacyVaultData?: boolean;
 } {
-  if (typeof rawContent !== 'string' || rawContent.length === 0) {
-    throw new Error('Empty sync rumor content');
+  if (typeof rawContent !== "string" || rawContent.length === 0) {
+    throw new Error("Empty sync rumor content");
   }
   if (rawContent.length > MAX_SYNC_RUMOR_JSON_CHARS) {
-    throw new Error('Sync rumor content exceeds maximum allowed size');
+    throw new Error("Sync rumor content exceeds maximum allowed size");
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(rawContent);
   } catch {
-    throw new Error('Malformed JSON in CHM sync rumor content');
+    throw new Error("Malformed JSON in CHM sync rumor content");
   }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('CHM sync rumor content must be an object');
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("CHM sync rumor content must be an object");
   }
   if (
-    Object.prototype.hasOwnProperty.call(parsed, '__proto__') ||
-    Object.prototype.hasOwnProperty.call(parsed, 'constructor') ||
-    Object.prototype.hasOwnProperty.call(parsed, 'prototype')
+    Object.prototype.hasOwnProperty.call(parsed, "__proto__") ||
+    Object.prototype.hasOwnProperty.call(parsed, "constructor") ||
+    Object.prototype.hasOwnProperty.call(parsed, "prototype")
   ) {
-    throw new Error('Forbidden prototype property in CHM sync rumor content');
+    throw new Error("Forbidden prototype property in CHM sync rumor content");
   }
   const obj = parsed as Partial<SyncRumorWirePayload>;
-  if (obj.protocol !== CHM_SYNC_PROTOCOL_ID || obj.payloadKind !== 'sync-bundle') {
-    throw new Error('Unrecognized CHM sync rumor protocol or payloadKind');
+  if (obj.protocol !== CHM_SYNC_PROTOCOL_ID || obj.payloadKind !== "sync-bundle") {
+    throw new Error("Unrecognized CHM sync rumor protocol or payloadKind");
   }
   if (!Array.isArray(obj.opsBase64Url) || !Array.isArray(obj.bindingsBase64Url)) {
-    throw new Error('CHM sync rumor missing opsBase64Url or bindingsBase64Url arrays');
+    throw new Error("CHM sync rumor missing opsBase64Url or bindingsBase64Url arrays");
   }
   if (
     obj.opsBase64Url.length > MAX_SYNC_BUNDLE_ITEMS ||
     obj.bindingsBase64Url.length > MAX_SYNC_BUNDLE_ITEMS
   ) {
-    throw new Error('CHM sync rumor exceeds maximum bundle item count');
+    throw new Error("CHM sync rumor exceeds maximum bundle item count");
   }
 
   const ops: DecodedSyncOperation[] = [];
   for (const b64 of obj.opsBase64Url) {
-    if (typeof b64 !== 'string') throw new Error('Invalid op entry in sync bundle');
+    if (typeof b64 !== "string") throw new Error("Invalid op entry in sync bundle");
     const bytes = base64UrlDecode(b64);
     ops.push(decodeAndVerifySyncOperation(bytes, options));
   }
 
   const bindings: DecodedBindingAttestation[] = [];
   for (const b64 of obj.bindingsBase64Url) {
-    if (typeof b64 !== 'string') throw new Error('Invalid binding entry in sync bundle');
+    if (typeof b64 !== "string") throw new Error("Invalid binding entry in sync bundle");
     const bytes = base64UrlDecode(b64);
     bindings.push(decodeAndVerifyBindingAttestation(bytes, options));
   }
 
-  const vaultProofs: SyncVaultProofWireItem[] = [];
-  if (obj.vaultProofs !== undefined) {
-    if (!Array.isArray(obj.vaultProofs) || obj.vaultProofs.length > MAX_VAULT_PROOFS_PER_BUNDLE) {
-      throw new Error('CHM sync rumor vaultProofs field is invalid or exceeds bounds');
-    }
-    for (const item of obj.vaultProofs) {
-      if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
-      if (typeof item.proofBase64Url !== 'string' || !item.proofBase64Url || item.proofBase64Url.length > 8192) {
-        continue;
-      }
-      vaultProofs.push({
-        proofBase64Url: item.proofBase64Url,
-        creationMethod:
-          typeof item.creationMethod === 'string' ? item.creationMethod.slice(0, 64) : undefined,
-        createdAt: typeof item.createdAt === 'string' ? item.createdAt.slice(0, 64) : undefined,
-      });
-    }
-  }
+  // Legacy vault/profile/trustedArtists fields are intentionally ignored under auth-only Nostr separation.
+  const ignoredLegacyVaultData = Boolean(
+    obj.vaultProofs !== undefined || obj.profileSnapshot !== undefined || obj.trustedArtists !== undefined,
+  );
 
-  let profileSnapshot: SyncVaultProfileWireSnapshot | undefined;
-  if (obj.profileSnapshot && typeof obj.profileSnapshot === 'object' && !Array.isArray(obj.profileSnapshot)) {
-    const rawP = obj.profileSnapshot;
-    const links = Array.isArray(rawP.links)
-      ? rawP.links
-          .filter(
-            (l): l is { label?: string; url: string } =>
-              Boolean(l) && typeof l.url === 'string',
-          )
-          .slice(0, 8)
-          .map((l) => ({
-            label: typeof l.label === 'string' ? l.label.slice(0, 64) : undefined,
-            url: l.url.slice(0, 256),
-          }))
-      : undefined;
-    profileSnapshot = {
-      displayName: typeof rawP.displayName === 'string' ? rawP.displayName.slice(0, 80) : undefined,
-      website: typeof rawP.website === 'string' ? rawP.website.slice(0, 256) : undefined,
-      links,
-      updatedAt: typeof rawP.updatedAt === 'string' ? rawP.updatedAt.slice(0, 64) : undefined,
-    };
-  }
-
-  const trustedArtists: SyncTrustedArtistWireEntry[] = [];
-  if (Array.isArray(obj.trustedArtists)) {
-    for (const entry of obj.trustedArtists.slice(0, MAX_SYNC_BUNDLE_ITEMS)) {
-      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
-      if (typeof entry.publicKeyBase64Url !== 'string' || typeof entry.label !== 'string') continue;
-      trustedArtists.push({
-        publicKeyBase64Url: entry.publicKeyBase64Url.slice(0, 128),
-        label: entry.label.slice(0, 80),
-        verificationState:
-          entry.verificationState === 'confirmed' || entry.verificationState === 'unconfirmed'
-            ? entry.verificationState
-            : undefined,
-      });
-    }
-  }
-
-  return { ops, bindings, vaultProofs, profileSnapshot, trustedArtists };
+  return {
+    ops,
+    bindings,
+    vaultProofs: [],
+    profileSnapshot: undefined,
+    trustedArtists: [],
+    ...(ignoredLegacyVaultData ? { ignoredLegacyVaultData: true } : {}),
+  };
 }
 
 export function bindingToRecord(b: DecodedBindingAttestation): VerifiedPeerBinding {

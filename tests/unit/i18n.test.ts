@@ -10,6 +10,7 @@ import { ko, zhCN, zhTW } from '../../src/i18n/locales/eastAsia';
 import { ar, de, es, fr, it as itLocale, pt } from '../../src/i18n/locales/europeanAndArabic';
 import { ru, uk } from '../../src/i18n/locales/slavic';
 import { MINIMAL_UI_I18N } from '../../src/i18n/minimalUi';
+import { NEXT_GEN_I18N } from '../../src/i18n/nextGen';
 import { QR_STUDIO_I18N } from '../../src/i18n/qrStudio';
 import { SEO_I18N } from '../../src/i18n/seo';
 import { STANDALONE_I18N } from '../../src/i18n/standalone';
@@ -233,6 +234,33 @@ describe('13-language license guide & simple how-to translations', () => {
       if (locale !== 'en') {
         expect(seo.home.title).not.toBe(SEO_I18N.en.home.title);
         expect(seo.homeFaqTitle).not.toBe(SEO_I18N.en.homeFaqTitle);
+      }
+    }
+  });
+
+  it('provides Next-Gen profiles, policies, Protocol v3, Storage/Google Drive, and Nostr Auth-Only translations for all 13 languages', () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      const ng = NEXT_GEN_I18N[locale];
+      expect(ng.navStorage.trim().length).toBeGreaterThan(3);
+      expect(ng.create.profileSectionTitle.trim().length).toBeGreaterThan(3);
+      expect(ng.create.policyPresetLabel.trim().length).toBeGreaterThan(3);
+      expect(ng.create.qrSizingTitle.trim().length).toBeGreaterThan(3);
+      expect(ng.verify.v3MetadataTitle.trim().length).toBeGreaterThan(3);
+      expect(ng.storage.driveTitle.trim().length).toBeGreaterThan(5);
+      expect(ng.storage.driveConnectBtn.trim().length).toBeGreaterThan(3);
+      expect(ng.nostrAuthOnly.bannerTitle.trim().length).toBeGreaterThan(5);
+      expect(ng.nostrAuthOnly.bannerBody.trim().length).toBeGreaterThan(15);
+
+      expect(ng.create.policyWarnings['cc0-with-restriction'].trim().length).toBeGreaterThan(10);
+      expect(ng.create.policyWarnings['arr-with-commercial-allow'].trim().length).toBeGreaterThan(10);
+      expect(ng.create.policyWarnings['nd-with-derivatives-allow'].trim().length).toBeGreaterThan(10);
+      expect(ng.create.policyWarnings['nc-with-commercial-allow'].trim().length).toBeGreaterThan(10);
+
+      if (locale !== 'en') {
+        expect(ng.navStorage).not.toBe(NEXT_GEN_I18N.en.navStorage);
+        expect(ng.create.profileSectionTitle).not.toBe(NEXT_GEN_I18N.en.create.profileSectionTitle);
+        expect(ng.storage.driveConnectBtn).not.toBe(NEXT_GEN_I18N.en.storage.driveConnectBtn);
+        expect(ng.nostrAuthOnly.bannerTitle).not.toBe(NEXT_GEN_I18N.en.nostrAuthOnly.bannerTitle);
       }
     }
   });

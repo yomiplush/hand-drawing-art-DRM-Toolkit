@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom';
 import {
   Archive,
   BookOpen,
+  Cloud,
   Compass,
   Cookie,
   FileSignature,
@@ -100,6 +101,7 @@ export function Layout({
     { to: '/keys', label: t.minimal.nav.myKeysItem, icon: KeyRound, testId: 'menu-keys-link' },
     { to: '/devices', label: t.devices.navItem, icon: Smartphone, testId: 'menu-devices-link' },
     { to: '/vault', label: t.vault.navItem, icon: Archive, testId: 'menu-vault-link' },
+    { to: '/storage', label: t.nextGen.navStorage, icon: Cloud, testId: 'menu-storage-link' },
     {
       to: '/exchange',
       label: t.minimal.nav.keyExchangeItem,

@@ -18,6 +18,7 @@ import { ko, zhCN, zhTW } from './locales/eastAsia';
 import { ar, de, es, fr, it, pt } from './locales/europeanAndArabic';
 import { ru, uk } from './locales/slavic';
 import { MINIMAL_UI_I18N } from './minimalUi';
+import { NEXT_GEN_I18N } from './nextGen';
 import { QR_STUDIO_I18N } from './qrStudio';
 import { SEO_I18N } from './seo';
 import { TUTORIAL_I18N } from './tutorial';
@@ -109,6 +110,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     devices: DEVICE_PAIRING_I18N[locale] ?? DEVICE_PAIRING_I18N.en,
     artworkDetails: ARTWORK_DETAILS_I18N[locale] ?? ARTWORK_DETAILS_I18N.en,
     vault: VAULT_I18N[locale] ?? VAULT_I18N.en,
+    nextGen: NEXT_GEN_I18N[locale] ?? NEXT_GEN_I18N.en,
   };
 
   return (

@@ -27,7 +27,6 @@ import {
   removeRelayConfig,
   runDecentralizedSyncCycle,
   saveSyncSettings,
-  syncSelectedVaultProofs,
   toggleRelayConfig,
 } from '../../core/sync';
 import { CURATED_DEFAULT_RELAY_PRESETS } from '../../core/sync/types';
@@ -65,6 +64,7 @@ export function DecentralizedSyncPanel({
 }: DecentralizedSyncPanelProps) {
   const { t } = useI18n();
   const s = t.devices.sync;
+  const authOnly = t.nextGen.nostrAuthOnly;
 
   const [consentChecked, setConsentChecked] = useState(settings.consentAccepted);
   const [ownerPassInput, setOwnerPassInput] = useState('');
@@ -75,7 +75,6 @@ export function DecentralizedSyncPanel({
   const [relayInput, setRelayInput] = useState('');
   const [relayError, setRelayError] = useState<string | null>(null);
   const [checkingRelayUrl, setCheckingRelayUrl] = useState<string | null>(null);
-  const [vaultSyncMsg, setVaultSyncMsg] = useState<string | null>(null);
 
   const [peerCardInput, setPeerCardInput] = useState('');
   const [peerImportMsg, setPeerImportMsg] = useState<string | null>(null);
@@ -171,33 +170,6 @@ export function DecentralizedSyncPanel({
       setRelayError(err instanceof Error ? err.message : 'NIP-11 policy check failed');
     } finally {
       setCheckingRelayUrl(null);
-    }
-  };
-
-  const handleToggleVaultSync = async (checked: boolean) => {
-    await saveSyncSettings({ ...settings, syncVaultProofs: checked });
-    await onRefresh();
-  };
-
-  const handleSyncVaultNow = async () => {
-    setActionError(null);
-    setVaultSyncMsg(null);
-    setSyncing(true);
-    try {
-      const res = await syncSelectedVaultProofs({
-        includeProfile: true,
-        includeTrustedArtists: true,
-      });
-      setVaultSyncMsg(
-        res.skippedDueToBudget
-          ? s.gracefulFallbackTitle
-          : `${s.syncVaultProofsSuccess} (${res.syncedProofCount})`,
-      );
-      await onRefresh();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Vault sync failed');
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -316,6 +288,27 @@ export function DecentralizedSyncPanel({
           >
             {statusText}
           </span>
+        </div>
+
+        {/* Strict Nostr Auth-Only Scope Notice */}
+        <div
+          data-testid="nostr-auth-only-notice"
+          className="rounded-xl border border-sky-400/30 bg-sky-500/10 p-3.5 space-y-1.5 text-xs text-slate-200"
+        >
+          <div className="font-semibold text-sky-200 flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+            <span>{authOnly.bannerTitle}</span>
+          </div>
+          <p className="text-slate-300 leading-relaxed">{authOnly.bannerBody}</p>
+          <div className="text-[11px] text-slate-300">
+            {authOnly.vaultMovedHint}{' '}
+            <Link
+              to="/storage"
+              className="font-semibold text-sky-300 underline underline-offset-4 hover:text-sky-200"
+            >
+              {t.nextGen.navStorage} →
+            </Link>
+          </div>
         </div>
 
         {!settings.enabled ? (
@@ -439,33 +432,6 @@ export function DecentralizedSyncPanel({
                 </Link>
               </div>
             )}
-
-            <div className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <label className="flex items-center gap-2 text-slate-200 cursor-pointer flex-1 min-w-[200px]">
-                <input
-                  type="checkbox"
-                  checked={settings.syncVaultProofs}
-                  data-testid="sync-vault-proofs-checkbox"
-                  onChange={(e) => void handleToggleVaultSync(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-500 shrink-0"
-                />
-                <span>{s.syncVaultProofsToggle}</span>
-              </label>
-              <button
-                type="button"
-                disabled={syncing}
-                data-testid="sync-vault-proofs-btn"
-                onClick={() => void handleSyncVaultNow()}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-100 hover:bg-sky-500/25 disabled:opacity-50 min-h-[36px] cursor-pointer"
-              >
-                <span>{s.syncVaultProofsBtn}</span>
-              </button>
-              {vaultSyncMsg && (
-                <div className="w-full text-[11px] text-emerald-300" data-testid="sync-vault-msg">
-                  {vaultSyncMsg}
-                </div>
-              )}
-            </div>
 
             {status.hasCausalGap && (
               <div
@@ -701,7 +667,7 @@ export function DecentralizedSyncPanel({
               </div>
               <div>
                 <span className="text-slate-400">{s.advancedProtocolLabel}: </span>
-                <span className="text-slate-200">CHM-SYNC-v1 + NIP-01 / NIP-42 / NIP-44 / NIP-49 / NIP-59</span>
+                <span className="text-slate-200">CHM-SYNC-v1 (Auth-Only) + NIP-01 / NIP-42 / NIP-44 / NIP-49 / NIP-59</span>
               </div>
             </div>
           )}

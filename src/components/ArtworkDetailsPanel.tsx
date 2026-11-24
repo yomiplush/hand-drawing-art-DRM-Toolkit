@@ -1,14 +1,10 @@
 import { useId, useState } from 'react';
 import {
-  Check,
   ChevronDown,
   Cpu,
   FileCheck2,
-  Info,
-  Plus,
   Trash2,
   Upload,
-  User,
 } from 'lucide-react';
 import {
   DEFAULT_STREAM_CHUNK_BYTES,
@@ -16,25 +12,16 @@ import {
   sha256Streamed,
 } from '../core/crypto/sha256';
 import {
-  MAX_CREATOR_DISPLAY_NAME_UTF8_BYTES,
   MAX_ENV_FIELD_UTF8_BYTES,
   MAX_ENV_NOTES_UTF8_BYTES,
   MAX_EVIDENCE_LABEL_UTF8_BYTES,
   MAX_EVIDENCE_MIME_UTF8_BYTES,
   MAX_EVIDENCE_RECORDS,
-  MAX_EXT_ARTIST_UTF8_BYTES,
-  MAX_EXT_DESCRIPTION_UTF8_BYTES,
-  MAX_EXT_TITLE_UTF8_BYTES,
-  MAX_PROFILE_LINKS,
-  MAX_PROFILE_LINK_LABEL_UTF8_BYTES,
-  MAX_PROFILE_URL_UTF8_BYTES,
   sanitizeEvidenceBasename,
-  sanitizeProfileUrl,
 } from '../core/manifest/evidenceExtension';
 import { utf8ByteLength } from '../core/manifest/cborCodec';
 import type {
   CreationMethod,
-  CreatorProfileLink,
   EvidenceCategory,
 } from '../core/manifest/types';
 import { useI18n } from '../i18n/context';
@@ -51,12 +38,6 @@ export interface LocalEvidenceDraftItem {
 }
 
 export interface ArtworkDetailsDraft {
-  extTitle: string;
-  extArtistName: string;
-  extDescription: string;
-  creatorDisplayName: string;
-  creatorWebsite: string;
-  creatorLinks: CreatorProfileLink[];
   creationMethod: CreationMethod | '';
   envSoftware: string;
   envHardware: string;
@@ -68,35 +49,15 @@ export interface ArtworkDetailsDraft {
 interface ArtworkDetailsPanelProps {
   draft: ArtworkDetailsDraft;
   onChange: (updater: (prev: ArtworkDetailsDraft) => ArtworkDetailsDraft) => void;
-  onSaveProfileDefaults: () => Promise<void>;
-  onClearProfileDefaults: () => Promise<void>;
-  profileSavedIndicator: boolean;
 }
 
-export function ArtworkDetailsPanel({
-  draft,
-  onChange,
-  onSaveProfileDefaults,
-  onClearProfileDefaults,
-  profileSavedIndicator,
-}: ArtworkDetailsPanelProps) {
+export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProps) {
   const { t } = useI18n();
   const evidenceFileInputId = useId();
-  const [openGroup, setOpenGroup] = useState<'artwork' | 'creator' | 'creation' | 'evidence'>(
-    'artwork',
-  );
+  const [openGroup, setOpenGroup] = useState<'creation' | 'evidence'>('creation');
   const [hashingStatus, setHashingStatus] = useState<string | null>(null);
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
-  const [profileError, setProfileError] = useState<string | null>(null);
 
-  const artworkCount =
-    (draft.extTitle.trim() ? 1 : 0) +
-    (draft.extArtistName.trim() ? 1 : 0) +
-    (draft.extDescription.trim() ? 1 : 0);
-  const creatorCount =
-    (draft.creatorDisplayName.trim() ? 1 : 0) +
-    (draft.creatorWebsite.trim() ? 1 : 0) +
-    draft.creatorLinks.filter((l) => l.url.trim()).length;
   const creationCount =
     (draft.creationMethod ? 1 : 0) +
     (draft.envSoftware.trim() ? 1 : 0) +
@@ -104,18 +65,7 @@ export function ArtworkDetailsPanel({
     (draft.envInputDevice.trim() ? 1 : 0) +
     (draft.envNotes.trim() ? 1 : 0);
   const evidenceCount = draft.evidenceItems.length;
-  const totalCount = artworkCount + creatorCount + creationCount + evidenceCount;
-
-  const websiteValidationError = (() => {
-    const trimmed = draft.creatorWebsite.trim();
-    if (!trimmed) return null;
-    try {
-      sanitizeProfileUrl(trimmed, t.artworkDetails.websiteLabel);
-      return null;
-    } catch (err) {
-      return err instanceof Error ? err.message : 'Invalid URL';
-    }
-  })();
+  const totalCount = creationCount + evidenceCount;
 
   const handleEvidenceFilesPicked = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -176,21 +126,6 @@ export function ArtworkDetailsPanel({
     }
   };
 
-  const handleSaveProfileClick = async () => {
-    setProfileError(null);
-    try {
-      if (draft.creatorWebsite.trim()) {
-        sanitizeProfileUrl(draft.creatorWebsite, t.artworkDetails.websiteLabel);
-      }
-      draft.creatorLinks.forEach((l, idx) => {
-        if (l.url.trim()) sanitizeProfileUrl(l.url, `Link #${idx + 1}`);
-      });
-      await onSaveProfileDefaults();
-    } catch (err) {
-      setProfileError(err instanceof Error ? err.message : 'Invalid URL in profile');
-    }
-  };
-
   const groupBtnClass = (active: boolean) =>
     `w-full flex items-center justify-between gap-2 rounded-lg border px-3.5 py-2.5 text-start text-xs sm:text-sm font-medium transition-colors min-h-[44px] cursor-pointer ${
       active
@@ -207,286 +142,7 @@ export function ArtworkDetailsPanel({
       <p className="text-xs text-slate-400 leading-relaxed">{t.artworkDetails.disclosureHint}</p>
 
       <div className="space-y-2.5">
-        {/* Group 1: Artwork */}
-        <div className="space-y-2">
-          <button
-            type="button"
-            aria-expanded={openGroup === 'artwork'}
-            data-testid="details-group-artwork"
-            onClick={() => setOpenGroup('artwork')}
-            className={groupBtnClass(openGroup === 'artwork')}
-          >
-            <span className="inline-flex items-center gap-2">
-              <Info className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
-              <span>{t.artworkDetails.groupArtwork}</span>
-              {artworkCount > 0 && (
-                <span className="rounded-full bg-sky-400/20 px-2 py-0.5 text-[10px] font-mono text-sky-200">
-                  {artworkCount}
-                </span>
-              )}
-            </span>
-            <ChevronDown
-              className={`h-4 w-4 transition-transform ${openGroup === 'artwork' ? 'rotate-180' : ''}`}
-              aria-hidden="true"
-            />
-          </button>
-
-          {openGroup === 'artwork' && (
-            <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/50 p-3.5 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <div className="flex justify-between text-xs text-slate-300 mb-1">
-                    <label htmlFor="extTitle">{t.artworkDetails.titleLabel}</label>
-                    <span className="font-mono text-slate-400">
-                      {utf8ByteLength(draft.extTitle)} / {MAX_EXT_TITLE_UTF8_BYTES}
-                    </span>
-                  </div>
-                  <input
-                    id="extTitle"
-                    type="text"
-                    value={draft.extTitle}
-                    onChange={(e) =>
-                      onChange((prev) => ({ ...prev, extTitle: e.target.value }))
-                    }
-                    placeholder={t.artworkDetails.titlePlaceholder}
-                    data-testid="details-ext-title"
-                    className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-xs text-slate-300 mb-1">
-                    <label htmlFor="extArtistName">{t.artworkDetails.artistLabel}</label>
-                    <span className="font-mono text-slate-400">
-                      {utf8ByteLength(draft.extArtistName)} / {MAX_EXT_ARTIST_UTF8_BYTES}
-                    </span>
-                  </div>
-                  <input
-                    id="extArtistName"
-                    type="text"
-                    value={draft.extArtistName}
-                    onChange={(e) =>
-                      onChange((prev) => ({ ...prev, extArtistName: e.target.value }))
-                    }
-                    placeholder={t.artworkDetails.artistPlaceholder}
-                    data-testid="details-ext-artist"
-                    className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs text-slate-300 mb-1">
-                  <label htmlFor="extDescription">{t.artworkDetails.descriptionLabel}</label>
-                  <span className="font-mono text-slate-400">
-                    {utf8ByteLength(draft.extDescription)} / {MAX_EXT_DESCRIPTION_UTF8_BYTES}
-                  </span>
-                </div>
-                <textarea
-                  id="extDescription"
-                  rows={3}
-                  value={draft.extDescription}
-                  onChange={(e) =>
-                    onChange((prev) => ({ ...prev, extDescription: e.target.value }))
-                  }
-                  placeholder={t.artworkDetails.descriptionPlaceholder}
-                  data-testid="details-ext-description"
-                  className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2 text-sm text-white placeholder:text-slate-500"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Group 2: Creator */}
-        <div className="space-y-2">
-          <button
-            type="button"
-            aria-expanded={openGroup === 'creator'}
-            data-testid="details-group-creator"
-            onClick={() => setOpenGroup('creator')}
-            className={groupBtnClass(openGroup === 'creator')}
-          >
-            <span className="inline-flex items-center gap-2">
-              <User className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
-              <span>{t.artworkDetails.groupCreator}</span>
-              {creatorCount > 0 && (
-                <span className="rounded-full bg-sky-400/20 px-2 py-0.5 text-[10px] font-mono text-sky-200">
-                  {creatorCount}
-                </span>
-              )}
-            </span>
-            <ChevronDown
-              className={`h-4 w-4 transition-transform ${openGroup === 'creator' ? 'rotate-180' : ''}`}
-              aria-hidden="true"
-            />
-          </button>
-
-          {openGroup === 'creator' && (
-            <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/50 p-3.5 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <div className="flex justify-between text-xs text-slate-300 mb-1">
-                    <label htmlFor="creatorDisplayName">
-                      {t.artworkDetails.creatorDisplayNameLabel}
-                    </label>
-                    <span className="font-mono text-slate-400">
-                      {utf8ByteLength(draft.creatorDisplayName)} /{' '}
-                      {MAX_CREATOR_DISPLAY_NAME_UTF8_BYTES}
-                    </span>
-                  </div>
-                  <input
-                    id="creatorDisplayName"
-                    type="text"
-                    value={draft.creatorDisplayName}
-                    onChange={(e) =>
-                      onChange((prev) => ({ ...prev, creatorDisplayName: e.target.value }))
-                    }
-                    placeholder={t.artworkDetails.creatorDisplayNamePlaceholder}
-                    data-testid="details-creator-name"
-                    className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-xs text-slate-300 mb-1">
-                    <label htmlFor="creatorWebsite">{t.artworkDetails.websiteLabel}</label>
-                    <span className="font-mono text-slate-400">
-                      {utf8ByteLength(draft.creatorWebsite)} / {MAX_PROFILE_URL_UTF8_BYTES}
-                    </span>
-                  </div>
-                  <input
-                    id="creatorWebsite"
-                    type="url"
-                    value={draft.creatorWebsite}
-                    onChange={(e) =>
-                      onChange((prev) => ({ ...prev, creatorWebsite: e.target.value }))
-                    }
-                    placeholder={t.artworkDetails.websitePlaceholder}
-                    data-testid="details-creator-website"
-                    className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
-                  />
-                  {websiteValidationError && (
-                    <p role="alert" className="text-[11px] text-rose-300 mt-1">
-                      {websiteValidationError}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-slate-300">
-                    {t.artworkDetails.linksLabel}
-                  </span>
-                  {draft.creatorLinks.length < MAX_PROFILE_LINKS && (
-                    <button
-                      type="button"
-                      data-testid="details-add-link-btn"
-                      onClick={() =>
-                        onChange((prev) => ({
-                          ...prev,
-                          creatorLinks: [...prev.creatorLinks, { url: '', label: '' }],
-                        }))
-                      }
-                      className="inline-flex items-center gap-1 rounded-lg border border-white/[0.16] bg-[#030b18]/75 px-3 py-1.5 text-xs font-medium text-sky-200 hover:border-sky-400/40 min-h-[36px] cursor-pointer"
-                    >
-                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>{t.artworkDetails.addLinkBtn}</span>
-                    </button>
-                  )}
-                </div>
-
-                {draft.creatorLinks.map((link, idx) => (
-                  <div key={idx} className="grid grid-cols-1 sm:grid-cols-[1fr_180px_auto] gap-2">
-                    <input
-                      type="url"
-                      value={link.url}
-                      onChange={(e) =>
-                        onChange((prev) => ({
-                          ...prev,
-                          creatorLinks: prev.creatorLinks.map((item, i) =>
-                            i === idx ? { ...item, url: e.target.value } : item,
-                          ),
-                        }))
-                      }
-                      placeholder={t.artworkDetails.linkUrlPlaceholder}
-                      data-testid={`details-link-url-${idx}`}
-                      className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2 text-xs sm:text-sm text-white placeholder:text-slate-500 min-h-[44px]"
-                    />
-                    <input
-                      type="text"
-                      value={link.label ?? ''}
-                      maxLength={MAX_PROFILE_LINK_LABEL_UTF8_BYTES}
-                      onChange={(e) =>
-                        onChange((prev) => ({
-                          ...prev,
-                          creatorLinks: prev.creatorLinks.map((item, i) =>
-                            i === idx ? { ...item, label: e.target.value } : item,
-                          ),
-                        }))
-                      }
-                      placeholder={t.artworkDetails.linkLabelPlaceholder}
-                      data-testid={`details-link-label-${idx}`}
-                      className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2 text-xs sm:text-sm text-white placeholder:text-slate-500 min-h-[44px]"
-                    />
-                    <button
-                      type="button"
-                      data-testid={`details-link-remove-${idx}`}
-                      onClick={() =>
-                        onChange((prev) => ({
-                          ...prev,
-                          creatorLinks: prev.creatorLinks.filter((_, i) => i !== idx),
-                        }))
-                      }
-                      aria-label={t.artworkDetails.removeBtn}
-                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-white/[0.12] bg-[#030b18]/75 px-3 py-2 text-xs text-slate-300 hover:border-rose-400/40 hover:text-rose-200 min-h-[44px] cursor-pointer"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <button
-                  type="button"
-                  data-testid="details-save-profile-btn"
-                  onClick={() => void handleSaveProfileClick()}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-sky-300/35 bg-sky-500/15 px-3 py-2 text-xs font-medium text-sky-100 hover:bg-sky-500/25 min-h-[40px] cursor-pointer"
-                >
-                  {profileSavedIndicator && (
-                    <Check className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
-                  )}
-                  <span>{t.artworkDetails.saveProfileBtn}</span>
-                </button>
-                <button
-                  type="button"
-                  data-testid="details-clear-profile-btn"
-                  onClick={() => void onClearProfileDefaults()}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-2 text-xs text-slate-300 hover:border-white/[0.3] min-h-[40px] cursor-pointer"
-                >
-                  <span>{t.artworkDetails.clearProfileBtn}</span>
-                </button>
-              </div>
-              {profileSavedIndicator && (
-                <p role="status" className="text-[11px] text-emerald-300">
-                  {t.artworkDetails.profileSavedNote}
-                </p>
-              )}
-              {profileError && (
-                <p role="alert" className="text-[11px] text-rose-300">
-                  {profileError}
-                </p>
-              )}
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                {t.artworkDetails.profileDisclaimer}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Group 3: Creation */}
+        {/* Creation Method & Environment */}
         <div className="space-y-2">
           <button
             type="button"
@@ -635,7 +291,7 @@ export function ArtworkDetailsPanel({
           )}
         </div>
 
-        {/* Group 4: Evidence */}
+        {/* Local SHA-256 Evidence Files */}
         <div className="space-y-2">
           <button
             type="button"
@@ -798,12 +454,6 @@ function guessCategory(label: string, mime?: string): EvidenceCategory {
 
 export function createEmptyArtworkDetailsDraft(): ArtworkDetailsDraft {
   return {
-    extTitle: '',
-    extArtistName: '',
-    extDescription: '',
-    creatorDisplayName: '',
-    creatorWebsite: '',
-    creatorLinks: [],
     creationMethod: '',
     envSoftware: '',
     envHardware: '',
