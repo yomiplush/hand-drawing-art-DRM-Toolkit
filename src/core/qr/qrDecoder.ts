@@ -138,29 +138,37 @@ export function decodeQrFromRegion(
     if (hit) return { rawText: hit, strategy: 'region-native' };
 
     // White border padding fallback helps decode minimal/zero quiet-zone QRs near image edges
-    const exactFlat = flattenOnWhite(
-      raster.data,
-      raster.width,
-      raster.height,
-      Math.max(0, region[0]),
-      Math.max(0, region[1]),
-      Math.min(raster.width - Math.max(0, region[0]), region[2]),
-      Math.min(raster.height - Math.max(0, region[1]), region[3]),
-    );
-    const padded = addWhiteBorder(
-      exactFlat,
-      Math.min(raster.width - Math.max(0, region[0]), region[2]),
-      Math.min(raster.height - Math.max(0, region[1]), region[3]),
-      16,
-    );
-    const paddedHit = tryJsQr(padded.data, padded.width, padded.height);
-    if (paddedHit) return { rawText: paddedHit, strategy: 'region-padded' };
+    const rx = Math.max(0, region[0]);
+    const ry = Math.max(0, region[1]);
+    const rw = Math.min(raster.width - rx, region[2]);
+    const rh = Math.min(raster.height - ry, region[3]);
+    if (rw >= 21 && rh >= 21) {
+      const exactFlat = flattenOnWhite(raster.data, raster.width, raster.height, rx, ry, rw, rh);
+      const padded = addWhiteBorder(exactFlat, rw, rh, 16);
+      const paddedHit = tryJsQr(padded.data, padded.width, padded.height);
+      if (paddedHit) return { rawText: paddedHit, strategy: 'region-padded' };
+    }
 
     if (cw <= 400 && ch <= 400) {
       const up = scaleNearest(raster.data, raster.width, raster.height, cw * 2, ch * 2, x0, y0, cw, ch);
       const upPadded = addWhiteBorder(up.data, up.width, up.height, 16);
       const upHit = tryJsQr(upPadded.data, upPadded.width, upPadded.height);
       if (upHit) return { rawText: upHit, strategy: 'region-upscaled-2x' };
+
+      // Exact mask upscaling avoids surrounding noisy artwork pixels breaking 1px/module zero-quiet-zone QRs
+      if (rw >= 21 && rh >= 21) {
+        const upExact2 = scaleNearest(raster.data, raster.width, raster.height, rw * 2, rh * 2, rx, ry, rw, rh);
+        const upExact2Padded = addWhiteBorder(upExact2.data, upExact2.width, upExact2.height, 16);
+        const upExact2Hit = tryJsQr(upExact2Padded.data, upExact2Padded.width, upExact2Padded.height);
+        if (upExact2Hit) return { rawText: upExact2Hit, strategy: 'region-exact-upscaled-2x' };
+
+        if (rw <= 240 && rh <= 240) {
+          const upExact3 = scaleNearest(raster.data, raster.width, raster.height, rw * 3, rh * 3, rx, ry, rw, rh);
+          const upExact3Padded = addWhiteBorder(upExact3.data, upExact3.width, upExact3.height, 24);
+          const upExact3Hit = tryJsQr(upExact3Padded.data, upExact3Padded.width, upExact3Padded.height);
+          if (upExact3Hit) return { rawText: upExact3Hit, strategy: 'region-exact-upscaled-3x' };
+        }
+      }
     }
   } else {
     const scaled = downscaleNearest(raster.data, raster.width, raster.height, 1400, x0, y0, cw, ch);

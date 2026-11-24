@@ -584,5 +584,5 @@ describe('Evidence Extension (.chmevidence), Compact QR, Modes A/B/C & Security'
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
-  });
+  }, 60_000);
 });

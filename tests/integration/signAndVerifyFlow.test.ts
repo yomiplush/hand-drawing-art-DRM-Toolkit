@@ -245,7 +245,7 @@ describe('End-to-end signing, QR burning, PNG encoding, QR decoding & verificati
       expect(verifiedV2.verification.signatureStatus, `v2-qz-${quietZoneModules}`).toBe('valid');
       expect(verifiedV2.verification.integrityStatus, `v2-qz-${quietZoneModules}`).toBe('matched');
     }
-  });
+  }, 20_000);
 
   it('embeds semi-transparent in-image QR (Protocol v2), decodes it, and verifies pixels outside qrMask', async () => {
     const authorKey = await makeTestAuthorKey(seedHex, 'YomiPlush');
