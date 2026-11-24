@@ -294,11 +294,21 @@ export function DevicesPage() {
       async ([ak, state, wcSupported]) => {
         if (active) {
           const initialHash = typeof window !== 'undefined' ? window.location.hash : '';
+          const enrolledUnderDifferentOwner = Boolean(
+            state.localDevice &&
+              state.pairedDevices.some(
+                (d) =>
+                  d.devicePublicKeyBase64Url === state.localDevice?.publicKeyBase64Url &&
+                  d.localVerificationStatus !== 'revoked' &&
+                  d.localVerificationStatus !== 'conflict-revoked' &&
+                  !ak.some((k) => k.fingerprintHex === d.ownerFingerprintHex),
+              ),
+          );
           if (
             !initialHash.startsWith('#pair-') &&
             ak.length > 0 &&
-            !state.localDevice &&
-            state.pendingSessions.length === 0
+            state.pendingSessions.length === 0 &&
+            !enrolledUnderDifferentOwner
           ) {
             setActiveTab('approve');
           }
@@ -1434,7 +1444,7 @@ export function DevicesPage() {
               <QrCameraScanner
                 startLabel={t.devices.scanCameraBtn}
                 stopLabel={t.devices.stopCameraBtn}
-                hint={t.devices.cameraHint}
+                hint={t.devices.approveCameraHint}
                 errorText={t.devices.cameraDeniedFallbackMsg}
                 onDetected={(text) => {
                   setCertInput(text);
@@ -1611,6 +1621,37 @@ export function DevicesPage() {
               <p className="text-xs text-slate-300 leading-relaxed">{t.devices.approveDesc}</p>
             </div>
 
+            {authorKeys.length === 0 && (
+              <div
+                role="alert"
+                data-testid="approve-no-owner-alert"
+                className="rounded-xl border border-amber-400/45 bg-amber-500/10 p-3.5 space-y-2.5 text-xs text-amber-100 leading-relaxed"
+              >
+                <div className="flex items-start gap-2 font-semibold text-amber-200">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+                  <span>{t.devices.approveNoOwnerTitle}</span>
+                </div>
+                <p className="text-amber-100/90">{t.devices.approveNoOwnerDesc}</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    data-testid="approve-no-owner-go-add-btn"
+                    onClick={() => setActiveTab('add')}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-amber-300 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-amber-200 min-h-[36px] cursor-pointer"
+                  >
+                    <span>{t.devices.approveNoOwnerGoAddBtn}</span>
+                  </button>
+                  <Link
+                    to="/keys"
+                    data-testid="approve-no-owner-go-keys-link"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300/40 bg-[#051224] px-3 py-1.5 text-xs font-medium text-amber-100 hover:border-amber-300 min-h-[36px]"
+                  >
+                    <span>{t.devices.approveNoOwnerGoKeysBtn}</span>
+                  </Link>
+                </div>
+              </div>
+            )}
+
             {authorKeys.length > 0 && (
               <div className="space-y-2.5">
                 <div>
@@ -1775,6 +1816,32 @@ export function DevicesPage() {
                     </div>
                   </div>
                 </details>
+
+                {!selectedAuthorKeyId && (
+                  <div
+                    role="alert"
+                    data-testid="approve-card-no-owner-warning"
+                    className="rounded-lg border border-amber-400/45 bg-amber-500/10 p-3 space-y-2 text-xs text-amber-100 leading-relaxed"
+                  >
+                    <p className="font-semibold text-amber-200">{t.devices.approveNoOwnerTitle}</p>
+                    <p>{t.devices.approveNoOwnerDesc}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('add')}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-300 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-amber-200 min-h-[36px] cursor-pointer"
+                      >
+                        <span>{t.devices.approveNoOwnerGoAddBtn}</span>
+                      </button>
+                      <Link
+                        to="/keys"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300/40 bg-[#051224] px-3 py-1.5 text-xs font-medium text-amber-100 hover:border-amber-300 min-h-[36px]"
+                      >
+                        <span>{t.devices.approveNoOwnerGoKeysBtn}</span>
+                      </Link>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex flex-wrap gap-2.5 pt-2">
                   <button

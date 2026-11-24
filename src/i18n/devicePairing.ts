@@ -133,6 +133,11 @@ export interface DevicePairingTranslations {
   approveWrongTypeRevocation: string;
   approveRevokedDeviceError: string;
   approveAlreadyRegisteredError: string;
+  approveCameraHint: string;
+  approveNoOwnerTitle: string;
+  approveNoOwnerDesc: string;
+  approveNoOwnerGoAddBtn: string;
+  approveNoOwnerGoKeysBtn: string;
   confirmOwnerCheckbox: string;
   completePairingBtn: string;
   pairingCompletedTitle: string;
@@ -295,6 +300,12 @@ const JA_DEVICE_PAIRING: DevicePairingTranslations = {
     'この端末の鍵はすでに解除（失効）されているため再登録できません。新しい端末側の「この端末」欄で「別のデバイスIDを新しく作成」を押してから、新しく登録用QRを作り直してください。',
   approveAlreadyRegisteredError:
     '二重登録ブロック：この端末はすでにこのマイIDに登録済みです。（再登録したい場合は「登録済みデバイス」から削除/解除するか、新端末側で別のデバイスIDを作成してください）',
+  approveCameraHint: '新しい端末のステップ1に表示された「登録用QRコード」をカメラで映してください。',
+  approveNoOwnerTitle: 'このブラウザには「マイID」がないため、承認を実行できません',
+  approveNoOwnerDesc:
+    '「承認する」を押すには、マイID（所有者鍵）を持っているメイン端末（PC等）でこの画面を開く必要があります。もし iPad 等の新端末を登録しようとしている場合は、「デバイスを追加（新端末）」タブでQRを作り、そのQRをマイIDがあるPC側で読み込んでください。（このブラウザにマイIDを復元する場合は /keys からインポートしてください）',
+  approveNoOwnerGoAddBtn: '「デバイスを追加（新端末）」タブへ切替',
+  approveNoOwnerGoKeysBtn: 'マイID作成・復元 (/keys) へ',
   confirmOwnerCheckbox: '既存端末に表示されているマイIDと同じであることを確認しました',
   completePairingBtn: '登録を完了する',
   pairingCompletedTitle: '登録が完了しました',
@@ -527,6 +538,12 @@ const EN_DEVICE_PAIRING: DevicePairingTranslations = {
     'This device key has been revoked and cannot be registered. On the new device, click “Generate New Separate Device ID” under This Device and create a fresh pairing QR.',
   approveAlreadyRegisteredError:
     'Double-registration blocked: this device is already registered under your My ID.',
+  approveCameraHint: 'Point your camera at the Pairing Request QR displayed on your new device.',
+  approveNoOwnerTitle: 'Approval is disabled because this browser does not hold a My ID',
+  approveNoOwnerDesc:
+    'To tap Approve, open this page on your main browser holding My ID (e.g. your PC) and scan/paste the new device’s Step 1 QR there. If you are setting up THIS device as a new child device, switch to “Add This Device (New)”. (Or restore/create a My ID in Keys & Backup.)',
+  approveNoOwnerGoAddBtn: 'Switch to “Add This Device (New)”',
+  approveNoOwnerGoKeysBtn: 'Create / Restore My ID (/keys)',
   confirmOwnerCheckbox: 'I verified this Owner ID matches the one displayed on my existing device',
   completePairingBtn: 'Complete Registration',
   pairingCompletedTitle: 'Registration Complete',

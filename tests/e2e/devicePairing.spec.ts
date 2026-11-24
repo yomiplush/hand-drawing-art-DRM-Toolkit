@@ -1010,6 +1010,14 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
     }
 
     try {
+      // 0. If a browser WITHOUT My ID opens Approve tab (or #pair-req= via camera), clear warning explains why Approve is disabled
+      await pageIpad.goto('/devices');
+      await dismissCookieBannerIfVisible(pageIpad);
+      await pageIpad.getByTestId('devices-tab-approve').click();
+      await expect(pageIpad.getByTestId('approve-no-owner-alert')).toBeVisible();
+      await pageIpad.getByTestId('approve-no-owner-go-add-btn').click();
+      await expect(pageIpad.getByTestId('devices-tab-add')).toHaveAttribute('aria-selected', 'true');
+
       // 1. PC creates My ID on /keys, navigates to /devices -> auto-selects Approve tab!
       await pagePC.goto('/keys');
       await dismissCookieBannerIfVisible(pagePC);
@@ -1094,7 +1102,9 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
       await pageIpad.getByTestId('pairing-create-req-btn').click();
       const freshReqUrl = await pageIpad.getByTestId('pairing-req-url-input').inputValue();
 
-      await pagePC.getByTestId('devices-tab-approve').click();
+      // Even if PC had previously used Step 1 once (expired/cancelled), reloading PC with My ID still defaults to Approve tab!
+      await pagePC.reload();
+      await expect(pagePC.getByTestId('devices-tab-approve')).toHaveAttribute('aria-selected', 'true');
       await pagePC.getByTestId('pairing-req-paste-input').fill(freshReqUrl);
       await pagePC.getByTestId('pairing-req-inspect-btn').click();
       await pagePC.getByTestId('pairing-approve-confirm-btn').click();
