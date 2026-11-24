@@ -3,6 +3,7 @@ import type { SupportedLocale } from '../core/storage/consent';
 import type { ArtworkDetailsTranslations } from './artworkDetails';
 import type { DevicePairingTranslations } from './devicePairing';
 import type { Translations } from './en';
+import type { GoogleComplianceTranslations } from './googleCompliance';
 import type { HardeningTranslations } from './hardening';
 import type { HowToTranslations } from './howto';
 import type { LicenseGuideTranslations } from './licenses';
@@ -29,6 +30,7 @@ export type FullTranslations = Translations & {
   artworkDetails: ArtworkDetailsTranslations;
   vault: VaultTranslations;
   nextGen: NextGenTranslations;
+  googleCompliance: GoogleComplianceTranslations;
 };
 
 export interface LocaleOption {

@@ -270,7 +270,7 @@ export function Layout({
                       </button>
 
                       <Link
-                        to="/#privacypolicy"
+                        to="/privacypolicy"
                         onClick={() => setMenuOpen(false)}
                         className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/[0.06] hover:text-white min-h-[44px]"
                       >
@@ -345,7 +345,7 @@ export function Layout({
               {t.nav.docs}
             </Link>
             <Link
-              to="/#privacypolicy"
+              to="/privacypolicy"
               data-testid="footer-privacy-link"
               className="hover:text-white transition-colors py-1"
             >

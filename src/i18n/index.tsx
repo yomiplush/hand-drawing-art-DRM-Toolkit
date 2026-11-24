@@ -10,6 +10,7 @@ import type { FullTranslations, Locale } from './context';
 import { DEVICE_PAIRING_I18N } from './devicePairing';
 import { en } from './en';
 import type { Translations } from './en';
+import { GOOGLE_COMPLIANCE_I18N } from './googleCompliance';
 import { HARDENING_I18N } from './hardening';
 import { HOWTO_I18N } from './howto';
 import { ja } from './ja';
@@ -111,6 +112,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     artworkDetails: ARTWORK_DETAILS_I18N[locale] ?? ARTWORK_DETAILS_I18N.en,
     vault: VAULT_I18N[locale] ?? VAULT_I18N.en,
     nextGen: NEXT_GEN_I18N[locale] ?? NEXT_GEN_I18N.en,
+    googleCompliance: GOOGLE_COMPLIANCE_I18N[locale] ?? GOOGLE_COMPLIANCE_I18N.en,
   };
 
   return (

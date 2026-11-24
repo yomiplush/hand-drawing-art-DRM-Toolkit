@@ -89,23 +89,23 @@ const ROUTES = [
     slug: 'docs',
     title: 'Cryptographic Architecture, SPEC & Offline Verifier Docs | Certified Handmade',
     description:
-      'Technical reference for Certified Handmade: RFC 8949 CBOR proof schema, RGBA8 canonical SHA-256 digests, Protocol v1/v2 QR masks, key notices, and independent offline CLI verifiers.',
+      'Technical reference for Certified Handmade: RFC 8949 CBOR proof schema, RGBA8 canonical SHA-256 digests, Protocol v1/v2/v3 QR masks, key notices, and independent offline CLI verifiers.',
     keywords:
       'Cryptographic Artwork Provenance Spec, RFC 8949 CBOR, Ed25519 Provenance Spec, AES-256-GCM Encryption, Offline Verifier CLI, 暗号仕様, 手描きDRM',
     heading: 'Cryptographic Specification, Threat Model & License Guide',
     summary:
-      'Explore the open MIT specification (SPEC.md), RFC 8949 CBOR payload layout, Protocol v1/v2 pixel integrity verification, and independent offline CLI verifiers.',
+      'Explore the open MIT specification (SPEC.md), RFC 8949 CBOR payload layout, Protocol v1/v2/v3 pixel integrity verification, and independent offline CLI verifiers.',
   },
   {
     slug: 'privacypolicy',
-    title: 'Privacy Policy & GDPR Local-Only Architecture | Certified Handmade',
+    title: 'Privacy Policy, GDPR & Google Drive Limited Use Notice | Certified Handmade',
     description:
-      'GDPR privacy disclosure: zero tracking, zero analytics, zero analytics, CSP connect-src self wss: (external wss:// relays only when opt-in sync is enabled), and 100% local artwork/key processing.',
+      'GDPR & Google API privacy disclosure: zero tracking, zero analytics, 100% local artwork/key processing, and optional RAM-only OAuth Google Drive (drive.file) client-side AES-256-GCM encrypted vault storage.',
     keywords:
-      'Privacy Policy, GDPR Compliance, Zero Telemetry, Local-Only Web App, Offline Privacy, プライバシーポリシー, 完全ローカル',
-    heading: 'Privacy Policy & GDPR Local-Only Notice',
+      'Privacy Policy, GDPR Compliance, Google Drive Limited Use, drive.file, Zero Telemetry, Local-Only Web App, Offline Privacy, プライバシーポリシー, 完全ローカル',
+    heading: 'Privacy Policy, GDPR & Google Drive (drive.file) Limited Use Notice',
     summary:
-      'Certified Handmade processes all artwork files and cryptographic keys strictly locally in your browser with zero analytics or tracking cookies.',
+      'Certified Handmade processes all artwork files and cryptographic keys strictly locally in your browser with zero analytics or tracking cookies. Optional Google Drive sync uses only the narrow drive.file scope with RAM-only OAuth tokens and client-side AES-256-GCM encryption in strict compliance with the Google API Services User Data Policy (Limited Use).',
   },
 ];
 
@@ -164,7 +164,7 @@ for (const route of ROUTES) {
   );
   html = html.replace(
     /<main[\s\S]*?<\/main>/,
-    `<main style="max-width:56rem;margin:0 auto;padding:2rem 1.25rem;font-family:system-ui,-apple-system,sans-serif;line-height:1.6;color:#e2e8f0"><h1>${escapeHtml(route.heading)}</h1><p>${escapeHtml(route.summary)}</p><nav aria-label="Primary pages"><a href="/">Home</a> · <a href="/create">Create</a> · <a href="/verify">Verify</a> · <a href="/tutorial">Tutorial</a> · <a href="/keys">Keys</a> · <a href="/devices">Devices</a> · <a href="/exchange">Exchange</a> · <a href="/docs">Docs</a></nav></main>`,
+    `<main style="max-width:56rem;margin:0 auto;padding:2rem 1.25rem;font-family:system-ui,-apple-system,sans-serif;line-height:1.6;color:#e2e8f0"><h1>${escapeHtml(route.heading)}</h1><p>${escapeHtml(route.summary)}</p><nav aria-label="Primary pages"><a href="/">Home</a> · <a href="/create">Create</a> · <a href="/verify">Verify</a> · <a href="/tutorial">Tutorial</a> · <a href="/keys">Keys</a> · <a href="/devices">Devices</a> · <a href="/storage">Storage</a> · <a href="/exchange">Exchange</a> · <a href="/docs">Docs</a> · <a href="/privacypolicy">Privacy Policy</a></nav></main>`,
   );
 
   const outPath = path.join(distDir, `${route.slug}.html`);
