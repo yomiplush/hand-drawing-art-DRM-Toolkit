@@ -48,6 +48,7 @@ import {
   inspectEnrollmentCertificateForDevice,
   inspectPairingRequestForApproval,
   loadDevicePairingState,
+  parsePairingQrInput,
   removePairedDeviceEntry,
   revokePairedDevice,
   startDevicePairingRequestSession,
@@ -167,7 +168,14 @@ export function DevicesPage() {
   const [certInspection, setCertInspection] = useState<EnrollmentCertificateInspection | null>(null);
   const [confirmOwnerChecked, setConfirmOwnerChecked] = useState(false);
   const [step2Error, setStep2Error] = useState<string | null>(null);
+  const [step2StatusMsg, setStep2StatusMsg] = useState<string | null>(null);
+  const [step2WrongTypeKind, setStep2WrongTypeKind] = useState<'pairing-request-owner' | 'device-registry' | null>(null);
+  const [step2WrongReqRaw, setStep2WrongReqRaw] = useState<string | null>(null);
   const [completedDevice, setCompletedDevice] = useState<PairedDeviceRecord | null>(null);
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
 
   // Tab 2: Approve device (Owner side)
   const [selectedAuthorKeyId, setSelectedAuthorKeyId] = useState('');
@@ -285,6 +293,15 @@ export function DevicesPage() {
     Promise.all([listAuthorKeys(), loadDevicePairingState(), supportsWebCryptoEd25519()]).then(
       async ([ak, state, wcSupported]) => {
         if (active) {
+          const initialHash = typeof window !== 'undefined' ? window.location.hash : '';
+          if (
+            !initialHash.startsWith('#pair-') &&
+            ak.length > 0 &&
+            !state.localDevice &&
+            state.pendingSessions.length === 0
+          ) {
+            setActiveTab('approve');
+          }
           applyLoadedState(ak, state, wcSupported);
           await loadSyncViewState(state.localDevice);
           if (active) setStateLoaded(true);
@@ -346,10 +363,10 @@ export function DevicesPage() {
             throw new Error('This pairing request QR has expired. Generate a fresh QR on the new device.');
           }
           if (res.deviceRevoked) {
-            throw new Error('This device key has been revoked and cannot be registered.');
+            throw new Error(tRef.current.devices.approveRevokedDeviceError);
           }
           if (res.alreadyRegisteredUnderOwner) {
-            throw new Error('Double-registration blocked: this device is already registered under your My ID.');
+            throw new Error(tRef.current.devices.approveAlreadyRegisteredError);
           }
           setReqInspection(res);
         } catch (err) {
@@ -375,10 +392,10 @@ export function DevicesPage() {
             throw new Error(res.verification.errors.join(' '));
           }
           if (res.deviceRevoked) {
-            throw new Error('This device has been revoked and cannot complete registration.');
+            throw new Error(tRef.current.devices.step2RevokedDeviceError);
           }
           if (res.alreadyRegistered) {
-            throw new Error('This device is already registered under this CHM Identity.');
+            throw new Error(tRef.current.devices.step2AlreadyRegisteredError);
           }
           setCertInspection(res);
         } catch (err) {
@@ -470,10 +487,42 @@ export function DevicesPage() {
 
   const inspectCertValue = async (rawValue: string) => {
     setStep2Error(null);
+    setStep2StatusMsg(null);
+    setStep2WrongTypeKind(null);
+    setStep2WrongReqRaw(null);
     setCertInspection(null);
     setConfirmOwnerChecked(false);
     setCompletedDevice(null);
     try {
+      let parsedKind: ReturnType<typeof parsePairingQrInput> | null = null;
+      try {
+        parsedKind = parsePairingQrInput(rawValue);
+      } catch {
+        // Fall through to inspectEnrollmentCertificateForDevice for malformed/tampered input errors
+      }
+      if (parsedKind?.kind === 'pairing-request') {
+        if (authorKeys.length > 0) {
+          setStep2WrongTypeKind('pairing-request-owner');
+          setStep2WrongReqRaw(rawValue);
+          setStep2Error(t.devices.step2WrongTypeRequestOwner);
+        } else {
+          setStep2Error(t.devices.step2WrongTypeRequestChild);
+        }
+        return;
+      }
+      if (parsedKind?.kind === 'device-revocation') {
+        const rev = await importDeviceRevocationNotice(rawValue);
+        setCertInput('');
+        setStep2StatusMsg(`${t.devices.step2RevocationAppliedMsg} (${rev.payload.deviceFingerprintShort})`);
+        await refreshAll();
+        return;
+      }
+      if (parsedKind?.kind === 'device-registry') {
+        setStep2WrongTypeKind('device-registry');
+        setStep2Error(t.devices.step2WrongTypeRegistry);
+        return;
+      }
+
       const inspected = await inspectEnrollmentCertificateForDevice({
         rawCertificateInput: rawValue,
       });
@@ -481,10 +530,10 @@ export function DevicesPage() {
         throw new Error(inspected.verification.errors.join(' '));
       }
       if (inspected.deviceRevoked) {
-        throw new Error('This device has been revoked and cannot complete registration.');
+        throw new Error(t.devices.step2RevokedDeviceError);
       }
       if (inspected.alreadyRegistered) {
-        throw new Error('This device is already registered under this CHM Identity.');
+        throw new Error(t.devices.step2AlreadyRegisteredError);
       }
       setCertInspection(inspected);
     } catch (err) {
@@ -544,6 +593,22 @@ export function DevicesPage() {
     setReqInspection(null);
     setIssuedApproval(null);
     try {
+      let parsedKind: ReturnType<typeof parsePairingQrInput> | null = null;
+      try {
+        parsedKind = parsePairingQrInput(rawValue);
+      } catch {
+        // Fall through to inspectPairingRequestForApproval for standard errors
+      }
+      if (parsedKind?.kind === 'enrollment-certificate') {
+        throw new Error(t.devices.approveWrongTypeCert);
+      }
+      if (parsedKind?.kind === 'device-revocation') {
+        throw new Error(t.devices.approveWrongTypeRevocation);
+      }
+      if (parsedKind?.kind === 'device-registry') {
+        throw new Error(t.devices.step2WrongTypeRegistry);
+      }
+
       const owner = authorKeys.find((k) => k.id === selectedAuthorKeyId);
       const inspected = await inspectPairingRequestForApproval({
         rawInput: rawValue,
@@ -557,10 +622,10 @@ export function DevicesPage() {
         throw new Error('This pairing request QR has expired. Generate a fresh QR on the new device.');
       }
       if (inspected.deviceRevoked) {
-        throw new Error('This device key has been revoked and cannot be registered.');
+        throw new Error(t.devices.approveRevokedDeviceError);
       }
       if (inspected.alreadyRegisteredUnderOwner) {
-        throw new Error('Double-registration blocked: this device is already registered under your My ID.');
+        throw new Error(t.devices.approveAlreadyRegisteredError);
       }
       setReqInspection(inspected);
     } catch (err) {
@@ -1052,16 +1117,14 @@ export function DevicesPage() {
                   </button>
                 </div>
               ) : (
-                localDeviceActivePairings.length > 0 && (
-                  <button
-                    type="button"
-                    data-testid="device-regenerate-btn"
-                    onClick={() => void handleRegenerateDeviceIdentity()}
-                    className="rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
-                  >
-                    {t.devices.createSeparateDeviceIdBtn}
-                  </button>
-                )
+                <button
+                  type="button"
+                  data-testid="device-regenerate-btn"
+                  onClick={() => void handleRegenerateDeviceIdentity()}
+                  className="rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
+                >
+                  {t.devices.createSeparateDeviceIdBtn}
+                </button>
               )}
             </div>
           ) : (
@@ -1156,7 +1219,27 @@ export function DevicesPage() {
 
       {/* TAB 1: NEW DEVICE (STEP 1 + STEP 2) */}
       {activeTab === 'add' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
+        <div className="space-y-4 min-w-0">
+          {authorKeys.length > 0 && localDeviceActivePairings.length === 0 && (
+            <div
+              role="note"
+              data-testid="owner-in-add-tab-hint"
+              className="rounded-xl border border-sky-400/35 bg-sky-500/10 p-4 flex flex-wrap items-center justify-between gap-3 text-xs text-sky-100 leading-relaxed"
+            >
+              <span className="flex-1 min-w-[240px]">{t.devices.ownerInAddTabHint}</span>
+              <button
+                type="button"
+                data-testid="owner-switch-to-approve-btn"
+                onClick={() => setActiveTab('approve')}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-sky-300 px-3.5 py-2 text-xs font-semibold text-slate-950 hover:bg-sky-200 min-h-[40px] cursor-pointer shrink-0"
+              >
+                <QrCode className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>{t.devices.switchToApproveTabBtn}</span>
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
           {/* Step 1 */}
           <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-4 min-w-0">
             <div className="space-y-1">
@@ -1400,10 +1483,39 @@ export function DevicesPage() {
               </div>
             </div>
 
-            {step2Error && (
-              <p role="alert" data-testid="pairing-step2-error" className="text-xs text-rose-300">
-                {step2Error}
+            {step2StatusMsg && (
+              <p role="status" data-testid="pairing-step2-status" className="text-xs text-emerald-300">
+                {step2StatusMsg}
               </p>
+            )}
+
+            {step2Error && (
+              <div
+                role="alert"
+                data-testid="pairing-step2-error"
+                className="rounded-lg border border-rose-400/35 bg-rose-500/10 p-3 space-y-2 text-xs text-rose-200 leading-relaxed"
+              >
+                <p>{step2Error}</p>
+                {step2WrongTypeKind === 'pairing-request-owner' && step2WrongReqRaw && (
+                  <button
+                    type="button"
+                    data-testid="step2-switch-to-approve-btn"
+                    onClick={() => {
+                      const req = step2WrongReqRaw;
+                      setActiveTab('approve');
+                      setIncomingReqInput(req);
+                      setStep2Error(null);
+                      setStep2WrongTypeKind(null);
+                      setStep2WrongReqRaw(null);
+                      void inspectIncomingRequestValue(req);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-sky-300 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-sky-200 min-h-[36px] cursor-pointer"
+                  >
+                    <QrCode className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>{t.devices.sendToApproveTabBtn}</span>
+                  </button>
+                )}
+              </div>
             )}
 
             {certInspection && (
@@ -1486,6 +1598,7 @@ export function DevicesPage() {
               </div>
             )}
           </section>
+          </div>
         </div>
       )}
 

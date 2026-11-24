@@ -989,4 +989,127 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
       await contextTablet.close();
     }
   });
+
+  test('smart-routes Owner PC to Approve tab, explains wrong QR types (#pair-req in Step 2 / #pair-cert in Approve), accepts revocation QR in Step 2, and allows re-pairing after removal', async ({
+    browser,
+  }) => {
+    test.setTimeout(90_000);
+    const contextPC = await browser.newContext();
+    const contextIpad = await browser.newContext();
+
+    const pagePC = await contextPC.newPage();
+    const pageIpad = await contextIpad.newPage();
+
+    const consoleErrors: string[] = [];
+    const pageErrors: string[] = [];
+    for (const p of [pagePC, pageIpad]) {
+      p.on('console', (msg) => {
+        if (msg.type() === 'error') consoleErrors.push(msg.text());
+      });
+      p.on('pageerror', (err) => pageErrors.push(err.message));
+    }
+
+    try {
+      // 1. PC creates My ID on /keys, navigates to /devices -> auto-selects Approve tab!
+      await pagePC.goto('/keys');
+      await dismissCookieBannerIfVisible(pagePC);
+      await pagePC.getByTestId('keygen-label').fill('YomiPlush Studio');
+      await pagePC.getByTestId('keygen-submit').click();
+      await pagePC.getByTestId('keys-manage-devices-link').click();
+      await expect(pagePC).toHaveURL(/\/devices$/);
+      await expect(pagePC.getByTestId('devices-tab-approve')).toHaveAttribute('aria-selected', 'true');
+
+      // Clicking Add tab on Owner PC displays clear hint + quick switch button back to Approve tab
+      await pagePC.getByTestId('devices-tab-add').click();
+      await expect(pagePC.getByTestId('owner-in-add-tab-hint')).toBeVisible();
+      await pagePC.getByTestId('owner-switch-to-approve-btn').click();
+      await expect(pagePC.getByTestId('devices-tab-approve')).toHaveAttribute('aria-selected', 'true');
+
+      // 2. iPad creates a Pairing Request (#pair-req=) in Step 1
+      await pageIpad.goto('/devices');
+      await dismissCookieBannerIfVisible(pageIpad);
+      await expect(pageIpad.getByTestId('devices-tab-add')).toHaveAttribute('aria-selected', 'true');
+      await pageIpad.getByTestId('pairing-device-name-input').fill('M2 iPad Pro');
+      await pageIpad.getByTestId('pairing-create-req-btn').click();
+      const ipadReqUrl = await pageIpad.getByTestId('pairing-req-url-input').inputValue();
+
+      // If user accidentally pastes #pair-req= into Step 2 on iPad (no My ID), show clear guidance (never raw technical error)
+      await pageIpad.getByTestId('pairing-cert-text-input').fill(ipadReqUrl);
+      await pageIpad.getByTestId('pairing-cert-inspect-btn').click();
+      await expect(pageIpad.getByTestId('pairing-step2-error')).toContainText(/#pair-req=/);
+      await expect(pageIpad.getByTestId('pairing-step2-error')).not.toContainText(
+        'Expected a CHM-DEVICE-PAIRING-v1',
+      );
+
+      // If user accidentally pastes #pair-req= into Step 2 on Owner PC, offer 1-click button to open in Approve tab
+      await pagePC.getByTestId('devices-tab-add').click();
+      await pagePC.getByTestId('pairing-cert-text-input').fill(ipadReqUrl);
+      await pagePC.getByTestId('pairing-cert-inspect-btn').click();
+      await expect(pagePC.getByTestId('step2-switch-to-approve-btn')).toBeVisible();
+      await pagePC.getByTestId('step2-switch-to-approve-btn').click();
+      await expect(pagePC.getByTestId('devices-tab-approve')).toHaveAttribute('aria-selected', 'true');
+      await expect(pagePC.getByTestId('pairing-approve-confirm-card')).toContainText('M2 iPad Pro');
+
+      // Owner approves -> produces #pair-cert=
+      await pagePC.getByTestId('pairing-approve-confirm-btn').click();
+      const certUrl = await pagePC.getByTestId('pairing-cert-url-output').inputValue();
+
+      // If user accidentally pastes #pair-cert= into Approve tab, explain cleanly to paste in Step 2 on new device
+      await pagePC.getByTestId('pairing-approve-next-btn').click();
+      await pagePC.getByTestId('pairing-req-paste-input').fill(certUrl);
+      await pagePC.getByTestId('pairing-req-inspect-btn').click();
+      await expect(pagePC.getByTestId('pairing-approve-error')).toContainText(/#pair-cert=/);
+
+      // iPad completes pairing cleanly in Step 2
+      await pageIpad.getByTestId('pairing-cert-text-input').fill(certUrl);
+      await pageIpad.getByTestId('pairing-cert-inspect-btn').click();
+      await pageIpad.getByTestId('pairing-confirm-owner-checkbox').check();
+      await pageIpad.getByTestId('pairing-complete-btn').click();
+      await expect(pageIpad.getByTestId('pairing-completed-banner')).toBeVisible();
+
+      // 3. Owner revokes & removes iPad -> iPad clears local entry -> still has device-regenerate-btn -> scans revocation QR in Step 2 -> regenerates & re-pairs!
+      await pagePC.getByTestId('devices-tab-registry').click();
+      await pagePC.getByTestId('revoke-device-open-btn').click();
+      await pagePC.getByTestId('revoke-and-remove-checkbox').check();
+      await pagePC.getByTestId('revoke-confirm-submit-btn').click();
+      const revUrl = await pagePC.getByTestId('pairing-rev-url-output').inputValue();
+
+      // Remove locally on iPad first
+      await pageIpad.getByTestId('devices-tab-registry').click();
+      await pageIpad.getByTestId('remove-device-open-btn').click();
+      await pageIpad.getByTestId('remove-device-confirm-btn').click();
+      await expect(pageIpad.getByTestId('paired-device-card')).toHaveCount(0);
+
+      // On iPad Add tab, device-regenerate-btn is visible even when local pairings = 0, AND pasting #pair-rev= into Step 2 works!
+      await pageIpad.getByTestId('devices-tab-add').click();
+      await expect(pageIpad.getByTestId('device-regenerate-btn')).toBeVisible();
+      await pageIpad.getByTestId('pairing-cert-text-input').fill(revUrl);
+      await pageIpad.getByTestId('pairing-cert-inspect-btn').click();
+      await expect(pageIpad.getByTestId('pairing-step2-status')).toBeVisible();
+      await expect(pageIpad.getByTestId('device-revoked-alert')).toBeVisible();
+
+      // Regenerate fresh Device ID on iPad and re-pair cleanly
+      await pageIpad.getByTestId('device-regenerate-btn').click();
+      await pageIpad.getByTestId('pairing-device-name-input').fill('M2 iPad Pro Fresh');
+      await pageIpad.getByTestId('pairing-create-req-btn').click();
+      const freshReqUrl = await pageIpad.getByTestId('pairing-req-url-input').inputValue();
+
+      await pagePC.getByTestId('devices-tab-approve').click();
+      await pagePC.getByTestId('pairing-req-paste-input').fill(freshReqUrl);
+      await pagePC.getByTestId('pairing-req-inspect-btn').click();
+      await pagePC.getByTestId('pairing-approve-confirm-btn').click();
+      const freshCertUrl = await pagePC.getByTestId('pairing-cert-url-output').inputValue();
+
+      await pageIpad.getByTestId('pairing-cert-text-input').fill(freshCertUrl);
+      await pageIpad.getByTestId('pairing-cert-inspect-btn').click();
+      await pageIpad.getByTestId('pairing-complete-btn').click();
+      await expect(pageIpad.getByTestId('pairing-completed-banner')).toBeVisible();
+
+      expect(consoleErrors).toEqual([]);
+      expect(pageErrors).toEqual([]);
+    } finally {
+      await contextPC.close();
+      await contextIpad.close();
+    }
+  });
 });
