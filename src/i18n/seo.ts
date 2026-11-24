@@ -87,7 +87,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
     privacy: {
       title: 'Privacy Policy & GDPR Local-Only Architecture | Certified Handmade',
       description:
-        'GDPR privacy disclosure: zero tracking, zero analytics, strict connect-src self CSP, and 100% on-device local processing of artworks and cryptographic keys.',
+        'GDPR privacy disclosure: zero tracking, zero analytics, CSP connect-src self wss: (outbound wss:// relays only if opt-in sync is enabled), and 100% local artwork/key processing.',
       keywords:
         'Privacy Policy, GDPR Compliance, Zero Telemetry, Local-Only Web App, Offline Privacy',
     },
@@ -101,7 +101,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'Does it really run 100% locally and standalone offline without any server upload?',
-        a: 'Yes. Every operation—key generation, SHA-256 hashing, Ed25519 signing, AES-256-GCM key backup encryption, and QR encoding/decoding—runs inside your browser with Content-Security-Policy connect-src \'self\'. Once installed or cached as a PWA, it works completely offline.',
+        a: 'Yes. Every operation—key generation, SHA-256 hashing, Ed25519 signing, AES-256-GCM key backup encryption, and QR encoding/decoding—runs inside your browser with strict Content-Security-Policy (connect-src \'self\' wss: wss:, allowing external wss:// traffic only when you explicitly opt in to optional Device Sync). Once cached as a PWA, core signing and verification work 100% offline.',
       },
       {
         q: 'How are my artist keys and backups encrypted?',
@@ -177,7 +177,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
     privacy: {
       title: 'プライバシーポリシー & GDPR完全ローカル処理方針 | Certified Handmade',
       description:
-        'GDPR準拠のプライバシー開示：解析タグ・追跡Cookieゼロ、CSP connect-src self制限、作品画像・秘密鍵の完全ローカル端末内処理について。',
+        'GDPR準拠のプライバシー開示：解析タグ・追跡Cookieゼロ、作品画像・秘密鍵の完全ローカル処理および任意オプトイン同期時の wss:// 通信開示について。',
       keywords: 'プライバシーポリシー, GDPR, 完全ローカル, トラッキングなし, スタンドアローン',
     },
     homeFaqTitle: 'よくある質問（FAQ）— ローカル駆動・スタンドアローン手描きDRM',
@@ -190,7 +190,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: '本当に画像や秘密鍵をサーバーへ送信せず、完全オフラインで動作しますか？',
-        a: 'はい。鍵生成、SHA-256計算、Ed25519署名、AES-256-GCM暗号化バックアップ、QR生成・読取まですべてブラウザ内で完結します。CSP（connect-src \'self\'）により外部通信を遮断しており、PWAとして端末に保存すればインターネット接続なしでも動作します。',
+        a: 'はい。鍵生成、SHA-256計算、Ed25519署名、AES-256-GCM暗号化バックアップ、QR生成・読取まですべてブラウザ内で完結します。既定では外部通信を行わず（CSP connect-src \'self\' wss: wss: は任意オプトインの分散型同期リレー用）、PWAとして保存すれば完全オフラインでも全機能が動作します。',
       },
       {
         q: '秘密鍵の暗号化バックアップにはどの暗号方式が使われていますか？',
@@ -257,7 +257,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: '作品和私钥真的不会上传到任何服务器吗？',
-        a: '是的。所有计算均在浏览器内执行，严格受 CSP connect-src \'self\' 限制。安装 PWA 后可彻底离线运行。',
+        a: '是的。所有计算均在浏览器内执行，严格受 CSP connect-src \'self\' wss: 限制。安装 PWA 后可彻底离线运行。',
       },
       {
         q: '密钥备份如何加密保存？',
@@ -324,7 +324,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: '作品與私鑰真的完全不會上傳伺服器嗎？',
-        a: '是的。所有運算皆於瀏覽器本地執行，並透過 CSP connect-src \'self\' 封鎖外部傳輸。安裝 PWA 後可完全離線使用。',
+        a: '是的。所有運算皆於瀏覽器本地執行，並透過 CSP connect-src \'self\' wss: 封鎖外部傳輸。安裝 PWA 後可完全離線使用。',
       },
       {
         q: '金鑰備份是如何加密的？',
@@ -391,7 +391,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: '정말 작품과 개인 키가 서버로 전송되지 않나요?',
-        a: '네. CSP connect-src \'self\' 정책으로 외부 통신을 차단하며, PWA 설치 후 완전히 오프라인으로 작동합니다.',
+        a: '네. CSP connect-src \'self\' wss: 정책으로 외부 통신을 차단하며, PWA 설치 후 완전히 오프라인으로 작동합니다.',
       },
       {
         q: '서명 키 백업은 어떻게 암호화되나요?',
@@ -458,7 +458,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'Изображения и приватные ключи точно никуда не отправляются?',
-        a: 'Да. Политика CSP connect-src \'self\' блокирует внешние запросы, а PWA-версия работает полностью офлайн.',
+        a: 'Да. Политика CSP connect-src \'self\' wss: блокирует внешние запросы, а PWA-версия работает полностью офлайн.',
       },
       {
         q: 'Как шифруются резервные копии ключей?',
@@ -525,7 +525,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'Чи справді зображення та ключі не передаються на сервер?',
-        a: 'Так. Політика CSP connect-src \'self\' забороняє зовнішні запити, а PWA працює повністю офлайн.',
+        a: 'Так. Політика CSP connect-src \'self\' wss: забороняє зовнішні запити, а PWA працює повністю офлайн.',
       },
       {
         q: 'Як шифруються резервні копії ключів?',
@@ -592,7 +592,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: '¿Funciona realmente 100% local y sin conexión?',
-        a: 'Sí. Toda la criptografía se ejecuta en el navegador bajo CSP connect-src \'self\' y funciona offline como PWA.',
+        a: 'Sí. Toda la criptografía se ejecuta en el navegador bajo CSP connect-src \'self\' wss: y funciona offline como PWA.',
       },
       {
         q: '¿Cómo se cifran las copias de seguridad de las claves?',
@@ -659,7 +659,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'Est-ce vraiment 100% local et utilisable hors connexion ?',
-        a: 'Oui, grâce à la politique CSP connect-src \'self\' et au Service Worker PWA, aucune donnée ne quitte votre appareil.',
+        a: 'Oui, grâce à la politique CSP connect-src \'self\' wss: et au Service Worker PWA, aucune donnée ne quitte votre appareil.',
       },
       {
         q: 'Comment les sauvegardes de clés sont-elles chiffrées ?',
@@ -726,7 +726,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'Läuft wirklich alles zu 100% lokal und offline?',
-        a: 'Ja. Durch CSP connect-src \'self\' und PWA-Service-Worker verlassen weder Bilder noch Schlüssel Ihr Gerät.',
+        a: 'Ja. Durch CSP connect-src \'self\' wss: und PWA-Service-Worker verlassen weder Bilder noch Schlüssel Ihr Gerät.',
       },
       {
         q: 'Wie werden Schlüssel-Backups verschlüsselt?',
@@ -793,7 +793,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'Tudo roda mesmo 100% local e offline?',
-        a: 'Sim. Com CSP connect-src \'self\' e cache PWA, nenhuma imagem ou chave sai do seu dispositivo.',
+        a: 'Sim. Com CSP connect-src \'self\' wss: e cache PWA, nenhuma imagem ou chave sai do seu dispositivo.',
       },
       {
         q: 'Como os backups de chave são criptografados?',
@@ -860,7 +860,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'Funziona davvero al 100% in locale e offline?',
-        a: 'Sì. Grazie a CSP connect-src \'self\' e al Service Worker PWA, nessun file o chiave lascia il dispositivo.',
+        a: 'Sì. Grazie a CSP connect-src \'self\' wss: e al Service Worker PWA, nessun file o chiave lascia il dispositivo.',
       },
       {
         q: 'Come vengono cifrati i backup delle chiavi?',
@@ -927,7 +927,7 @@ export const SEO_I18N: Record<SupportedLocale, SeoTranslations> = {
       },
       {
         q: 'هل يعمل التطبيق محلياً 100% ودون إنترنت فعلاً؟',
-        a: 'نعم. تمنع سياسة CSP connect-src \'self\' أي اتصال خارجي، ويعمل التطبيق كـ PWA بالكامل دون إنترنت.',
+        a: 'نعم. تمنع سياسة CSP connect-src \'self\' wss: أي اتصال خارجي، ويعمل التطبيق كـ PWA بالكامل دون إنترنت.',
       },
       {
         q: 'كيف يتم تشفير النسخ الاحتياطية للمفاتيح؟',

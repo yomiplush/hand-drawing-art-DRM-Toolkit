@@ -1,7 +1,8 @@
 # Certified Handmade Protocol Specification (`SPEC.md`)
 
-**Protocol Versions:** `1` (Outer QR Border) · `2` (In-Image Masked QR Overlay)  
-**Status:** Implemented Specification (`v1` & `v2`)  
+**Protocol Versions:** `1` (Outer QR Border) · `2` (In-Image Masked QR Overlay) · `CHM-SYNC-v1` · `CHM-VAULT-v1` · `CHM-PUBLIC-PROOF-v1`  
+**Status:** Implemented Specification (`v1` & `v2` + Decentralized Sync & Vault Extensions)  
+**Official Nostr NIP Reference Commit:** [`nostr-protocol/nips@bec0fc8`](https://github.com/nostr-protocol/nips/commit/bec0fc8)  
 **Goal:** Enable anyone, anywhere, forever—even without the original website or any central server—to independently verify signed artwork manifests and pixel integrity using standard cryptographic primitives.
 
 ---
@@ -12,7 +13,8 @@
 2. **Digital Signature:** Pure Ed25519 (RFC 8032)
 3. **Binary Serialization:** Deterministic CBOR (RFC 8949 Section 4.2)
 4. **Transport Encoding:** Unpadded Base64url (RFC 4648 Section 5, without `=` padding)
-5. **Encrypted Key Backup (`.chkey.json`, optional client backup format):** PBKDF2-HMAC-SHA256 (`600,000` iterations, 16-byte salt) + AES-256-GCM (12-byte IV, 128-bit tag, AAD-bound 32-byte Ed25519 public key)
+5. **Encrypted Key & Vault Backup (`.chkey.json`, `.chmvault.enc.json`):** PBKDF2-HMAC-SHA256 (`600,000` iterations, 16-byte salt) + AES-256-GCM (12-byte IV, 128-bit tag, AAD-bound public key for `.chkey.json`)
+6. **Optional Nostr Transport Primitives (`CHM-SYNC-v1`, strictly isolated from Ed25519):** BIP-340 Schnorr on secp256k1 (`NIP-01`), Versioned ChaCha20 + HMAC-SHA256 (`NIP-44 v2`), Ephemeral Gift Wrap (`NIP-59`), and scrypt + XChaCha20-Poly1305 (`NIP-49` `ncryptsec1`)
 
 ---
 
@@ -357,6 +359,8 @@ All envelopes use strict deterministic RFC 8949 CBOR maps (ascending integer key
 | `3` Device Revocation Notice | `chm-pair-rev:` / `#pair-rev=` | `CHM-DEVICE-PAIRING-v1:REVOKE\0` | Owner Root Private Key |
 | `4` Signed Device Registry | `chm-pair-reg:` / `.chdevreg.{json,cbor}` | `CHM-DEVICE-PAIRING-v1:REGISTRY\0` | Owner Root Private Key |
 
+Out-of-band pairing confirmation code (`CHM-PAIR-CONFIRM1\0`) uses `SHA-256("CHM-PAIR-CONFIRM1\0" || requestHash(32) || nonce(32) || devicePublicKey(32))` formatted as an 8-character Crockford-style code (`A7K9-M2P4`).
+
 ### 13.2 Key Custody, Cryptographic Binding & Replay Defense
 
 1. **Key Custody:** Each device generates an independent Ed25519 keypair locally (`webcrypto-non-extractable` in IndexedDB where supported, AES-256-GCM encrypted seed fallback otherwise). Root private keys are never transmitted or copied.
@@ -443,3 +447,57 @@ Encoded as deterministic RFC 8949 CBOR map with ascending integer keys:
    - **Mode B (Proof + `.chmevidence`):** Verifies Mode A plus `.chmevidence` canonical CBOR, `"CHM-EVIDENCE1\0"` Ed25519 signature, and exact 4-field binding. When local evidence files are not supplied, records are reported strictly as **`unavailable`** — NEVER as `invalid`.
    - **Mode C (Proof + `.chmevidence` + Local Evidence Files):** Streams each supplied local file (`<= 512 MiB`) to compute `SHA-256` and `byteLength` locally, matching against `evidenceRecords`. Supplied files matching no record MUST be flagged as mismatched.
 4. **Honest Claims:** Profile URLs are signed self-declarations without external API checks; creation method is displayed explicitly as **`declared by creator`**. Implementations MUST NEVER compute or display a numerical "Human-Made Confidence" score or infer AI usage from missing evidence.
+
+---
+
+## 15. Opt-In Decentralized Device Sync (`CHM-SYNC-v1`)
+
+`CHM-SYNC-v1` is an optional Layer 3 synchronization protocol (`src/core/sync/`, `src/core/nostr/`) built over untrusted free Nostr relays (`nostr-protocol/nips@bec0fc8`). It is **disabled at rest** (`enabled: false`) and NEVER alters CHM Layer 1 verification math or grants trust authority to relays.
+
+### 15.1 Key Separation & Adopted NIPs
+
+- **Strict Key Separation:** Each device's Nostr transport secp256k1 keypair (`nostrDeviceKeys` store) MUST NEVER share key material with any CHM Ed25519 key (`assertNostrSecretKeyDistinctFromEd25519`).
+- **Adopted NIPs:** `NIP-01` (event ID & BIP-340 Schnorr), `NIP-09` (`kind 5` deletion requests), `NIP-11` (`Accept: application/nostr+json` zero-cost relay policy pre-flight), `NIP-42` (`kind 22242` relay auth), `NIP-44 v2` (ChaCha20 + HMAC-SHA256 encryption), `NIP-49` (`ncryptsec1` encrypted backup), `NIP-59` (`kind 1059` ephemeral gift wraps), `NIP-65` (`kind 10002`, capped at `<= 8` `wss://` relays), and optional `NIP-78` (`kind 30078` in Section 16). **NIP-04 is strictly forbidden.**
+
+### 15.2 Dual-Signed Peer Binding (`CHM-SYNC-v1:BIND\0` & `CHM-SYNC-v1:NOSTR-POP\0`)
+
+- Envelope: deterministic RFC 8949 CBOR `[payloadBytes, chmSignature64, nostrSignature64]`, prefixed as `chm-sync-bind:<b64u>` (`MAX_BINDING_CBOR_BYTES = 2048`).
+- Payload map (`keys 0..10`): protocol ID (`"CHM-SYNC-v1"`), envelope kind (`1`), `bindingId(16)`, `ownerPublicKey(32)`, `deviceId(16)`, `devicePublicKey(32)`, `nostrPubkey(32)`, `signerRole` (`1=owner`, `2=paired-device`), `issuedAt`, `expiresAt`, `nonce(32)`.
+- Signatures:
+  - `chmSignature64 = Ed25519_Sign(signerChmKey, "CHM-SYNC-v1:BIND\0" || payloadBytes)`
+  - `nostrSignature64 = BIP340_Schnorr_Sign(nostrSecretKey, SHA-256("CHM-SYNC-v1:NOSTR-POP\0" || payloadBytes))`
+
+### 15.3 Hash-Chained Sync Operations (`CHM-SYNC-v1:OP\0`)
+
+- Envelope: deterministic RFC 8949 CBOR `[payloadBytes, ownerSignature64]` (`MAX_SYNC_OP_CBOR_BYTES = 65536`), signed by the Owner root Ed25519 key over `"CHM-SYNC-v1:OP\0" || payloadBytes`.
+- Payload map (`keys 0..11`) binds monotonic `sequence >= 1`, `prevOpHash(32)` (`ZERO_HASH_BYTES_32` for sequence `1`), `opKind` (`1=enroll-device`, `2=revoke-device`, `3=authorize-sync-device`, `4=checkpoint`), and embedded `CHM-DEVICE-PAIRING-v1` / binding artifacts.
+- `resolveDeterministicSyncState` rejects non-Owner signatures and surfaces sequence gaps (`missingSequences`) cleanly without trusting relay ordering.
+
+### 15.4 Gift-Wrapped Bundle (`NIP-59` `kind 1059`), Zero-Cost Relay Gating & Priority Queue
+
+- Encrypted inner rumor JSON (`MAX_SYNC_RUMOR_JSON_CHARS = 65536`, `MAX_SYNC_BUNDLE_ITEMS = 64`, `MAX_VAULT_PROOFS_PER_BUNDLE = 24`) carries only signed `opsBase64Url`, `bindingsBase64Url`, optional compact `vaultProofs` (`proofBase64Url`, `creationMethod`, `createdAt`), optional public `profileSnapshot`, and `trustedArtists`—**never** artwork pixels or private keys.
+- **Zero-Cost Policy (`usableForZeroCost`):** NIP-11 pre-flight and runtime `OK false` / `CLOSED` inspection block and auto-pause any relay requiring fees or payment (`payment-required`).
+- **Priority Queue & Soft Monthly Budget:** `DEFAULT_ONLINE_SYNC_BUDGET_BYTES = 1_048_576` (`1 MiB`) over `SYNC_BUDGET_WINDOW_MS = 30 days`. Priorities `0` (`revoke-device`) and `1` (`enroll-device`, `authorize-sync-device`, `checkpoint`, peer bindings) bypass budget deferral; Priorities `2` (`CHM-VAULT-v1` proofs/profile sync) and `3` defer gracefully (`gracefulFallbackReason = 'budget-limit'`) until budget reset or offline JSON/encrypted backup export.
+
+---
+
+## 16. Local Proof Vault (`CHM-VAULT-v1`) & Opt-In Public Proof Index (`CHM-PUBLIC-PROOF-v1`)
+
+### 16.1 Compact Vault Record & Portable Archives (`CHM-VAULT-v1`)
+
+- Every signed `CHM1` / `v2` proof saved in IndexedDB `proofVault` stores only compact verifiable metadata (`id = SHA-256(proofBytes)`, `artworkIdHex`, `authorPublicKeyBase64Url`, `authorFingerprintHex`, `imageSha256Hex`, `issuedAt`, `licenseId`, `proofBase64Url`, opt-in sync flags)—targeting `< 1,200` bytes (`~1 KiB`) per entry with **zero** pixels or private keys.
+- Portable exports:
+  - Plain JSON (`format: "certified-handmade-vault-backup"`, `version: 1`, `containsPrivateKeys: false`).
+  - Encrypted Vault (`format: "certified-handmade-vault-encrypted-backup"`, `version: 1`, `kdf: "PBKDF2-SHA256"`, `iterations: 600000`, `cipher: "AES-256-GCM"`).
+- All restored proof records re-run full Ed25519 `CHM1\0` verification before entering IndexedDB.
+
+### 16.2 Opt-In Public Proof Index (`CHM-PUBLIC-PROOF-v1`, NIP-78 `kind 30078`)
+
+- Strictly **opt-in** per proof (`publicIndexOptIn: true`) and disabled by default.
+- Event structure (`src/core/vault/publicIndex.ts`):
+  - `kind: 30078` (`CHM_PUBLIC_PROOF_EVENT_KIND`)
+  - Tags: `["d", "chm-proof:<proofSha256Hex>"]`, `["t", "certified-handmade-proof"]`, `["chm_author", "<authorFingerprintHex>"]`
+  - `content`: JSON `{"protocol": "CHM-PUBLIC-PROOF-v1", "proofBase64Url": "<b64u>", "authorFingerprintHex": "<hex>", "creationMethod"?: "<str>"}` (`<= 16,384` chars).
+- Verifiers consuming `kind 30078` events MUST verify both the NIP-01 Schnorr envelope AND the embedded `CHM1\0` / `v2` Ed25519 proof signature locally before accepting or displaying any record.
+
+See [`docs/CHM-SYNC-PROTOCOL.md`](./docs/CHM-SYNC-PROTOCOL.md), [`docs/STORAGE-BUDGET.md`](./docs/STORAGE-BUDGET.md), and [`docs/ZERO-COST-ARCHITECTURE.md`](./docs/ZERO-COST-ARCHITECTURE.md) for companion details.

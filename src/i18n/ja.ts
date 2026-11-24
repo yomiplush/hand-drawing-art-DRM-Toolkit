@@ -38,7 +38,7 @@ export const ja: Translations = {
     title: 'プライバシーポリシー & GDPRに基づく開示',
     subtitle:
       'EU一般データ保護規則（GDPR: Regulation (EU) 2016/679 / gdpr-info.eu）およびePrivacy指令に基づき、Certified Handmadeのローカル完結型アーキテクチャに即して策定しています。',
-    lastUpdated: '制定・最終更新日: 2026年11月22日',
+    lastUpdated: '制定・最終更新日: 2026年11月24日',
     gdprRefLabel: 'GDPR条文リファレンス:',
     gdprRefUrl: 'https://gdpr-info.eu/',
     controlsTitle: '同意管理・ローカルデータ操作（GDPR第7条3項）',
@@ -58,11 +58,11 @@ export const ja: Translations = {
       },
       {
         title: '3. 処理の法的根拠（GDPR第6条1項）',
-        body: '• 第6条1項(b) / (f)（契約/利用者が要求した機能実行・正当な利益による必須処理）: 選択した画像のローカル読み込み、署名・検証の実行、PWAオフライン用キャッシュ、および同意拒否/許可の選択状態の保持。\n• 第6条1項(a)（明示的同意）: 任意の機能設定Cookie/localStorage（UI表示言語設定の永続記憶）の保存、およびQRスキャン開始時のカメラアクセス権限。',
+        body: '• 第6条1項(b) / (f)（契約/利用者が要求した機能実行・正当な利益による必須処理）: 選択した画像のローカル読み込み、署名・検証の実行、PWAオフライン用キャッシュ、および同意拒否/許可の選択状態の保持。\n• 第6条1項(a)（明示的同意）: 任意の機能設定Cookie/localStorage（UI表示言語設定の永続記憶）、QRスキャン開始時のカメラ権限、および /devices で明示的に同意して有効化した場合のみの分散型デバイス同期（wss:// Nostrリレー接続）。',
       },
       {
         title: '4. Cookieおよびブラウザストレージ一覧',
-        body: '広告用・行動追跡用・サードパーティ分析用のCookieは一切使用しません（外部ドメインへの通信自体がCSPで遮断されています）。',
+        body: '広告用・行動追跡用・サードパーティ分析用のCookieは一切使用せず、既定状態では外部通信を一切行いません。/devices で「分散型同期」を明示的に有効化した場合に限り、利用者が選択したNostrリレーへ wss:// 接続を行います（作品画像・秘密鍵・個人情報は一切送信しませんが、接続先リレー運営者にはIPアドレス・接続時刻・同期用公開IDが観測されます）。',
       },
       {
         title: '5. 静的ホスティング基盤について（Cloudflare Pages）',
@@ -93,7 +93,7 @@ export const ja: Translations = {
       {
         name: 'IndexedDB (certified-handmade-store)',
         category: '利用者操作に基づく必須ストレージ（第6条1項(b)）',
-        purpose: '利用者が生成・復元したEd25519署名鍵、ローカル信頼済み公開鍵リスト、および取り込んだ鍵失効・ローテーション通知（keyNotices）を保存。',
+        purpose: 'Ed25519署名鍵、ローカル信頼済み鍵、デバイス登録簿、および同期有効時のラップ済みNostr同期鍵・同期ログ・送信キューを保存。',
         retention: '利用者が削除するかブラウザが消去するまで',
       },
       {

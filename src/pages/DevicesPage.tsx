@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
+  base64UrlDecode,
   decodeQrFromImageBytes,
+  hexToBytes,
   renderExchangeQrPng,
 } from '@yomiplush/chm-exchange/core';
 import type {
@@ -23,6 +25,7 @@ import {
   Laptop,
   PlusCircle,
   QrCode,
+  RefreshCw,
   ShieldAlert,
   ShieldCheck,
   Smartphone,
@@ -58,9 +61,34 @@ import type {
 } from '../core/storage/devicePairingStore';
 import { createAuthorKey, listAuthorKeys } from '../core/storage/keyStore';
 import type { AuthorKeyRecord } from '../core/storage/keyStore';
+import { DecentralizedSyncPanel } from '../components/devices/DecentralizedSyncPanel';
+import { getDeviceNostrKeyRecord } from '../core/nostr/nostrKeyStore';
+import type { NostrDeviceKeyRecord } from '../core/nostr/nostrKeyStore';
+import {
+  SYNC_BINDING_TOKEN_PREFIX,
+  announceLocalBindingToKnownPeers,
+  attachSyncBindingToPairingUrl,
+  computeConfirmationCodeForCertificate,
+  computeConfirmationCodeForRequest,
+  computePairingConfirmationCode,
+  createDefaultSyncSettings,
+  ensureLocalBindingAttestation,
+  extractSyncBindFromPairingUrl,
+  getSyncStatusSummary,
+  importPeerSyncBindingInput,
+  listVerifiedPeerBindings,
+  loadSyncSettings,
+  recordAndBroadcastOwnerSyncMutation,
+  runDecentralizedSyncCycle,
+} from '../core/sync';
+import type {
+  SyncSettings,
+  SyncStatusSummary,
+  VerifiedPeerBinding,
+} from '../core/sync/types';
 import { useI18n } from '../i18n/context';
 
-type DevicesTab = 'add' | 'approve' | 'registry';
+type DevicesTab = 'add' | 'approve' | 'registry' | 'sync';
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -176,6 +204,28 @@ export function DevicesPage() {
   const [registryReconcileResult, setRegistryReconcileResult] =
     useState<VerifiedRegistryReconciliationResult | null>(null);
 
+  // Tab 4: Optional Decentralized Sync state
+  const [syncSettings, setSyncSettings] = useState<SyncSettings>(() => createDefaultSyncSettings());
+  const [syncStatus, setSyncStatus] = useState<SyncStatusSummary>(() => ({
+    health: 'disabled',
+    enabled: false,
+    consentAccepted: false,
+    queuedOutboxCount: 0,
+    knownOpCount: 0,
+    missingSequences: [],
+    hasCausalGap: false,
+    reachableRelays: 0,
+    totalEnabledRelays: 0,
+    relayStatuses: [],
+    onlineSyncBudgetBytes: 1_048_576,
+    syncWindowBytesUsed: 0,
+    budgetPaused: false,
+    paidRelaysRejectedCount: 0,
+    gracefulFallbackReason: 'none',
+  }));
+  const [nostrKey, setNostrKey] = useState<NostrDeviceKeyRecord | null>(null);
+  const [peerBindings, setPeerBindings] = useState<VerifiedPeerBinding[]>([]);
+
   const applyLoadedState = useCallback(
     (
       ak: AuthorKeyRecord[],
@@ -201,6 +251,20 @@ export function DevicesPage() {
     [],
   );
 
+  const loadSyncViewState = useCallback(async (device: DeviceIdentityRecord | null) => {
+    const [settings, status, bindings, nk] = await Promise.all([
+      loadSyncSettings(),
+      getSyncStatusSummary(),
+      listVerifiedPeerBindings(),
+      device ? getDeviceNostrKeyRecord(device.deviceIdHex) : Promise.resolve(null),
+    ]);
+    if (!isMountedRef.current) return;
+    setSyncSettings(settings);
+    setSyncStatus(status);
+    setPeerBindings(bindings);
+    setNostrKey(nk);
+  }, []);
+
   const refreshAll = useCallback(async () => {
     const [ak, state, wcSupported] = await Promise.all([
       listAuthorKeys(),
@@ -208,22 +272,24 @@ export function DevicesPage() {
       supportsWebCryptoEd25519(),
     ]);
     applyLoadedState(ak, state, wcSupported);
-  }, [applyLoadedState]);
+    await loadSyncViewState(state.localDevice);
+  }, [applyLoadedState, loadSyncViewState]);
 
   useEffect(() => {
     let active = true;
     Promise.all([listAuthorKeys(), loadDevicePairingState(), supportsWebCryptoEd25519()]).then(
-      ([ak, state, wcSupported]) => {
+      async ([ak, state, wcSupported]) => {
         if (active) {
           applyLoadedState(ak, state, wcSupported);
-          setStateLoaded(true);
+          await loadSyncViewState(state.localDevice);
+          if (active) setStateLoaded(true);
         }
       },
     );
     return () => {
       active = false;
     };
-  }, [applyLoadedState]);
+  }, [applyLoadedState, loadSyncViewState]);
 
   // Countdown tick for pending request expiration display
   useEffect(() => {
@@ -438,11 +504,26 @@ export function DevicesPage() {
   const handleCompletePairing = async () => {
     if (!certInspection) return;
     setStep2Error(null);
+    const rawCertInput = certInput;
     try {
       const { pairedDevice } = await completeDevicePairingWithCertificate({
         rawCertificateInput: certInspection.certificate.token,
         confirmOwnerTrust: confirmOwnerChecked,
       });
+      try {
+        if (extractSyncBindFromPairingUrl(rawCertInput)) {
+          await importPeerSyncBindingInput(rawCertInput);
+        }
+        const settingsNow = await loadSyncSettings();
+        if (settingsNow.enabled && settingsNow.consentAccepted) {
+          await announceLocalBindingToKnownPeers({
+            ownerFingerprintHex: pairedDevice.ownerFingerprintHex,
+          });
+          await runDecentralizedSyncCycle();
+        }
+      } catch {
+        // Non-blocking: offline pairing must never fail if sync fails
+      }
       setCompletedDevice(pairedDevice);
       setCertInspection(null);
       setCertInput('');
@@ -505,7 +586,28 @@ export function DevicesPage() {
         authorKeyId: selectedAuthorKeyId,
         passphrase: ownerPassphrase || undefined,
       });
-      setIssuedApproval(res);
+      let qrUrl = res.qrUrl;
+      try {
+        const settingsNow = await loadSyncSettings();
+        if (settingsNow.enabled && settingsNow.consentAccepted) {
+          const ensured = await ensureLocalBindingAttestation({
+            authorKeyId: selectedAuthorKeyId,
+            ownerPassphrase: ownerPassphrase || undefined,
+          });
+          if (ensured.binding) {
+            qrUrl = attachSyncBindingToPairingUrl(res.qrUrl, ensured.binding);
+          }
+          await recordAndBroadcastOwnerSyncMutation({
+            authorKeyId: selectedAuthorKeyId,
+            ownerPassphrase: ownerPassphrase || undefined,
+            opKind: 'enroll-device',
+            enrollmentCertificate: res.certificate,
+          });
+        }
+      } catch {
+        // Non-blocking: offline QR approval must never fail if sync fails
+      }
+      setIssuedApproval({ ...res, qrUrl });
       setReqInspection(null);
       setIncomingReqInput('');
       setOwnerPassphrase('');
@@ -540,6 +642,19 @@ export function DevicesPage() {
         note: revokeNote.trim() || undefined,
         passphrase: revokePassphrase || undefined,
       });
+      try {
+        const settingsNow = await loadSyncSettings();
+        if (settingsNow.enabled && settingsNow.consentAccepted) {
+          await recordAndBroadcastOwnerSyncMutation({
+            authorKeyId: matchingOwner.id,
+            ownerPassphrase: revokePassphrase || undefined,
+            opKind: 'revoke-device',
+            revocationNotice: res.revocation,
+          });
+        }
+      } catch {
+        // Non-blocking: offline revocation QR must always succeed
+      }
       setGeneratedRevocation(res);
       setRevokingKey(null);
       setRevokeNote('');
@@ -640,6 +755,41 @@ export function DevicesPage() {
     activeRequestSession?.session ?? (pendingSessions.length > 0 ? pendingSessions[0] : null);
   const displayedQrUrl = activeRequestSession?.qrUrl ?? displayedSession?.qrUrl ?? '';
   const displayedRequestExpired = displayedSession ? nowUnix > displayedSession.expiresAt : false;
+
+  const displayedReqConfirmCode = displayedSession
+    ? computePairingConfirmationCode({
+        requestHash: hexToBytes(displayedSession.requestHashHex),
+        nonce: hexToBytes(displayedSession.nonceHex),
+        devicePublicKey: base64UrlDecode(displayedSession.devicePublicKeyBase64Url),
+      })
+    : null;
+  const certInspectConfirmCode = certInspection
+    ? computeConfirmationCodeForCertificate(certInspection.certificate)
+    : null;
+  const reqInspectConfirmCode = reqInspection
+    ? computeConfirmationCodeForRequest(reqInspection.request)
+    : null;
+  const issuedApprovalConfirmCode = issuedApproval
+    ? computeConfirmationCodeForCertificate(issuedApproval.certificate)
+    : null;
+
+  const localBindingMatch =
+    localDevice && nostrKey
+      ? peerBindings.find(
+          (b) =>
+            b.deviceIdHex === localDevice.deviceIdHex &&
+            b.nostrPubkeyHex === nostrKey.nostrPubkeyHex &&
+            (!selectedOwnerKey || b.ownerFingerprintHex === selectedOwnerKey.fingerprintHex),
+        ) ??
+        peerBindings.find(
+          (b) =>
+            b.deviceIdHex === localDevice.deviceIdHex &&
+            b.nostrPubkeyHex === nostrKey.nostrPubkeyHex,
+        )
+      : undefined;
+  const localBindingToken = localBindingMatch
+    ? `${SYNC_BINDING_TOKEN_PREFIX}${localBindingMatch.bindingCborBase64Url}`
+    : null;
 
   return (
     <div data-testid="devices-page" className="space-y-6 min-w-0">
@@ -945,6 +1095,34 @@ export function DevicesPage() {
             {t.devices.registryTab} ({pairedDevices.length})
           </span>
         </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'sync'}
+          data-testid="devices-tab-sync"
+          onClick={() => setActiveTab('sync')}
+          className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium min-h-[44px] cursor-pointer transition-colors ${
+            activeTab === 'sync'
+              ? 'bg-sky-500/20 text-white border border-sky-400/45'
+              : 'bg-[#051224]/70 text-slate-300 border border-white/[0.1] hover:text-white'
+          }`}
+        >
+          <RefreshCw className="h-4 w-4 text-sky-300" aria-hidden="true" />
+          <span>{t.devices.sync.tabLabel}</span>
+          {syncSettings.enabled && (
+            <span
+              aria-hidden="true"
+              className={`h-2 w-2 rounded-full ${
+                syncStatus.health === 'synced-observable'
+                  ? 'bg-emerald-400'
+                  : syncStatus.health === 'error-unreachable'
+                    ? 'bg-rose-400'
+                    : 'bg-amber-400'
+              }`}
+            />
+          )}
+        </button>
       </div>
 
       {/* TAB 1: NEW DEVICE (STEP 1 + STEP 2) */}
@@ -1040,6 +1218,23 @@ export function DevicesPage() {
                   value={displayedQrUrl}
                   alt={t.devices.requestQrTitle}
                 />
+
+                {displayedReqConfirmCode && (
+                  <div className="rounded-lg border border-sky-400/30 bg-[#020813] px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div>
+                      <span className="text-slate-400">{t.devices.sync.confirmationCodeLabel}: </span>
+                      <span
+                        data-testid="pairing-req-confirm-code"
+                        className="font-mono font-bold tracking-wider text-sky-200 text-sm"
+                      >
+                        {displayedReqConfirmCode}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-400">
+                      {t.devices.sync.confirmationCodeHint}
+                    </span>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <input
@@ -1199,6 +1394,17 @@ export function DevicesPage() {
                   <div className="text-slate-300">
                     {t.devices.confirmPermissionLabel}: {t.devices.confirmPermissionValue}
                   </div>
+                  {certInspectConfirmCode && (
+                    <div className="pt-1 text-slate-300">
+                      {t.devices.sync.confirmationCodeLabel}:{' '}
+                      <span
+                        data-testid="pairing-cert-confirm-code"
+                        className="font-mono font-bold tracking-wider text-cyan-200"
+                      >
+                        {certInspectConfirmCode}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {certInspection.requiresOwnerTrustConfirmation ? (
@@ -1388,10 +1594,21 @@ export function DevicesPage() {
                         : t.devices.myIdEmptyDesc}
                     </dd>
                   </div>
-                  <div className="flex flex-wrap justify-between gap-2">
+                  <div className="flex flex-wrap justify-between gap-2 border-b border-white/[0.06] pb-1.5">
                     <dt className="text-slate-400">{t.devices.confirmPermissionLabel}</dt>
                     <dd className="text-slate-200">{t.devices.confirmPermissionValue}</dd>
                   </div>
+                  {reqInspectConfirmCode && (
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <dt className="text-slate-400">{t.devices.sync.confirmationCodeLabel}</dt>
+                      <dd
+                        data-testid="pairing-approve-confirm-code"
+                        className="font-mono font-bold tracking-wider text-sky-200 text-sm"
+                      >
+                        {reqInspectConfirmCode}
+                      </dd>
+                    </div>
+                  )}
                 </dl>
 
                 <details className="text-[11px] text-slate-400">
@@ -1459,6 +1676,23 @@ export function DevicesPage() {
                   value={issuedApproval.qrUrl}
                   alt={t.devices.approvalQrReadyTitle}
                 />
+
+                {issuedApprovalConfirmCode && (
+                  <div className="rounded-lg border border-emerald-400/30 bg-[#020813] px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div>
+                      <span className="text-slate-400">{t.devices.sync.confirmationCodeLabel}: </span>
+                      <span
+                        data-testid="pairing-approval-confirm-code"
+                        className="font-mono font-bold tracking-wider text-emerald-200 text-sm"
+                      >
+                        {issuedApprovalConfirmCode}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-400">
+                      {t.devices.sync.confirmationCodeHint}
+                    </span>
+                  </div>
+                )}
 
                 <input
                   type="text"
@@ -1904,6 +2138,21 @@ export function DevicesPage() {
             </section>
           </div>
         </div>
+      )}
+
+      {/* TAB 4: OPTIONAL DECENTRALIZED SYNC */}
+      {activeTab === 'sync' && (
+        <DecentralizedSyncPanel
+          settings={syncSettings}
+          status={syncStatus}
+          localDevice={localDevice}
+          nostrKey={nostrKey}
+          localBindingToken={localBindingToken}
+          peerBindings={peerBindings}
+          authorKeys={authorKeys}
+          selectedAuthorKeyId={selectedAuthorKeyId}
+          onRefresh={refreshAll}
+        />
       )}
     </div>
   );

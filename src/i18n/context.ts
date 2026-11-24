@@ -10,6 +10,7 @@ import type { MinimalUiTranslations } from './minimalUi';
 import type { QrStudioTranslations } from './qrStudio';
 import type { SeoTranslations } from './seo';
 import type { TutorialTranslations } from './tutorial';
+import type { VaultTranslations } from './vault';
 import type { VerifyMobileTranslations } from './verifyMobile';
 
 export type Locale = SupportedLocale;
@@ -25,6 +26,7 @@ export type FullTranslations = Translations & {
   hardening: HardeningTranslations;
   devices: DevicePairingTranslations;
   artworkDetails: ArtworkDetailsTranslations;
+  vault: VaultTranslations;
 };
 
 export interface LocaleOption {

@@ -67,7 +67,7 @@ const ROUTES = [
     slug: 'devices',
     title: 'CHM Secure Device Pairing — Offline Multi-Device Enrollment | Certified Handmade',
     description:
-      'Pair your PC, smartphone, and tablet to your CHM Identity offline via a 2-step QR handshake with zero servers, non-extractable Ed25519 device keys, and signed revocation notices.',
+      'Pair your PC, smartphone, and tablet to your CHM Identity offline via a 2-step QR handshake with optional opt-in Nostr NIP-44/NIP-59 encrypted decentralized sync, zero central servers, and signed revocations.',
     keywords:
       'CHM-DEVICE-PAIRING-v1, Secure Device Pairing, Offline QR Pairing, Ed25519 Device Identity, Device Revocation, デバイス連携, 登録済みデバイス',
     heading: 'CHM Secure Device Pairing & Management',
@@ -100,7 +100,7 @@ const ROUTES = [
     slug: 'privacypolicy',
     title: 'Privacy Policy & GDPR Local-Only Architecture | Certified Handmade',
     description:
-      'GDPR privacy disclosure: zero tracking, zero analytics, strict connect-src self CSP, and 100% on-device local processing of artworks and cryptographic keys.',
+      'GDPR privacy disclosure: zero tracking, zero analytics, zero analytics, CSP connect-src self wss: (external wss:// relays only when opt-in sync is enabled), and 100% local artwork/key processing.',
     keywords:
       'Privacy Policy, GDPR Compliance, Zero Telemetry, Local-Only Web App, Offline Privacy, プライバシーポリシー, 完全ローカル',
     heading: 'Privacy Policy & GDPR Local-Only Notice',

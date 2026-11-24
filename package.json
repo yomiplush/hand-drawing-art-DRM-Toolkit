@@ -26,6 +26,8 @@
     "test:standalone": "playwright test -c playwright.standalone.config.ts"
   },
   "dependencies": {
+    "@noble/ciphers": "^2.4.0",
+    "@noble/curves": "^2.4.0",
     "@noble/ed25519": "^3.2.0",
     "@noble/hashes": "^2.4.0",
     "@yomiplush/chm-exchange": "git+https://github.com/yomiplush/CHM-Exchange.git#703f367832c412a424bc42ab229197496492c4f2",

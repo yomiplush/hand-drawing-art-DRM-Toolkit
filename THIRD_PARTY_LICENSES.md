@@ -11,7 +11,9 @@ All frontend runtime dependencies are open-source and bundled locally with zero 
 | `react` / `react-dom` | UI rendering | MIT |
 | `react-router-dom` | Client-side SPA routing | MIT |
 | `@noble/ed25519` | Audited pure-TS Ed25519 signatures & fallback | MIT |
-| `@noble/hashes` | Audited SHA-256 / SHA-512 primitives | MIT |
+| `@noble/curves` | Audited secp256k1 / BIP-340 Schnorr & ECDH for optional Nostr sync | MIT |
+| `@noble/ciphers` | Audited ChaCha20 & XChaCha20-Poly1305 for NIP-44 / NIP-49 encryption | MIT |
+| `@noble/hashes` | Audited SHA-256 / SHA-512 / HKDF / HMAC / scrypt primitives | MIT |
 | `@yomiplush/chm-exchange` | Local CHM-Exchange key packet helper | MIT |
 | `cborg` | Deterministic RFC 8949 CBOR codec | MIT / Apache-2.0 |
 | `fast-png` | Lossless PNG decoder/encoder (no premultiplied alpha loss) | MIT |
