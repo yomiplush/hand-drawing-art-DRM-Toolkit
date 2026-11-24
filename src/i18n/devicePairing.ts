@@ -138,6 +138,29 @@ export interface DevicePairingTranslations {
   approveNoOwnerDesc: string;
   approveNoOwnerGoAddBtn: string;
   approveNoOwnerGoKeysBtn: string;
+  // PC -> New Device Invitation QR (Nostr NIP-59 assisted 1-scan pairing)
+  inviteSectionTitle: string;
+  inviteSectionDesc: string;
+  createInviteQrBtn: string;
+  cancelInviteBtn: string;
+  inviteQrTitle: string;
+  inviteWaitingStatus: string;
+  inviteCheckNowBtn: string;
+  inviteReceivedFromRelayMsg: string;
+  inviteApprovalSentMsg: string;
+  inviteManualDivider: string;
+  inviteAcceptHeading: string;
+  inviteAcceptDesc: string;
+  inviteFromOwnerLabel: string;
+  inviteRelayNotice: string;
+  inviteAcceptSendBtn: string;
+  inviteSendingBtn: string;
+  inviteCancelReceiveBtn: string;
+  inviteSentWaitingTitle: string;
+  inviteSentWaitingDesc: string;
+  inviteManualFallbackSummary: string;
+  inviteExpiredError: string;
+  inviteAlreadyPairedNote: string;
   confirmOwnerCheckbox: string;
   completePairingBtn: string;
   pairingCompletedTitle: string;
@@ -306,6 +329,35 @@ const JA_DEVICE_PAIRING: DevicePairingTranslations = {
     '「承認する」を押すには、マイID（所有者鍵）を持っているメイン端末（PC等）でこの画面を開く必要があります。もし iPad 等の新端末を登録しようとしている場合は、「デバイスを追加（新端末）」タブでQRを作り、そのQRをマイIDがあるPC側で読み込んでください。（このブラウザにマイIDを復元する場合は /keys からインポートしてください）',
   approveNoOwnerGoAddBtn: '「デバイスを追加（新端末）」タブへ切替',
   approveNoOwnerGoKeysBtn: 'マイID作成・復元 (/keys) へ',
+  inviteSectionTitle: 'PCに招待QRを出して、iPad・スマホを登録（PC → 新端末）',
+  inviteSectionDesc:
+    'PCにカメラがなくても、iPad・スマホのカメラで下のQRを読み取るだけで登録できます。無料の中継リレー（Nostr）で暗号化してやり取りします（秘密鍵や作品データは一切送信しません）。',
+  createInviteQrBtn: '招待QRを表示する（PC → iPad / スマホ）',
+  cancelInviteBtn: '招待QRを閉じる',
+  inviteQrTitle: '新端末への招待QRコード（PC → iPad / スマホ）',
+  inviteWaitingStatus:
+    'iPad・スマホのカメラで読み取り、新端末側で「この端末を登録する」を押すと、ここに承認画面が自動で届きます…',
+  inviteCheckNowBtn: '今すぐ受信を確認',
+  inviteReceivedFromRelayMsg:
+    '新端末から暗号化された登録リクエストを受信しました！確認コードを見比べて「承認する」を押してください。',
+  inviteApprovalSentMsg:
+    '承認証明書を新端末へ自動送信しました！新端末の画面が「登録が完了しました」に変わるのを確認してください。',
+  inviteManualDivider: 'または：オフライン環境で新端末のQR・リンクを直接読み取って承認する',
+  inviteAcceptHeading: 'PCからのデバイス登録招待',
+  inviteAcceptDesc:
+    'メイン端末（PC）からこの端末を登録するための招待が届きました。端末名を確認して送信してください。',
+  inviteFromOwnerLabel: '登録先のマイID（招待元）',
+  inviteRelayNotice:
+    '無料の中継リレー（Nostr）を使ってPCへ暗号化した登録リクエストを送ります。秘密鍵や作品データは送信されません。',
+  inviteAcceptSendBtn: 'この端末を登録する（PCへ送信）',
+  inviteSendingBtn: '送信中…',
+  inviteCancelReceiveBtn: 'この招待を閉じる',
+  inviteSentWaitingTitle: 'PCへ登録リクエストを送信しました',
+  inviteSentWaitingDesc:
+    'PCの画面に同じ確認コードが表示されたら、PC側で「承認する」を押してください。承認されるとこの画面も自動で完了します（待機中…）。',
+  inviteManualFallbackSummary: 'リレー経由で届かない場合：手動QR・リンクで完了する',
+  inviteExpiredError: 'この招待QRコードは有効期限が切れています。PC側で「招待QRを表示する」を押し直してください。',
+  inviteAlreadyPairedNote: 'このブラウザはすでに招待元のマイIDへ登録済みです。',
   confirmOwnerCheckbox: '既存端末に表示されているマイIDと同じであることを確認しました',
   completePairingBtn: '登録を完了する',
   pairingCompletedTitle: '登録が完了しました',
@@ -544,6 +596,35 @@ const EN_DEVICE_PAIRING: DevicePairingTranslations = {
     'To tap Approve, open this page on your main browser holding My ID (e.g. your PC) and scan/paste the new device’s Step 1 QR there. If you are setting up THIS device as a new child device, switch to “Add This Device (New)”. (Or restore/create a My ID in Keys & Backup.)',
   approveNoOwnerGoAddBtn: 'Switch to “Add This Device (New)”',
   approveNoOwnerGoKeysBtn: 'Create / Restore My ID (/keys)',
+  inviteSectionTitle: 'Invite a New Device from This PC (PC → iPad / Phone)',
+  inviteSectionDesc:
+    'Even without a PC webcam, display an invitation QR here and scan it with your iPad or phone camera. Encrypted end-to-end over free Nostr relays (private keys and artworks are never sent).',
+  createInviteQrBtn: 'Show Invitation QR (PC → New Device)',
+  cancelInviteBtn: 'Close Invitation QR',
+  inviteQrTitle: 'Device Pairing Invitation QR',
+  inviteWaitingStatus:
+    'Scan with your iPad/phone camera and tap Register there. The approval confirmation will appear here automatically…',
+  inviteCheckNowBtn: 'Check Now',
+  inviteReceivedFromRelayMsg:
+    'Encrypted pairing request received from your new device! Compare the confirmation code and tap Approve.',
+  inviteApprovalSentMsg:
+    'Encrypted approval sent back to your new device! Check that your new device updates to Registration Complete.',
+  inviteManualDivider: 'Or: Approve offline by scanning or pasting a Step 1 QR directly',
+  inviteAcceptHeading: 'Device Pairing Invitation from PC',
+  inviteAcceptDesc:
+    'An invitation from your main device (PC) was scanned. Confirm this device’s name and send the encrypted request.',
+  inviteFromOwnerLabel: 'Target My ID (Inviter)',
+  inviteRelayNotice:
+    'Sends an encrypted pairing request back to your PC via free Nostr relays. Private keys and artworks are never sent.',
+  inviteAcceptSendBtn: 'Register This Device (Send to PC)',
+  inviteSendingBtn: 'Sending…',
+  inviteCancelReceiveBtn: 'Dismiss Invitation',
+  inviteSentWaitingTitle: 'Pairing Request Sent to PC',
+  inviteSentWaitingDesc:
+    'Verify that the confirmation code matches on your PC and click Approve there. This screen will complete automatically…',
+  inviteManualFallbackSummary: 'Relay delayed? Complete manually via QR / link',
+  inviteExpiredError: 'This invitation QR has expired. Generate a new Invitation QR on your PC.',
+  inviteAlreadyPairedNote: 'This browser is already paired under this inviting My ID.',
   confirmOwnerCheckbox: 'I verified this Owner ID matches the one displayed on my existing device',
   completePairingBtn: 'Complete Registration',
   pairingCompletedTitle: 'Registration Complete',
