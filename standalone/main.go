@@ -20,7 +20,7 @@ import (
 )
 
 // appVersion is overridden at release build time via -ldflags "-X main.appVersion=...".
-var appVersion = "1.0.0-standalone"
+var appVersion = "1.1.0-standalone"
 
 var errPortConflict = errors.New("port already in use by another application")
 
