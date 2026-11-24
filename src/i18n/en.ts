@@ -36,7 +36,7 @@ export const en = {
     title: 'Privacy Policy & GDPR Notice',
     subtitle:
       'Prepared in alignment with Regulation (EU) 2016/679 (GDPR — gdpr-info.eu) and the ePrivacy Directive for Certified Handmade.',
-    lastUpdated: 'Effective / Updated: November 22, 2026',
+    lastUpdated: 'Effective / Updated: November 24, 2026',
     gdprRefLabel: 'GDPR Reference Text:',
     gdprRefUrl: 'https://gdpr-info.eu/',
     controlsTitle: 'Your Consent & Local Storage Controls (Art. 7(3) GDPR)',
@@ -56,11 +56,11 @@ export const en = {
       },
       {
         title: '3. Legal Bases for Processing (Art. 6(1) GDPR)',
-        body: '• Art. 6(1)(b) / Art. 6(1)(f) (Strictly Necessary Local Execution): Reading image files you select, generating/verifying cryptographic proofs, caching static assets via Service Worker for offline use, and storing your consent choice locally.\n• Art. 6(1)(a) (Explicit Consent): Storing optional UI preference cookies/localStorage (such as your chosen interface language across visits) and accessing your device camera when you manually start QR scanning.',
+        body: '• Art. 6(1)(b) / Art. 6(1)(f) (Strictly Necessary Local Execution): Reading image files you select, generating/verifying cryptographic proofs, caching static assets via Service Worker for offline use, and storing your consent choice locally.\n• Art. 6(1)(a) (Explicit Consent): Storing optional UI preference cookies/localStorage (chosen language), accessing your camera during QR scanning, and connecting over wss:// ONLY if you explicitly opt in to Decentralized Device Sync in /devices.',
       },
       {
         title: '4. Cookies & Client-Side Storage Inventory',
-        body: 'We do NOT use any advertising, profiling, social media, or third-party analytics cookies (zero external network requests).',
+        body: 'We do NOT use any advertising, profiling, social media, or third-party analytics cookies. By default Certified Handmade makes zero external network requests. Only if you explicitly opt in to Decentralized Sync in /devices will your browser open outbound wss:// WebSocket connections to user-selected Nostr relays—exposing your IP address, timestamps, and sync npub routing metadata to those independent relay operators (artworks, private keys, and PII are NEVER sent).',
       },
       {
         title: '5. Static Hosting Infrastructure (Cloudflare Pages)',
@@ -91,7 +91,7 @@ export const en = {
       {
         name: 'IndexedDB (certified-handmade-store)',
         category: 'Strictly Necessary on User Action (Art. 6(1)(b))',
-        purpose: 'Stores your local Ed25519 key handles, Locally Trusted Keys list, and imported revocation/rotation notices (keyNotices).',
+        purpose: 'Stores local Ed25519 keys, Locally Trusted Keys, device pairing state, and (if sync is enabled) wrapped Nostr device keys, sync op logs, and outbox queues.',
         retention: 'Until deleted by user or browser eviction',
       },
       {

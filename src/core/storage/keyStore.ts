@@ -15,7 +15,7 @@ import type { KeyNoticeReason, KeyNoticeType, VerifiedKeyNoticeResult } from '..
 import type { CreatorProfileLink } from '../manifest/types';
 
 export const CHM_DB_NAME = 'certified-handmade-store';
-export const CHM_DB_VERSION = 4;
+export const CHM_DB_VERSION = 6;
 export const STORE_AUTHOR_KEYS = 'authorKeys';
 export const STORE_TRUSTED_KEYS = 'trustedKeys';
 export const STORE_KEY_NOTICES = 'keyNotices';
@@ -25,6 +25,13 @@ export const STORE_USED_PAIRING_NONCES = 'usedPairingNonces';
 export const STORE_PAIRED_DEVICES = 'pairedDevices';
 export const STORE_DEVICE_REVOCATIONS = 'deviceRevocations';
 export const STORE_CREATOR_PROFILES = 'creatorProfiles';
+export const STORE_NOSTR_KEYS = 'nostrKeys';
+export const STORE_SYNC_SETTINGS = 'syncSettings';
+export const STORE_SYNC_OP_LOG = 'syncOpLog';
+export const STORE_SYNC_OUTBOX = 'syncOutbox';
+export const STORE_SYNC_PEER_BINDINGS = 'syncPeerBindings';
+export const STORE_PROOF_VAULT = 'proofVault';
+export const STORE_VAULT_META = 'vaultMeta';
 
 export interface CreatorProfileDefaultsRecord {
   id: 'default';
@@ -122,6 +129,27 @@ export function openChmDatabase(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_CREATOR_PROFILES)) {
         db.createObjectStore(STORE_CREATOR_PROFILES, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_NOSTR_KEYS)) {
+        db.createObjectStore(STORE_NOSTR_KEYS, { keyPath: 'deviceIdHex' });
+      }
+      if (!db.objectStoreNames.contains(STORE_SYNC_SETTINGS)) {
+        db.createObjectStore(STORE_SYNC_SETTINGS, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_SYNC_OP_LOG)) {
+        db.createObjectStore(STORE_SYNC_OP_LOG, { keyPath: 'key' });
+      }
+      if (!db.objectStoreNames.contains(STORE_SYNC_OUTBOX)) {
+        db.createObjectStore(STORE_SYNC_OUTBOX, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_SYNC_PEER_BINDINGS)) {
+        db.createObjectStore(STORE_SYNC_PEER_BINDINGS, { keyPath: 'key' });
+      }
+      if (!db.objectStoreNames.contains(STORE_PROOF_VAULT)) {
+        db.createObjectStore(STORE_PROOF_VAULT, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_VAULT_META)) {
+        db.createObjectStore(STORE_VAULT_META, { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);

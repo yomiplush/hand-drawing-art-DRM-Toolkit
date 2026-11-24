@@ -22,6 +22,7 @@ import { HomePage } from './pages/HomePage';
 import { KeysPage } from './pages/KeysPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { TutorialPage } from './pages/TutorialPage';
+import { VaultPage } from './pages/VaultPage';
 import { VerifyCertificatePage } from './pages/VerifyCertificatePage';
 
 function AppRoutes() {
@@ -116,6 +117,7 @@ function AppRoutes() {
           <Route path="/verify" element={<VerifyCertificatePage />} />
           <Route path="/keys" element={<KeysPage />} />
           <Route path="/devices" element={<DevicesPage />} />
+          <Route path="/vault" element={<VaultPage />} />
           <Route path="/exchange" element={<ExchangePage />} />
           <Route path="/docs" element={<DocsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

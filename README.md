@@ -2,7 +2,7 @@
 
 **Your Art. Your Rights. Your Freedom.**
 
-Certified Handmade is a 100% free, open-source, offline-first **Cryptographic Artwork Provenance** and rights-declaration toolkit. Artists can cryptographically sign illustrations locally with Ed25519, embed self-contained verification QR codes into lossless PNG margins (Protocol v1) or masked in-image overlays (Protocol v2), and run either the **Web / PWA Edition** (`certified-handmade.com`), the **Portable Standalone Edition** (`127.0.0.1:43777` for Linux x86_64 and Windows x86_64), or the **Independent Offline CLIs** completely offline—including on first launch.
+Certified Handmade is a **¥0 / $0 forever**, open-source, offline-first **Cryptographic Artwork Provenance**, **Local Proof Vault**, and **Decentralized Device Synchronization** toolkit. Artists can cryptographically sign illustrations locally with Ed25519, embed self-contained verification QR codes into lossless PNG margins (Protocol v1) or masked in-image overlays (Protocol v2), manage compact local proof vaults (`/vault`), and optionally pair or synchronize devices across untrusted free public Nostr relays (`CHM-SYNC-v1`)—or run 100% offline via the **Web / PWA Edition** (`certified-handmade.com`), the **Portable Standalone Edition** (`127.0.0.1:43777` for Linux x86_64 and Windows x86_64), or the **Independent Offline CLIs**.
 
 - **Website:** https://certified-handmade.com/
 - **Repository:** https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit
@@ -12,14 +12,15 @@ Certified Handmade is a 100% free, open-source, offline-first **Cryptographic Ar
 
 ## Core Principles
 
+- **¥0 / $0 Mandatory User Cost Forever & Domain-Only Maintainer Cost** (no subscriptions, paywalls, paid APIs, cloud DBs, VPS, telemetry, or paid relays)
 - **100% Free & Open Source** (MIT License)
-- **Zero Paid Infrastructure** (no paid APIs, no cloud DBs, no VPS, no telemetry)
 - **No NFTs, No Blockchain, No Cryptocurrency, No Crypto Wallets**
-- **No Accounts, No Subscriptions, No Paywalls, No Ads**
-- **No Central Authentication Server, No Central CRL, or Server File Uploads**
-- **Local First & Offline First** (PWA + Portable Standalone Binaries + Independent CLIs)
+- **No Accounts, No Social Logins, No Tracking, No Ads**
+- **No Central Authentication Server, No Central CRL, No Mandatory Backend, No Artwork Upload**
+- **Local First & Offline First** (IndexedDB + PWA + Portable Standalone Binaries + Independent CLIs)
+- **Strict Layer Separation & Graceful Degradation** (Ed25519 CHM core works 100% independently even if Nostr relays are offline, blocked, or disabled)
 
-All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding/decoding, QR burning, QR scanning, streaming local evidence hashing, visual similarity checks, notice verification, and challenge-response checks run **100% locally on your device**.
+All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding/decoding, QR burning, QR scanning, streaming local evidence hashing, visual similarity checks, notice verification, challenge-response checks, and NIP-44/NIP-59 gift-wrap encryption run **100% locally on your device**.
 
 ---
 
@@ -27,7 +28,7 @@ All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding
 
 | Edition | Target | Internet Required? | Storage Origin |
 | --- | --- | --- | --- |
-| **Web / PWA Edition** | Desktop, iPhone, iPad, Android browsers | First visit over HTTPS caches PWA; subsequent use works offline | `https://certified-handmade.com` |
+| **Web / PWA Edition** | Desktop, iPhone, iPad, Android browsers | First visit over HTTPS caches PWA; subsequent use works offline (optional opt-in Nostr sync only when enabled) | `https://certified-handmade.com` |
 | **Standalone Edition** | **Linux x86_64** & **Windows x86_64** | **No** — works 100% offline from launch #1 (zero Node.js/Go install needed) | `http://127.0.0.1:43777` |
 | **Independent CLI Verifiers** | `tools/chm-verify` (Go) & `tools/chm-verify.mjs` (Node.js) | **No** — stateless verification importing zero files from `src/` | CLI / JSON stdout |
 
@@ -48,26 +49,29 @@ All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding
    - **Artwork Details (Optional):** Collapsible progressive disclosure for multilingual artwork title/artist/description, creator website & unbounded social/portfolio links (with optional local IndexedDB default persistence), creation method declaration (`hand-drawn-no-ai`, `hand-drawn-ai-assisted`, `ai-generated`, `other`, `prefer-not-to-disclose`), creation environment notes (software, hardware, input device, free-form notes), and streaming local `SHA-256` hashing of private evidence files (sketches, WIPs, PSD/KRA/CLIP projects, timelapses—raw files stay local on your device).
    - **Compact QR & `.chmevidence`:** Extended details are signed in a separate domain-separated `.chmevidence` file (`CHM-EVIDENCE1\0`) cryptographically bound (`proofSha256`, `artworkId`, `artworkSha256`, `publicKey`) to the primary proof—leaving the embedded QR code (`0` extra bytes) compact and backward compatible.
    - Protocol v2 Studio displays live `qrMask` excluded-area percentage warnings (`>15%` caution, `>30%` high), an optional excluded-mask highlight overlay on the preview canvas, and a one-click **Optimize QR Size** helper.
-   - Post-render QR readability self-check verifies every generated PNG before export, and optionally exports a `.chproof.json` portable proof bundle alongside the PNG and `.chmevidence`.
-3. **Independent Offline Verification (`Mode A / B / C`) & SNS Visual Helper (`/verify`)**
+   - Post-render QR readability self-check verifies every generated PNG before export, automatically saves a compact ~1 KiB `CHM-VAULT-v1` proof record to `/vault`, and optionally exports a `.chproof.json` portable proof bundle alongside the PNG and `.chmevidence`.
+3. **Local Proof Vault & Portable Backups (`/vault`, `CHM-VAULT-v1`)**
+   - Stores compact signed proof records (`< 1.2 KiB` each, `0` image pixels, `0` private keys) inside IndexedDB `proofVault`, scaled and indexed for 10,000+ proofs.
+   - Supports instant local filtering/search, selective per-proof sync checkboxes (`syncSelected`), plain JSON vault export/import (`containsPrivateKeys: false`), and passphrase-encrypted AES-256-GCM (PBKDF2 600,000 iterations) vault archive export/restore.
+   - Optional opt-in **Public Proof Index** (`CHM-PUBLIC-PROOF-v1`, Nostr NIP-78 `kind 30078`) publishes or queries public `CHM1` proof tokens over verified free relays without uploading artwork pixels or private metadata.
+4. **Independent Offline Verification (`Mode A / B / C`) & SNS Visual Helper (`/verify`)**
    - Accepts `/verify#proof=...` URL fragments, pasted proof tokens, `.chproof.json` proof bundles, clipboard images, PWA Web Share Target handoffs, uploaded signed PNGs, or live local camera QR scanning (`getUserMedia`).
    - Supports three offline verification modes:
      - **Mode A:** Artwork + embedded QR / primary proof only.
      - **Mode B:** Primary proof + `.chmevidence` signed extension (rejecting standalone `.chmevidence` without a primary proof, and reporting unsupplied evidence files honestly as *Unavailable*, never *Invalid*).
      - **Mode C:** Primary proof + `.chmevidence` + local evidence files (streaming SHA-256 verification).
    - Never automatically fetches or navigates to remote URLs during verification.
-   - Displays **independent statuses** without conflating them:
-     - **A. Cryptographic Signature:** `Valid` / `Invalid` / `Unsupported`
-     - **B. Artwork Integrity:** `Matched` / `Mismatched` / `Not Checked` (with Protocol v2 `qrMask` excluded-area percentage & bounds)
-     - **C. Author Identity:** `Locally Trusted Key` / `Unknown / Unverified Key` (with `Unconfirmed` indicator until fingerprint confirmed)
-     - **D. Local Key Notice Check:** Surfaces locally imported revocation/rotation notices (without rewriting historical signature math), or clearly states when no local notice exists on this device (never falsely saying "Not Revoked").
-     - **E. Extended Artwork Details & Creation Evidence (Optional):** Clearly labels creator profile URLs and creation method as signed self-declarations (`declared by creator`), never computes a "Human-Made Confidence" score, and renders all text safely.
+   - Displays **independent statuses** without conflating them (`Valid`/`Invalid`/`Unsupported`, `Matched`/`Mismatched`/`Not Checked`, `Locally Trusted Key`/`Unknown / Unverified Key`, Local Key Notice Check, and `declared by creator` extended details).
    - Includes a collapsible, strictly **non-cryptographic** `dHash64` + `DCT pHash64` helper to visually compare SNS-recompressed copies locally.
-4. **CHM Secure Device Pairing (`/devices`, `CHM-DEVICE-PAIRING-v1`)**
-   - Pairs PC, smartphone, and tablet browsers to an existing CHM Identity 100% offline via a 2-step QR handshake (with PNG/JPEG/WebP QR upload and paste fallback).
-   - Each device creates an independent local Ed25519 device key (non-extractable Web Crypto preferred, encrypted fallback supported) without ever copying the root author private key.
-   - Supports explicit approval confirmation, manual owner trust confirmation, persistent `requestId`/`nonce` replay defense, signed device revocations, and monotonic signed registry backups (`.chdevreg.json` / `.chdevreg.cbor`).
-5. **13-Language UI & Touch-First Accessibility** across desktop and mobile viewports.
+5. **CHM Secure Device Pairing & Decentralized Nostr Sync (`/devices`, `CHM-DEVICE-PAIRING-v1`, `CHM-SYNC-v1`)**
+   - **Offline 2-Step QR Pairing (`CHM-DEVICE-PAIRING-v1`):** Pairs PC, smartphone, and tablet browsers to an existing CHM Identity 100% offline via a 2-step QR handshake with an 8-character out-of-band MitM confirmation code (`CHM-PAIR-CONFIRM1\0`), independent per-device Ed25519 keys, explicit `['device-identity']` privilege boundary, persistent `requestId`/`nonce` replay defense, monotonic signed revocations, and `.chdevreg.{json,cbor}` snapshots.
+   - **Opt-In Decentralized Nostr Sync (`CHM-SYNC-v1`):** Completely disabled at rest (`0` background relay traffic). When explicitly enabled by the user:
+     - Enforces **strict key separation** between CHM Ed25519 identity keys and Nostr secp256k1 transport keys (`ncryptsec1` NIP-49 backup supported).
+     - Authenticates transport bindings using dual Ed25519 + BIP-340 Schnorr attestations (`CHM-SYNC-v1:BIND\0` / `CHM-SYNC-v1:NOSTR-POP\0`) and hash-chained monotonic operations (`CHM-SYNC-v1:OP\0`).
+     - Encrypts every cross-device sync bundle end-to-end with **NIP-44 v2 + NIP-59 Gift Wrap (`kind 1059`)** (NIP-04 strictly excluded).
+     - Enforces **Zero-Cost NIP-11 Policy Pre-Flight** and runtime `payment-required` auto-pausing to block paid relays automatically, plus a **1 MiB / 30-day soft rolling sync budget** where Priority `0` revocations (`revoke-device`) and Priority `1` identity checkpoints always bypass deferral while Priority `2` proof vault sync degrades gracefully to offline export.
+     - Validated against official Nostr specifications at [`nostr-protocol/nips@bec0fc8`](https://github.com/nostr-protocol/nips/commit/bec0fc8).
+6. **13-Language UI & Touch-First Accessibility** across desktop and mobile viewports.
 
 ---
 
@@ -93,9 +97,10 @@ go run . --notice /path/to/notice.chnotice.json
 
 - **Cryptographic Provenance, Not Copy-Protection DRM:** Certified Handmade creates tamper-evident signatures and machine-readable rights declarations; it does **not** encrypt artwork pixels, block screenshots, or technically enforce `aiTraining: disallow`.
 - **Signature ≠ Proof of Hand-Drawing or Legal Copyright:** A valid Ed25519 signature (or `.chmevidence` evidence hash match / offline key-possession challenge) proves only that the holder of that private key signed the data and (when checked) that pixels or local evidence files match their signed SHA-256 hashes. It cannot prove by math alone that no AI tools were used, verify external social account ownership, or prove legal copyright ownership.
-- **Self-Declared Timestamps & Decentralized Notices:** Without a central server or TSA, `issuedAt`, `noticeIssuedAt`, and `.chmevidence` `createdAt` are self-declared, and verifiers only see `.chnotice.json` notices imported locally. If a private key leaks, anyone holding that seed can sign notices or backdated manifests.
+- **Self-Declared Timestamps & Decentralized Notices:** Without a central server or TSA, `issuedAt`, `noticeIssuedAt`, and `.chmevidence` `createdAt` are self-declared, and offline verifiers only see `.chnotice.json` notices imported locally.
+- **Public Relay Availability & Retention:** Free community Nostr relays have zero uptime SLA or permanent retention guarantee. Encrypted NIP-59 envelopes only assist device-to-device transport; local IndexedDB and encrypted `.chkey.json` / Vault backups remain your source of truth.
 - **Perceptual Similarity Is Auxiliary Only:** `dHash`/`pHash` visual scores are non-cryptographic aids for resized/recompressed social images and never replace `SHA-256`.
-- **Browser Storage Volatility:** IndexedDB stores (`authorKeys`, `trustedKeys`, `keyNotices`, `creatorProfiles`) can be deleted by browser eviction or clearing site data. Always export and verify an encrypted `.chkey.json` backup.
+- **Browser Storage Volatility:** IndexedDB stores (`authorKeys`, `trustedKeys`, `keyNotices`, `creatorProfiles`, `proofVault`, `syncSettings`, etc.) can be deleted by browser eviction or clearing site data. Always export and verify encrypted `.chkey.json` and Vault backups.
 
 ---
 
@@ -119,11 +124,12 @@ npm run dev
 npm run typecheck
 npm run lint
 
-# Run unit & integration tests (Vitest)
+# Run unit & integration tests (Vitest — uses local MockNostrRelay loopback, zero external network calls)
 npm test
 
-# Run Go independent CLI tests
+# Run Go independent CLI & Standalone server tests
 cd tools/chm-verify && go test -v ./...
+cd standalone && go test -v ./...
 
 # Production web build (static files + PWA Service Worker in dist/)
 npm run build
@@ -150,7 +156,24 @@ See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for:
 
 ## Documentation Index
 
-- [`SPEC.md`](./SPEC.md) — Canonical manifest schema (Protocol v1 & v2), `CHM-EVIDENCE1`, `CHM-NOTICE1` & `CHM-CHALLENGE1` specifications, perceptual/CLI boundaries, and normative v1/v2 test vectors.
-- [`SECURITY.md`](./SECURITY.md) — Threat model, out-of-band key trust, `.chmevidence` anti-replay/XSS boundaries, key storage architecture, revocation/backdating limits, loopback HTTP hardening, CSP, and residual risks.
+### Core Protocol & Security Specifications
+- [`SPEC.md`](./SPEC.md) — Canonical manifest schema (Protocol v1 & v2), `CHM-EVIDENCE1`, `CHM-NOTICE1`, `CHM-CHALLENGE1`, `CHM-DEVICE-PAIRING-v1`, `CHM-SYNC-v1`, `CHM-VAULT-v1`, `CHM-PUBLIC-PROOF-v1`, and normative test vectors.
+- [`SECURITY.md`](./SECURITY.md) — Threat model, out-of-band key trust, `.chmevidence` anti-replay/XSS boundaries, key separation & storage architecture, NIP-11/NIP-59 sync security, loopback HTTP hardening, CSP, and honest audit/residual-risk disclosures.
 - [`DEPLOYMENT.md`](./DEPLOYMENT.md) — Cloudflare Pages setup, portable standalone build/release workflow, and self-hosting guide.
 - [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md) — Open-source dependencies and licenses.
+
+### Architecture, Zero-Cost & Decentralized Sync Guides (`docs/`)
+- [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — Four-layer clean architecture (CHM Crypto Core, Device Identity, Abstract Sync/Vault, Human-Friendly UI).
+- [`docs/THREAT-MODEL.md`](./docs/THREAT-MODEL.md) — Detailed threat analysis across local keys, device pairing, Nostr sync, Vault, and browser origins.
+- [`docs/CHM-SYNC-PROTOCOL.md`](./docs/CHM-SYNC-PROTOCOL.md) — Normative `CHM-SYNC-v1` wire spec, adopted NIPs (`bec0fc8`), priority queue, and NIP-59 rumor framing.
+- [`docs/KEY-MANAGEMENT.md`](./docs/KEY-MANAGEMENT.md) — Strict separation and custody rules for CHM Ed25519 keys vs. Nostr secp256k1 keys (`.chkey.json` & NIP-49 `ncryptsec1`).
+- [`docs/PRIVACY.md`](./docs/PRIVACY.md) — Zero-tracking policy, metadata minimization, NIP-59 sender privacy, and pixel non-upload guarantees.
+- [`docs/RECOVERY.md`](./docs/RECOVERY.md) — Encrypted backup, device loss revocation, and cross-origin migration recovery procedures.
+- [`docs/MIGRATION.md`](./docs/MIGRATION.md) — IndexedDB schema migrations (`v1` -> `v4`) and zero-downtime upgrade safety.
+- [`docs/ZERO-COST-ARCHITECTURE.md`](./docs/ZERO-COST-ARCHITECTURE.md) — Architectural guarantees eliminating all user fees and paid backend dependencies.
+- [`docs/COST-MODEL.md`](./docs/COST-MODEL.md) — Maintainer & user cost breakdown from 100 to 1,000,000+ users (domain-only cost model).
+- [`docs/RELAY-POLICY.md`](./docs/RELAY-POLICY.md) — Zero-cost NIP-11 relay filtering, runtime `payment-required` auto-pause, and NIP-65 relay lists.
+- [`docs/STORAGE-BUDGET.md`](./docs/STORAGE-BUDGET.md) — Compact `CHM-VAULT-v1` record schema (`~1 KiB`) and 1 MiB / 30-day rolling sync budget.
+- [`docs/OFFLINE-MODE.md`](./docs/OFFLINE-MODE.md) — Offline-first PWA, Portable Standalone Edition, and graceful offline fallbacks.
+- [`docs/SCALABILITY.md`](./docs/SCALABILITY.md) — Client-side scaling to 10,000+ local proofs and relay traffic politeness.
+- [`docs/DATA-PORTABILITY.md`](./docs/DATA-PORTABILITY.md) — Open standard export/import formats (`.chkey.json`, `.chproof.json`, `.chmevidence`, `.chdevreg`, Vault JSON/encrypted backups).

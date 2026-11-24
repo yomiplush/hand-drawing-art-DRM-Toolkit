@@ -21,6 +21,7 @@ import { MINIMAL_UI_I18N } from './minimalUi';
 import { QR_STUDIO_I18N } from './qrStudio';
 import { SEO_I18N } from './seo';
 import { TUTORIAL_I18N } from './tutorial';
+import { VAULT_I18N } from './vault';
 import { VERIFY_MOBILE_I18N } from './verifyMobile';
 
 const LOCALE_MAP: Record<Locale, Translations> = {
@@ -107,6 +108,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     hardening: HARDENING_I18N[locale] ?? HARDENING_I18N.en,
     devices: DEVICE_PAIRING_I18N[locale] ?? DEVICE_PAIRING_I18N.en,
     artworkDetails: ARTWORK_DETAILS_I18N[locale] ?? ARTWORK_DETAILS_I18N.en,
+    vault: VAULT_I18N[locale] ?? VAULT_I18N.en,
   };
 
   return (

@@ -122,7 +122,7 @@ func TestHandlerSecurityHeadersAndDNSRebinding(t *testing.T) {
 		t.Errorf("missing Referrer-Policy: no-referrer")
 	}
 	csp := rec.Header().Get("Content-Security-Policy")
-	if !strings.Contains(csp, "connect-src 'self'") || !strings.Contains(csp, "script-src 'self'") {
+	if !strings.Contains(csp, "connect-src 'self' wss:") || !strings.Contains(csp, "script-src 'self'") {
 		t.Errorf("unexpected CSP: %q", csp)
 	}
 }

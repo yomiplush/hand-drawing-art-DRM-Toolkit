@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import {
+  Archive,
   BookOpen,
   Compass,
   Cookie,
@@ -98,6 +99,7 @@ export function Layout({
   const secondaryItems = [
     { to: '/keys', label: t.minimal.nav.myKeysItem, icon: KeyRound, testId: 'menu-keys-link' },
     { to: '/devices', label: t.devices.navItem, icon: Smartphone, testId: 'menu-devices-link' },
+    { to: '/vault', label: t.vault.navItem, icon: Archive, testId: 'menu-vault-link' },
     {
       to: '/exchange',
       label: t.minimal.nav.keyExchangeItem,

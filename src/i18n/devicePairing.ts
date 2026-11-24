@@ -1,5 +1,74 @@
 import type { SupportedLocale } from '../core/storage/consent';
 
+export interface DecentralizedSyncTranslations {
+  tabLabel: string;
+  sectionTitle: string;
+  sectionSubtitle: string;
+  consentTitle: string;
+  consentPoints: [string, string, string, string];
+  consentCheckbox: string;
+  enableBtn: string;
+  disableBtn: string;
+  syncNowBtn: string;
+  syncingLabel: string;
+  statusLabels: {
+    disabled: string;
+    offline: string;
+    syncing: string;
+    'synced-observable': string;
+    'partial-relays': string;
+    'error-unreachable': string;
+  };
+  honestGuaranteeNote: string;
+  causalGapWarning: string;
+  queuedUpdatesLabel: string;
+  lastSyncedLabel: string;
+  neverSyncedLabel: string;
+  peerCardTitle: string;
+  peerCardDesc: string;
+  copyPeerCardBtn: string;
+  importPeerCardLabel: string;
+  importPeerCardPlaceholder: string;
+  importPeerCardBtn: string;
+  importPeerCardSuccess: string;
+  relaysTitle: string;
+  relaysDesc: string;
+  addRelayPlaceholder: string;
+  addRelayBtn: string;
+  loadPresetsBtn: string;
+  removeRelayBtn: string;
+  advancedSummary: string;
+  advancedNpubLabel: string;
+  advancedKeyCustodyLabel: string;
+  advancedProtocolLabel: string;
+  advancedBrowserWarning: string;
+  backupNcryptsecTitle: string;
+  backupPasswordPlaceholder: string;
+  exportNcryptsecBtn: string;
+  importNcryptsecPlaceholder: string;
+  importNcryptsecBtn: string;
+  importNcryptsecSuccess: string;
+  confirmationCodeLabel: string;
+  confirmationCodeHint: string;
+  checkRelayPolicyBtn: string;
+  policyLabels: {
+    unknown: string;
+    'free-usable': string;
+    'payment-required': string;
+    'write-restricted': string;
+    'quota-exceeded': string;
+    'pow-required': string;
+    unreachable: string;
+  };
+  onlineBudgetLabel: string;
+  gracefulFallbackTitle: string;
+  gracefulFallbackBody: string;
+  gracefulFallbackExportLink: string;
+  syncVaultProofsToggle: string;
+  syncVaultProofsBtn: string;
+  syncVaultProofsSuccess: string;
+}
+
 export interface DevicePairingTranslations {
   navItem: string;
   title: string;
@@ -122,6 +191,9 @@ export interface DevicePairingTranslations {
   exchangePagePairingLink: string;
   docsPairingTitle: string;
   docsPairingBody: string;
+  docsSyncTitle: string;
+  docsSyncBody: string;
+  sync: DecentralizedSyncTranslations;
 }
 
 const JA_DEVICE_PAIRING: DevicePairingTranslations = {
@@ -202,7 +274,7 @@ const JA_DEVICE_PAIRING: DevicePairingTranslations = {
   approvalQrReadyDesc: '新しい端末の「ステップ 2」でこのQRコードを読み取ると登録が完了します。',
   registeredDevicesTitle: '登録済みデバイス',
   noDevicesYet: 'まだ登録されているデバイスはありません。',
-  offlineSyncWarning: 'サーバーを持たない設計のため、登録一覧や解除状態は他の端末へ自動同期されません。他端末にも反映したい場合は、下の解除QRまたはバックアップファイルを取り込んでください。なお、オフライン環境では他端末で解除済みかどうかを自動判定できないため、この表示だけで「どこでも解除されていない」と保証することはできません。',
+  offlineSyncWarning: 'サーバーを持たない設計のため、登録一覧や解除状態は分散型同期を有効にするまで他端末へ自動共有されません。オフライン環境では他端末で解除済みかどうかを自動判定できないため、この表示だけで「どこでも解除されていない」と保証することはできません。',
   statusActiveTrusted: '有効・確認済み',
   statusActiveUnverified: '有効（マイID未確認）',
   statusRevoked: '解除済み（失効）',
@@ -246,6 +318,81 @@ const JA_DEVICE_PAIRING: DevicePairingTranslations = {
   exchangePagePairingLink: '自分のスマホ・タブレットを登録する場合は「登録済みデバイス」へ',
   docsPairingTitle: 'CHM Secure Device Pairing（CHM-DEVICE-PAIRING-v1）',
   docsPairingBody: 'サーバー・クラウドDB・アカウント登録を一切使わずに、PC・スマホ・タブレットを同じマイIDへ紐づける2段階QRプロトコルです。各端末で独立したEd25519デバイス鍵（Web Crypto non-extractable優先）を生成し、ルート秘密鍵は一切コピーしません。登録要求・承認証明書・端末解除通知・デバイス登録簿バックアップ（.chdevreg.json / .chdevreg.cbor）は決定的RFC 8949 CBOR＋ドメイン分離Ed25519署名で保護され、v1では端末鍵単体による作品の代理署名および他端末への委任承認を厳格に禁止しています。',
+  docsSyncTitle: 'CHM Decentralized Device Sync（CHM-SYNC-v1 + Nostr NIP-44/NIP-59）',
+  docsSyncBody: '任意のオプトイン分散同期レイヤーです（既定オフ）。有効化すると端末ごとに独立したsecp256k1同期鍵（CHM Ed25519鍵とは暗号学的に完全分離）を生成し、NIP-44 v2およびNIP-59 Gift Wrapによる端末単位の暗号化で登録・失効ログのみをWSSリレー経由で配送します。リレーに認証権限はなく、単調な失効ルール・因果連鎖検証・確認コードにより改ざん・巻き戻し・QR差し替えを防ぎます。作品の署名・検証はNostrやリレーなしでも常に完全動作します。',
+  sync: {
+    tabLabel: '分散型同期',
+    sectionTitle: '分散型デバイス同期（任意・オフライン優先）',
+    sectionSubtitle: '有効にした場合のみ、暗号化された端末登録・解除記録を端末間で受け渡します。作品の署名や検証は同期なし・完全オフラインでも常に動作します。',
+    consentTitle: '有効化する前に確認してください',
+    consentPoints: [
+      '作品画像・制作データ・秘密鍵・個人情報は一切外部へ送信しません（端末リストと解除証明のみを暗号化してやり取りします）。',
+      '接続先の中継サーバー（リレー）は暗号化済みデータの転送のみを行い、Certified Handmadeの認証権限は一切持ちません。',
+      '通信時にはリレー運営者にIPアドレス・接続時刻・同期用公開IDなどの通信メタデータが観測されます。無料公開リレーの永続性・稼働保証はありません。',
+      '有効化後でもいつでもオフにでき、解除済み端末は次回以降の同期暗号化の対象から自動的に除外されます。',
+    ],
+    consentCheckbox: '暗号化された端末同期の仕組みと通信メタデータの注意事項を理解したうえで、分散型同期を有効にします',
+    enableBtn: '分散型同期を有効にする',
+    disableBtn: '分散型同期を停止',
+    syncNowBtn: '今すぐ同期',
+    syncingLabel: '同期中…',
+    statusLabels: {
+      disabled: 'オフ（無効）',
+      offline: 'オフライン（送信キュー待機中）',
+      syncing: '同期中…',
+      'synced-observable': '同期済み（到達可能なリレーと一致）',
+      'partial-relays': '一部リレーのみ接続',
+      'error-unreachable': 'リレーに接続できません',
+    },
+    honestGuaranteeNote: '※ 中継サーバーがイベントを削除・隠蔽する可能性や、オフライン中の他端末が存在する可能性があるため、「到達可能なリレーと一致」は世界全体の最新保証ではありません。確実な失効反映には解除QRまたは署名付きバックアップファイルも併用してください。',
+    causalGapWarning: '同期ログの連続番号に欠落が検出されました（接続リレーが一部履歴を返していない可能性があります）。別のリレーを追加するか、.chdevreg バックアップの読み込みで確認してください。',
+    queuedUpdatesLabel: '未送信キュー',
+    lastSyncedLabel: '最終同期時刻',
+    neverSyncedLabel: '未実行',
+    peerCardTitle: '他の自分の端末と同期でつなぐ',
+    peerCardDesc: '分散型同期を有効にした状態でQR登録すると自動連携されます。すでに登録済みの別端末とも同期したい場合は、下の同期カードをコピーして別端末に貼り付けてください。',
+    copyPeerCardBtn: 'この端末の同期カードをコピー',
+    importPeerCardLabel: '別端末の同期カードを取り込む',
+    importPeerCardPlaceholder: 'chm-sync-bind:... を貼り付け',
+    importPeerCardBtn: '同期相手を追加',
+    importPeerCardSuccess: '暗号学的に検証された同期相手を登録しました。',
+    relaysTitle: '利用する中継サーバー（WSSリレー）',
+    relaysDesc: '通信には暗号化された wss:// のみ許可されます。独自のセルフホストリレーや好みの無料公開リレーを自由に追加・削除できます。',
+    addRelayPlaceholder: 'wss://relay.example.com',
+    addRelayBtn: 'リレーを追加',
+    loadPresetsBtn: '推奨公開リレーを読み込む',
+    removeRelayBtn: '削除',
+    advancedSummary: '高度な技術情報（Nostr・暗号鍵の詳細）',
+    advancedNpubLabel: 'この端末の同期用公開ID（Nostr npub）',
+    advancedKeyCustodyLabel: '同期用秘密鍵の保護方式（CHM Ed25519鍵とは完全分離）',
+    advancedProtocolLabel: '利用仕様',
+    advancedBrowserWarning: 'ブラウザ環境では同一オリジン上のXSSや悪意あるブラウザ拡張機能からWebストレージへの干渉を受けるリスクがあります。重要な作者ルート鍵（.chkey.json）は必ずオフライン保管してください。',
+    backupNcryptsecTitle: '同期鍵の暗号化バックアップ（NIP-49 ncryptsec）',
+    backupPasswordPlaceholder: '保護パスワード（8文字以上推奨）',
+    exportNcryptsecBtn: '暗号化バックアップを表示',
+    importNcryptsecPlaceholder: 'ncryptsec1... を貼り付け',
+    importNcryptsecBtn: 'バックアップから復元',
+    importNcryptsecSuccess: 'NIP-49バックアップからこの端末の同期鍵を復元しました。',
+    confirmationCodeLabel: '確認コード',
+    confirmationCodeHint: '新端末と既存端末で同じ8文字コードが表示されているか見比べてください（QR差し替え対策）。',
+    checkRelayPolicyBtn: '無料ポリシー確認',
+    policyLabels: {
+      unknown: '未確認',
+      'free-usable': '無料利用可 (NIP-11)',
+      'payment-required': '有料リレー拒否済み (¥0保護)',
+      'write-restricted': '書込制限あり',
+      'quota-exceeded': '容量上限到達',
+      'pow-required': '高負荷PoW必須',
+      unreachable: '接続不可',
+    },
+    onlineBudgetLabel: '30日間 同期データ上限（ソフト上限）',
+    gracefulFallbackTitle: 'ローカル保存モードで継続中（無料・オフライン完全対応）',
+    gracefulFallbackBody: 'リレーが有料化・満杯・到達不能、または月間データ上限に達しても、作品証明の作成・検証・QR生成・ローカル保管庫は一切制限なく動作します。下のローカル保管庫からJSONバックアップも利用できます。',
+    gracefulFallbackExportLink: '証明保管庫 (Vault) でバックアップ / 管理',
+    syncVaultProofsToggle: '保管庫で選択した作品証明も端末間へ暗号化同期する（画像本体は送信しません）',
+    syncVaultProofsBtn: '選択中の証明を同期',
+    syncVaultProofsSuccess: '選択中の証明を暗号化キューへ追加・同期しました。',
+  },
 };
 
 const EN_DEVICE_PAIRING: DevicePairingTranslations = {
@@ -326,7 +473,7 @@ const EN_DEVICE_PAIRING: DevicePairingTranslations = {
   approvalQrReadyDesc: 'Scan this QR code in Step 2 on the new device to finish pairing.',
   registeredDevicesTitle: 'Paired Devices',
   noDevicesYet: 'No paired devices recorded on this browser yet.',
-  offlineSyncWarning: 'Because there is no central server, device lists and revocations do NOT sync automatically across devices. Share the revocation QR or export/import a signed registry backup to update other devices. An offline device cannot prove a key is unrevoked elsewhere.',
+  offlineSyncWarning: 'Because there is no central server, device lists and revocations do NOT share automatically unless Decentralized Sync is enabled. Even with sync, an offline device cannot prove a key is unrevoked elsewhere—share the revocation QR or signed registry backup to update offline devices.',
   statusActiveTrusted: 'Active · Verified Owner',
   statusActiveUnverified: 'Active · Owner Unconfirmed',
   statusRevoked: 'Revoked',
@@ -370,6 +517,81 @@ const EN_DEVICE_PAIRING: DevicePairingTranslations = {
   exchangePagePairingLink: 'Pairing your own phone/tablet? Open Paired Devices',
   docsPairingTitle: 'CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1)',
   docsPairingBody: 'A 100% serverless, offline 2-step QR protocol that pairs PCs, smartphones, and tablets to a CHM Identity without accounts, relays, or copying root private keys. Each device generates its own Ed25519 keypair (Web Crypto non-extractable preferred) and receives an owner-signed deterministic RFC 8949 CBOR enrollment certificate, with signed revocations and monotonic registry backups (.chdevreg.json / .chdevreg.cbor). In v1, paired device keys hold device-identity scope only—delegated artwork signing and delegated approvals are prohibited.',
+  docsSyncTitle: 'CHM Decentralized Device Sync (CHM-SYNC-v1 + Nostr NIP-44/NIP-59)',
+  docsSyncBody: 'An optional, opt-in decentralized transport layer (OFF by default). Each device generates an isolated secp256k1 Nostr keypair (strictly separated from CHM Ed25519 keys), binds it with dual signatures (Ed25519 + BIP-340 Schnorr PoP), and exchanges only device enrollment/revocation operations encrypted per recipient via NIP-44 v2 + NIP-59 Gift Wrap over wss:// relays. Relays hold zero authority and never receive artworks, private keys, or personal data; revocation monotonicity and missing-sequence causal gap detection protect against withholding and replay, while core artwork signing and verification remain 100% independent of relays.',
+  sync: {
+    tabLabel: 'Decentralized Sync',
+    sectionTitle: 'Decentralized Device Sync (Optional · Local-First)',
+    sectionSubtitle: 'Optionally exchanges encrypted device registration and revocation records across your paired devices. Core artwork signing and verification always work offline without sync.',
+    consentTitle: 'Before You Enable Decentralized Sync',
+    consentPoints: [
+      'Artwork files, PSD/layer data, private keys, and personal information are NEVER uploaded—only signed device metadata wrapped with per-device encryption is synced.',
+      'Relay servers are untrusted external storage/transport only and hold zero CHM signing or approval authority.',
+      'Relay operators can still observe connection IP addresses, timestamps, and routing metadata; free public relays carry no uptime or retention guarantee.',
+      'You can disable sync at any time. Revoked devices are automatically excluded from all subsequent encrypted sync envelopes.',
+    ],
+    consentCheckbox: 'I understand how encrypted device sync works and that relay servers can observe connection metadata (IP address and timestamps)',
+    enableBtn: 'Enable Decentralized Sync',
+    disableBtn: 'Disable Sync',
+    syncNowBtn: 'Sync Now',
+    syncingLabel: 'Syncing…',
+    statusLabels: {
+      disabled: 'Off (Disabled)',
+      offline: 'Offline (Updates queued locally)',
+      syncing: 'Syncing…',
+      'synced-observable': 'Synced with reachable relays',
+      'partial-relays': 'Partial relays reachable',
+      'error-unreachable': 'Relays unreachable',
+    },
+    honestGuaranteeNote: 'Note: Relays may drop or withhold events and offline devices cannot check updates immediately. Sync cannot guarantee global instant revocation—keep sharing revocation QRs or .chdevreg backups for offline certainty.',
+    causalGapWarning: 'Missing sequence numbers detected in sync history. A reachable relay may be withholding earlier events; verify via another relay or import a .chdevreg backup.',
+    queuedUpdatesLabel: 'Queued Updates',
+    lastSyncedLabel: 'Last Synced',
+    neverSyncedLabel: 'Never',
+    peerCardTitle: 'Link Another Paired Device for Sync',
+    peerCardDesc: 'Devices paired via QR while sync is enabled exchange peer sync cards automatically. For already-paired devices, copy this device’s Sync Peer Card and import it on your other device.',
+    copyPeerCardBtn: 'Copy This Device’s Sync Card',
+    importPeerCardLabel: 'Import Peer Sync Card from Another Device',
+    importPeerCardPlaceholder: 'Paste chm-sync-bind:... token',
+    importPeerCardBtn: 'Add Sync Peer',
+    importPeerCardSuccess: 'Verified and saved peer sync binding.',
+    relaysTitle: 'Configured Relays (WSS Only)',
+    relaysDesc: 'Only encrypted wss:// relays are permitted. You can add self-hosted relays, toggle relays, or remove defaults at any time.',
+    addRelayPlaceholder: 'wss://relay.example.com',
+    addRelayBtn: 'Add Relay',
+    loadPresetsBtn: 'Load Default Public Relays',
+    removeRelayBtn: 'Remove',
+    advancedSummary: 'Advanced Technical Info (Nostr & Key Separation)',
+    advancedNpubLabel: 'Device Sync Public ID (Nostr npub)',
+    advancedKeyCustodyLabel: 'Sync Secret Key Protection (Strictly isolated from CHM Ed25519 keys)',
+    advancedProtocolLabel: 'Sync Protocols',
+    advancedBrowserWarning: 'Browser storage remains exposed to same-origin XSS or malicious browser extensions. Keep your primary Artist Root Key (.chkey.json) backed up offline.',
+    backupNcryptsecTitle: 'Encrypted Sync Key Backup (NIP-49 ncryptsec)',
+    backupPasswordPlaceholder: 'Backup password (8+ chars recommended)',
+    exportNcryptsecBtn: 'Show Encrypted Backup',
+    importNcryptsecPlaceholder: 'Paste ncryptsec1... string',
+    importNcryptsecBtn: 'Restore from ncryptsec',
+    importNcryptsecSuccess: 'Restored device sync key from NIP-49 encrypted backup.',
+    confirmationCodeLabel: 'Confirmation Code',
+    confirmationCodeHint: 'Compare this 8-character code on both devices to guard against QR swapping.',
+    checkRelayPolicyBtn: 'Check Free Policy',
+    policyLabels: {
+      unknown: 'Unchecked',
+      'free-usable': 'Free Usable (NIP-11)',
+      'payment-required': 'Paid Relay Blocked (¥0 Guard)',
+      'write-restricted': 'Write Restricted',
+      'quota-exceeded': 'Relay Quota Full',
+      'pow-required': 'High PoW Required',
+      unreachable: 'Unreachable',
+    },
+    onlineBudgetLabel: '30-Day Online Data Budget (Soft Cap)',
+    gracefulFallbackTitle: 'Continuing in Free Local-First Mode',
+    gracefulFallbackBody: 'Even if relays require payment, hit quota limits, or go offline, local signing, verification, QR generation, and your Proof Vault keep working with zero interruptions.',
+    gracefulFallbackExportLink: 'Open Proof Vault for JSON Backup',
+    syncVaultProofsToggle: 'Also sync vault proofs selected for cross-device backup (never uploads artwork images)',
+    syncVaultProofsBtn: 'Sync Selected Proofs',
+    syncVaultProofsSuccess: 'Encrypted selected vault proofs for paired devices.',
+  },
 };
 
 const EXTRA_NAV_LABELS: Record<Exclude<SupportedLocale, 'en' | 'ja'>, string> = {

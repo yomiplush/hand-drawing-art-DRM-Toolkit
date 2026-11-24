@@ -30,6 +30,7 @@ import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
 import { AdvancedSettings } from '../components/ui/AdvancedSettings';
 import { HelpIconButton } from '../components/ui/HelpIconButton';
 import { computePublicKeyFingerprint } from '../core/crypto/ed25519';
+import { saveProofToVault } from '../core/vault';
 import { evaluatePassphraseStrength } from '../core/crypto/keyBackup';
 import { bytesToHex } from '../core/crypto/sha256';
 import { clampInImageQrOptions } from '../core/image/inImageQr';
@@ -469,6 +470,10 @@ export function CreateCertificatePage() {
       pngCopy.set(res.pngBytes);
       const blob = new Blob([pngCopy.buffer], { type: 'image/png' });
       const previewUrl = URL.createObjectURL(blob);
+      await saveProofToVault({
+        proofInput: res.proofBytes,
+        creationMethod: detailsDraft.creationMethod,
+      }).catch(() => {});
       setSignedPreviewUrl(previewUrl);
       setSignedResult(res);
       setSignedEvidence(nextExtensionState);

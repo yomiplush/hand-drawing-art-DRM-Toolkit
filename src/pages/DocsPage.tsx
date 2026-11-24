@@ -152,6 +152,12 @@ export function DocsPage() {
           <p className="text-sm text-slate-300/90 leading-relaxed">
             {t.devices.docsPairingBody}
           </p>
+          <div className="pt-2 border-t border-white/[0.08] space-y-1.5" data-testid="docs-sync-section">
+            <h3 className="text-sm sm:text-base font-medium text-sky-200">{t.devices.docsSyncTitle}</h3>
+            <p className="text-xs sm:text-sm text-slate-300/90 leading-relaxed">
+              {t.devices.docsSyncBody}
+            </p>
+          </div>
         </section>
 
         <section
