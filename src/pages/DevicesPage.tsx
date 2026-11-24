@@ -1444,7 +1444,7 @@ export function DevicesPage() {
               <QrCameraScanner
                 startLabel={t.devices.scanCameraBtn}
                 stopLabel={t.devices.stopCameraBtn}
-                hint={t.devices.approveCameraHint}
+                hint={t.devices.cameraHint}
                 errorText={t.devices.cameraDeniedFallbackMsg}
                 onDetected={(text) => {
                   setCertInput(text);
@@ -1694,7 +1694,7 @@ export function DevicesPage() {
               <QrCameraScanner
                 startLabel={t.devices.scanCameraBtn}
                 stopLabel={t.devices.stopCameraBtn}
-                hint={t.devices.cameraHint}
+                hint={t.devices.approveCameraHint}
                 errorText={t.devices.cameraDeniedFallbackMsg}
                 onDetected={(text) => {
                   setIncomingReqInput(text);
