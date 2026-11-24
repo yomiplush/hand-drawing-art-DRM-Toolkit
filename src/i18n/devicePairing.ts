@@ -17,6 +17,11 @@ export interface DevicePairingTranslations {
   thisDeviceTitle: string;
   thisDeviceRevokedAlert: string;
   regenerateDeviceIdBtn: string;
+  createSeparateDeviceIdBtn: string;
+  alreadyPairedBadge: string;
+  alreadyPairedUnderOwnersLabel: string;
+  alreadyPairedStep1Note: string;
+  approveNextDeviceBtn: string;
   addDeviceTab: string;
   approveDeviceTab: string;
   registryTab: string;
@@ -141,6 +146,12 @@ const JA_DEVICE_PAIRING: DevicePairingTranslations = {
   thisDeviceTitle: 'この端末（デバイス）',
   thisDeviceRevokedAlert: 'この端末の鍵は解除（失効）されているため、そのままでは再登録できません。必要な場合は新しいデバイスIDを作り直してください。',
   regenerateDeviceIdBtn: '新しいデバイスIDを作り直す',
+  createSeparateDeviceIdBtn: '別のデバイスIDを新しく作成',
+  alreadyPairedBadge: '登録済み',
+  alreadyPairedUnderOwnersLabel: '連携先のマイID',
+  alreadyPairedStep1Note:
+    'このブラウザはすでに登録済みです。3台目以降の別端末を追加する場合は、その端末のブラウザでこのページを開いてQRを作成してください。（同じブラウザで別の端末IDを新しく作り直したい場合のみ、上の「この端末」欄から新しいデバイスIDを作成できます）',
+  approveNextDeviceBtn: '次の端末を承認する（表示をクリア）',
   addDeviceTab: 'デバイスを追加（新端末）',
   approveDeviceTab: 'QRを読み取って承認（既存端末）',
   registryTab: '登録済みデバイス・バックアップ',
@@ -259,6 +270,12 @@ const EN_DEVICE_PAIRING: DevicePairingTranslations = {
   thisDeviceTitle: 'This Device',
   thisDeviceRevokedAlert: 'This local device key has been revoked and cannot be re-used. Generate a new Device Identity if you intentionally want to re-enroll.',
   regenerateDeviceIdBtn: 'Generate New Device Identity',
+  createSeparateDeviceIdBtn: 'Generate New Separate Device ID',
+  alreadyPairedBadge: 'Paired',
+  alreadyPairedUnderOwnersLabel: 'Linked to My ID',
+  alreadyPairedStep1Note:
+    'This browser is already registered. To add a 3rd+ device, open this page on that new device’s browser to create its pairing QR. (If you intentionally need a separate Device ID in this browser, generate a new one in the “This Device” card above.)',
+  approveNextDeviceBtn: 'Approve Another Device (Clear)',
   addDeviceTab: 'Add This Device (New)',
   approveDeviceTab: 'Approve a Device (Existing)',
   registryTab: 'Paired Devices & Backup',

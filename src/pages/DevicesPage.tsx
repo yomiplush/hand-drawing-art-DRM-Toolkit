@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useId, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   decodeQrFromImageBytes,
   renderExchangeQrPng,
@@ -88,6 +88,7 @@ function formatCountdown(expiresAtUnix: number, nowUnix: number): string {
 export function DevicesPage() {
   const { t } = useI18n();
   const location = useLocation();
+  const navigate = useNavigate();
   const certUploadId = useId();
   const reqUploadId = useId();
   const revUploadId = useId();
@@ -105,6 +106,16 @@ export function DevicesPage() {
   const [pairedDevices, setPairedDevices] = useState<PairedDeviceRecord[]>([]);
   const [corruptionWarnings, setCorruptionWarnings] = useState<StorageCorruptionWarning[]>([]);
   const [webCryptoSupported, setWebCryptoSupported] = useState<boolean>(true);
+  const [stateLoaded, setStateLoaded] = useState<boolean>(false);
+  const processedHashRef = useRef<string>('');
+  const isMountedRef = useRef<boolean>(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const [nowUnix, setNowUnix] = useState(() => Math.floor(Date.now() / 1000));
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -131,6 +142,10 @@ export function DevicesPage() {
 
   // Tab 2: Approve device (Owner side)
   const [selectedAuthorKeyId, setSelectedAuthorKeyId] = useState('');
+  const latestOwnerRef = useRef<{ authorKeys: AuthorKeyRecord[]; selectedAuthorKeyId: string }>({
+    authorKeys: [],
+    selectedAuthorKeyId: '',
+  });
   const [ownerPassphrase, setOwnerPassphrase] = useState('');
   const [incomingReqInput, setIncomingReqInput] = useState('');
   const [reqInspection, setReqInspection] = useState<PairingRequestInspection | null>(null);
@@ -201,6 +216,7 @@ export function DevicesPage() {
       ([ak, state, wcSupported]) => {
         if (active) {
           applyLoadedState(ak, state, wcSupported);
+          setStateLoaded(true);
         }
       },
     );
@@ -217,55 +233,96 @@ export function DevicesPage() {
     return () => window.clearInterval(timer);
   }, []);
 
-  // Auto-route hash fragments (#pair-req=, #pair-cert=, #pair-rev=)
   useEffect(() => {
-    const h = location.hash;
+    latestOwnerRef.current = { authorKeys, selectedAuthorKeyId };
+  }, [authorKeys, selectedAuthorKeyId]);
+
+  // Auto-route hash fragments (#pair-req=, #pair-cert=, #pair-rev=) with full validation
+  useEffect(() => {
+    if (!stateLoaded) return;
+    const h = typeof window !== 'undefined' ? window.location.hash : location.hash;
     if (!h) return;
-    let active = true;
+    const isPairingHash =
+      h.startsWith('#pair-req=') || h.startsWith('#pair-cert=') || h.startsWith('#pair-rev=');
+    if (!isPairingHash) return;
+    if (processedHashRef.current === h) return;
+    processedHashRef.current = h;
     const fullUrl = window.location.href;
+
+    navigate(`${location.pathname}${location.search}`, { replace: true });
+
     if (h.startsWith('#pair-req=')) {
-      Promise.resolve().then(() => {
-        if (!active) return;
+      const { authorKeys: latestKeys, selectedAuthorKeyId: latestOwnerId } = latestOwnerRef.current;
+      const owner = latestKeys.find((k) => k.id === latestOwnerId);
+      Promise.resolve().then(async () => {
+        if (!isMountedRef.current) return;
         setActiveTab('approve');
         setIncomingReqInput(fullUrl);
-      });
-      inspectPairingRequestForApproval({ rawInput: fullUrl })
-        .then((res) => {
-          if (!active) return;
+        setApproveError(null);
+        setReqInspection(null);
+        setIssuedApproval(null);
+        try {
+          const res = await inspectPairingRequestForApproval({
+            rawInput: fullUrl,
+            ownerPublicKeyBase64Url: owner?.publicKeyBase64Url,
+            ownerFingerprintHex: owner?.fingerprintHex,
+          });
+          if (!isMountedRef.current) return;
+          if (res.alreadyConsumed) {
+            throw new Error('Replay blocked: this pairing request QR has already been used.');
+          }
+          if (res.expired) {
+            throw new Error('This pairing request QR has expired. Generate a fresh QR on the new device.');
+          }
+          if (res.deviceRevoked) {
+            throw new Error('This device key has been revoked and cannot be registered.');
+          }
+          if (res.alreadyRegisteredUnderOwner) {
+            throw new Error('Double-registration blocked: this device is already registered under your My ID.');
+          }
           setReqInspection(res);
-          setApproveError(null);
-        })
-        .catch((err) => {
-          if (!active) return;
+        } catch (err) {
+          if (!isMountedRef.current) return;
           setApproveError(err instanceof Error ? err.message : 'Invalid pairing request QR');
-        });
+        }
+      });
     } else if (h.startsWith('#pair-cert=')) {
-      Promise.resolve().then(() => {
-        if (!active) return;
+      Promise.resolve().then(async () => {
+        if (!isMountedRef.current) return;
         setActiveTab('add');
         setCertInput(fullUrl);
-      });
-      inspectEnrollmentCertificateForDevice({ rawCertificateInput: fullUrl })
-        .then((res) => {
-          if (!active) return;
+        setStep2Error(null);
+        setCertInspection(null);
+        setConfirmOwnerChecked(false);
+        setCompletedDevice(null);
+        try {
+          const res = await inspectEnrollmentCertificateForDevice({
+            rawCertificateInput: fullUrl,
+          });
+          if (!isMountedRef.current) return;
+          if (!res.verification.valid) {
+            throw new Error(res.verification.errors.join(' '));
+          }
+          if (res.deviceRevoked) {
+            throw new Error('This device has been revoked and cannot complete registration.');
+          }
+          if (res.alreadyRegistered) {
+            throw new Error('This device is already registered under this CHM Identity.');
+          }
           setCertInspection(res);
-          setStep2Error(null);
-        })
-        .catch((err) => {
-          if (!active) return;
+        } catch (err) {
+          if (!isMountedRef.current) return;
           setStep2Error(err instanceof Error ? err.message : 'Invalid enrollment certificate');
-        });
+        }
+      });
     } else if (h.startsWith('#pair-rev=')) {
       Promise.resolve().then(() => {
-        if (!active) return;
+        if (!isMountedRef.current) return;
         setActiveTab('registry');
         setImportRevInput(fullUrl);
       });
     }
-    return () => {
-      active = false;
-    };
-  }, [location.hash]);
+  }, [location.hash, location.pathname, location.search, navigate, stateLoaded]);
 
   const handleCopy = async (key: string, text: string) => {
     try {
@@ -298,6 +355,7 @@ export function DevicesPage() {
 
   const handleRegenerateDeviceIdentity = async () => {
     setStep1Error(null);
+    setStep2Error(null);
     try {
       await createOrReplaceLocalDeviceIdentity({
         deviceName: deviceNameInput.trim() || 'My Device',
@@ -306,6 +364,7 @@ export function DevicesPage() {
       });
       setActiveRequestSession(null);
       setCertInspection(null);
+      setCompletedDevice(null);
       await refreshAll();
     } catch (err) {
       setStep1Error(err instanceof Error ? err.message : 'Failed to create new device identity');
@@ -365,6 +424,8 @@ export function DevicesPage() {
   const handleCertQrFileUpload = async (file: File | null) => {
     if (!file) return;
     setStep2Error(null);
+    setCertInspection(null);
+    setCompletedDevice(null);
     try {
       const decoded = await decodeQrFromImageBytes(file);
       setCertInput(decoded);
@@ -424,6 +485,8 @@ export function DevicesPage() {
   const handleReqQrFileUpload = async (file: File | null) => {
     if (!file) return;
     setApproveError(null);
+    setReqInspection(null);
+    setIssuedApproval(null);
     try {
       const decoded = await decodeQrFromImageBytes(file);
       setIncomingReqInput(decoded);
@@ -564,6 +627,15 @@ export function DevicesPage() {
   };
 
   const selectedOwnerKey = authorKeys.find((k) => k.id === selectedAuthorKeyId);
+  const localDeviceActivePairings = localDevice
+    ? pairedDevices.filter(
+        (d) =>
+          (d.devicePublicKeyBase64Url === localDevice.publicKeyBase64Url ||
+            d.deviceIdHex === localDevice.deviceIdHex) &&
+          d.localVerificationStatus !== 'revoked' &&
+          d.localVerificationStatus !== 'conflict-revoked',
+      )
+    : [];
   const displayedSession =
     activeRequestSession?.session ?? (pendingSessions.length > 0 ? pendingSessions[0] : null);
   const displayedQrUrl = activeRequestSession?.qrUrl ?? displayedSession?.qrUrl ?? '';
@@ -691,7 +763,7 @@ export function DevicesPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {authorKeys.slice(0, 2).map((k) => (
+              {authorKeys.map((k) => (
                 <div
                   key={k.id}
                   data-testid="myid-summary-card"
@@ -735,16 +807,34 @@ export function DevicesPage() {
                   <span className="font-semibold text-sm text-white" data-testid="local-device-name">
                     {localDevice.deviceName}
                   </span>
-                  <span
-                    className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-                      localDevice.revokedLocally
-                        ? 'border-rose-400/40 bg-rose-500/15 text-rose-200'
-                        : 'border-cyan-400/30 bg-cyan-500/10 text-cyan-200'
-                    }`}
-                  >
-                    {localDevice.revokedLocally ? t.devices.statusRevoked : localDevice.fingerprintShort}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {!localDevice.revokedLocally && localDeviceActivePairings.length > 0 && (
+                      <span
+                        data-testid="local-device-paired-badge"
+                        className="rounded-full border border-emerald-400/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-200"
+                      >
+                        {t.devices.alreadyPairedBadge}
+                      </span>
+                    )}
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+                        localDevice.revokedLocally
+                          ? 'border-rose-400/40 bg-rose-500/15 text-rose-200'
+                          : 'border-cyan-400/30 bg-cyan-500/10 text-cyan-200'
+                      }`}
+                    >
+                      {localDevice.revokedLocally ? t.devices.statusRevoked : localDevice.fingerprintShort}
+                    </span>
+                  </div>
                 </div>
+                {!localDevice.revokedLocally && localDeviceActivePairings.length > 0 && (
+                  <p className="text-[11px] text-emerald-200/90">
+                    {t.devices.alreadyPairedUnderOwnersLabel}:{' '}
+                    {localDeviceActivePairings
+                      .map((d) => `${d.ownerDisplayName} (${d.ownerFingerprintShort})`)
+                      .join(', ')}
+                  </p>
+                )}
                 <details className="text-[11px] text-slate-400">
                   <summary className="cursor-pointer hover:text-slate-200">
                     {t.devices.technicalDetailsSummary}
@@ -766,7 +856,7 @@ export function DevicesPage() {
                 </details>
               </div>
 
-              {localDevice.revokedLocally && (
+              {localDevice.revokedLocally ? (
                 <div
                   role="alert"
                   data-testid="device-revoked-alert"
@@ -782,6 +872,17 @@ export function DevicesPage() {
                     {t.devices.regenerateDeviceIdBtn}
                   </button>
                 </div>
+              ) : (
+                localDeviceActivePairings.length > 0 && (
+                  <button
+                    type="button"
+                    data-testid="device-regenerate-btn"
+                    onClick={() => void handleRegenerateDeviceIdentity()}
+                    className="rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
+                  >
+                    {t.devices.createSeparateDeviceIdBtn}
+                  </button>
+                )
               )}
             </div>
           ) : (
@@ -855,6 +956,16 @@ export function DevicesPage() {
               <h2 className="text-lg font-semibold text-white">{t.devices.step1Heading}</h2>
               <p className="text-xs text-slate-300 leading-relaxed">{t.devices.step1Desc}</p>
             </div>
+
+            {localDevice && !localDevice.revokedLocally && localDeviceActivePairings.length > 0 && (
+              <div
+                role="note"
+                data-testid="pairing-already-paired-note"
+                className="rounded-lg border border-sky-400/30 bg-sky-500/10 p-3 text-xs text-sky-100 leading-relaxed"
+              >
+                {t.devices.alreadyPairedStep1Note}
+              </div>
+            )}
 
             <form onSubmit={handleStartPairingSession} className="space-y-3">
               <div>
@@ -1033,7 +1144,11 @@ export function DevicesPage() {
                   type="file"
                   accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
                   data-testid="pairing-cert-file-input"
-                  onChange={(e) => void handleCertQrFileUpload(e.target.files?.[0] ?? null)}
+                  onChange={(e) => {
+                    const file = e.currentTarget.files?.[0] ?? null;
+                    e.currentTarget.value = '';
+                    void handleCertQrFileUpload(file);
+                  }}
                   className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border file:border-slate-700 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:font-medium file:text-slate-100 hover:file:bg-slate-700"
                 />
               </div>
@@ -1207,7 +1322,11 @@ export function DevicesPage() {
                   type="file"
                   accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
                   data-testid="pairing-req-upload-input"
-                  onChange={(e) => void handleReqQrFileUpload(e.target.files?.[0] ?? null)}
+                  onChange={(e) => {
+                    const file = e.currentTarget.files?.[0] ?? null;
+                    e.currentTarget.value = '';
+                    void handleReqQrFileUpload(file);
+                  }}
                   className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border file:border-slate-700 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:font-medium file:text-slate-100 hover:file:bg-slate-700"
                 />
               </div>
@@ -1377,6 +1496,20 @@ export function DevicesPage() {
                       <Copy className="h-3.5 w-3.5" />
                     )}
                     <span>{copiedKey === 'cert-url' ? t.devices.copiedMsg : t.devices.copyUrlBtn}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-testid="pairing-approve-next-btn"
+                    onClick={() => {
+                      setIssuedApproval(null);
+                      setReqInspection(null);
+                      setIncomingReqInput('');
+                      setApproveError(null);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#051224] px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
+                  >
+                    <span>{t.devices.approveNextDeviceBtn}</span>
                   </button>
                 </div>
               </div>
@@ -1661,7 +1794,11 @@ export function DevicesPage() {
                   type="file"
                   accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp,.json"
                   data-testid="pairing-rev-file-input"
-                  onChange={(e) => void handleImportRevocationQrFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => {
+                    const file = e.currentTarget.files?.[0] ?? null;
+                    e.currentTarget.value = '';
+                    void handleImportRevocationQrFile(file);
+                  }}
                   className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border file:border-slate-700 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:font-medium file:text-slate-100"
                 />
               </div>
@@ -1735,7 +1872,11 @@ export function DevicesPage() {
                   type="file"
                   accept=".json,.cbor,.chdevreg.json,.chdevreg.cbor,application/json"
                   data-testid="import-registry-file-input"
-                  onChange={(e) => void handleImportRegistryFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => {
+                    const file = e.currentTarget.files?.[0] ?? null;
+                    e.currentTarget.value = '';
+                    void handleImportRegistryFile(file);
+                  }}
                   className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border file:border-slate-700 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:font-medium file:text-slate-100"
                 />
               </div>
