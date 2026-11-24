@@ -58,7 +58,7 @@ export function CookieConsentBanner({
 
         <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <Link
-            to="/#privacypolicy"
+            to="/privacypolicy"
             onClick={() => {
               if (status !== 'unset' && onClose) onClose();
             }}

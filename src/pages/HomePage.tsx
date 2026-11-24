@@ -1,18 +1,19 @@
 import { Link } from 'react-router-dom';
-import { BookOpen, Compass, FileSignature, ShieldCheck } from 'lucide-react';
+import { BookOpen, Cloud, Compass, FileSignature, Shield, ShieldCheck } from 'lucide-react';
 import { HelpIconButton } from '../components/ui/HelpIconButton';
 import { useI18n } from '../i18n/context';
 
 export function HomePage() {
   const { t } = useI18n();
   const homeUi = t.minimal.home;
+  const overview = t.googleCompliance.homeOverview;
 
   return (
     <div
       data-testid="home-minimal-page"
-      className="relative flex flex-col justify-center min-h-[calc(100vh-14rem)] py-6 sm:py-12"
+      className="relative flex flex-col justify-center min-h-[calc(100vh-14rem)] py-6 sm:py-10 space-y-12"
     >
-      <div className="flex justify-end mb-6 sm:mb-8">
+      <div className="flex justify-end">
         <HelpIconButton
           label={homeUi.helpLabel}
           title={homeUi.helpTitle}
@@ -81,6 +82,62 @@ export function HomePage() {
           >
             <ShieldCheck className="h-5 w-5 text-sky-300 shrink-0" aria-hidden="true" />
             <span>{homeUi.verifyCta}</span>
+          </Link>
+        </div>
+      </section>
+
+      <section
+        data-testid="home-overview-section"
+        className="mx-auto w-full max-w-3xl space-y-4 pt-2"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="rounded-xl border border-white/[0.1] bg-[#051224]/65 backdrop-blur-md p-5 space-y-2">
+            <h2 className="text-sm sm:text-base font-semibold text-white flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+              <span>{overview.appPurposeTitle}</span>
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              {overview.appPurposeBody}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-white/[0.1] bg-[#051224]/65 backdrop-blur-md p-5 space-y-2">
+            <h2 className="text-sm sm:text-base font-semibold text-white flex items-center gap-2">
+              <Cloud className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+              <span>{overview.drivePurposeTitle}</span>
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              {overview.drivePurposeBody}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-3 text-xs sm:text-sm">
+          <Link
+            to="/privacypolicy"
+            data-testid="home-privacy-link"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-[#041021]/75 px-3.5 py-2 text-sky-200 hover:border-sky-400/45 hover:text-white transition-colors min-h-[40px]"
+          >
+            <Shield className="h-3.5 w-3.5 text-sky-300 shrink-0" aria-hidden="true" />
+            <span>{overview.privacyLinkLabel}</span>
+          </Link>
+
+          <Link
+            to="/storage"
+            data-testid="home-storage-link"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-[#041021]/75 px-3.5 py-2 text-slate-200 hover:border-sky-400/45 hover:text-white transition-colors min-h-[40px]"
+          >
+            <Cloud className="h-3.5 w-3.5 text-sky-300 shrink-0" aria-hidden="true" />
+            <span>{overview.storageLinkLabel}</span>
+          </Link>
+
+          <Link
+            to="/docs"
+            data-testid="home-docs-link"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-[#041021]/75 px-3.5 py-2 text-slate-200 hover:border-sky-400/45 hover:text-white transition-colors min-h-[40px]"
+          >
+            <BookOpen className="h-3.5 w-3.5 text-sky-300 shrink-0" aria-hidden="true" />
+            <span>{overview.docsLinkLabel}</span>
           </Link>
         </div>
       </section>

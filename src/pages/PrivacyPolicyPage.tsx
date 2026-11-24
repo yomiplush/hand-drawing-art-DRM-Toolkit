@@ -19,6 +19,7 @@ export function PrivacyPolicyPage({
   onOpenBanner,
 }: PrivacyPolicyPageProps) {
   const { t } = useI18n();
+  const googlePolicy = t.googleCompliance.privacyPolicyGoogle;
 
   const statusText =
     consentStatus === 'accepted'
@@ -33,6 +34,16 @@ export function PrivacyPolicyPage({
       : consentStatus === 'rejected'
         ? 'border-white/[0.14] bg-white/[0.06] text-slate-200'
         : 'border-amber-400/35 bg-amber-500/10 text-amber-200';
+
+  const inventoryRows = [
+    ...t.privacyPolicy.tableRows,
+    {
+      name: googlePolicy.tableRowName,
+      category: googlePolicy.tableRowCategory,
+      purpose: googlePolicy.tableRowPurpose,
+      retention: googlePolicy.tableRowRetention,
+    },
+  ];
 
   return (
     <div className="space-y-8" data-testid="privacy-policy-page">
@@ -152,7 +163,7 @@ export function PrivacyPolicyPage({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.08] text-slate-300">
-                    {t.privacyPolicy.tableRows.map((row) => (
+                    {inventoryRows.map((row) => (
                       <tr key={row.name}>
                         <td className="py-2.5 pr-4 font-mono text-xs text-sky-200 align-top">
                           {row.name}
@@ -168,6 +179,18 @@ export function PrivacyPolicyPage({
             )}
           </section>
         ))}
+
+        <section
+          data-testid="privacy-google-drive-section"
+          className="rounded-xl border border-sky-400/20 bg-[#051224]/75 backdrop-blur-md p-5 space-y-3"
+        >
+          <h2 className="text-base sm:text-lg font-medium text-slate-100">
+            {googlePolicy.sectionTitle}
+          </h2>
+          <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+            {googlePolicy.sectionBody}
+          </p>
+        </section>
       </div>
     </div>
   );

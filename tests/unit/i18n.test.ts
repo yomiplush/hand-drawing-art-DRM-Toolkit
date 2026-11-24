@@ -3,6 +3,7 @@ import { LICENSE_DEFINITIONS } from '../../src/core/manifest/types';
 import { SUPPORTED_LOCALES } from '../../src/core/storage/consent';
 import { ARTWORK_DETAILS_I18N } from '../../src/i18n/artworkDetails';
 import { en } from '../../src/i18n/en';
+import { GOOGLE_COMPLIANCE_I18N } from '../../src/i18n/googleCompliance';
 import { HOWTO_I18N } from '../../src/i18n/howto';
 import { ja } from '../../src/i18n/ja';
 import { LICENSE_I18N } from '../../src/i18n/licenses';
@@ -261,6 +262,24 @@ describe('13-language license guide & simple how-to translations', () => {
         expect(ng.create.profileSectionTitle).not.toBe(NEXT_GEN_I18N.en.create.profileSectionTitle);
         expect(ng.storage.driveConnectBtn).not.toBe(NEXT_GEN_I18N.en.storage.driveConnectBtn);
         expect(ng.nostrAuthOnly.bannerTitle).not.toBe(NEXT_GEN_I18N.en.nostrAuthOnly.bannerTitle);
+      }
+    }
+  });
+
+  it('provides Google OAuth homepage overview and privacy disclosures for all 13 languages', () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      const gc = GOOGLE_COMPLIANCE_I18N[locale];
+      expect(gc.homeOverview.appPurposeTitle.trim().length).toBeGreaterThan(5);
+      expect(gc.homeOverview.appPurposeBody.trim().length).toBeGreaterThan(20);
+      expect(gc.homeOverview.drivePurposeTitle.trim().length).toBeGreaterThan(5);
+      expect(gc.homeOverview.drivePurposeBody.trim().length).toBeGreaterThan(20);
+      expect(gc.homeOverview.privacyLinkLabel.trim().length).toBeGreaterThan(3);
+      expect(gc.privacyPolicyGoogle.sectionTitle.trim().length).toBeGreaterThan(10);
+      expect(gc.privacyPolicyGoogle.sectionBody.trim().length).toBeGreaterThan(40);
+      expect(gc.privacyPolicyGoogle.tableRowName.trim().length).toBeGreaterThan(5);
+      if (locale !== 'en') {
+        expect(gc.homeOverview.appPurposeTitle).not.toBe(GOOGLE_COMPLIANCE_I18N.en.homeOverview.appPurposeTitle);
+        expect(gc.privacyPolicyGoogle.sectionTitle).not.toBe(GOOGLE_COMPLIANCE_I18N.en.privacyPolicyGoogle.sectionTitle);
       }
     }
   });
