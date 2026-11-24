@@ -587,7 +587,7 @@ export async function loadDevicePairingState(): Promise<DevicePairingLoadResult>
       }
     }
   }
-  pendingSessions.sort((a, b) => b.issuedAt - a.issuedAt);
+  pendingSessions.sort((a, b) => b.issuedAt - a.issuedAt || b.createdAt.localeCompare(a.createdAt));
 
   const revByKey = new Map<string, DeviceRevocationRecord>();
   const revByDevicePub = new Set<string>();
@@ -634,7 +634,7 @@ export async function loadDevicePairingState(): Promise<DevicePairingLoadResult>
       localVerificationStatus: effectiveStatus,
     });
   }
-  pairedDevices.sort((a, b) => b.issuedAt - a.issuedAt);
+  pairedDevices.sort((a, b) => b.issuedAt - a.issuedAt || b.updatedAt.localeCompare(a.updatedAt));
 
   return {
     localDevice: device,

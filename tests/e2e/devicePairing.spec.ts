@@ -704,4 +704,160 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
       await contextTablet.close();
     }
   });
+
+  test('pairs 4+ devices under one Owner ID, renders 3+ My IDs, supports same-filename QR uploads, hash validation & separate device ID regeneration', async ({
+    browser,
+  }, testInfo) => {
+    test.setTimeout(150_000);
+    const contextOwner = await browser.newContext();
+    const devContexts = await Promise.all([
+      browser.newContext(),
+      browser.newContext(),
+      browser.newContext(),
+      browser.newContext(),
+    ]);
+
+    const pageOwner = await contextOwner.newPage();
+    const devPages = await Promise.all(devContexts.map((c) => c.newPage()));
+    const deviceNames = ['Device 1 Phone', 'Device 2 iPad', 'Device 3 Android', 'Device 4 SubPC'];
+
+    const consoleErrors: string[] = [];
+    const pageErrors: string[] = [];
+    for (const p of [pageOwner, ...devPages]) {
+      p.on('console', (msg) => {
+        if (msg.type() === 'error') consoleErrors.push(msg.text());
+      });
+      p.on('pageerror', (err) => pageErrors.push(err.message));
+    }
+
+    try {
+      // 1. Create 4 Owner IDs on /keys -> verify ALL 4 appear on /devices (no 2-item truncation!)
+      await pageOwner.goto('/keys');
+      await dismissCookieBannerIfVisible(pageOwner);
+      for (const label of ['Owner Alpha', 'Owner Beta', 'Owner Gamma', 'Owner Delta']) {
+        await pageOwner.getByTestId('keygen-label').fill(label);
+        await pageOwner.getByTestId('keygen-submit').click();
+      }
+      await expect(pageOwner.getByTestId('author-key-card')).toHaveCount(4);
+      await pageOwner.getByTestId('keys-manage-devices-link').click();
+      await expect(pageOwner).toHaveURL(/\/devices$/);
+      await expect(pageOwner.getByTestId('myid-summary-card')).toHaveCount(4);
+
+      const sharedReqQrPath = testInfo.outputPath('shared-request-qr.png');
+      const sharedCertQrPath = testInfo.outputPath('shared-approval-qr.png');
+
+      // 2. Pair all 4 distinct devices, always reusing the EXACT SAME QR image filename!
+      await pageOwner.getByTestId('devices-tab-approve').click();
+      for (let i = 0; i < devPages.length; i++) {
+        const dp = devPages[i];
+        await dp.goto('/devices');
+        await dismissCookieBannerIfVisible(dp);
+        await dp.getByTestId('pairing-device-name-input').fill(deviceNames[i]);
+        await dp.getByTestId('pairing-create-req-btn').click();
+        await expect(dp.getByTestId('pairing-request-qr-panel')).toBeVisible();
+
+        const dlReqPromise = dp.waitForEvent('download');
+        await dp.getByTestId('pairing-req-download-qr').click();
+        const dlReq = await dlReqPromise;
+        await dlReq.saveAs(sharedReqQrPath);
+
+        if (i > 0) {
+          // Use the explicit clear button to start approving the next device cleanly
+          const nextBtn = pageOwner.getByTestId('pairing-approve-next-btn');
+          if (await nextBtn.isVisible().catch(() => false)) {
+            await nextBtn.click();
+          }
+        }
+
+        // Upload using identical filename across iterations (proves input.value reset works)
+        await pageOwner.getByTestId('pairing-req-upload-input').setInputFiles(sharedReqQrPath);
+        await expect(pageOwner.getByTestId('pairing-approve-confirm-card')).toContainText(deviceNames[i]);
+        await pageOwner.getByTestId('pairing-approve-confirm-btn').click();
+        await expect(pageOwner.getByTestId('pairing-approval-qr-panel')).toBeVisible();
+
+        const dlCertPromise = pageOwner.waitForEvent('download');
+        await pageOwner.getByTestId('pairing-cert-download-qr').click();
+        const dlCert = await dlCertPromise;
+        await dlCert.saveAs(sharedCertQrPath);
+
+        await dp.getByTestId('pairing-cert-file-input').setInputFiles(sharedCertQrPath);
+        await expect(dp.getByTestId('pairing-cert-preview')).toBeVisible();
+        await dp.getByTestId('pairing-confirm-owner-checkbox').check();
+        await dp.getByTestId('pairing-complete-btn').click();
+        await expect(dp.getByTestId('pairing-completed-banner')).toBeVisible();
+      }
+
+      // 3. Verify Owner registry shows all 4 paired devices before & after reload
+      await pageOwner.getByTestId('devices-tab-registry').click();
+      await expect(pageOwner.getByTestId('paired-device-card')).toHaveCount(4);
+      await pageOwner.reload();
+      await pageOwner.getByTestId('devices-tab-registry').click();
+      await expect(pageOwner.getByTestId('paired-device-card')).toHaveCount(4);
+      for (const name of deviceNames) {
+        await expect(pageOwner.locator('[data-testid="paired-device-card"]', { hasText: name })).toHaveCount(1);
+      }
+
+      // 4. Export signed registry backup with 4 devices & verify another browser imports all 4 monotonically
+      const regDlPromise = pageOwner.waitForEvent('download');
+      await pageOwner.getByTestId('export-registry-json-btn').click();
+      const regDl = await regDlPromise;
+      const regPath = testInfo.outputPath('four-devices.chdevreg.json');
+      await regDl.saveAs(regPath);
+
+      await devPages[0].getByTestId('devices-tab-registry').click();
+      await devPages[0].getByTestId('import-registry-file-input').setInputFiles(regPath);
+      await expect(devPages[0].getByTestId('registry-action-msg')).toBeVisible();
+      await expect(devPages[0].getByTestId('paired-device-card')).toHaveCount(4);
+
+      // 5. Already-paired browser shows clear guidance + regenerate button; hash route blocks double-reg
+      await devPages[0].getByTestId('devices-tab-add').click();
+      await expect(devPages[0].getByTestId('local-device-paired-badge')).toBeVisible();
+      await expect(devPages[0].getByTestId('pairing-already-paired-note')).toBeVisible();
+      await expect(devPages[0].getByTestId('device-regenerate-btn')).toBeVisible();
+
+      // Same identity request opened via #pair-req= hash must enforce double-registration block
+      await devPages[0].getByTestId('pairing-create-req-btn').click();
+      const dupReqUrl = await devPages[0].getByTestId('pairing-req-url-input').inputValue();
+      const dupHash = new URL(dupReqUrl).hash;
+      await pageOwner.goto(`/devices${dupHash}`);
+      await expect(pageOwner.getByTestId('pairing-approve-error')).toContainText(/Double-registration/i);
+      await devPages[0].getByTestId('pairing-cancel-req-btn').click();
+
+      // Regenerating a separate Device Identity on devPages[0] allows enrolling a 5th identity cleanly
+      await devPages[0].getByTestId('device-regenerate-btn').click();
+      await devPages[0].getByTestId('pairing-device-name-input').fill('Device 5 Separate Profile');
+      await devPages[0].getByTestId('pairing-create-req-btn').click();
+      const fifthReqUrl = await devPages[0].getByTestId('pairing-req-url-input').inputValue();
+
+      await pageOwner.getByTestId('devices-tab-approve').click();
+      await pageOwner.getByTestId('pairing-req-paste-input').fill(fifthReqUrl);
+      await pageOwner.getByTestId('pairing-req-inspect-btn').click();
+      await pageOwner.getByTestId('pairing-approve-confirm-btn').click();
+      const fifthCertUrl = await pageOwner.getByTestId('pairing-cert-url-output').inputValue();
+
+      await devPages[0].getByTestId('pairing-cert-text-input').fill(fifthCertUrl);
+      await devPages[0].getByTestId('pairing-cert-inspect-btn').click();
+      await expect(devPages[0].getByTestId('pairing-cert-preview')).toBeVisible();
+      // Owner Delta is already locally trusted on devPages[0] from Device 1 pairing
+      await expect(devPages[0].getByTestId('pairing-confirm-owner-checkbox')).toHaveCount(0);
+      await devPages[0].getByTestId('pairing-complete-btn').click();
+      await expect(devPages[0].getByTestId('pairing-completed-banner')).toBeVisible();
+
+      await pageOwner.getByTestId('devices-tab-registry').click();
+      await expect(pageOwner.getByTestId('paired-device-card')).toHaveCount(5);
+
+      // 6. Verify mobile viewport has no horizontal overflow
+      await pageOwner.setViewportSize({ width: 375, height: 812 });
+      const overflowPx = await pageOwner.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflowPx).toBeLessThanOrEqual(1);
+
+      expect(consoleErrors).toEqual([]);
+      expect(pageErrors).toEqual([]);
+    } finally {
+      await contextOwner.close();
+      await Promise.all(devContexts.map((c) => c.close()));
+    }
+  });
 });
