@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import { MockNostrRelay } from '../helpers/mockNostrRelay';
 import * as ed25519 from '@noble/ed25519';
 import { sha512 } from '@noble/hashes/sha2.js';
 import { encode as cborEncode } from 'cborg';
@@ -1120,6 +1121,127 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
     } finally {
       await contextPC.close();
       await contextIpad.close();
+    }
+  });
+
+  test('PC -> iPad 1-scan Invite QR pairing via NIP-59 Gift Wrap relay with zero copy-paste back to PC', async ({
+    browser,
+  }) => {
+    test.setTimeout(90_000);
+    const freeRelay = new MockNostrRelay({ tls: true, requireAuth: false });
+    const freeUrl = await freeRelay.start();
+
+    const contextPC = await browser.newContext({ ignoreHTTPSErrors: true });
+    const contextIpad = await browser.newContext({ ignoreHTTPSErrors: true });
+    const pagePC = await contextPC.newPage();
+    const pageIpad = await contextIpad.newPage();
+
+    const consoleErrors: string[] = [];
+    const pageErrors: string[] = [];
+    const externalRequests: string[] = [];
+
+    for (const p of [pagePC, pageIpad]) {
+      p.on('console', (msg) => {
+        if (msg.type() === 'error') consoleErrors.push(msg.text());
+      });
+      p.on('pageerror', (err) => pageErrors.push(err.message));
+      p.on('request', (req) => {
+        const u = new URL(req.url());
+        if (
+          u.protocol !== 'blob:' &&
+          u.protocol !== 'data:' &&
+          u.hostname !== '127.0.0.1' &&
+          u.hostname !== 'localhost'
+        ) {
+          externalRequests.push(req.url());
+        }
+      });
+    }
+
+    try {
+      // 1. Setup PC (Owner) on /devices -> defaults to Approve tab with Invite QR card visible
+      await pagePC.goto('/devices');
+      await dismissCookieBannerIfVisible(pagePC);
+      expect(freeRelay.getActiveClientCount()).toBe(0);
+
+      await pagePC.getByTestId('pairing-quick-myid-name').fill('YomiPlush Main PC');
+      await pagePC.getByTestId('pairing-quick-myid-submit').click();
+      await expect(pagePC.getByTestId('myid-summary-card')).toHaveCount(1);
+      await pagePC.getByTestId('devices-tab-approve').click();
+      await expect(pagePC.getByTestId('pairing-create-invite-btn')).toBeVisible();
+
+      // 2. Register local mock TLS relay on PC (and keep sync disabled to prove invite works independently)
+      await pagePC.getByTestId('devices-tab-sync').click();
+      await pagePC.getByTestId('sync-consent-checkbox').check();
+      await pagePC.getByTestId('sync-enable-btn').click();
+      await expect(pagePC.getByTestId('sync-relay-list')).toBeVisible();
+      let relayCount = await pagePC.getByTestId('sync-relay-remove-btn').count();
+      while (relayCount > 0) {
+        await pagePC.getByTestId('sync-relay-remove-btn').first().click();
+        await expect(pagePC.getByTestId('sync-relay-remove-btn')).toHaveCount(relayCount - 1);
+        relayCount -= 1;
+      }
+      await pagePC.getByTestId('sync-relay-add-input').fill(freeUrl);
+      await pagePC.getByTestId('sync-relay-add-btn').click();
+      await expect(pagePC.getByTestId('sync-relay-list')).toContainText(freeUrl);
+      await pagePC.getByTestId('sync-disable-btn').click();
+      await expect(pagePC.getByTestId('sync-consent-panel')).toBeVisible();
+
+      // 3. Back on Approve tab, create PC -> iPad Invitation QR
+      await pagePC.getByTestId('devices-tab-approve').click();
+      await pagePC.getByTestId('pairing-create-invite-btn').click();
+      await expect(pagePC.getByTestId('pairing-invite-qr-panel')).toBeVisible();
+
+      const inviteUrl = await pagePC.getByTestId('pairing-invite-url-input').inputValue();
+      expect(inviteUrl).toContain('/devices#pair-invite=chm-pair-invite:');
+      assertNoPrivateKeyLeak('pairing-invite-url', inviteUrl);
+
+      // 4. iPad opens the scanned Invitation QR URL directly (zero copy-paste back to PC)
+      await pageIpad.goto(inviteUrl);
+      await dismissCookieBannerIfVisible(pageIpad);
+      await expect(pageIpad.getByTestId('devices-tab-add')).toHaveAttribute('aria-selected', 'true');
+      await expect(pageIpad.getByTestId('pairing-invite-accept-card')).toBeVisible();
+      await expect(pageIpad.getByTestId('pairing-invite-accept-card')).toContainText('YomiPlush Main PC');
+
+      await pageIpad.getByTestId('invite-device-name-input').fill('iPad Studio Pro');
+      await pageIpad.getByTestId('invite-accept-send-btn').click();
+      await expect(pageIpad.getByTestId('invite-sent-waiting-panel')).toBeVisible({ timeout: 15_000 });
+      const ipadConfirmCode = (
+        await pageIpad.getByTestId('invite-sent-confirm-code').textContent()
+      )?.trim();
+      expect(ipadConfirmCode).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+
+      // 5. PC receives the NIP-59 Gift Wrapped request automatically and displays matching code
+      await expect(pagePC.getByTestId('pairing-approve-confirm-card')).toBeVisible({ timeout: 15_000 });
+      await expect(pagePC.getByTestId('pairing-approve-confirm-card')).toContainText('iPad Studio Pro');
+      await expect(pagePC.getByTestId('pairing-approve-confirm-code')).toHaveText(ipadConfirmCode!);
+
+      // 6. PC clicks Approve -> sends encrypted EnrollmentCertificate over NIP-59 automatically
+      await pagePC.getByTestId('pairing-approve-confirm-btn').click();
+      await expect(pagePC.getByTestId('pairing-approval-qr-panel')).toBeVisible();
+      await expect(pagePC.getByTestId('pairing-invite-sent-banner')).toBeVisible({ timeout: 15_000 });
+
+      // 7. iPad completes pairing automatically without any copy-paste or 2nd scan!
+      await expect(pageIpad.getByTestId('pairing-completed-banner')).toBeVisible({ timeout: 15_000 });
+      await expect(pageIpad.getByTestId('pairing-completed-banner')).toContainText('iPad Studio Pro');
+
+      await pageIpad.getByTestId('devices-tab-registry').click();
+      await expect(pageIpad.getByTestId('paired-device-card')).toHaveCount(1);
+      await expect(pageIpad.getByTestId('paired-device-status').first()).toContainText(
+        'Active · Verified Owner',
+      );
+
+      await pagePC.getByTestId('devices-tab-registry').click();
+      await expect(pagePC.getByTestId('paired-device-card')).toHaveCount(1);
+      await expect(pagePC.getByTestId('paired-device-card').first()).toContainText('iPad Studio Pro');
+
+      expect(externalRequests).toEqual([]);
+      expect(consoleErrors).toEqual([]);
+      expect(pageErrors).toEqual([]);
+    } finally {
+      await contextPC.close().catch(() => {});
+      await contextIpad.close().catch(() => {});
+      await freeRelay.stop().catch(() => {});
     }
   });
 });

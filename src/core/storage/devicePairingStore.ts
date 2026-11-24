@@ -681,13 +681,14 @@ export async function startDevicePairingRequestSession(params: {
   baseUrl?: string;
   ttlSeconds?: number;
   permissions?: DevicePermission[];
+  autoReplaceIfRevoked?: boolean;
 }): Promise<{
   session: PairingSessionRecord;
   request: SignedPairingRequest;
   qrUrl: string;
 }> {
   const existing = await getLocalDeviceIdentity();
-  if (existing.device?.revokedLocally) {
+  if (existing.device?.revokedLocally && !params.autoReplaceIfRevoked) {
     throw new Error(
       'This device key has been revoked locally. Generate a new Device Identity before pairing again.',
     );
@@ -696,6 +697,7 @@ export async function startDevicePairingRequestSession(params: {
   const device = await createOrReplaceLocalDeviceIdentity({
     deviceName: params.deviceName,
     backupPassphrase: params.devicePassphrase,
+    forceNew: Boolean(existing.device?.revokedLocally && params.autoReplaceIfRevoked),
   });
 
   if (device.revokedLocally) {

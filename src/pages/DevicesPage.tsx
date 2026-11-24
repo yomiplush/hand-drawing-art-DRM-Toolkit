@@ -61,29 +61,46 @@ import type {
   PairingSessionRecord,
   StorageCorruptionWarning,
 } from '../core/storage/devicePairingStore';
-import { createAuthorKey, listAuthorKeys } from '../core/storage/keyStore';
+import { createAuthorKey, listAuthorKeys, signWithAuthorKey } from '../core/storage/keyStore';
 import type { AuthorKeyRecord } from '../core/storage/keyStore';
 import { DecentralizedSyncPanel } from '../components/devices/DecentralizedSyncPanel';
 import { getDeviceNostrKeyRecord } from '../core/nostr/nostrKeyStore';
 import type { NostrDeviceKeyRecord } from '../core/nostr/nostrKeyStore';
 import {
+  generateNostrKeypair,
+  wipeBytes,
+} from '../core/nostr/secp256k1';
+import {
+  type CreatedPairingInviteSession,
+  type DecodedPairingInvite,
   SYNC_BINDING_TOKEN_PREFIX,
   announceLocalBindingToKnownPeers,
   attachSyncBindingToPairingUrl,
+  buildInviteCertGiftWrap,
+  buildInviteRequestGiftWrap,
   computeConfirmationCodeForCertificate,
   computeConfirmationCodeForRequest,
   computePairingConfirmationCode,
   createDefaultSyncSettings,
+  createSignedPairingInvite,
   ensureLocalBindingAttestation,
   extractSyncBindFromPairingUrl,
   getSyncStatusSummary,
+  getSyncTransport,
   importPeerSyncBindingInput,
+  isPairingInviteInput,
   listVerifiedPeerBindings,
   loadSyncSettings,
+  parseAndVerifyPairingInvite,
   recordAndBroadcastOwnerSyncMutation,
   runDecentralizedSyncCycle,
+  suggestLocalDeviceName,
+  toRelayConfigsFromUrls,
+  unwrapAndVerifyInviteCert,
+  unwrapAndVerifyInviteRequest,
 } from '../core/sync';
 import type {
+  RelayConfig,
   SyncSettings,
   SyncStatusSummary,
   VerifiedPeerBinding,
@@ -172,6 +189,23 @@ export function DevicesPage() {
   const [step2WrongTypeKind, setStep2WrongTypeKind] = useState<'pairing-request-owner' | 'device-registry' | null>(null);
   const [step2WrongReqRaw, setStep2WrongReqRaw] = useState<string | null>(null);
   const [completedDevice, setCompletedDevice] = useState<PairedDeviceRecord | null>(null);
+  const [completedViaInvite, setCompletedViaInvite] = useState(false);
+
+  // Tab 1 Invite receiver state (when iPad scans #pair-invite= from PC)
+  const [receivedInvite, setReceivedInvite] = useState<DecodedPairingInvite | null>(null);
+  const [receivedInviteError, setReceivedInviteError] = useState<string | null>(null);
+  const [receivedInviteSending, setReceivedInviteSending] = useState(false);
+  const [receivedInviteSentState, setReceivedInviteSentState] = useState<{
+    session: PairingSessionRecord;
+    request: SignedPairingRequest;
+    replyNostrSecretKey: Uint8Array;
+    replyNostrPubkeyHex: string;
+    relays: RelayConfig[];
+    confirmCode: string;
+    relayAccepted: boolean;
+  } | null>(null);
+  const replyNostrSecretRef = useRef<Uint8Array | null>(null);
+
   const tRef = useRef(t);
   useEffect(() => {
     tRef.current = t;
@@ -192,6 +226,39 @@ export function DevicesPage() {
     qrUrl: string;
     pairedDevice: PairedDeviceRecord;
   } | null>(null);
+
+  // Tab 2 Invite issuer state (PC -> iPad Invitation QR)
+  const [activeInviteSession, setActiveInviteSession] = useState<CreatedPairingInviteSession | null>(
+    null,
+  );
+  const [inviteRelayStatus, setInviteRelayStatus] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteCheckingNow, setInviteCheckingNow] = useState(false);
+  const [pendingInviteReply, setPendingInviteReply] = useState<{
+    inviteSession: CreatedPairingInviteSession;
+    replyNostrPubkeyHex: string;
+    requestHashHex: string;
+    syncBindingToken?: string;
+  } | null>(null);
+  const [inviteApprovalSent, setInviteApprovalSent] = useState(false);
+  const activeInviteRef = useRef<CreatedPairingInviteSession | null>(null);
+
+  useEffect(() => {
+    activeInviteRef.current = activeInviteSession;
+  }, [activeInviteSession]);
+
+  useEffect(() => {
+    replyNostrSecretRef.current = receivedInviteSentState?.replyNostrSecretKey ?? null;
+  }, [receivedInviteSentState]);
+
+  useEffect(() => {
+    return () => {
+      activeInviteRef.current?.wipeSecrets();
+      if (replyNostrSecretRef.current) {
+        wipeBytes(replyNostrSecretRef.current);
+      }
+    };
+  }, []);
 
   // Tab 3: Registry, revocation, export/import
   const [revokingKey, setRevokingKey] = useState<string | null>(null);
@@ -341,7 +408,10 @@ export function DevicesPage() {
     const h = typeof window !== 'undefined' ? window.location.hash : location.hash;
     if (!h) return;
     const isPairingHash =
-      h.startsWith('#pair-req=') || h.startsWith('#pair-cert=') || h.startsWith('#pair-rev=');
+      h.startsWith('#pair-invite=') ||
+      h.startsWith('#pair-req=') ||
+      h.startsWith('#pair-cert=') ||
+      h.startsWith('#pair-rev=');
     if (!isPairingHash) return;
     if (processedHashRef.current === h) return;
     processedHashRef.current = h;
@@ -349,7 +419,29 @@ export function DevicesPage() {
 
     navigate(`${location.pathname}${location.search}`, { replace: true });
 
-    if (h.startsWith('#pair-req=')) {
+    if (h.startsWith('#pair-invite=')) {
+      Promise.resolve().then(() => {
+        if (!isMountedRef.current) return;
+        setActiveTab('add');
+        setReceivedInviteError(null);
+        setReceivedInviteSentState(null);
+        setCompletedDevice(null);
+        setCompletedViaInvite(false);
+        setDeviceNameInput((prev) => prev || suggestLocalDeviceName());
+        try {
+          const parsed = parseAndVerifyPairingInvite(fullUrl);
+          if (parsed.expired) {
+            setReceivedInvite(null);
+            setReceivedInviteError(tRef.current.devices.inviteExpiredError);
+            return;
+          }
+          setReceivedInvite(parsed.invite);
+        } catch (err) {
+          setReceivedInvite(null);
+          setReceivedInviteError(err instanceof Error ? err.message : 'Invalid pairing invitation QR');
+        }
+      });
+    } else if (h.startsWith('#pair-req=')) {
       const { authorKeys: latestKeys, selectedAuthorKeyId: latestOwnerId } = latestOwnerRef.current;
       const owner = latestKeys.find((k) => k.id === latestOwnerId);
       Promise.resolve().then(async () => {
@@ -503,7 +595,12 @@ export function DevicesPage() {
     setCertInspection(null);
     setConfirmOwnerChecked(false);
     setCompletedDevice(null);
+    setCompletedViaInvite(false);
     try {
+      if (isPairingInviteInput(rawValue)) {
+        inspectIncomingInviteValue(rawValue);
+        return;
+      }
       let parsedKind: ReturnType<typeof parsePairingQrInput> | null = null;
       try {
         parsedKind = parsePairingQrInput(rawValue);
@@ -589,6 +686,7 @@ export function DevicesPage() {
         // Non-blocking: offline pairing must never fail if sync fails
       }
       setCompletedDevice(pairedDevice);
+      setCompletedViaInvite(false);
       setCertInspection(null);
       setCertInput('');
       setActiveRequestSession(null);
@@ -603,6 +701,10 @@ export function DevicesPage() {
     setReqInspection(null);
     setIssuedApproval(null);
     try {
+      if (isPairingInviteInput(rawValue)) {
+        inspectIncomingInviteValue(rawValue);
+        return;
+      }
       let parsedKind: ReturnType<typeof parsePairingQrInput> | null = null;
       try {
         parsedKind = parsePairingQrInput(rawValue);
@@ -657,9 +759,287 @@ export function DevicesPage() {
     }
   };
 
+  const inspectIncomingInviteValue = useCallback((rawValue: string) => {
+    setActiveTab('add');
+    setReceivedInviteError(null);
+    setReceivedInviteSentState(null);
+    setCompletedDevice(null);
+    setCompletedViaInvite(false);
+    setDeviceNameInput((prev) => prev || suggestLocalDeviceName());
+    try {
+      const parsed = parseAndVerifyPairingInvite(rawValue);
+      if (parsed.expired) {
+        setReceivedInvite(null);
+        setReceivedInviteError(tRef.current.devices.inviteExpiredError);
+        return;
+      }
+      setReceivedInvite(parsed.invite);
+    } catch (err) {
+      setReceivedInvite(null);
+      setReceivedInviteError(err instanceof Error ? err.message : 'Invalid pairing invitation QR');
+    }
+  }, []);
+
+  const handleCreatePairingInvite = async () => {
+    const owner = authorKeys.find((k) => k.id === selectedAuthorKeyId);
+    if (!owner) return;
+    setInviteError(null);
+    setInviteRelayStatus(null);
+    setInviteApprovalSent(false);
+    setPendingInviteReply(null);
+    setIssuedApproval(null);
+    setReqInspection(null);
+    activeInviteSession?.wipeSecrets();
+    try {
+      const settingsNow = await loadSyncSettings();
+      const created = await createSignedPairingInvite({
+        ownerPublicKey: owner.publicKey,
+        ownerDisplayName: owner.label,
+        signWithOwnerKey: (msg) => signWithAuthorKey(owner, msg, ownerPassphrase || undefined),
+        relays: settingsNow.relays,
+      });
+      setActiveInviteSession(created);
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : 'Failed to create pairing invitation QR');
+    }
+  };
+
+  const handleClosePairingInvite = () => {
+    activeInviteSession?.wipeSecrets();
+    setActiveInviteSession(null);
+    setInviteRelayStatus(null);
+    setInviteError(null);
+    setPendingInviteReply(null);
+  };
+
+  const pollInviteRequestOnce = useCallback(
+    async (sessionOverride?: CreatedPairingInviteSession) => {
+      const session = sessionOverride ?? activeInviteSession;
+      if (!session) return;
+      setInviteCheckingNow(true);
+      try {
+        const res = await getSyncTransport().fetchEnvelopesForRecipient({
+          recipientPubkeyHex: session.inviteNostrPubkeyHex,
+          relays: session.relays,
+          localNostrSecretKey: session.inviteNostrSecretKey,
+        });
+        const { authorKeys: latestKeys, selectedAuthorKeyId: latestOwnerId } = latestOwnerRef.current;
+        const owner = latestKeys.find((k) => k.id === latestOwnerId);
+        for (const ev of res.events) {
+          try {
+            const decoded = unwrapAndVerifyInviteRequest({
+              rawEvent: ev.rawEvent,
+              expectedInvite: session.invite,
+              inviteNostrSecretKey: session.inviteNostrSecretKey,
+            });
+            const inspected = await inspectPairingRequestForApproval({
+              rawInput: decoded.requestToken,
+              ownerPublicKeyBase64Url: owner?.publicKeyBase64Url,
+              ownerFingerprintHex: owner?.fingerprintHex,
+            });
+            if (inspected.alreadyConsumed || inspected.expired || inspected.deviceRevoked) {
+              continue;
+            }
+            if (inspected.alreadyRegisteredUnderOwner) {
+              setApproveError(tRef.current.devices.approveAlreadyRegisteredError);
+              continue;
+            }
+            if (!isMountedRef.current) return;
+            setApproveError(null);
+            setIncomingReqInput(decoded.requestToken);
+            setReqInspection(inspected);
+            setPendingInviteReply({
+              inviteSession: session,
+              replyNostrPubkeyHex: decoded.replyNostrPubkeyHex,
+              requestHashHex: decoded.request.requestHashHex,
+              syncBindingToken: decoded.syncBindingToken,
+            });
+            setInviteRelayStatus(tRef.current.devices.inviteReceivedFromRelayMsg);
+            return;
+          } catch {
+            // Ignore malformed or unrelated events on public relays
+          }
+        }
+      } catch {
+        // Ignore transient relay polling failures; user can retry or use manual QR
+      } finally {
+        if (isMountedRef.current) {
+          setInviteCheckingNow(false);
+        }
+      }
+    },
+    [activeInviteSession],
+  );
+
+  useEffect(() => {
+    if (!activeInviteSession || reqInspection || issuedApproval) return;
+    if (nowUnix > activeInviteSession.invite.expiresAt) return;
+    const initTimer = window.setTimeout(() => {
+      void pollInviteRequestOnce(activeInviteSession);
+    }, 350);
+    const interval = window.setInterval(() => {
+      void pollInviteRequestOnce(activeInviteSession);
+    }, 2500);
+    return () => {
+      window.clearTimeout(initTimer);
+      window.clearInterval(interval);
+    };
+  }, [activeInviteSession, issuedApproval, nowUnix, pollInviteRequestOnce, reqInspection]);
+
+  const handleAcceptAndSendInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!receivedInvite) return;
+    setReceivedInviteError(null);
+    setReceivedInviteSending(true);
+    try {
+      const targetName = deviceNameInput.trim() || suggestLocalDeviceName();
+      const res = await startDevicePairingRequestSession({
+        deviceName: targetName,
+        devicePassphrase: devicePassInput || undefined,
+        ownerPublicKey: receivedInvite.ownerPublicKeyBase64Url,
+        ownerFingerprintHex: receivedInvite.ownerFingerprintHex,
+        autoReplaceIfRevoked: true,
+      });
+
+      const devicePubBytes = res.request.payload.devicePublicKey;
+      const replyKeys = generateNostrKeypair([devicePubBytes, receivedInvite.ownerPublicKey]);
+      const relays = toRelayConfigsFromUrls(receivedInvite.relays);
+
+      let syncBindingToken: string | undefined;
+      try {
+        const settingsNow = await loadSyncSettings();
+        if (settingsNow.enabled && settingsNow.consentAccepted) {
+          const ensured = await ensureLocalBindingAttestation({
+            deviceName: targetName,
+            devicePassphrase: devicePassInput || undefined,
+          });
+          if (ensured.binding) {
+            syncBindingToken = ensured.binding.token;
+          }
+        }
+      } catch {
+        // Optional peer sync card; never block pairing
+      }
+
+      const giftWrap = buildInviteRequestGiftWrap({
+        invite: receivedInvite,
+        request: res.request,
+        replyNostrSecretKey: replyKeys.secretKey,
+        syncBindingToken,
+      });
+
+      const pubRes = await getSyncTransport().publishEnvelopes({
+        envelopes: [
+          {
+            id: res.session.requestIdHex,
+            ownerFingerprintHex: receivedInvite.ownerFingerprintHex,
+            recipientDeviceIdHex: receivedInvite.inviteIdHex,
+            recipientNostrPubkeyHex: receivedInvite.ownerNostrPubkeyHex,
+            opIdHex: res.session.requestIdHex,
+            nostrEventJson: JSON.stringify(giftWrap),
+          },
+        ],
+        relays,
+        localNostrSecretKey: replyKeys.secretKey,
+      });
+
+      const confirmCode = computeConfirmationCodeForRequest(res.request);
+      if (replyNostrSecretRef.current) {
+        wipeBytes(replyNostrSecretRef.current);
+      }
+      setActiveRequestSession(res);
+      setReceivedInviteSentState({
+        session: res.session,
+        request: res.request,
+        replyNostrSecretKey: replyKeys.secretKey,
+        replyNostrPubkeyHex: replyKeys.publicKeyHex,
+        relays,
+        confirmCode,
+        relayAccepted: pubRes.succeededRelays > 0,
+      });
+      await refreshAll();
+    } catch (err) {
+      setReceivedInviteError(err instanceof Error ? err.message : 'Failed to send pairing request');
+    } finally {
+      if (isMountedRef.current) {
+        setReceivedInviteSending(false);
+      }
+    }
+  };
+
+  const pollInviteCertOnce = useCallback(async () => {
+    if (!receivedInvite || !receivedInviteSentState) return;
+    try {
+      const fetchRes = await getSyncTransport().fetchEnvelopesForRecipient({
+        recipientPubkeyHex: receivedInviteSentState.replyNostrPubkeyHex,
+        relays: receivedInviteSentState.relays,
+        localNostrSecretKey: receivedInviteSentState.replyNostrSecretKey,
+      });
+      for (const ev of fetchRes.events) {
+        try {
+          const certMsg = unwrapAndVerifyInviteCert({
+            rawEvent: ev.rawEvent,
+            expectedInvite: receivedInvite,
+            expectedRequest: receivedInviteSentState.request,
+            replyNostrSecretKey: receivedInviteSentState.replyNostrSecretKey,
+          });
+          const { pairedDevice } = await completeDevicePairingWithCertificate({
+            rawCertificateInput: certMsg.certificateToken,
+            confirmOwnerTrust: true,
+          });
+          try {
+            if (certMsg.syncBindingToken) {
+              await importPeerSyncBindingInput(certMsg.syncBindingToken);
+            }
+            const settingsNow = await loadSyncSettings();
+            if (settingsNow.enabled && settingsNow.consentAccepted) {
+              await announceLocalBindingToKnownPeers({
+                ownerFingerprintHex: pairedDevice.ownerFingerprintHex,
+              });
+              await runDecentralizedSyncCycle();
+            }
+          } catch {
+            // Non-blocking sync hook
+          }
+          if (!isMountedRef.current) return;
+          wipeBytes(receivedInviteSentState.replyNostrSecretKey);
+          setCompletedDevice(pairedDevice);
+          setCompletedViaInvite(true);
+          setReceivedInvite(null);
+          setReceivedInviteSentState(null);
+          setActiveRequestSession(null);
+          setCertInspection(null);
+          setCertInput('');
+          await refreshAll();
+          return;
+        } catch {
+          // Ignore malformed/unrelated events
+        }
+      }
+    } catch {
+      // Transient relay failure; keep waiting
+    }
+  }, [receivedInvite, receivedInviteSentState, refreshAll]);
+
+  useEffect(() => {
+    if (!receivedInvite || !receivedInviteSentState || completedDevice) return;
+    if (nowUnix > receivedInviteSentState.session.expiresAt) return;
+    const initTimer = window.setTimeout(() => {
+      void pollInviteCertOnce();
+    }, 600);
+    const interval = window.setInterval(() => {
+      void pollInviteCertOnce();
+    }, 2500);
+    return () => {
+      window.clearTimeout(initTimer);
+      window.clearInterval(interval);
+    };
+  }, [completedDevice, nowUnix, pollInviteCertOnce, receivedInvite, receivedInviteSentState]);
+
   const handleApprovePairing = async () => {
     if (!reqInspection || !selectedAuthorKeyId) return;
     setApproveError(null);
+    setInviteApprovalSent(false);
     try {
       const res = await approvePairingRequestAsOwner({
         rawRequestInput: reqInspection.request.token,
@@ -667,6 +1047,7 @@ export function DevicesPage() {
         passphrase: ownerPassphrase || undefined,
       });
       let qrUrl = res.qrUrl;
+      let ownerSyncBindingToken: string | undefined;
       try {
         const settingsNow = await loadSyncSettings();
         if (settingsNow.enabled && settingsNow.consentAccepted) {
@@ -675,7 +1056,11 @@ export function DevicesPage() {
             ownerPassphrase: ownerPassphrase || undefined,
           });
           if (ensured.binding) {
+            ownerSyncBindingToken = ensured.binding.token;
             qrUrl = attachSyncBindingToPairingUrl(res.qrUrl, ensured.binding);
+          }
+          if (pendingInviteReply?.syncBindingToken) {
+            await importPeerSyncBindingInput(pendingInviteReply.syncBindingToken);
           }
           await recordAndBroadcastOwnerSyncMutation({
             authorKeyId: selectedAuthorKeyId,
@@ -687,6 +1072,46 @@ export function DevicesPage() {
       } catch {
         // Non-blocking: offline QR approval must never fail if sync fails
       }
+
+      if (
+        pendingInviteReply &&
+        pendingInviteReply.requestHashHex === res.certificate.payload.requestHashHex
+      ) {
+        try {
+          const certWrap = buildInviteCertGiftWrap({
+            invite: pendingInviteReply.inviteSession.invite,
+            certificate: res.certificate,
+            inviteNostrSecretKey: pendingInviteReply.inviteSession.inviteNostrSecretKey,
+            replyNostrPubkeyHex: pendingInviteReply.replyNostrPubkeyHex,
+            syncBindingToken: ownerSyncBindingToken,
+          });
+          const pubRes = await getSyncTransport().publishEnvelopes({
+            envelopes: [
+              {
+                id: res.certificate.payload.certIdHex,
+                ownerFingerprintHex: res.certificate.payload.ownerFingerprintHex,
+                recipientDeviceIdHex: res.certificate.payload.deviceIdHex,
+                recipientNostrPubkeyHex: pendingInviteReply.replyNostrPubkeyHex,
+                opIdHex: res.certificate.payload.certIdHex,
+                nostrEventJson: JSON.stringify(certWrap),
+              },
+            ],
+            relays: pendingInviteReply.inviteSession.relays,
+            localNostrSecretKey: pendingInviteReply.inviteSession.inviteNostrSecretKey,
+          });
+          if (pubRes.succeededRelays > 0) {
+            setInviteApprovalSent(true);
+          }
+        } catch {
+          // Non-blocking: approval QR is still displayed for offline fallback
+        } finally {
+          pendingInviteReply.inviteSession.wipeSecrets();
+          setPendingInviteReply(null);
+          setActiveInviteSession(null);
+          setInviteRelayStatus(null);
+        }
+      }
+
       setIssuedApproval({ ...res, qrUrl });
       setReqInspection(null);
       setIncomingReqInput('');
@@ -1230,6 +1655,181 @@ export function DevicesPage() {
       {/* TAB 1: NEW DEVICE (STEP 1 + STEP 2) */}
       {activeTab === 'add' && (
         <div className="space-y-4 min-w-0">
+          {completedDevice && completedViaInvite && (
+            <div
+              role="status"
+              data-testid="pairing-completed-banner"
+              className="rounded-xl border border-emerald-400/45 bg-emerald-500/15 p-4 space-y-1.5 text-xs text-emerald-100"
+            >
+              <div className="flex items-center gap-2 text-base font-semibold text-emerald-200">
+                <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <span>{t.devices.pairingCompletedTitle}</span>
+              </div>
+              <p>{t.devices.pairingCompletedDesc}</p>
+              <p className="text-[11px] text-emerald-200/90">
+                {completedDevice.deviceName} · {completedDevice.ownerDisplayName} ({t.devices.ownerConfirmedBadge})
+              </p>
+            </div>
+          )}
+
+          {receivedInviteError && (
+            <div
+              role="alert"
+              data-testid="pairing-invite-accept-error"
+              className="rounded-xl border border-rose-400/45 bg-rose-500/10 p-4 text-xs text-rose-200"
+            >
+              {receivedInviteError}
+            </div>
+          )}
+
+          {receivedInvite && (
+            <section
+              data-testid="pairing-invite-accept-card"
+              className="rounded-xl border border-sky-400/45 bg-[#051224]/90 backdrop-blur-md p-4 sm:p-5 space-y-4"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="space-y-1">
+                  <h2 className="text-lg font-semibold text-white">{t.devices.inviteAcceptHeading}</h2>
+                  <p className="text-xs text-slate-300 leading-relaxed">{t.devices.inviteAcceptDesc}</p>
+                </div>
+                <span className="rounded-full border border-sky-400/35 bg-sky-500/15 px-2.5 py-0.5 text-[11px] font-medium text-sky-200">
+                  {t.devices.requestExpiresIn}: {formatCountdown(receivedInvite.expiresAt, nowUnix)}
+                </span>
+              </div>
+
+              <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/75 px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="text-slate-400">{t.devices.inviteFromOwnerLabel}</span>
+                <span className="font-semibold text-sky-200">
+                  {receivedInvite.ownerDisplayName} ({receivedInvite.ownerFingerprintShort})
+                </span>
+              </div>
+
+              {localDeviceActivePairings.some(
+                (d) => d.ownerFingerprintHex === receivedInvite.ownerFingerprintHex,
+              ) && (
+                <p
+                  role="note"
+                  className="rounded-lg border border-amber-400/35 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"
+                >
+                  {t.devices.inviteAlreadyPairedNote}
+                </p>
+              )}
+
+              {!receivedInviteSentState ? (
+                <form onSubmit={handleAcceptAndSendInvite} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      {t.devices.deviceNameLabel}
+                    </label>
+                    <input
+                      type="text"
+                      value={deviceNameInput}
+                      onChange={(e) => setDeviceNameInput(e.target.value)}
+                      maxLength={64}
+                      placeholder={t.devices.deviceNamePlaceholder}
+                      data-testid="invite-device-name-input"
+                      className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+                    />
+                  </div>
+
+                  {!webCryptoSupported && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">
+                        {t.devices.devicePassLabel}
+                      </label>
+                      <input
+                        type="password"
+                        value={devicePassInput}
+                        onChange={(e) => setDevicePassInput(e.target.value)}
+                        placeholder={t.devices.devicePassPlaceholder}
+                        className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+                      />
+                    </div>
+                  )}
+
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    {t.devices.inviteRelayNotice}
+                  </p>
+
+                  <div className="flex flex-wrap gap-2.5">
+                    <button
+                      type="submit"
+                      disabled={receivedInviteSending || nowUnix > receivedInvite.expiresAt}
+                      data-testid="invite-accept-send-btn"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-300 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-sky-200 disabled:opacity-50 min-h-[44px] cursor-pointer"
+                    >
+                      <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                      <span>
+                        {receivedInviteSending ? t.devices.inviteSendingBtn : t.devices.inviteAcceptSendBtn}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="invite-accept-dismiss-btn"
+                      onClick={() => {
+                        setReceivedInvite(null);
+                        setReceivedInviteError(null);
+                      }}
+                      className="inline-flex items-center justify-center rounded-lg border border-white/[0.14] bg-[#030b18] px-4 py-2.5 text-xs font-medium text-slate-200 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
+                    >
+                      {t.devices.inviteCancelReceiveBtn}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div data-testid="invite-sent-waiting-panel" className="space-y-3">
+                  <div className="rounded-lg border border-sky-400/35 bg-sky-500/10 p-3.5 space-y-2 text-xs">
+                    <div className="font-semibold text-sm text-sky-200 flex items-center gap-2">
+                      <RefreshCw className="h-4 w-4 animate-spin shrink-0" aria-hidden="true" />
+                      <span>{t.devices.inviteSentWaitingTitle}</span>
+                    </div>
+                    <p className="text-slate-200 leading-relaxed">{t.devices.inviteSentWaitingDesc}</p>
+                    <div className="rounded-lg border border-sky-400/35 bg-[#020813] px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-slate-400">{t.devices.sync.confirmationCodeLabel}:</span>
+                      <span
+                        data-testid="invite-sent-confirm-code"
+                        className="font-mono text-base font-bold tracking-wider text-sky-200"
+                      >
+                        {receivedInviteSentState.confirmCode}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      data-testid="invite-wait-check-btn"
+                      onClick={() => void pollInviteCertOnce()}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/40 bg-sky-500/15 px-3 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-500/25 min-h-[44px] cursor-pointer"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{t.devices.inviteCheckNowBtn}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        wipeBytes(receivedInviteSentState.replyNostrSecretKey);
+                        setReceivedInviteSentState(null);
+                        setReceivedInvite(null);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#030b18] px-3 py-2 text-xs font-medium text-slate-200 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
+                    >
+                      <span>{t.devices.inviteCancelReceiveBtn}</span>
+                    </button>
+                  </div>
+
+                  <details className="text-xs text-slate-300">
+                    <summary className="cursor-pointer hover:text-white">
+                      {t.devices.inviteManualFallbackSummary}
+                    </summary>
+                    <p className="mt-2 text-[11px] text-slate-400">
+                      {t.devices.step2NewDesc}
+                    </p>
+                  </details>
+                </div>
+              )}
+            </section>
+          )}
           {authorKeys.length > 0 && localDeviceActivePairings.length === 0 && (
             <div
               role="note"
@@ -1419,7 +2019,7 @@ export function DevicesPage() {
               <p className="text-xs text-slate-300 leading-relaxed">{t.devices.step2NewDesc}</p>
             </div>
 
-            {completedDevice && (
+            {completedDevice && !completedViaInvite && (
               <div
                 role="status"
                 data-testid="pairing-completed-banner"
@@ -1690,6 +2290,138 @@ export function DevicesPage() {
               </div>
             )}
 
+            {authorKeys.length > 0 && (
+              <div
+                data-testid="pairing-invite-card"
+                className="rounded-xl border border-sky-400/40 bg-sky-500/10 p-4 space-y-3"
+              >
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                    <QrCode className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+                    <span>{t.devices.inviteSectionTitle}</span>
+                  </h3>
+                  <p className="text-xs text-slate-200 leading-relaxed">{t.devices.inviteSectionDesc}</p>
+                </div>
+
+                {inviteError && (
+                  <p role="alert" data-testid="pairing-invite-error" className="text-xs text-rose-300">
+                    {inviteError}
+                  </p>
+                )}
+
+                {!activeInviteSession ? (
+                  <button
+                    type="button"
+                    data-testid="pairing-create-invite-btn"
+                    onClick={() => void handleCreatePairingInvite()}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-300 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-sky-200 min-h-[44px] cursor-pointer"
+                  >
+                    <QrCode className="h-4 w-4" aria-hidden="true" />
+                    <span>{t.devices.createInviteQrBtn}</span>
+                  </button>
+                ) : (
+                  <div
+                    data-testid="pairing-invite-qr-panel"
+                    className="rounded-xl border border-sky-400/35 bg-[#030b18]/85 p-4 space-y-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h4 className="text-sm font-semibold text-white">{t.devices.inviteQrTitle}</h4>
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
+                          nowUnix > activeInviteSession.invite.expiresAt
+                            ? 'bg-rose-500/20 text-rose-200 border border-rose-400/40'
+                            : 'bg-sky-500/15 text-sky-200 border border-sky-400/35'
+                        }`}
+                      >
+                        {nowUnix > activeInviteSession.invite.expiresAt
+                          ? t.devices.requestExpiredBadge
+                          : `${t.devices.requestExpiresIn}: ${formatCountdown(activeInviteSession.invite.expiresAt, nowUnix)}`}
+                      </span>
+                    </div>
+
+                    <QrCodeDisplay
+                      value={activeInviteSession.qrUrl}
+                      alt={t.devices.inviteQrTitle}
+                    />
+
+                    <p
+                      role="status"
+                      data-testid="pairing-invite-status"
+                      className="text-xs text-sky-200 leading-relaxed flex items-center gap-2"
+                    >
+                      <RefreshCw
+                        className={`h-3.5 w-3.5 shrink-0 ${inviteCheckingNow && !inviteRelayStatus ? 'animate-spin' : ''}`}
+                        aria-hidden="true"
+                      />
+                      <span>{inviteRelayStatus ?? t.devices.inviteWaitingStatus}</span>
+                    </p>
+
+                    <input
+                      type="text"
+                      readOnly
+                      value={activeInviteSession.qrUrl}
+                      data-testid="pairing-invite-url-input"
+                      aria-label={t.devices.inviteQrTitle}
+                      className="w-full rounded-lg border border-white/[0.12] bg-[#020813] px-3 py-2 text-xs font-mono text-slate-300"
+                    />
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        data-testid="pairing-invite-check-btn"
+                        onClick={() => void pollInviteRequestOnce()}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/40 bg-sky-500/15 px-3 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-500/25 min-h-[44px] cursor-pointer"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>{t.devices.inviteCheckNowBtn}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          downloadQrPngFile(
+                            activeInviteSession.qrUrl,
+                            `chm-pair-invite-${activeInviteSession.invite.inviteIdHex.slice(0, 8)}.png`,
+                          )
+                        }
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 hover:bg-sky-500/20 min-h-[44px] cursor-pointer"
+                      >
+                        <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>{t.devices.downloadQrPngBtn}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void handleCopy('invite-url', activeInviteSession.qrUrl)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#051224] px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
+                      >
+                        {copiedKey === 'invite-url' ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-300" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                        <span>{copiedKey === 'invite-url' ? t.devices.copiedMsg : t.devices.copyUrlBtn}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        data-testid="pairing-invite-cancel-btn"
+                        onClick={handleClosePairingInvite}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/35 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200 hover:bg-rose-500/20 min-h-[44px] cursor-pointer"
+                      >
+                        <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>{t.devices.cancelInviteBtn}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="text-[11px] font-medium text-slate-400 pt-1">
+              {t.devices.inviteManualDivider}
+            </div>
+
             <div className="rounded-xl border border-white/[0.08] bg-[#030b18]/70 p-3 space-y-3">
               <QrCameraScanner
                 startLabel={t.devices.scanCameraBtn}
@@ -1858,6 +2590,7 @@ export function DevicesPage() {
                     type="button"
                     data-testid="pairing-approve-cancel-btn"
                     onClick={() => {
+                      setPendingInviteReply(null);
                       setReqInspection(null);
                       setIncomingReqInput('');
                     }}
@@ -1874,6 +2607,16 @@ export function DevicesPage() {
                 data-testid="pairing-approval-qr-panel"
                 className="rounded-xl border border-emerald-400/40 bg-[#030b18]/85 p-4 space-y-3"
               >
+                {inviteApprovalSent && (
+                  <div
+                    role="status"
+                    data-testid="pairing-invite-sent-banner"
+                    className="rounded-lg border border-emerald-400/45 bg-emerald-500/15 p-3 text-xs font-medium text-emerald-100"
+                  >
+                    {t.devices.inviteApprovalSentMsg}
+                  </div>
+                )}
+
                 <div className="space-y-1">
                   <h3 className="text-base font-semibold text-emerald-200">
                     {t.devices.approvalQrReadyTitle}
@@ -1946,6 +2689,7 @@ export function DevicesPage() {
                     data-testid="pairing-approve-next-btn"
                     onClick={() => {
                       setIssuedApproval(null);
+                      setInviteApprovalSent(false);
                       setReqInspection(null);
                       setIncomingReqInput('');
                       setApproveError(null);
