@@ -6,9 +6,12 @@ Certified Handmade is local-first: users **never** lose permanent access to thei
 
 ## 1. Recovery Scenarios & Playbooks
 
-### Scenario A — Lost or Stolen Secondary Device (iPad / Phone / Secondary PC)
-1. On your **Owner Root Device**, open **`/devices`** -> **Registered Devices**.
-2. Click **Revoke Device** (`revokePairedDevice`) for the lost device and choose a reason (`lost-device` / `device-compromised`).
+### Scenario A — Lost, Compromised, or Retired Secondary Device (iPad / Phone / Secondary PC)
+1. On your **Owner Root Device**, open **`/devices`** -> **Paired Devices & Backup**.
+2. Click **Revoke / Remove Device** (`revokePairedDevice`) for the lost device, choose a reason (`lost-device` / `device-compromised` / `retired`), and optionally check **Also remove from the paired devices list after revoking**.
+   - You can also click **Remove from List** (`removePairedDeviceEntry`) later on any revoked card to hide it from the list and delete local sync peer bindings/outbox items targeted at that device.
+   - **Monotonic security:** Deleting a revoked device from the visible list **never** deletes its cryptographic revocation record (`deviceRevocations`), so stale `.chdevreg` backups or sync replays cannot resurrect it.
+   - On secondary browsers without the Owner root key, click **Remove from Browser** to clear local entries and sync peer bindings on that browser only (this cannot issue cross-device cryptographic revocations).
 3. If **Decentralized Sync** is enabled:
    - The revocation emits a **Priority `0`** `revoke-device` operation.
    - Priority `0` operations bypass the 30-day soft data cap (`1 MiB`) and broadcast immediately to all remaining trusted devices—excluding the lost device's Nostr pubkey from all Gift Wrap recipients.

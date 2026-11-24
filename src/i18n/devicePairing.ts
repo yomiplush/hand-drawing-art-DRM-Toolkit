@@ -152,7 +152,16 @@ export interface DevicePairingTranslations {
   statusConflict: string;
   confirmOwnerNowBtn: string;
   revokeDeviceBtn: string;
+  revokeAndRemoveLabel: string;
   revokeConfirmTitle: string;
+  removeDeviceBtn: string;
+  removeLocalOnlyBtn: string;
+  removeConfirmTitleRevoked: string;
+  removeConfirmDescRevoked: string;
+  removeConfirmTitleLocalOnly: string;
+  removeConfirmDescLocalOnly: string;
+  removeConfirmSubmitBtn: string;
+  deviceRemovedMsg: string;
   revokeReasonLabel: string;
   revokeReasons: {
     'lost-device': string;
@@ -206,7 +215,7 @@ const JA_DEVICE_PAIRING: DevicePairingTranslations = {
     'サーバーやアカウント登録は一切使わず、オフラインでもQRコード2回だけで端末を結びつけられます。',
     '新しい端末には専用の鍵だけを新しく作り、大切なマイIDの秘密鍵はコピーしません。',
     'カメラが使えない環境でも、QR画像のアップロードやテキストの貼り付けで登録・解除できます。',
-    '登録した端末を紛失したときは、「この端末を解除」から解除用QRやファイルを作成できます。',
+    '端末の機種変更や紛失時は、「登録済みデバイス・バックアップ」タブから解除・一覧削除ができます。',
   ],
   myIdSectionTitle: 'マイID（所有者ID）',
   myIdEmptyDesc: '新しい端末を承認するには、先にメイン端末でマイIDを作成またはバックアップ復元してください。',
@@ -280,8 +289,19 @@ const JA_DEVICE_PAIRING: DevicePairingTranslations = {
   statusRevoked: '解除済み（失効）',
   statusConflict: '競合・要注意（自動停止）',
   confirmOwnerNowBtn: 'マイIDを本人確認して有効化',
-  revokeDeviceBtn: 'この端末を解除',
+  revokeDeviceBtn: 'この端末を解除・削除',
+  revokeAndRemoveLabel: '解除と同時に登録済みデバイス一覧からも削除する（不正復活防止のため失効記録は内部に保持）',
   revokeConfirmTitle: 'この端末を本当に解除しますか？',
+  removeDeviceBtn: '一覧から削除',
+  removeLocalOnlyBtn: 'このブラウザから削除',
+  removeConfirmTitleRevoked: 'この解除済み端末を一覧から削除しますか？',
+  removeConfirmDescRevoked:
+    '表示一覧とローカル同期相手からこの端末を削除します。暗号学的な失効記録は内部に保持されるため、古いバックアップファイルや同期の再送によって復活することはありません。',
+  removeConfirmTitleLocalOnly: 'このブラウザからこの端末記録を削除しますか？',
+  removeConfirmDescLocalOnly:
+    'このブラウザにはマイID（所有者ルート鍵）がないため、他端末向けの署名付き解除通知は作成されません。このブラウザの一覧と同期相手設定からのみ削除されます。端末を紛失した場合は、マイIDがあるメイン端末から「解除」を実行してください。',
+  removeConfirmSubmitBtn: '削除を実行する',
+  deviceRemovedMsg: '登録済みデバイスを一覧から削除しました。',
   revokeReasonLabel: '解除の理由',
   revokeReasons: {
     'lost-device': '端末を紛失した',
@@ -405,7 +425,7 @@ const EN_DEVICE_PAIRING: DevicePairingTranslations = {
     'Works 100% serverless and offline via a 2-step QR handshake—no accounts, relays, or cloud storage.',
     'Each device generates its own dedicated Ed25519 device key; your root author private key is never copied.',
     'If camera access is unavailable, you can upload QR PNG/JPEG/WebP images or paste tokens/URLs.',
-    'If you lose a device, generate a signed revocation notice QR/file to disable it locally across devices.',
+    'When replacing or losing a device, revoke or remove it from the “Paired Devices & Backup” tab.',
   ],
   myIdSectionTitle: 'My ID (CHM Owner Identity)',
   myIdEmptyDesc: 'To approve a new device, create or restore a CHM Identity first.',
@@ -479,8 +499,19 @@ const EN_DEVICE_PAIRING: DevicePairingTranslations = {
   statusRevoked: 'Revoked',
   statusConflict: 'Conflict (Disabled)',
   confirmOwnerNowBtn: 'Confirm Owner Identity',
-  revokeDeviceBtn: 'Remove / Revoke This Device',
+  revokeDeviceBtn: 'Revoke / Remove Device',
+  revokeAndRemoveLabel: 'Also remove from the paired devices list after revoking (revocation proof stays stored locally)',
   revokeConfirmTitle: 'Revoke this device permanently?',
+  removeDeviceBtn: 'Remove from List',
+  removeLocalOnlyBtn: 'Remove from Browser',
+  removeConfirmTitleRevoked: 'Remove this revoked device from the list?',
+  removeConfirmDescRevoked:
+    'Deletes this entry and any local sync peer binding from the list. The cryptographic revocation record stays stored locally so stale backups or sync replays cannot reactivate this device.',
+  removeConfirmTitleLocalOnly: 'Remove this device entry from this browser?',
+  removeConfirmDescLocalOnly:
+    'This browser does not hold your My ID (Owner root key), so it cannot sign a cryptographic revocation for other devices. This removes the entry and local sync peer binding from this browser only. If a device was lost, revoke it from your main browser holding My ID.',
+  removeConfirmSubmitBtn: 'Confirm Removal',
+  deviceRemovedMsg: 'Removed device entry from the local list.',
   revokeReasonLabel: 'Reason',
   revokeReasons: {
     'lost-device': 'Lost device',

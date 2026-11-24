@@ -860,4 +860,133 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
       await Promise.all(devContexts.map((c) => c.close()));
     }
   });
+
+  test('removes revoked devices, supports revoke-and-remove, prevents stale backup resurrection, and allows local-only removal on child browsers', async ({
+    browser,
+  }, testInfo) => {
+    test.setTimeout(90_000);
+    const contextPC = await browser.newContext();
+    const contextPhone = await browser.newContext();
+    const contextTablet = await browser.newContext();
+
+    const pagePC = await contextPC.newPage();
+    const pagePhone = await contextPhone.newPage();
+    const pageTablet = await contextTablet.newPage();
+
+    const consoleErrors: string[] = [];
+    const pageErrors: string[] = [];
+    for (const p of [pagePC, pagePhone, pageTablet]) {
+      p.on('console', (msg) => {
+        if (msg.type() === 'error') consoleErrors.push(msg.text());
+      });
+      p.on('pageerror', (err) => pageErrors.push(err.message));
+    }
+
+    try {
+      await pagePC.goto('/devices');
+      await dismissCookieBannerIfVisible(pagePC);
+      await pagePC.getByTestId('pairing-quick-myid-name').fill('YomiPlush RemoveOwner');
+      await pagePC.getByTestId('pairing-quick-myid-submit').click();
+      await expect(pagePC.getByTestId('myid-summary-card')).toHaveCount(1);
+
+      const pairChild = async (childPage: typeof pagePhone, deviceName: string) => {
+        await childPage.goto('/devices');
+        await dismissCookieBannerIfVisible(childPage);
+        await childPage.getByTestId('pairing-device-name-input').fill(deviceName);
+        await childPage.getByTestId('pairing-create-req-btn').click();
+        const reqUrl = await childPage.getByTestId('pairing-req-url-input').inputValue();
+
+        await pagePC.getByTestId('devices-tab-approve').click();
+        const nextBtn = pagePC.getByTestId('pairing-approve-next-btn');
+        if (await nextBtn.isVisible().catch(() => false)) {
+          await nextBtn.click();
+        }
+        await pagePC.getByTestId('pairing-req-paste-input').fill(reqUrl);
+        await pagePC.getByTestId('pairing-req-inspect-btn').click();
+        await pagePC.getByTestId('pairing-approve-confirm-btn').click();
+        const certUrl = await pagePC.getByTestId('pairing-cert-url-output').inputValue();
+
+        await childPage.getByTestId('pairing-cert-text-input').fill(certUrl);
+        await childPage.getByTestId('pairing-cert-inspect-btn').click();
+        await childPage.getByTestId('pairing-confirm-owner-checkbox').check();
+        await childPage.getByTestId('pairing-complete-btn').click();
+        await expect(childPage.getByTestId('pairing-completed-banner')).toBeVisible();
+      };
+
+      await pairChild(pagePhone, 'Phone RemoveTest');
+      await pairChild(pageTablet, 'Tablet RevokeAndRemove');
+
+      // 1. Non-Owner child browser (Phone) removes its local active entry with honest local-only warning
+      await pagePhone.getByTestId('devices-tab-registry').click();
+      await expect(pagePhone.getByTestId('paired-device-card')).toHaveCount(1);
+      await expect(pagePhone.getByTestId('remove-device-open-btn')).toContainText('Remove from Browser');
+      await pagePhone.getByTestId('remove-device-open-btn').click();
+      await expect(pagePhone.getByTestId('remove-device-confirm-panel')).toContainText(
+        /does not hold your My ID/i,
+      );
+      await pagePhone.getByTestId('remove-device-confirm-btn').click();
+      await expect(pagePhone.getByTestId('paired-device-card')).toHaveCount(0);
+      await expect(pagePhone.getByTestId('device-list-status-msg')).toBeVisible();
+
+      // 2. Owner PC exports pre-revocation backup, then revokes Phone and removes it from list
+      await pagePC.getByTestId('devices-tab-registry').click();
+      await expect(pagePC.getByTestId('paired-device-card')).toHaveCount(2);
+
+      const dlPromise = pagePC.waitForEvent('download');
+      await pagePC.getByTestId('export-registry-json-btn').click();
+      const dl = await dlPromise;
+      const stalePath = testInfo.outputPath('pre-remove-stale.chdevreg.json');
+      await dl.saveAs(stalePath);
+
+      const phoneCard = pagePC.locator('[data-testid="paired-device-card"]', {
+        hasText: 'Phone RemoveTest',
+      });
+      await phoneCard.getByTestId('revoke-device-open-btn').click();
+      await expect(phoneCard.getByTestId('revoke-and-remove-checkbox')).not.toBeChecked();
+      await phoneCard.getByTestId('revoke-confirm-submit-btn').click();
+      await expect(phoneCard.getByTestId('paired-device-status')).toContainText('Revoked');
+
+      await phoneCard.getByTestId('remove-device-open-btn').click();
+      await expect(phoneCard.getByTestId('remove-device-confirm-panel')).toBeVisible();
+      await phoneCard.getByTestId('remove-device-confirm-btn').click();
+      await expect(pagePC.getByTestId('paired-device-card')).toHaveCount(1);
+      await expect(pagePC.getByTestId('device-list-status-msg')).toContainText('Phone RemoveTest');
+
+      // Reload confirms removed card stays gone
+      await pagePC.reload();
+      await pagePC.getByTestId('devices-tab-registry').click();
+      await expect(pagePC.getByTestId('paired-device-card')).toHaveCount(1);
+
+      // Importing stale pre-revocation snapshot MUST NOT resurrect removed-and-revoked Phone!
+      await pagePC.getByTestId('import-registry-file-input').setInputFiles(stalePath);
+      await expect(pagePC.getByTestId('registry-action-msg')).toContainText(
+        'Preserved local revocations: 1',
+      );
+      await expect(pagePC.getByTestId('paired-device-card')).toHaveCount(1);
+      await expect(pagePC.getByTestId('paired-device-card').first()).toContainText(
+        'Tablet RevokeAndRemove',
+      );
+
+      // 3. Owner PC revokes AND removes Tablet in a single step using revoke-and-remove-checkbox
+      const tabletCard = pagePC.locator('[data-testid="paired-device-card"]', {
+        hasText: 'Tablet RevokeAndRemove',
+      });
+      await tabletCard.getByTestId('revoke-device-open-btn').click();
+      await tabletCard.getByTestId('revoke-and-remove-checkbox').check();
+      await tabletCard.getByTestId('revoke-confirm-submit-btn').click();
+
+      await expect(pagePC.getByTestId('paired-device-card')).toHaveCount(0);
+      await expect(pagePC.getByTestId('revocation-qr-panel')).toBeVisible();
+      await expect(pagePC.getByTestId('device-list-status-msg')).toContainText(
+        'Tablet RevokeAndRemove',
+      );
+
+      expect(consoleErrors).toEqual([]);
+      expect(pageErrors).toEqual([]);
+    } finally {
+      await contextPC.close();
+      await contextPhone.close();
+      await contextTablet.close();
+    }
+  });
 });
