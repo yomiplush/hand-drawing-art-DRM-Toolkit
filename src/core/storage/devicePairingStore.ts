@@ -1584,4 +1584,5 @@ export {
   decodeAndVerifyDeviceRegistryInput,
   decodeAndVerifyDeviceRevocationBytes,
   decodeAndVerifyEnrollmentCertificateBytes,
+  parsePairingQrInput,
 };

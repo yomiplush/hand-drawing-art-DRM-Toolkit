@@ -91,6 +91,8 @@ export interface DevicePairingTranslations {
   alreadyPairedUnderOwnersLabel: string;
   alreadyPairedStep1Note: string;
   approveNextDeviceBtn: string;
+  ownerInAddTabHint: string;
+  switchToApproveTabBtn: string;
   addDeviceTab: string;
   approveDeviceTab: string;
   registryTab: string;
@@ -120,6 +122,17 @@ export interface DevicePairingTranslations {
   pasteInputLabel: string;
   pasteInputPlaceholder: string;
   verifyCertBtn: string;
+  step2WrongTypeRequestChild: string;
+  step2WrongTypeRequestOwner: string;
+  sendToApproveTabBtn: string;
+  step2WrongTypeRegistry: string;
+  step2RevocationAppliedMsg: string;
+  step2RevokedDeviceError: string;
+  step2AlreadyRegisteredError: string;
+  approveWrongTypeCert: string;
+  approveWrongTypeRevocation: string;
+  approveRevokedDeviceError: string;
+  approveAlreadyRegisteredError: string;
   confirmOwnerCheckbox: string;
   completePairingBtn: string;
   pairingCompletedTitle: string;
@@ -233,6 +246,9 @@ const JA_DEVICE_PAIRING: DevicePairingTranslations = {
   alreadyPairedStep1Note:
     'このブラウザはすでに登録済みです。3台目以降の別端末を追加する場合は、その端末のブラウザでこのページを開いてQRを作成してください。（同じブラウザで別の端末IDを新しく作り直したい場合のみ、上の「この端末」欄から新しいデバイスIDを作成できます）',
   approveNextDeviceBtn: '次の端末を承認する（表示をクリア）',
+  ownerInAddTabHint:
+    'このブラウザにはすでに「マイID」があります。スマホ・iPadなど別の端末を追加したい場合は、この画面ではなく「追加したい端末側」の /devices でステップ1（登録用QRコードを作成）を押し、それをこの端末の「QRを読み取って承認（既存端末）」タブで読み込んでください。',
+  switchToApproveTabBtn: '「QRを読み取って承認」タブへ移動',
   addDeviceTab: 'デバイスを追加（新端末）',
   approveDeviceTab: 'QRを読み取って承認（既存端末）',
   registryTab: '登録済みデバイス・バックアップ',
@@ -260,6 +276,25 @@ const JA_DEVICE_PAIRING: DevicePairingTranslations = {
   pasteInputLabel: 'またはリンク・コードを貼り付け',
   pasteInputPlaceholder: '承認QRのURL、画像読み取り文字、またはトークンを貼り付け',
   verifyCertBtn: '承認内容を確認',
+  step2WrongTypeRequestChild:
+    'これは「承認QR（#pair-cert=）」ではなく、新端末側の「登録リクエストQR（#pair-req=）」です。まず、追加したい端末（この端末）の「ステップ1」で登録用QRを作成し、それをマイIDがあるメイン端末（PC等）の「QRを読み取って承認（既存端末）」タブで読み取って承認QRを発行してください。',
+  step2WrongTypeRequestOwner:
+    'これは「承認QR」ではなく「登録リクエストQR（#pair-req=）」です。このブラウザにはマイIDがあるため、下のボタンから「QRを読み取って承認（既存端末）」タブへ移動して承認できます。',
+  sendToApproveTabBtn: '「QRを読み取って承認」タブで開く',
+  step2WrongTypeRegistry:
+    'これはデバイス一覧バックアップ（.chdevreg）です。「登録済みデバイス・バックアップ」タブから読み込んでください。',
+  step2RevocationAppliedMsg: '解除（失効）通知を検証し、この端末・ローカル登録簿へ反映しました。',
+  step2RevokedDeviceError:
+    'この端末の鍵はすでに解除（失効）されているため登録を完了できません。上の「この端末」欄で「新しいデバイスIDを作り直す」を押してからやり直してください。',
+  step2AlreadyRegisteredError: 'この端末はすでにこのマイIDに登録済みです。',
+  approveWrongTypeCert:
+    'これは「登録リクエスト（#pair-req=）」ではなく、発行済みの「承認QR（#pair-cert=）」です。追加したい新端末の「デバイスを追加」タブ →「ステップ2」に読み込ませてください。',
+  approveWrongTypeRevocation:
+    'これは解除通知（#pair-rev=）です。「登録済みデバイス・バックアップ」タブの「別の端末で作った解除通知を取り込む」から読み込んでください。',
+  approveRevokedDeviceError:
+    'この端末の鍵はすでに解除（失効）されているため再登録できません。新しい端末側の「この端末」欄で「別のデバイスIDを新しく作成」を押してから、新しく登録用QRを作り直してください。',
+  approveAlreadyRegisteredError:
+    '二重登録ブロック：この端末はすでにこのマイIDに登録済みです。（再登録したい場合は「登録済みデバイス」から削除/解除するか、新端末側で別のデバイスIDを作成してください）',
   confirmOwnerCheckbox: '既存端末に表示されているマイIDと同じであることを確認しました',
   completePairingBtn: '登録を完了する',
   pairingCompletedTitle: '登録が完了しました',
@@ -443,6 +478,9 @@ const EN_DEVICE_PAIRING: DevicePairingTranslations = {
   alreadyPairedStep1Note:
     'This browser is already registered. To add a 3rd+ device, open this page on that new device’s browser to create its pairing QR. (If you intentionally need a separate Device ID in this browser, generate a new one in the “This Device” card above.)',
   approveNextDeviceBtn: 'Approve Another Device (Clear)',
+  ownerInAddTabHint:
+    'This browser already holds a My ID. To add another device (such as your iPad or phone), open /devices on THAT new device to create the Step 1 Pairing QR, then approve it here under “Approve a Device (Existing)”.',
+  switchToApproveTabBtn: 'Go to “Approve a Device” Tab',
   addDeviceTab: 'Add This Device (New)',
   approveDeviceTab: 'Approve a Device (Existing)',
   registryTab: 'Paired Devices & Backup',
@@ -470,6 +508,25 @@ const EN_DEVICE_PAIRING: DevicePairingTranslations = {
   pasteInputLabel: 'Or paste approval URL / code',
   pasteInputPlaceholder: 'Paste approval URL (#pair-cert=...) or token',
   verifyCertBtn: 'Inspect Approval',
+  step2WrongTypeRequestChild:
+    'This is a Pairing Request (#pair-req=), not an Approval Certificate (#pair-cert=). Create the Step 1 request QR on THIS new device first, then scan or paste it in the “Approve a Device (Existing)” tab on your main device holding My ID.',
+  step2WrongTypeRequestOwner:
+    'This is a Pairing Request (#pair-req=), not an Approval Certificate (#pair-cert=). Because this browser holds a My ID, you can open it directly in the “Approve a Device (Existing)” tab below.',
+  sendToApproveTabBtn: 'Open in “Approve a Device” Tab',
+  step2WrongTypeRegistry:
+    'This is a device registry backup (.chdevreg). Import it from the “Paired Devices & Backup” tab.',
+  step2RevocationAppliedMsg: 'Verified revocation notice and updated local device status.',
+  step2RevokedDeviceError:
+    'This device has been revoked and cannot complete registration. Generate a new Device ID under “This Device” above and start over.',
+  step2AlreadyRegisteredError: 'This device is already registered under this CHM Identity.',
+  approveWrongTypeCert:
+    'This is an issued Approval Certificate (#pair-cert=), not a Pairing Request (#pair-req=). Scan or paste it into Step 2 on the new device you are adding.',
+  approveWrongTypeRevocation:
+    'This is a device revocation notice (#pair-rev=). Import it under “Paired Devices & Backup”.',
+  approveRevokedDeviceError:
+    'This device key has been revoked and cannot be registered. On the new device, click “Generate New Separate Device ID” under This Device and create a fresh pairing QR.',
+  approveAlreadyRegisteredError:
+    'Double-registration blocked: this device is already registered under your My ID.',
   confirmOwnerCheckbox: 'I verified this Owner ID matches the one displayed on my existing device',
   completePairingBtn: 'Complete Registration',
   pairingCompletedTitle: 'Registration Complete',
