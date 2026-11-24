@@ -1,6 +1,6 @@
 {
   "name": "certified-handmade",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Certified Handmade — Local-first, open-source cryptographic provenance & QR toolkit for human-made digital art.",
   "license": "MIT",
