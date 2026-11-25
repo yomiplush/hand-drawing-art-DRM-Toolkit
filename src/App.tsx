@@ -1,4 +1,5 @@
-import { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { Component, Suspense, lazy, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { registerSW } from 'virtual:pwa-register';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
@@ -49,6 +50,50 @@ function RouteLoadingFallback() {
       <span>Loading…</span>
     </div>
   );
+}
+
+interface RouteErrorBoundaryProps {
+  resetKey: string;
+  children: ReactNode;
+}
+
+interface RouteErrorBoundaryState {
+  error: Error | null;
+}
+
+class RouteErrorBoundary extends Component<RouteErrorBoundaryProps, RouteErrorBoundaryState> {
+  state: RouteErrorBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error): RouteErrorBoundaryState {
+    return { error };
+  }
+
+  componentDidUpdate(prevProps: RouteErrorBoundaryProps): void {
+    if (prevProps.resetKey !== this.props.resetKey && this.state.error !== null) {
+      this.setState({ error: null });
+    }
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div
+          role="alert"
+          className="mx-auto max-w-lg my-12 rounded-2xl border ga-border-strong ga-card p-6 text-center space-y-4"
+        >
+          <p className="text-sm font-semibold ga-text">{this.state.error.message}</p>
+          <button
+            type="button"
+            onClick={() => this.setState({ error: null })}
+            className="ga-btn-primary inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold min-h-[44px] cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 function AppRoutes() {
@@ -122,35 +167,38 @@ function AppRoutes() {
       <SeoHead />
       <Ps3WaveBackground />
 
-      <Suspense fallback={<RouteLoadingFallback />}>
-        <Routes>
-          <Route
-            element={
-              <Layout
-                offlineReady={offlineReady}
-                needRefresh={needRefresh}
-                onUpdateSw={handleUpdateSw}
-                onOpenCookieSettings={() => setBannerOpen(true)}
-                bannerOpen={bannerOpen}
-              />
-            }
-          >
-            <Route path="/" element={isHashPrivacyRoute ? privacyElement : <HomePage />} />
-            <Route path="/privacypolicy" element={privacyElement} />
-            <Route path="/tutorial" element={<TutorialPage />} />
-            <Route path="/create" element={<CreateCertificatePage />} />
-            <Route path="/qr-studio" element={<Navigate to="/create?mode=studio" replace />} />
-            <Route path="/verify" element={<VerifyCertificatePage />} />
-            <Route path="/keys" element={<KeysPage />} />
-            <Route path="/devices" element={<DevicesPage />} />
-            <Route path="/vault" element={<VaultPage />} />
-            <Route path="/storage" element={<VaultPage focusStorage />} />
-            <Route path="/exchange" element={<ExchangePage />} />
-            <Route path="/docs" element={<DocsPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      </Suspense>
+      <RouteErrorBoundary resetKey={location.pathname}>
+        <Suspense fallback={<RouteLoadingFallback />}>
+          <Routes>
+            <Route
+              element={
+                <Layout
+                  offlineReady={offlineReady}
+                  needRefresh={needRefresh}
+                  onUpdateSw={handleUpdateSw}
+                  onOpenCookieSettings={() => setBannerOpen(true)}
+                  bannerOpen={bannerOpen}
+                />
+              }
+            >
+              <Route path="/" element={isHashPrivacyRoute ? privacyElement : <HomePage />} />
+              <Route path="/privacypolicy" element={privacyElement} />
+              <Route path="/tutorial" element={<TutorialPage />} />
+              <Route path="/create" element={<CreateCertificatePage />} />
+              <Route path="/qr-studio" element={<Navigate to="/create?mode=studio" replace />} />
+              <Route path="/verify" element={<VerifyCertificatePage />} />
+              <Route path="/keys" element={<KeysPage />} />
+              <Route path="/devices" element={<DevicesPage />} />
+              <Route path="/vault" element={<VaultPage />} />
+              <Route path="/storage" element={<VaultPage focusStorage />} />
+              <Route path="/exchange" element={<ExchangePage />} />
+              <Route path="/docs" element={<DocsPage />} />
+              <Route path="/spec" element={<DocsPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Routes>
+        </Suspense>
+      </RouteErrorBoundary>
 
       <CookieConsentBanner
         open={bannerOpen}

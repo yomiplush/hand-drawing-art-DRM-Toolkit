@@ -81,6 +81,6 @@ export function applyResolvedThemeToDocument(resolved: ResolvedTheme): void {
 
   const themeMeta = document.querySelector('meta[name="theme-color"]');
   if (themeMeta) {
-    themeMeta.setAttribute('content', resolved === 'dark' ? '#0C1424' : '#F5F8FD');
+    themeMeta.setAttribute('content', resolved === 'dark' ? '#0F1115' : '#FAFAFA');
   }
 }

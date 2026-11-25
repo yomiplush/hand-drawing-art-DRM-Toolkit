@@ -18,9 +18,8 @@ function buildSampleArtworkPng(width = 160, height = 120): Buffer {
 }
 
 async function enableAdvancedMode(page: Page): Promise<void> {
-  await page.getByTestId('nav-menu-toggle').click();
-  await page.getByTestId('nav-mode-toggle-advanced').click();
-  await page.keyboard.press('Escape');
+  await page.getByTestId('header-mode-toggle-advanced').click();
+  await expect(page.getByTestId('advanced-cockpit-bar')).toBeVisible();
 }
 
 test.describe('CHM-Exchange Critical End-to-End Integration', () => {
@@ -60,11 +59,9 @@ test.describe('CHM-Exchange Critical End-to-End Integration', () => {
       await pageA.goto('/');
       await pageA.getByTestId('cookie-reject-btn').click();
 
-      // Switch to Advanced Mode & check Exchange entry in navigation menu
-      await pageA.getByTestId('nav-menu-toggle').click();
-      await pageA.getByTestId('nav-mode-toggle-advanced').click();
-      await expect(pageA.getByTestId('menu-exchange-link')).toBeVisible();
-      await pageA.keyboard.press('Escape');
+      // Switch to Advanced Mode via top header pill & check Exchange entry in unfolded Cockpit Bar
+      await pageA.getByTestId('header-mode-toggle-advanced').click();
+      await expect(pageA.getByTestId('cockpit-exchange-link')).toBeVisible();
 
       await pageA.goto('/keys');
       await pageA.getByTestId('keygen-label').fill('Artist Studio A');

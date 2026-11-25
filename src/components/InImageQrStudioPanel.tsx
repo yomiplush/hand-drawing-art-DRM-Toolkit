@@ -105,14 +105,18 @@ export function InImageQrStudioPanel({
     offscreen.width = artworkRaster.width;
     offscreen.height = artworkRaster.height;
     const ctx = offscreen.getContext('2d');
-    if (ctx) {
-      const clampedCopy = new Uint8ClampedArray(artworkRaster.data.length);
-      clampedCopy.set(artworkRaster.data);
-      ctx.putImageData(
-        new ImageData(clampedCopy, artworkRaster.width, artworkRaster.height),
-        0,
-        0,
-      );
+    if (ctx && artworkRaster.width > 0 && artworkRaster.height > 0) {
+      try {
+        const clampedCopy = new Uint8ClampedArray(artworkRaster.data.length);
+        clampedCopy.set(artworkRaster.data);
+        ctx.putImageData(
+          new ImageData(clampedCopy, artworkRaster.width, artworkRaster.height),
+          0,
+          0,
+        );
+      } catch {
+        // Guard against transient malformed ImageData sizes
+      }
     }
     baseCanvasRef.current = offscreen;
   }, [artworkRaster]);
@@ -162,18 +166,22 @@ export function InImageQrStudioPanel({
       boxCanvas.width = blendedBox.width;
       boxCanvas.height = blendedBox.height;
       const bctx = boxCanvas.getContext('2d');
-      if (bctx) {
-        const copy = new Uint8ClampedArray(blendedBox.data.length);
-        copy.set(blendedBox.data);
-        bctx.putImageData(new ImageData(copy, blendedBox.width, blendedBox.height), 0, 0);
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(
-          boxCanvas,
-          clampedOptions.x * scale,
-          clampedOptions.y * scale,
-          clampedOptions.boxSize * scale,
-          clampedOptions.boxSize * scale,
-        );
+      if (bctx && blendedBox.width > 0 && blendedBox.height > 0) {
+        try {
+          const copy = new Uint8ClampedArray(blendedBox.data.length);
+          copy.set(blendedBox.data);
+          bctx.putImageData(new ImageData(copy, blendedBox.width, blendedBox.height), 0, 0);
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(
+            boxCanvas,
+            clampedOptions.x * scale,
+            clampedOptions.y * scale,
+            clampedOptions.boxSize * scale,
+            clampedOptions.boxSize * scale,
+          );
+        } catch {
+          // Guard against transient malformed box ImageData sizes
+        }
       }
     }
 

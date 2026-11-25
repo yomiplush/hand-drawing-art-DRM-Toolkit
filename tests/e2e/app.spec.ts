@@ -18,15 +18,13 @@ function buildTestArtworkPng(width = 160, height = 120): Buffer {
 }
 
 async function enableAdvancedMode(page: Page): Promise<void> {
-  await page.getByTestId('nav-menu-toggle').click();
-  await page.getByTestId('nav-mode-toggle-advanced').click();
-  await page.keyboard.press('Escape');
+  await page.getByTestId('header-mode-toggle-advanced').click();
+  await expect(page.getByTestId('advanced-cockpit-bar')).toBeVisible();
 }
 
 async function enableSimpleMode(page: Page): Promise<void> {
-  await page.getByTestId('nav-menu-toggle').click();
-  await page.getByTestId('nav-mode-toggle-simple').click();
-  await page.keyboard.press('Escape');
+  await page.getByTestId('header-mode-toggle-simple').click();
+  await expect(page.getByTestId('advanced-cockpit-bar')).toHaveCount(0);
 }
 
 test.describe('Certified Handmade E2E suite', () => {
@@ -81,8 +79,8 @@ test.describe('Certified Handmade E2E suite', () => {
     for (const tid of [
       'home-cta-create',
       'home-cta-verify',
-      'home-help-btn',
-      'nav-menu-toggle',
+      'home-sample-demo-link',
+      'home-switch-advanced-btn',
       'theme-toggle-btn',
     ]) {
       const targetBox = await page.getByTestId(tid).boundingBox();
@@ -99,46 +97,36 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.getByTestId('theme-toggle-btn').click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', initialTheme ?? 'light');
 
-    // Open contextual ? Help dialog and close with Escape
-    await page.getByTestId('home-help-btn').click();
-    const helpPanel = page.getByTestId('home-help-panel');
-    await expect(helpPanel).toBeVisible();
-    await expect(helpPanel).toContainText('What Certified Handmade Does');
-    await expect(helpPanel).toContainText('What Proof Means (Honest Limits)');
-    await expect(helpPanel.locator('a[href="/docs"]')).toBeVisible();
-    await expect(helpPanel.locator('a[href="/tutorial"]')).toBeVisible();
+    // Open contextual ? HelpTip inline disclosure on Simple Home and close with Escape
+    await page.getByTestId('home-local-tip-btn').click();
+    const helpPanel = page.getByTestId('home-local-tip-panel');
+    await expect(helpPanel).toHaveAttribute('data-open', 'true');
+    await expect(helpPanel).toContainText('Everything runs 100% inside your device');
     await page.keyboard.press('Escape');
-    await expect(helpPanel).toBeHidden();
+    await expect(helpPanel).toHaveAttribute('data-open', 'false');
 
-    // Open compact Menu -> verify Simple Mode starts cleanly -> toggle Advanced Mode to inspect all routes -> back to Simple
-    await page.getByTestId('nav-menu-toggle').click();
-    await expect(page.getByTestId('nav-menu-panel')).toBeVisible();
-    await expect(page.getByTestId('nav-mode-toggle-simple')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByTestId('menu-storage-link')).toBeVisible();
-    await expect(page.getByTestId('menu-keys-link')).toBeVisible();
-    await expect(page.getByTestId('menu-tutorial-link')).toBeVisible();
-    await expect(page.getByTestId('menu-exchange-link')).toHaveCount(0);
-    await expect(page.getByTestId('menu-docs-link')).toHaveCount(0);
+    // Verify top-header Dual-Mode pill starts cleanly in Simple Mode -> switches to Advanced Cockpit -> returns to Simple Mode
+    await expect(page.getByTestId('header-mode-toggle-simple')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('advanced-cockpit-bar')).toHaveCount(0);
 
-    await page.getByTestId('nav-mode-toggle-advanced').click();
-    await expect(page.getByTestId('nav-mode-toggle-advanced')).toHaveAttribute(
+    await page.getByTestId('header-mode-toggle-advanced').click();
+    await expect(page.getByTestId('header-mode-toggle-advanced')).toHaveAttribute(
       'aria-pressed',
       'true',
     );
-    await expect(page.getByTestId('menu-keys-link')).toBeVisible();
-    await expect(page.getByTestId('menu-devices-link')).toBeVisible();
-    await expect(page.getByTestId('menu-vault-link')).toBeVisible();
-    await expect(page.getByTestId('menu-exchange-link')).toBeVisible();
-    await expect(page.getByTestId('menu-docs-link')).toBeVisible();
-    await expect(page.getByTestId('menu-tutorial-link')).toBeVisible();
-    await expect(page.getByTestId('menu-standalone-link')).toHaveAttribute(
-      'href',
-      '/docs#standalone',
-    );
+    await expect(page.getByTestId('advanced-cockpit-bar')).toBeVisible();
+    await expect(page.getByTestId('cockpit-create-link')).toBeVisible();
+    await expect(page.getByTestId('cockpit-verify-link')).toBeVisible();
+    await expect(page.getByTestId('cockpit-keys-link')).toBeVisible();
+    await expect(page.getByTestId('cockpit-devices-link')).toBeVisible();
+    await expect(page.getByTestId('cockpit-vault-link')).toBeVisible();
+    await expect(page.getByTestId('cockpit-exchange-link')).toBeVisible();
+    await expect(page.getByTestId('cockpit-storage-link')).toBeVisible();
+    await expect(page.getByTestId('cockpit-spec-link')).toBeVisible();
+    await expect(page.getByTestId('home-tutorial-link')).toBeVisible();
 
-    await page.getByTestId('nav-mode-toggle-simple').click();
-    await page.keyboard.press('Escape');
-    await expect(page.getByTestId('nav-menu-panel')).toBeHidden();
+    await page.getByTestId('header-mode-toggle-simple').click();
+    await expect(page.getByTestId('advanced-cockpit-bar')).toHaveCount(0);
 
     // Multi-language switching (JA tagline check, zh-CN, ko, ru, uk, ar RTL, back to EN)
     const langSelect = page.getByTestId('lang-select');
@@ -417,8 +405,8 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.goto('/');
     await page.getByTestId('cookie-reject-btn').click();
 
-    // Open Menu -> verify GitHub link + adjacent Sponsor Heart link -> enable Advanced Mode for QR Studio
-    await page.getByTestId('nav-menu-toggle').click();
+    // Enable Advanced Mode via top-header pill -> verify GitHub + adjacent Sponsor Heart link inside Cockpit Bar
+    await page.getByTestId('header-mode-toggle-advanced').click();
     const githubLink = page.getByTestId('header-github-link');
     const sponsorLink = page.getByTestId('header-sponsor-link');
     await expect(githubLink).toBeVisible();
@@ -435,19 +423,17 @@ test.describe('Certified Handmade E2E suite', () => {
     expect(sponsorBox).not.toBeNull();
     expect(sponsorBox!.x).toBeGreaterThan(githubBox!.x);
 
-    await page.getByTestId('nav-mode-toggle-advanced').click();
-    await page.keyboard.press('Escape');
-
     // /qr-studio removed from navigation & redirects to /create?mode=studio
     await expect(page.locator('a[href="/qr-studio"]')).toHaveCount(0);
     await page.goto('/qr-studio');
     await expect(page).toHaveURL(/\/create\?mode=studio$/);
     await expect(page.getByTestId('create-mode-studio')).toHaveAttribute('aria-selected', 'true');
 
-    // Switch back to /create, then toggle into studio mode inside /create
+    // Switch back to /create, then toggle into studio mode inside /create without URL navigation
     await page.goto('/create');
     await page.getByTestId('create-mode-studio').click();
-    await expect(page).toHaveURL(/\/create\?mode=studio$/);
+    await expect(page).toHaveURL(/\/create$/);
+    await expect(page.getByTestId('create-mode-studio')).toHaveAttribute('aria-selected', 'true');
 
     // Upload 320x240 artwork, adjust preset, expand Advanced QR Settings for opacity & quiet zone, verify readability, quick keygen & sign
     const artPath = testInfo.outputPath('studio-art.png');
@@ -607,9 +593,8 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.goto('/');
     await page.getByTestId('cookie-accept-btn').click();
 
-    // Open compact Menu -> verify & click Tutorial link across desktop and mobile
-    await page.getByTestId('nav-menu-toggle').click();
-    const tutorialLink = page.getByTestId('menu-tutorial-link');
+    // Verify & click Tutorial link in footer across desktop and mobile
+    const tutorialLink = page.locator('footer a[href="/tutorial"]');
     await expect(tutorialLink).toBeVisible();
     await tutorialLink.click();
 

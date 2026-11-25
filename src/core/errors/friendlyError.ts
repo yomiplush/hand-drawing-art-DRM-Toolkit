@@ -32,6 +32,16 @@ function detectCategory(raw: string): ErrorCategory {
     return 'image-size';
   }
   if (
+    lower.includes('qr') &&
+    (lower.includes('not found') ||
+      lower.includes('no qr') ||
+      lower.includes('not detect') ||
+      lower.includes('detected') ||
+      lower.includes('scan'))
+  ) {
+    return 'qr-not-found';
+  }
+  if (
     lower.includes('png') ||
     lower.includes('image') ||
     lower.includes('decode') ||
@@ -39,9 +49,6 @@ function detectCategory(raw: string): ErrorCategory {
     lower.includes('corrupt')
   ) {
     return 'image-decode';
-  }
-  if (lower.includes('qr') && (lower.includes('not found') || lower.includes('no qr') || lower.includes('scan'))) {
-    return 'qr-not-found';
   }
   if (
     lower.includes('google') ||

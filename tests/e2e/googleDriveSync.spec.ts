@@ -34,18 +34,27 @@ async function dismissCookieBannerIfVisible(page: Page): Promise<void> {
 }
 
 async function navigateSpaToCreate(page: Page): Promise<void> {
-  const desktopLink = page.getByTestId('nav-create-link');
-  if (await desktopLink.isVisible().catch(() => false)) {
-    await desktopLink.click();
-  } else {
-    await page.getByTestId('nav-menu-toggle').click();
-    await page.getByTestId('nav-menu-panel').locator('a[href="/create"]').click();
+  const cockpitCreate = page.getByTestId('cockpit-create-link');
+  if (await cockpitCreate.isVisible().catch(() => false)) {
+    await cockpitCreate.click();
+    return;
   }
+  const homeCreate = page.getByTestId('home-cta-create');
+  if (await homeCreate.isVisible().catch(() => false)) {
+    await homeCreate.click();
+    return;
+  }
+  await page.getByTestId('header-mode-toggle-advanced').click();
+  await page.getByTestId('cockpit-create-link').click();
 }
 
 async function navigateSpaToStorage(page: Page): Promise<void> {
-  await page.getByTestId('nav-menu-toggle').click();
-  await page.getByTestId('menu-storage-link').click();
+  const cockpitStorage = page.getByTestId('cockpit-storage-link');
+  if (await cockpitStorage.isVisible().catch(() => false)) {
+    await cockpitStorage.click();
+    return;
+  }
+  await page.locator('footer a[href="/storage"]').click();
 }
 
 function createSharedMockGoogleEnvironment() {

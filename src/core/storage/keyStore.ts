@@ -58,6 +58,8 @@ export interface AuthorKeyRecord {
   createdAt: string;
 }
 
+export type KeyRecord = AuthorKeyRecord;
+
 export type TrustedKeyVerificationState = 'confirmed' | 'unconfirmed';
 
 export interface TrustedKeyRecord {
@@ -239,6 +241,21 @@ export async function listAuthorKeys(): Promise<AuthorKeyRecord[]> {
 
 export async function getAuthorKey(id: string): Promise<AuthorKeyRecord | undefined> {
   return withChmStore<AuthorKeyRecord | undefined>(STORE_AUTHOR_KEYS, 'readonly', (s) => s.get(id));
+}
+
+export async function ensureLocalSigningKey(options?: {
+  label?: string;
+  backupPassphrase?: string;
+}): Promise<KeyRecord> {
+  const existing = await listAuthorKeys();
+  if (existing.length > 0) {
+    return existing[0];
+  }
+  const { record } = await createAuthorKey({
+    label: options?.label?.trim() || 'My Artist Key',
+    backupPassphrase: options?.backupPassphrase,
+  });
+  return record;
 }
 
 export async function createAuthorKey(params: {

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useId, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -20,12 +20,17 @@ import {
   Share2,
   ShieldAlert,
   SlidersHorizontal,
+  Sparkles,
   Trash2,
   Upload,
   User,
 } from 'lucide-react';
+import { HelpTip } from '../components/HelpTip';
+import { SafeArtworkImage } from '../components/SafeArtworkImage';
 import { ImageDropzone } from '../components/ImageDropzone';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
+import { ScannerBeam } from '../components/motion/ScannerBeam';
+import { SparkleBurst } from '../components/motion/SparkleBurst';
 import { useAppPreferences } from '../components/PreferencesContext';
 import { QrCameraScanner } from '../components/QrCameraScanner';
 import { StatusDimensionsGrid } from '../components/StatusBadge';
@@ -35,9 +40,11 @@ import { HelpIconButton } from '../components/ui/HelpIconButton';
 import { ThreeStepIndicator, WorkerProgressBar } from '../components/ui/StepProgressBar';
 import { VerifiedArtworkDetailsCard } from '../components/VerifiedArtworkDetailsCard';
 import { base64UrlEncode, bytesToHex } from '../core/crypto/sha256';
+import { getSampleSignedArtworkFile } from '../core/demo/sampleArtwork';
 import { comparePerceptualHashes } from '../core/image/perceptualHash';
 import type { PerceptualComparisonResult } from '../core/image/perceptualHash';
 import type { CanonicalRaster } from '../core/image/pngCodec';
+import { readFileAsDataUrl } from '../core/image/previewDataUrl';
 import { isLikelyEvidenceExtensionText } from '../core/manifest/evidenceExtension';
 import { PROTOCOL_VERSION_COMPACT } from '../core/manifest/types';
 import type {
@@ -91,8 +98,10 @@ function detectUrlProofInput(routerHash: string, routerSearch: string): string |
 }
 
 export function VerifyCertificatePage() {
-  const { t } = useI18n();
-  const { isAdvanced, setMode } = useAppPreferences();
+  const { t, locale } = useI18n();
+  const { isAdvanced, setMode, reducedMotion } = useAppPreferences();
+  const demoTriggeredRef = useRef(false);
+  const scanTimerRef = useRef<number | null>(null);
   const location = useLocation();
   const proofBundleInputId = useId();
   const evidenceFileInputId = useId();
@@ -119,6 +128,8 @@ export function VerifyCertificatePage() {
   const [activeProofRaw, setActiveProofRaw] = useState<string | null>(() => initialUrlProof);
   const [attachedRaster, setAttachedRaster] = useState<CanonicalRaster | null>(null);
   const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
+  const [attachedFallbackDataUrl, setAttachedFallbackDataUrl] = useState<string | null>(null);
+  const [scannerSweeping, setScannerSweeping] = useState(false);
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [qrInfoNote, setQrInfoNote] = useState<string | null>(null);
@@ -147,6 +158,41 @@ export function VerifyCertificatePage() {
 
   const [verificationLogs, setVerificationLogs] = useState<VerificationLogEntry[]>(() =>
     loadVerificationLogs(),
+  );
+
+
+  useEffect(() => {
+    return () => {
+      if (scanTimerRef.current !== null) {
+        window.clearTimeout(scanTimerRef.current);
+      }
+    };
+  }, []);
+
+  const triggerScannerSweep = useCallback(
+    async (work: () => Promise<void>) => {
+      if (scanTimerRef.current !== null) {
+        window.clearTimeout(scanTimerRef.current);
+        scanTimerRef.current = null;
+      }
+      if (isAdvanced || reducedMotion) {
+        await work();
+        return;
+      }
+      setScannerSweeping(true);
+      const minSweep = new Promise<void>((resolve) => {
+        scanTimerRef.current = window.setTimeout(() => {
+          scanTimerRef.current = null;
+          resolve();
+        }, 650);
+      });
+      try {
+        await Promise.all([work(), minSweep]);
+      } finally {
+        setScannerSweeping(false);
+      }
+    },
+    [isAdvanced, reducedMotion],
   );
 
   const recordLog = useCallback(
@@ -307,6 +353,7 @@ export function VerifyCertificatePage() {
           setProofInput(window.location.href);
           setActiveProofRaw(urlProof);
           setAttachedRaster(null);
+          setAttachedFallbackDataUrl(null);
           setAttachedFileName(null);
           setQrInfoNote(null);
           setErrorMsg(null);
@@ -342,6 +389,13 @@ export function VerifyCertificatePage() {
 
   const handleSignedImageUpload = useCallback(
     async (file: File) => {
+      const rawBytesPromise = file.arrayBuffer().then((buf) => new Uint8Array(buf));
+      setAttachedRaster(null);
+      setAttachedFallbackDataUrl(null);
+      void readFileAsDataUrl(file).then((dataUrl) => {
+        if (dataUrl) setAttachedFallbackDataUrl(dataUrl);
+      });
+      setAttachedFileName(file.name);
       setErrorMsg(null);
       setQrInfoNote(null);
       setPasteFeedback(null);
@@ -353,64 +407,93 @@ export function VerifyCertificatePage() {
       setLaunchedWithHashProof(false);
       setCameraAutoVerified(false);
       setVerifyingProof(true);
+      setResult(null);
       setWorkerProgress({ percent: 10, stage: 'decoding' });
-      try {
-        const res = await imageWorkerClient.verifyImage(
-          { fileOrBytes: file },
-          (percent, stage) => setWorkerProgress({ percent, stage }),
-        );
-        setAttachedRaster(res.raster);
-        setAttachedFileName(file.name);
-        setActiveProofRaw(res.qrRawText);
-        setProofInput(res.qrRawText);
-        setQrInfoNote(
-          `QR decoded (${res.qrStrategy}) · ${res.imageWidth}×${res.imageHeight} px (${res.sourceFormat})`,
-        );
-        setResult(res.verification);
-        recordLog(res.verification, file.name, res.qrStrategy);
-        await runEvidenceVerification(
-          evidenceInputRaw,
-          res.verification.proofBytes,
-          res.verification.manifest,
-          suppliedEvidenceFiles,
-        );
-      } catch (err) {
-        setResult(null);
-        setEvidenceSummary(null);
-        setV3EvidenceMatch(null);
-        setErrorMsg(err instanceof Error ? err.message : 'Failed to verify image');
-      } finally {
-        setVerifyingProof(false);
-        setWorkerProgress(null);
-      }
+      await triggerScannerSweep(async () => {
+        try {
+          const rawBytes = await rawBytesPromise;
+          const res = await imageWorkerClient.verifyImage(
+            { fileOrBytes: rawBytes },
+            (percent, stage) => setWorkerProgress({ percent, stage }),
+          );
+          setAttachedRaster(res.raster);
+          setAttachedFileName(file.name);
+          setActiveProofRaw(res.qrRawText);
+          setProofInput(res.qrRawText);
+          setQrInfoNote(
+            `QR decoded (${res.qrStrategy}) · ${res.imageWidth}×${res.imageHeight} px (${res.sourceFormat})`,
+          );
+          setResult(res.verification);
+          recordLog(res.verification, file.name, res.qrStrategy);
+          await runEvidenceVerification(
+            evidenceInputRaw,
+            res.verification.proofBytes,
+            res.verification.manifest,
+            suppliedEvidenceFiles,
+          );
+        } catch (err) {
+          setResult(null);
+          setEvidenceSummary(null);
+          setV3EvidenceMatch(null);
+          setErrorMsg(err instanceof Error ? err.message : 'Failed to verify image');
+        } finally {
+          setVerifyingProof(false);
+          setWorkerProgress(null);
+        }
+      });
     },
-    [evidenceInputRaw, recordLog, runEvidenceVerification, suppliedEvidenceFiles],
+    [evidenceInputRaw, recordLog, runEvidenceVerification, suppliedEvidenceFiles, triggerScannerSweep],
   );
+
+  const handleLoadSampleArtwork = useCallback(async () => {
+    try {
+      const sampleFile = await getSampleSignedArtworkFile(locale === 'ja' ? 'ja' : 'en');
+      await handleSignedImageUpload(sampleFile);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to load sample artwork');
+    }
+  }, [handleSignedImageUpload, locale]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || (typeof window !== 'undefined' ? window.location.search : ''));
+    if (params.get('demo') !== 'sample' || demoTriggeredRef.current) return;
+    demoTriggeredRef.current = true;
+    void handleLoadSampleArtwork();
+  }, [handleLoadSampleArtwork, location.search]);
 
   const handleAttachArtworkForProof = useCallback(
     async (file: File) => {
+      const rawBytesPromise = file.arrayBuffer().then((buf) => new Uint8Array(buf));
+      setAttachedRaster(null);
+      setAttachedFallbackDataUrl(null);
+      void readFileAsDataUrl(file).then((dataUrl) => {
+        if (dataUrl) setAttachedFallbackDataUrl(dataUrl);
+      });
       setErrorMsg(null);
       setPasteFeedback(null);
       setWorkerProgress({ percent: 15, stage: 'decoding' });
-      try {
-        const { raster } = await imageWorkerClient.decodeImage(file, (percent, stage) =>
-          setWorkerProgress({ percent, stage }),
-        );
-        setAttachedRaster(raster);
-        setAttachedFileName(file.name);
-        setSimComparisonName(null);
-        setSimComparisonResult(null);
-        setSimComparisonError(null);
-        if (activeProofRaw) {
-          await runProofVerify(activeProofRaw, raster, file.name);
+      await triggerScannerSweep(async () => {
+        try {
+          const rawBytes = await rawBytesPromise;
+          const { raster } = await imageWorkerClient.decodeImage(rawBytes, (percent, stage) =>
+            setWorkerProgress({ percent, stage }),
+          );
+          setAttachedRaster(raster);
+          setAttachedFileName(file.name);
+          setSimComparisonName(null);
+          setSimComparisonResult(null);
+          setSimComparisonError(null);
+          if (activeProofRaw) {
+            await runProofVerify(activeProofRaw, raster, file.name);
+          }
+        } catch (err) {
+          setErrorMsg(err instanceof Error ? err.message : 'Failed to decode artwork image');
+        } finally {
+          setWorkerProgress(null);
         }
-      } catch (err) {
-        setErrorMsg(err instanceof Error ? err.message : 'Failed to decode artwork image');
-      } finally {
-        setWorkerProgress(null);
-      }
+      });
     },
-    [activeProofRaw, runProofVerify],
+    [activeProofRaw, runProofVerify, triggerScannerSweep],
   );
 
   const handleEvidenceExtensionFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1043,19 +1126,53 @@ export function VerifyCertificatePage() {
             subtitle={t.verify.imageDropSub}
             testId="verify-image-input"
           />
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <button
               type="button"
               disabled={pasteBusy}
               onClick={() => void handlePasteButtonClick()}
               data-testid="verify-paste-image-btn"
-              className="ga-btn-secondary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium disabled:opacity-50 min-h-[44px] cursor-pointer"
+              className="chm-spring-btn ga-btn-secondary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium disabled:opacity-50 min-h-[44px] cursor-pointer"
             >
               <ClipboardPaste className="h-4 w-4 shrink-0 ga-text-accent" aria-hidden="true" />
               <span>{pasteBusy ? t.verifyMobile.pasteBusy : t.verifyMobile.pasteImageBtn}</span>
             </button>
+
+            <button
+              type="button"
+              disabled={verifyingProof}
+              onClick={() => void handleLoadSampleArtwork()}
+              data-testid="verify-sample-btn"
+              className="chm-spring-btn ga-btn-secondary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium disabled:opacity-50 min-h-[44px] cursor-pointer"
+            >
+              <Sparkles className="h-4 w-4 shrink-0 ga-text-accent" aria-hidden="true" />
+              <span>{t.simple.verify.sampleTryBtn}</span>
+            </button>
+
             <span className="text-xs ga-text-muted">{t.verifyMobile.pasteHint}</span>
           </div>
+
+          {(attachedRaster || attachedFallbackDataUrl) && (
+            <ScannerBeam
+              scanning={scannerSweeping || verifyingProof}
+              label={t.simple.verify.scanningLabel}
+              testId="verify-scanner-beam"
+              className="ga-surface-subtle p-3 flex flex-col items-center gap-2"
+            >
+              <SafeArtworkImage
+                raster={attachedRaster}
+                fallbackDataUrl={attachedFallbackDataUrl}
+                alt={attachedFileName ?? 'Artwork preview'}
+                testId="verify-attached-preview"
+                className="max-h-56 object-contain rounded-lg border ga-border"
+              />
+              {attachedFileName && (
+                <span className="text-[11px] font-mono ga-text-muted truncate max-w-full">
+                  {attachedFileName}
+                </span>
+              )}
+            </ScannerBeam>
+          )}
           {pasteFeedback && (
             <p role="status" className="ga-status-warning rounded-xl border px-3 py-2 text-xs">
               {pasteFeedback}
@@ -1086,6 +1203,28 @@ export function VerifyCertificatePage() {
         <p className="ga-surface-subtle rounded-xl border ga-border px-3 py-2 text-xs font-mono ga-text-accent">
           {qrInfoNote}
         </p>
+      )}
+
+      {errorMsg && !isAdvanced && !scannerSweeping && (
+        <div
+          data-testid="verify-simple-verdict"
+          data-verdict="warn"
+          className="chm-verdict-wobble ga-status-warning rounded-2xl border p-4 sm:p-5 space-y-2"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 text-sm sm:text-base font-bold">
+              <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span>{t.simple.verify.verdictWarnTitle}</span>
+            </div>
+            <HelpTip
+              label={t.simple.verify.verdictWarnTitle}
+              text={t.simple.verify.verdictWarnTipText}
+              testId="verify-verdict-tip-btn"
+              panelTestId="verify-verdict-tip-panel"
+            />
+          </div>
+          <p className="text-xs sm:text-sm opacity-90">{t.simple.verify.verdictWarnDesc}</p>
+        </div>
       )}
 
       {errorMsg && (
@@ -1171,8 +1310,98 @@ export function VerifyCertificatePage() {
     </div>
   ) : null;
 
-  const resultsSection = result ? (
+  const simpleVerdictKind = result
+    ? result.signatureStatus === 'valid' && result.integrityStatus === 'matched'
+      ? 'pass'
+      : result.signatureStatus === 'valid'
+        ? 'sns-pass'
+        : 'warn'
+    : null;
+
+  const resultsSection = result && !scannerSweeping ? (
     <div className="space-y-5" data-testid="verification-results">
+      {!isAdvanced && simpleVerdictKind && (
+        <section
+          data-testid="verify-simple-verdict"
+          data-verdict={simpleVerdictKind}
+          className={`relative overflow-hidden rounded-2xl border p-5 space-y-3 ${
+            simpleVerdictKind === 'pass'
+              ? 'chm-verdict-pop ga-status-success shadow-sm'
+              : simpleVerdictKind === 'sns-pass'
+                ? 'chm-pulse-soft ga-status-info shadow-sm'
+                : 'chm-verdict-wobble ga-status-warning'
+          }`}
+        >
+          {simpleVerdictKind === 'pass' && (
+            <SparkleBurst active={!reducedMotion} testId="verify-verdict-sparkles" />
+          )}
+          <div className="relative z-10 flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-base sm:text-lg font-bold">
+                {simpleVerdictKind === 'warn' ? (
+                  <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden="true" />
+                ) : (
+                  <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden="true" />
+                )}
+                <span>
+                  {simpleVerdictKind === 'pass'
+                    ? t.simple.verify.verdictPassTitle
+                    : simpleVerdictKind === 'sns-pass'
+                      ? t.simple.verify.verdictSnsTitle
+                      : t.simple.verify.verdictWarnTitle}
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm opacity-90">
+                {simpleVerdictKind === 'pass'
+                  ? t.simple.verify.verdictPassDesc
+                  : simpleVerdictKind === 'sns-pass'
+                    ? t.simple.verify.verdictSnsDesc
+                    : t.simple.verify.verdictWarnDesc}
+              </p>
+            </div>
+
+            <HelpTip
+              label={
+                simpleVerdictKind === 'pass'
+                  ? t.simple.verify.verdictPassTipLabel
+                  : simpleVerdictKind === 'sns-pass'
+                    ? t.simple.verify.verdictSnsTipLabel
+                    : t.simple.verify.verdictWarnTitle
+              }
+              text={
+                simpleVerdictKind === 'pass'
+                  ? t.simple.verify.verdictPassTipText
+                  : simpleVerdictKind === 'sns-pass'
+                    ? t.simple.verify.verdictSnsTipText
+                    : t.simple.verify.verdictWarnTipText
+              }
+              testId="verify-verdict-tip-btn"
+              panelTestId="verify-verdict-tip-panel"
+            />
+          </div>
+
+          {result.manifest && (
+            <div
+              data-testid="verify-simple-meta-pills"
+              className="relative z-10 flex flex-wrap gap-2 pt-1 text-xs"
+            >
+              {result.manifest.authorName && (
+                <span className="ga-card-solid rounded-full border ga-border px-3 py-1 font-medium ga-text">
+                  {t.simple.verify.artistPillLabel}: {result.manifest.authorName}
+                </span>
+              )}
+              {result.manifest.artworkTitle && (
+                <span className="ga-card-solid rounded-full border ga-border px-3 py-1 font-medium ga-text">
+                  {t.simple.verify.titlePillLabel}: {result.manifest.artworkTitle}
+                </span>
+              )}
+              <span className="ga-card-solid rounded-full border ga-border px-3 py-1 font-medium ga-text-accent">
+                {t.simple.verify.licensePillLabel}: {result.manifest.license.licenseId}
+              </span>
+            </div>
+          )}
+        </section>
+      )}
       {prioritizeResultsTop && result.manifest && (
         <div
           data-testid="verify-auto-verified-pill"
@@ -1841,7 +2070,16 @@ export function VerifyCertificatePage() {
         >
           <Info className="h-5 w-5 shrink-0 mt-0.5" aria-hidden="true" />
           <div className="space-y-1">
-            <h2 className="font-semibold">{t.verify.qrMaskNoticeTitle}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold">{t.verify.qrMaskNoticeTitle}</h2>
+              {isAdvanced && (
+                <HelpTip
+                  label={t.simple.advancedTips.protocolModesLabel}
+                  text={t.simple.advancedTips.protocolModesText}
+                  testId="verify-qrmask-tip-btn"
+                />
+              )}
+            </div>
             <p className="opacity-90 leading-relaxed">{t.verify.qrMaskNoticeBody}</p>
             <p className="font-mono text-xs">
               qrMask: [{result.manifest.qrMask.join(', ')}]
@@ -2199,8 +2437,12 @@ export function VerifyCertificatePage() {
     <div className="space-y-6 max-w-3xl mx-auto">
       <header className="flex items-start justify-between gap-4 border-b ga-border pb-4">
         <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-semibold ga-text">{t.home.ctaVerify}</h1>
-          <p className="text-xs sm:text-sm ga-text-secondary">{t.minimal.verify.dropHint}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight ga-text">
+            {!isAdvanced ? t.simple.verify.pageTitle : t.home.ctaVerify}
+          </h1>
+          <p className="text-xs sm:text-sm ga-text-secondary">
+            {!isAdvanced ? t.simple.verify.pageSubtitle : t.minimal.verify.dropHint}
+          </p>
         </div>
 
         <HelpIconButton

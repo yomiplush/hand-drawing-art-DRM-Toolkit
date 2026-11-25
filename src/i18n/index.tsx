@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import {
-  isSupportedLocale,
-  persistOptionalLocale,
-  readOptionalLocale,
-} from '../core/storage/consent';
+import { persistOptionalLocale } from '../core/storage/consent';
+import { detectInitialLang } from '../state/uiPreferences';
 import { ARTWORK_DETAILS_I18N } from './artworkDetails';
 import { I18nContext, LOCALE_OPTIONS } from './context';
 import type { FullTranslations, Locale } from './context';
@@ -23,6 +20,7 @@ import { MINIMAL_UI_I18N } from './minimalUi';
 import { NEXT_GEN_I18N } from './nextGen';
 import { QR_STUDIO_I18N } from './qrStudio';
 import { SEO_I18N } from './seo';
+import { SIMPLE_I18N } from './simple';
 import { TUTORIAL_I18N } from './tutorial';
 import { VAULT_I18N } from './vault';
 import { VERIFY_MOBILE_I18N } from './verifyMobile';
@@ -43,48 +41,8 @@ const LOCALE_MAP: Record<Locale, Translations> = {
   ar,
 };
 
-function detectQueryLocale(): Locale | null {
-  if (typeof window === 'undefined' || !window.location.search) return null;
-  try {
-    const hl = new URLSearchParams(window.location.search).get('hl');
-    if (isSupportedLocale(hl)) {
-      return hl;
-    }
-  } catch {
-    // Ignore malformed query strings
-  }
-  return null;
-}
-
-function detectInitialLocale(): Locale {
-  // Read-only URL ?hl= query detection for localized crawler/shared URLs (never persists without consent)
-  const queryLocale = detectQueryLocale();
-  if (queryLocale) return queryLocale;
-
-  const saved = readOptionalLocale();
-  if (saved) return saved;
-  if (typeof navigator !== 'undefined' && navigator.language) {
-    const lang = navigator.language.toLowerCase();
-    if (lang.startsWith('ja')) return 'ja';
-    if (lang.includes('hant') || lang === 'zh-tw' || lang === 'zh-hk' || lang === 'zh-mo') {
-      return 'zh-TW';
-    }
-    if (lang.startsWith('zh')) return 'zh-CN';
-    if (lang.startsWith('ko')) return 'ko';
-    if (lang.startsWith('ru')) return 'ru';
-    if (lang.startsWith('uk')) return 'uk';
-    if (lang.startsWith('es')) return 'es';
-    if (lang.startsWith('fr')) return 'fr';
-    if (lang.startsWith('de')) return 'de';
-    if (lang.startsWith('pt')) return 'pt';
-    if (lang.startsWith('it')) return 'it';
-    if (lang.startsWith('ar')) return 'ar';
-  }
-  return 'en';
-}
-
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(detectInitialLocale);
+  const [locale, setLocaleState] = useState<Locale>(detectInitialLang);
 
   const setLocale = (next: Locale) => {
     setLocaleState(next);
@@ -115,6 +73,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     nextGen: NEXT_GEN_I18N[locale] ?? NEXT_GEN_I18N.en,
     googleCompliance: GOOGLE_COMPLIANCE_I18N[locale] ?? GOOGLE_COMPLIANCE_I18N.en,
     humanUx: HUMAN_UX_I18N[locale] ?? HUMAN_UX_I18N.en,
+    simple: SIMPLE_I18N[locale] ?? SIMPLE_I18N.en,
   };
 
   return (

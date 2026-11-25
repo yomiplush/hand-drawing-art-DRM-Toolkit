@@ -43,6 +43,7 @@ import {
 } from '../../core/vault/driveSyncEngine';
 import type { CrossDeviceVaultKeyShareEnvelope } from '../../core/vault/vaultCrypto';
 import { useI18n } from '../../i18n/context';
+import { HelpTip } from '../HelpTip';
 import { FriendlyErrorAlert } from '../ui/FriendlyErrorAlert';
 
 interface StorageSettingsPanelProps {
@@ -167,8 +168,10 @@ export function StorageSettingsPanel({ onVaultChanged }: StorageSettingsPanelPro
       const a = document.createElement('a');
       a.href = url;
       a.download = `certified-handmade-vault-${new Date().toISOString().slice(0, 10)}${PORTABLE_VAULT_FILE_EXTENSION}`;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30000);
       setPortablePass('');
       setPortableMsg(s.portableExportSuccess);
     } catch (err) {
@@ -570,6 +573,11 @@ export function StorageSettingsPanel({ onVaultChanged }: StorageSettingsPanelPro
             <h3 className="text-base font-semibold ga-text flex items-center gap-2">
               <Cloud className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
               <span>{s.driveTitle}</span>
+              <HelpTip
+                label={t.simple.advancedTips.driveVaultLabel}
+                text={t.simple.advancedTips.driveVaultText}
+                testId="storage-drive-tip-btn"
+              />
             </h3>
             <p className="text-xs ga-text-secondary leading-relaxed">{s.driveDesc}</p>
           </div>

@@ -17,6 +17,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
+import { HelpTip } from '../components/HelpTip';
 import { QrMatrixSvg } from '../components/QrMatrixSvg';
 import { AdvancedSettings } from '../components/ui/AdvancedSettings';
 import { FriendlyErrorAlert } from '../components/ui/FriendlyErrorAlert';
@@ -64,7 +65,7 @@ function downloadJsonFile(data: unknown, filename: string) {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  window.setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 export function KeysPage() {
@@ -143,6 +144,9 @@ export function KeysPage() {
     setAuthorKeys(ak);
     setTrustedKeys(tk);
     setKeyNotices(kn);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('chm-keys-updated'));
+    }
     if (ak.length > 0) {
       setNoticeSubjectKeyId((prev) => prev || ak[0].id);
       setSignChallengeKeyId((prev) => prev || ak[0].id);
@@ -469,6 +473,11 @@ export function KeysPage() {
           <h2 className="text-base sm:text-lg font-semibold ga-text flex items-center gap-2 min-w-0">
             <KeyRound className="h-5 w-5 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
             <span className="min-w-0 break-words">{t.keys.generateTitle}</span>
+            <HelpTip
+              label={t.simple.advancedTips.ed25519Label}
+              text={t.simple.advancedTips.ed25519Text}
+              testId="keys-ed25519-tip-btn"
+            />
           </h2>
 
           <form onSubmit={handleGenerate} className="space-y-3 min-w-0">

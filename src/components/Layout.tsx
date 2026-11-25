@@ -1,27 +1,21 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   Archive,
   BookOpen,
   Cloud,
-  Compass,
-  Cookie,
   FileSignature,
   Globe,
-  HardDriveDownload,
   Heart,
-  HelpCircle,
   KeyRound,
-  Menu,
   RefreshCw,
-  Settings,
   Share2,
-  Shield,
   ShieldCheck,
   Smartphone,
   WifiOff,
-  X,
 } from 'lucide-react';
+import { listAuthorKeys } from '../core/storage/keyStore';
+import type { AuthorKeyRecord } from '../core/storage/keyStore';
 import { LOCALE_OPTIONS, useI18n } from '../i18n/context';
 import type { Locale } from '../i18n/context';
 import { useAppPreferences } from './PreferencesContext';
@@ -48,14 +42,17 @@ export function Layout({
 }: LayoutProps) {
   const { t, locale, setLocale } = useI18n();
   const { isAdvanced } = useAppPreferences();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== 'undefined' ? navigator.onLine : true,
   );
-  const menuId = useId();
-  const menuContainerRef = useRef<HTMLDivElement | null>(null);
-  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
-  const isJa = locale === 'ja';
+  const [authorKeys, setAuthorKeys] = useState<AuthorKeyRecord[]>([]);
+
+  const refreshKeysStatus = useCallback(() => {
+    void listAuthorKeys()
+      .then((keys) => setAuthorKeys(keys))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -69,84 +66,34 @@ export function Layout({
   }, []);
 
   useEffect(() => {
-    if (!menuOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setMenuOpen(false);
-        menuButtonRef.current?.focus();
-      }
-    };
-    const onPointerDown = (e: PointerEvent) => {
-      if (menuContainerRef.current && !menuContainerRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('pointerdown', onPointerDown);
+    if (!isAdvanced) return;
+    refreshKeysStatus();
+    const onKeysUpdated = () => refreshKeysStatus();
+    window.addEventListener('chm-keys-updated', onKeysUpdated);
     return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('chm-keys-updated', onKeysUpdated);
     };
-  }, [menuOpen]);
+  }, [isAdvanced, location.pathname, refreshKeysStatus]);
 
-  const primaryLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `inline-flex items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-medium transition-colors min-h-[44px] ${
+  const cockpitLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-medium transition-colors min-h-[38px] ${
       isActive
         ? 'bg-[var(--ga-accent-soft)] text-[var(--ga-accent)] border ga-border-strong'
         : 'ga-text-secondary hover:bg-[var(--ga-accent-soft)] hover:text-[var(--ga-text)] border border-transparent'
     }`;
 
-  const menuLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium min-h-[44px] transition-colors ${
-      isActive
-        ? 'bg-[var(--ga-accent-soft)] text-[var(--ga-accent)] border ga-border-strong'
-        : 'ga-text-secondary hover:bg-[var(--ga-accent-soft)] hover:text-[var(--ga-text)] border border-transparent'
-    }`;
-
-  const simpleMenuItems = [
-    {
-      to: '/storage',
-      label: isJa ? '端末同期とバックアップ' : 'Sync & Backup',
-      icon: Cloud,
-      testId: 'menu-storage-link',
-    },
-    {
-      to: '/keys',
-      label: isJa ? '鍵のバックアップ・復元' : 'Key Backup & Restore',
-      icon: KeyRound,
-      testId: 'menu-keys-link',
-    },
-    {
-      to: '/tutorial',
-      label: isJa ? 'ヘルプ・使い方ガイド' : 'Help & Guide',
-      icon: HelpCircle,
-      testId: 'menu-tutorial-link',
-    },
+  const cockpitNavItems = [
+    { to: '/create', label: t.minimal.nav.createShort, icon: FileSignature, testId: 'cockpit-create-link' },
+    { to: '/verify', label: t.minimal.nav.verifyShort, icon: ShieldCheck, testId: 'cockpit-verify-link' },
+    { to: '/keys', label: t.minimal.nav.myKeysItem, icon: KeyRound, testId: 'cockpit-keys-link' },
+    { to: '/exchange', label: t.minimal.nav.keyExchangeItem, icon: Share2, testId: 'cockpit-exchange-link' },
+    { to: '/storage', label: t.nextGen.navStorage, icon: Cloud, testId: 'cockpit-storage-link' },
+    { to: '/vault', label: t.vault.navItem, icon: Archive, testId: 'cockpit-vault-link' },
+    { to: '/devices', label: t.devices.navItem, icon: Smartphone, testId: 'cockpit-devices-link' },
+    { to: '/spec', label: t.simple.header.specNavLabel, icon: BookOpen, testId: 'cockpit-spec-link' },
   ];
 
-  const advancedMenuItems = [
-    { to: '/keys', label: t.minimal.nav.myKeysItem, icon: KeyRound, testId: 'menu-keys-link' },
-    { to: '/devices', label: t.devices.navItem, icon: Smartphone, testId: 'menu-devices-link' },
-    { to: '/vault', label: t.vault.navItem, icon: Archive, testId: 'menu-vault-link' },
-    { to: '/storage', label: t.nextGen.navStorage, icon: Cloud, testId: 'menu-storage-link' },
-    {
-      to: '/exchange',
-      label: t.minimal.nav.keyExchangeItem,
-      icon: Share2,
-      testId: 'menu-exchange-link',
-    },
-    { to: '/docs', label: t.nav.docs, icon: BookOpen, testId: 'menu-docs-link' },
-    { to: '/tutorial', label: t.tutorial.navLabel, icon: Compass, testId: 'menu-tutorial-link' },
-    {
-      to: '/docs#standalone',
-      label: t.minimal.nav.standaloneItem,
-      icon: HardDriveDownload,
-      testId: 'menu-standalone-link',
-    },
-  ];
-
-  const menuItems = isAdvanced ? advancedMenuItems : simpleMenuItems;
+  const primaryKey = authorKeys[0] ?? null;
 
   return (
     <div
@@ -154,45 +101,65 @@ export function Layout({
     >
       <header className="sticky top-0 z-40 ga-header">
         <div className="mx-auto max-w-5xl px-3 sm:px-6">
+          {/* Primary Header Bar: max 3 visual groups in Simple Mode (Brand, Mode Pill, Language) */}
           <div className="flex h-16 items-center justify-between gap-2">
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-              <Link
-                to="/"
-                className="flex items-center gap-2.5 ga-text font-semibold tracking-tight min-w-0 min-h-[44px] py-1"
+            <Link
+              to="/"
+              data-testid="header-brand-link"
+              className="flex items-center gap-2.5 ga-text font-semibold tracking-tight min-w-0 min-h-[44px] py-1"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 64 64"
+                fill="none"
+                aria-hidden="true"
+                className="h-7 w-7 rounded-lg opacity-95 shrink-0"
               >
-                <img
-                  src="/favicon.svg"
-                  alt=""
-                  className="h-7 w-7 rounded-lg opacity-95 shrink-0"
+                <defs>
+                  <linearGradient id="chm-hdr-bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#0b1f3a" />
+                    <stop offset="100%" stopColor="#06111e" />
+                  </linearGradient>
+                  <linearGradient id="chm-hdr-cyan" x1="12" y1="8" x2="52" y2="56" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#38bdf8" />
+                    <stop offset="100%" stopColor="#06b6d4" />
+                  </linearGradient>
+                </defs>
+                <rect width="64" height="64" rx="14" fill="url(#chm-hdr-bg)" />
+                <path
+                  d="M32 9L50 16.5V30.5C50 42.4 42.3 52 32 55.5C21.7 52 14 42.4 14 30.5V16.5L32 9Z"
+                  stroke="url(#chm-hdr-cyan)"
+                  strokeWidth="3"
+                  fill="#0d2847"
                 />
-                <span className="text-sm sm:text-base ga-text tracking-tight truncate">
-                  {t.appName}
-                </span>
-              </Link>
+                <path
+                  d="M24 38L27.2 26.5L38.5 18.5L43.5 23.5L35.5 34.8L24 38Z"
+                  stroke="#e0f2fe"
+                  strokeWidth="2.4"
+                  strokeLinejoin="round"
+                  fill="#0ea5e9"
+                  fillOpacity="0.25"
+                />
+                <circle cx="34.5" cy="27.5" r="2.2" fill="#38bdf8" />
+              </svg>
+              <span className="hidden sm:inline text-base ga-text tracking-tight truncate">
+                {t.appName}
+              </span>
+            </Link>
 
-              <nav className="hidden sm:flex items-center gap-1" aria-label="Primary">
-                <NavLink to="/create" className={primaryLinkClass} data-testid="nav-create-link">
-                  <FileSignature className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
-                  <span>{t.minimal.nav.createShort}</span>
-                </NavLink>
-                <NavLink to="/verify" className={primaryLinkClass} data-testid="nav-verify-link">
-                  <ShieldCheck className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
-                  <span>{t.minimal.nav.verifyShort}</span>
-                </NavLink>
-              </nav>
-            </div>
-
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0" ref={menuContainerRef}>
+            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
               {!isOnline && (
                 <span
                   role="status"
                   title={t.pwa.offlineBadge}
-                  className="inline-flex items-center gap-1.5 rounded-xl border ga-status-warning px-2.5 py-1.5 text-xs font-medium min-h-[36px]"
+                  className="inline-flex items-center gap-1.5 rounded-full border ga-status-warning px-2.5 py-1 text-xs font-medium min-h-[34px]"
                 >
                   <WifiOff className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="hidden md:inline">{t.pwa.offlineBadge}</span>
                 </span>
               )}
+
+              <ModeToggle compact testId="header-mode-toggle" />
 
               <div className="relative inline-flex items-center">
                 <Globe
@@ -200,11 +167,11 @@ export function Layout({
                   aria-hidden="true"
                 />
                 <select
-                  aria-label={t.minimal.nav.languageLabel}
+                  aria-label={t.simple.header.languageAria}
                   value={locale}
                   onChange={(e) => setLocale(e.target.value as Locale)}
                   data-testid="lang-select"
-                  className="appearance-none rounded-xl ga-btn-secondary max-w-[88px] sm:max-w-[144px] md:max-w-none truncate ps-8 pe-6 py-2 text-xs sm:text-sm font-medium transition-colors min-h-[44px] cursor-pointer"
+                  className="appearance-none rounded-full ga-btn-secondary max-w-[82px] sm:max-w-[144px] md:max-w-none truncate ps-7 pe-5 py-1.5 text-xs sm:text-sm font-medium transition-colors min-h-[40px] cursor-pointer"
                 >
                   {LOCALE_OPTIONS.map((opt) => (
                     <option
@@ -223,155 +190,95 @@ export function Layout({
                   ▾
                 </span>
               </div>
-
-              <ThemeToggle />
-
-              <div className="relative">
-                <button
-                  ref={menuButtonRef}
-                  type="button"
-                  onClick={() => setMenuOpen((v) => !v)}
-                  aria-expanded={menuOpen}
-                  aria-controls={menuId}
-                  aria-label={t.minimal.nav.menuBtn}
-                  data-testid="nav-menu-toggle"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl ga-btn-secondary px-3 py-2 text-sm font-medium transition-colors min-h-[44px] min-w-[44px] cursor-pointer"
-                >
-                  {menuOpen ? (
-                    <X className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  ) : (
-                    <Settings className="h-4 w-4 shrink-0 hidden sm:block" aria-hidden="true" />
-                  )}
-                  {!menuOpen && (
-                    <Menu className="h-4 w-4 shrink-0 sm:hidden" aria-hidden="true" />
-                  )}
-                  <span className="hidden md:inline">{t.minimal.nav.menuBtn}</span>
-                </button>
-
-                {menuOpen && (
-                  <nav
-                    id={menuId}
-                    aria-label={t.minimal.nav.menuBtn}
-                    data-testid="nav-menu-panel"
-                    className="fixed inset-x-3 top-[4.25rem] z-50 sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-2 sm:w-80 rounded-2xl ga-popover p-3.5 space-y-2 max-h-[82vh] overflow-y-auto"
-                  >
-                    <div className="rounded-xl ga-surface-subtle p-2.5 space-y-2">
-                      <div className="flex items-center justify-between gap-2 px-0.5">
-                        <span className="text-[11px] font-semibold uppercase tracking-wider ga-text-muted">
-                          {isJa ? '表示モード' : 'Mode'}
-                        </span>
-                        <span className="text-[11px] ga-text-muted">
-                          {isAdvanced
-                            ? isJa
-                              ? '詳細機能を表示中'
-                              : 'All tools visible'
-                            : isJa
-                              ? '基本操作のみ'
-                              : 'Essentials only'}
-                        </span>
-                      </div>
-                      <ModeToggle compact testId="nav-mode-toggle" />
-                    </div>
-
-                    <div className="sm:hidden space-y-1 pb-2 border-b ga-border">
-                      <NavLink
-                        to="/create"
-                        onClick={() => setMenuOpen(false)}
-                        className={menuLinkClass}
-                      >
-                        <FileSignature className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
-                        <span>{t.home.ctaCreate}</span>
-                      </NavLink>
-                      <NavLink
-                        to="/verify"
-                        onClick={() => setMenuOpen(false)}
-                        className={menuLinkClass}
-                      >
-                        <ShieldCheck className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
-                        <span>{t.home.ctaVerify}</span>
-                      </NavLink>
-                    </div>
-
-                    <div className="space-y-1">
-                      {menuItems.map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <NavLink
-                            key={item.to}
-                            to={item.to}
-                            data-testid={item.testId}
-                            onClick={() => setMenuOpen(false)}
-                            className={menuLinkClass}
-                          >
-                            <Icon className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
-                            <span>{item.label}</span>
-                          </NavLink>
-                        );
-                      })}
-                    </div>
-
-                    <div className="pt-2 mt-2 border-t ga-border space-y-1">
-                      <div className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider ga-text-muted">
-                        {t.minimal.nav.settingsSection}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          onOpenCookieSettings();
-                        }}
-                        data-testid="menu-cookie-settings"
-                        className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ga-text-secondary hover:bg-[var(--ga-accent-soft)] hover:text-[var(--ga-text)] min-h-[44px] cursor-pointer text-start"
-                      >
-                        <Cookie className="h-4 w-4 ga-text-muted shrink-0" aria-hidden="true" />
-                        <span>{t.nav.cookieSettings}</span>
-                      </button>
-
-                      <Link
-                        to="/privacypolicy"
-                        onClick={() => setMenuOpen(false)}
-                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ga-text-secondary hover:bg-[var(--ga-accent-soft)] hover:text-[var(--ga-text)] min-h-[44px]"
-                      >
-                        <Shield className="h-4 w-4 ga-text-muted shrink-0" aria-hidden="true" />
-                        <span>{t.nav.privacy}</span>
-                      </Link>
-
-                      <div className="flex items-center gap-2 px-1 pt-1">
-                        <a
-                          href={GITHUB_REPO_URL}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          data-testid="header-github-link"
-                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl ga-btn-secondary px-3 py-2 text-xs font-medium min-h-[44px]"
-                        >
-                          <span>GitHub</span>
-                        </a>
-                        <a
-                          href={GITHUB_SPONSORS_URL}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          data-testid="header-sponsor-link"
-                          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-400/35 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-600 dark:text-rose-200 hover:bg-rose-500/20 min-h-[44px]"
-                        >
-                          <Heart className="h-3.5 w-3.5 fill-rose-400/30" aria-hidden="true" />
-                          <span>Sponsor</span>
-                        </a>
-                      </div>
-
-                      {offlineReady && isOnline && (
-                        <div className="px-3 pt-1.5 flex items-center gap-2 text-[11px] ga-text-muted">
-                          <span className="h-1.5 w-1.5 rounded-full bg-[var(--ga-accent)]" aria-hidden="true" />
-                          <span>{t.pwa.onlineReadyBadge}</span>
-                        </div>
-                      )}
-                    </div>
-                  </nav>
-                )}
-              </div>
             </div>
           </div>
         </div>
+
+        {/* Advanced Mode Unfolded Cockpit Bar & Live Status Ribbon */}
+        {isAdvanced && (
+          <div
+            data-testid="advanced-cockpit-bar"
+            className="border-t ga-border bg-[var(--ga-surface-subtle)]"
+          >
+            <div className="mx-auto max-w-5xl px-3 sm:px-6 py-2 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <nav
+                  aria-label="Advanced workspace navigation"
+                  className="flex flex-wrap items-center gap-1"
+                >
+                  {cockpitNavItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        data-testid={item.testId}
+                        className={cockpitLinkClass}
+                      >
+                        <Icon className="h-3.5 w-3.5 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
+                        <span>{item.label}</span>
+                      </NavLink>
+                    );
+                  })}
+                </nav>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={GITHUB_REPO_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="header-github-link"
+                    className="inline-flex items-center justify-center rounded-lg ga-btn-secondary px-2.5 py-1.5 text-xs font-medium min-h-[34px]"
+                  >
+                    GitHub
+                  </a>
+                  <a
+                    href={GITHUB_SPONSORS_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="header-sponsor-link"
+                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-400/35 bg-rose-500/10 px-2.5 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-200 hover:bg-rose-500/20 min-h-[34px]"
+                  >
+                    <Heart className="h-3 w-3 fill-rose-400/30" aria-hidden="true" />
+                    <span>Sponsor</span>
+                  </a>
+                </div>
+              </div>
+
+              <div
+                data-testid="advanced-status-ribbon"
+                className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t ga-border text-[11px] font-mono ga-text-muted"
+              >
+                <div className="flex flex-wrap items-center gap-3 min-w-0">
+                  <span data-testid="ribbon-active-key" className="truncate">
+                    {t.simple.header.activeKeyLabel}:{' '}
+                    <strong className="ga-text font-semibold">
+                      {primaryKey
+                        ? `${primaryKey.label} (${primaryKey.fingerprintShort})`
+                        : t.simple.header.noKeyYet}
+                    </strong>
+                  </span>
+                  <span data-testid="ribbon-key-count">
+                    {authorKeys.length} {t.simple.header.storedKeysCount}
+                  </span>
+                </div>
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      isOnline ? 'bg-emerald-500' : 'bg-amber-500'
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span>
+                    {offlineReady || !isOnline
+                      ? t.simple.header.offlineReadyLabel
+                      : t.pwa.onlineReadyBadge}
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {needRefresh && (
           <div className="border-t ga-border ga-status-info px-4 py-2 text-xs sm:text-sm">
@@ -390,7 +297,7 @@ export function Layout({
         )}
       </header>
 
-      <main className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 py-8 sm:py-12 min-w-0">
+      <main className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 py-8 sm:py-10 min-w-0">
         <Outlet />
       </main>
 
@@ -399,13 +306,19 @@ export function Layout({
           <p className="ga-text-secondary font-medium">
             {t.appName} · {t.pwa.localOnlyPill} · MIT
           </p>
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <ThemeToggle />
             <Link to="/tutorial" className="hover:text-[var(--ga-text)] transition-colors py-1">
               {t.tutorial.navLabel}
             </Link>
-            <Link to="/docs" className="hover:text-[var(--ga-text)] transition-colors py-1">
-              {t.nav.docs}
+            <Link to="/storage" className="hover:text-[var(--ga-text)] transition-colors py-1">
+              {t.nextGen.navStorage}
             </Link>
+            {isAdvanced && (
+              <Link to="/docs" className="hover:text-[var(--ga-text)] transition-colors py-1">
+                {t.nav.docs}
+              </Link>
+            )}
             <Link
               to="/privacypolicy"
               data-testid="footer-privacy-link"

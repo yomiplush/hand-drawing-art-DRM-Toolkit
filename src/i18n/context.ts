@@ -12,6 +12,7 @@ import type { MinimalUiTranslations } from './minimalUi';
 import type { NextGenTranslations } from './nextGen';
 import type { QrStudioTranslations } from './qrStudio';
 import type { SeoTranslations } from './seo';
+import type { SimpleTranslations } from './simple';
 import type { TutorialTranslations } from './tutorial';
 import type { VaultTranslations } from './vault';
 import type { VerifyMobileTranslations } from './verifyMobile';
@@ -33,6 +34,7 @@ export type FullTranslations = Translations & {
   nextGen: NextGenTranslations;
   googleCompliance: GoogleComplianceTranslations;
   humanUx: HumanUxTranslations;
+  simple: SimpleTranslations;
 };
 
 export interface LocaleOption {

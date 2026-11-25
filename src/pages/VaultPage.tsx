@@ -45,8 +45,10 @@ function triggerJsonDownload(data: unknown, filename: string): void {
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 export function VaultPage({ focusStorage = false }: { focusStorage?: boolean }) {

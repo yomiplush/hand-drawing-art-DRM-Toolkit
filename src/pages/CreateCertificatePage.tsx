@@ -32,7 +32,10 @@ import {
   InImageAdvancedControls,
   InImageQrStudioPanel,
 } from '../components/InImageQrStudioPanel';
+import { HelpTip } from '../components/HelpTip';
+import { SafeArtworkImage } from '../components/SafeArtworkImage';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
+import { StampCeremony } from '../components/motion/StampCeremony';
 import { useAppPreferences } from '../components/PreferencesContext';
 import { AdvancedSettings } from '../components/ui/AdvancedSettings';
 import { FriendlyErrorAlert } from '../components/ui/FriendlyErrorAlert';
@@ -98,6 +101,7 @@ import { generateQrMatrix } from '../core/qr/qrGenerator';
 import type { QrErrorCorrectionLevel } from '../core/qr/qrGenerator';
 import {
   createAuthorKey,
+  ensureLocalSigningKey,
   listAuthorKeys,
   markAuthorKeyBackedUp,
 } from '../core/storage/keyStore';
@@ -105,6 +109,29 @@ import type { AuthorKeyRecord } from '../core/storage/keyStore';
 import { saveProofToVault } from '../core/vault';
 import { imageWorkerClient, type WorkerProgressStage } from '../core/workers/imageWorkerClient';
 import { useI18n } from '../i18n/context';
+
+const SIMPLE_AUTHOR_NAME_STORAGE_KEY = 'chm_simple_author_name_v1';
+
+function readRememberedAuthorName(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return window.localStorage.getItem(SIMPLE_AUTHOR_NAME_STORAGE_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function saveRememberedAuthorName(name: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const trimmed = name.trim();
+    if (trimmed) {
+      window.localStorage.setItem(SIMPLE_AUTHOR_NAME_STORAGE_KEY, trimmed);
+    }
+  } catch {
+    // Ignore storage quota/disabled errors
+  }
+}
 
 type QrCreationMode = 'outer-frame' | 'in-image';
 
@@ -123,7 +150,7 @@ function triggerPngDownload(pngBytes: Uint8Array, filename: string) {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  window.setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 function triggerJsonDownload(payload: unknown, filename: string) {
@@ -135,7 +162,7 @@ function triggerJsonDownload(payload: unknown, filename: string) {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  window.setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 function OuterMiniQrCanvas({ previewUrl }: { previewUrl: string | null }) {
@@ -193,23 +220,29 @@ function OuterMiniQrCanvas({ previewUrl }: { previewUrl: string | null }) {
 
 export function CreateCertificatePage() {
   const { t } = useI18n();
-  const { isAdvanced } = useAppPreferences();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { isAdvanced, reducedMotion } = useAppPreferences();
+  const [searchParams] = useSearchParams();
   const replaceInputId = useId();
   const resultSectionRef = useRef<HTMLElement | null>(null);
 
-  const qrMode: QrCreationMode =
-    searchParams.get('mode') === 'studio' ? 'in-image' : 'outer-frame';
+  const urlModeParam = searchParams.get('mode');
+  const [prevUrlModeParam, setPrevUrlModeParam] = useState(urlModeParam);
+  const [qrMode, setQrModeState] = useState<QrCreationMode>(() =>
+    urlModeParam === 'studio' ? 'in-image' : 'outer-frame',
+  );
+
+  if (urlModeParam !== prevUrlModeParam) {
+    setPrevUrlModeParam(urlModeParam);
+    if (urlModeParam === 'studio') {
+      setQrModeState('in-image');
+    }
+  }
 
   const setQrMode = (nextMode: QrCreationMode) => {
+    setQrModeState(nextMode);
     setSignedResult(null);
     setSignedEvidence(null);
     setErrorMsg(null);
-    if (nextMode === 'in-image') {
-      setSearchParams({ mode: 'studio' }, { replace: true });
-    } else {
-      setSearchParams({}, { replace: true });
-    }
   };
 
   // Keys
@@ -226,7 +259,6 @@ export function CreateCertificatePage() {
   const [sourceFileName, setSourceFileName] = useState<string>('');
   const [sourceFormat, setSourceFormat] = useState<string>('');
   const [artworkRaster, setArtworkRaster] = useState<CanonicalRaster | null>(null);
-  const [artworkPreviewUrl, setArtworkPreviewUrl] = useState<string | null>(null);
 
   // Canonical Artwork Metadata (single source of truth across Simple/Advanced toggles)
   const [artworkTitle, setArtworkTitle] = useState('');
@@ -237,7 +269,7 @@ export function CreateCertificatePage() {
   const [profiles, setProfiles] = useState<AuthorProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string>('new');
   const [profileName, setProfileName] = useState('');
-  const [authorName, setAuthorName] = useState('');
+  const [authorName, setAuthorName] = useState(() => readRememberedAuthorName());
   const [website, setWebsite] = useState('');
   const [publicNote, setPublicNote] = useState('');
   const [snsLinks, setSnsLinks] = useState<AuthorSnsLink[]>([]);
@@ -296,8 +328,12 @@ export function CreateCertificatePage() {
     bundle: PortableEvidenceBundle;
     saved: boolean;
   } | null>(null);
-  const [signedPreviewUrl, setSignedPreviewUrl] = useState<string | null>(null);
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [stampCeremonyActive, setStampCeremonyActive] = useState(false);
+  const [postBackupPassphrase, setPostBackupPassphrase] = useState('');
+  const [postBackupBusy, setPostBackupBusy] = useState(false);
+  const [postBackupError, setPostBackupError] = useState<string | null>(null);
+  const [postBackupSaved, setPostBackupSaved] = useState(false);
 
   const applyProfileToForm = (p: AuthorProfile) => {
     setSelectedProfileId(p.id);
@@ -360,17 +396,6 @@ export function CreateCertificatePage() {
     };
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (artworkPreviewUrl) URL.revokeObjectURL(artworkPreviewUrl);
-    };
-  }, [artworkPreviewUrl]);
-
-  useEffect(() => {
-    return () => {
-      if (signedPreviewUrl) URL.revokeObjectURL(signedPreviewUrl);
-    };
-  }, [signedPreviewUrl]);
 
   const selectedKey = useMemo(
     () => keys.find((k) => k.id === selectedKeyId) ?? null,
@@ -378,16 +403,20 @@ export function CreateCertificatePage() {
   );
 
   const clampedStudioOptions = useMemo(() => {
-    if (!artworkRaster) return null;
-    return clampInImageQrOptions(artworkRaster.width, artworkRaster.height, {
-      x: qrX,
-      y: qrY,
-      boxSize: qrBoxSize,
-      opacity: qrOpacityPct / 100,
-      style: qrStyle,
-      eccLevel,
-      quietZoneModules: qrQuietZone,
-    });
+    if (!artworkRaster || artworkRaster.width < 21 || artworkRaster.height < 21) return null;
+    try {
+      return clampInImageQrOptions(artworkRaster.width, artworkRaster.height, {
+        x: qrX,
+        y: qrY,
+        boxSize: qrBoxSize,
+        opacity: qrOpacityPct / 100,
+        style: qrStyle,
+        eccLevel,
+        quietZoneModules: qrQuietZone,
+      });
+    } catch {
+      return null;
+    }
   }, [artworkRaster, qrX, qrY, qrBoxSize, qrOpacityPct, qrStyle, eccLevel, qrQuietZone]);
 
   const policyWarnings = useMemo(
@@ -632,6 +661,9 @@ export function CreateCertificatePage() {
       const updated = await listAuthorKeys();
       setKeys(updated);
       setSelectedKeyId(record.id);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('chm-keys-updated'));
+      }
     } catch (err) {
       setQuickKeyError(err instanceof Error ? err.message : 'Failed to create local signing key');
     } finally {
@@ -649,6 +681,47 @@ export function CreateCertificatePage() {
     setKeys(updated);
   };
 
+  const handlePostSignBackup = async () => {
+    setPostBackupError(null);
+    if (selectedKey?.encryptedBackup) {
+      await handleDownloadSelectedKeyBackup();
+      setPostBackupSaved(true);
+      return;
+    }
+    if (postBackupPassphrase.length < 8) {
+      setPostBackupError(t.simple.create.backupShortPassError);
+      return;
+    }
+    setPostBackupBusy(true);
+    try {
+      const { record, encryptedBackup } = await createAuthorKey({
+        label: authorName.trim() || selectedKey?.label || 'My Artist Key',
+        backupPassphrase: postBackupPassphrase,
+      });
+      if (encryptedBackup) {
+        const safeName =
+          encryptedBackup.label.replace(/[^a-zA-Z0-9_-]+/g, '-').toLowerCase() || 'artist';
+        triggerJsonDownload(
+          encryptedBackup,
+          `chm-${safeName}-${encryptedBackup.fingerprint.slice(0, 8)}.chkey.json`,
+        );
+        await markAuthorKeyBackedUp(record.id);
+      }
+      setPostBackupPassphrase('');
+      const updated = await listAuthorKeys();
+      setKeys(updated);
+      setSelectedKeyId(record.id);
+      setPostBackupSaved(true);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('chm-keys-updated'));
+      }
+    } catch (err) {
+      setPostBackupError(err instanceof Error ? err.message : 'Failed to create recovery key');
+    } finally {
+      setPostBackupBusy(false);
+    }
+  };
+
   const handleFileSelected = async (file: File) => {
     setErrorMsg(null);
     setSignedResult(null);
@@ -660,12 +733,9 @@ export function CreateCertificatePage() {
         rawFileBytes,
         (percent, stage) => setWorkerProgress({ percent, stage }),
       );
-      if (artworkPreviewUrl) URL.revokeObjectURL(artworkPreviewUrl);
-      const url = URL.createObjectURL(file);
-
       const minDim = Math.min(raster.width, raster.height);
       const defaultBox = Math.max(
-        Math.min(minDim, 148),
+        Math.min(minDim, 180),
         Math.min(260, Math.round(minDim * 0.3)),
       );
       const pad = Math.min(24, Math.floor(minDim * 0.05));
@@ -673,7 +743,6 @@ export function CreateCertificatePage() {
       setSourceFileName(file.name);
       setSourceFormat(fmt);
       setArtworkRaster(raster);
-      setArtworkPreviewUrl(url);
       setQrBoxSize(defaultBox);
       setQrX(Math.max(0, raster.width - defaultBox - pad));
       setQrY(Math.max(0, raster.height - defaultBox - pad));
@@ -698,18 +767,31 @@ export function CreateCertificatePage() {
       let signingKey = selectedKey;
       // Seamless auto-key generation if artist has not generated a key yet
       if (!signingKey) {
-        const { record } = await createAuthorKey({
-          label: authorName.trim() || 'Artist Key',
-          backupPassphrase:
-            quickPassphrase && quickPassphrase.length >= 8 ? quickPassphrase : undefined,
-        });
+        const hadKeysBefore = keys.length > 0;
+        const record =
+          quickPassphrase && quickPassphrase.length >= 8
+            ? (
+                await createAuthorKey({
+                  label: authorName.trim() || 'My Artist Key',
+                  backupPassphrase: quickPassphrase,
+                })
+              ).record
+            : await ensureLocalSigningKey({
+                label: authorName.trim() || 'My Artist Key',
+              });
         setQuickPassphrase('');
         const updatedKeys = await listAuthorKeys();
         setKeys(updatedKeys);
         setSelectedKeyId(record.id);
         signingKey = updatedKeys.find((k) => k.id === record.id) ?? record;
-        setAutoKeyCreatedNotice(true);
+        if (!hadKeysBefore) {
+          setAutoKeyCreatedNotice(true);
+        }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('chm-keys-updated'));
+        }
       }
+      saveRememberedAuthorName(authorName);
 
       const v3Metadata = {
         protocolVersion: 3 as const,
@@ -839,11 +921,6 @@ export function CreateCertificatePage() {
         };
       }
 
-      if (signedPreviewUrl) URL.revokeObjectURL(signedPreviewUrl);
-      const pngCopy = new Uint8Array(res.pngBytes.byteLength);
-      pngCopy.set(res.pngBytes);
-      const blob = new Blob([pngCopy.buffer], { type: 'image/png' });
-      const previewUrl = URL.createObjectURL(blob);
 
       const profileSnapshot = authorName.trim()
         ? buildAuthorProfileSnapshot({
@@ -882,12 +959,27 @@ export function CreateCertificatePage() {
         },
       }).catch(() => {});
 
-      setSignedPreviewUrl(previewUrl);
       setSignedResult(res);
       setSignedEvidence(nextExtensionState);
-      triggerPngDownload(res.pngBytes, buildDownloadFilename(res.mode));
+      setPostBackupSaved(false);
+      setPostBackupError(null);
+      const shouldCelebrate = !isAdvanced && !reducedMotion;
+      if (shouldCelebrate) {
+        setStampCeremonyActive(true);
+        window.setTimeout(() => {
+          triggerPngDownload(res.pngBytes, buildDownloadFilename(res.mode));
+        }, 420);
+        window.setTimeout(() => {
+          setStampCeremonyActive(false);
+        }, 1250);
+      } else {
+        triggerPngDownload(res.pngBytes, buildDownloadFilename(res.mode));
+      }
       window.setTimeout(() => {
-        resultSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        resultSectionRef.current?.scrollIntoView({
+          behavior: reducedMotion ? 'auto' : 'smooth',
+          block: 'nearest',
+        });
       }, 60);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Signing failed');
@@ -979,14 +1071,10 @@ export function CreateCertificatePage() {
   };
 
   const handleStartAnother = () => {
-    if (artworkPreviewUrl) URL.revokeObjectURL(artworkPreviewUrl);
-    if (signedPreviewUrl) URL.revokeObjectURL(signedPreviewUrl);
-    setArtworkPreviewUrl(null);
     setArtworkRaster(null);
     setSourceFileName('');
     setSourceFormat('');
     setSignedResult(null);
-    setSignedPreviewUrl(null);
     setSignedEvidence(null);
     setErrorMsg(null);
   };
@@ -1040,14 +1128,23 @@ export function CreateCertificatePage() {
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
-      <header className="flex items-start justify-between gap-4 border-b ga-border pb-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-semibold ga-text">
-            {t.home.ctaCreate}
+      <header className="flex flex-wrap items-start justify-between gap-4 border-b ga-border pb-4">
+        <div className="space-y-1.5">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight ga-text">
+            {!isAdvanced ? t.simple.create.pageTitle : t.home.ctaCreate}
           </h1>
           <p className="text-xs sm:text-sm ga-text-secondary">
-            {t.humanUx.createUx.step1Subtitle}
+            {!isAdvanced ? t.simple.create.pageSubtitle : t.humanUx.createUx.step1Subtitle}
           </p>
+          <div className="inline-flex items-center gap-1.5 rounded-full border ga-border ga-surface-subtle px-3 py-1 text-[11px] font-medium ga-text-secondary">
+            <span>{t.simple.create.localTrustNote}</span>
+            <HelpTip
+              label={t.simple.home.localOnlyTipLabel}
+              text={t.simple.home.localOnlyTipText}
+              testId="create-local-tip-btn"
+              panelTestId="create-local-tip-panel"
+            />
+          </div>
         </div>
 
         <HelpIconButton
@@ -1081,7 +1178,7 @@ export function CreateCertificatePage() {
             <span className="text-xs ga-text-muted">{t.humanUx.createUx.noOverwriteNote}</span>
           </div>
 
-          {!artworkRaster || !artworkPreviewUrl ? (
+          {!artworkRaster ? (
             <ImageDropzone
               onFileSelected={handleFileSelected}
               title={t.create.dropzoneText}
@@ -1091,9 +1188,10 @@ export function CreateCertificatePage() {
           ) : (
             <div className="flex flex-col sm:flex-row items-center gap-4 rounded-xl border ga-border ga-surface-subtle p-4">
               <div className="flex justify-center ga-card-solid rounded-lg p-2 border ga-border shrink-0">
-                <img
-                  src={artworkPreviewUrl}
+                <SafeArtworkImage
+                  raster={artworkRaster}
                   alt={artworkTitle || sourceFileName}
+                  testId="create-uploaded-preview"
                   className="max-h-36 max-w-[180px] object-contain rounded"
                 />
               </div>
@@ -1109,10 +1207,18 @@ export function CreateCertificatePage() {
                     type="file"
                     accept="image/png,image/jpeg,image/webp,image/*"
                     data-testid="create-image-input"
+                    onClick={(e) => {
+                      e.currentTarget.value = '';
+                    }}
                     onChange={(e) => {
-                      const file = e.target.files?.[0];
+                      const inputEl = e.currentTarget;
+                      const file = inputEl.files?.[0];
                       if (file) void handleFileSelected(file);
-                      e.target.value = '';
+                      window.setTimeout(() => {
+                        if (inputEl && document.contains(inputEl)) {
+                          inputEl.value = '';
+                        }
+                      }, 250);
                     }}
                     className="sr-only"
                   />
@@ -1161,7 +1267,11 @@ export function CreateCertificatePage() {
                 id="authorName"
                 type="text"
                 value={authorName}
-                onChange={(e) => setAuthorName(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setAuthorName(val);
+                  saveRememberedAuthorName(val);
+                }}
                 placeholder={t.humanUx.createUx.artistNameSimplePlaceholder}
                 data-testid="create-author-input"
                 className="ga-input w-full rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
@@ -1463,26 +1573,97 @@ export function CreateCertificatePage() {
             </div>
           )}
 
-          {/* Simple Mode concise QR border preview OR Advanced QR Placement & Studio */}
+          {/* Simple Mode QR Style Selector (Outer Frame vs In-Image) OR Advanced QR Placement & Studio */}
           {!isAdvanced ? (
-            <div className="space-y-3 pt-1">
-              <p className="text-xs ga-text-secondary flex items-center gap-2">
-                <Frame className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
-                <span>{t.humanUx.createUx.qrIncludedNote}</span>
-              </p>
-              {artworkPreviewUrl && (
+            <div className="space-y-3 pt-2 border-t ga-border" data-testid="create-simple-qr-style">
+              <div className="flex items-center gap-2 text-xs font-semibold ga-text">
+                <span>{t.simple.create.qrStyleLabel}</span>
+                <HelpTip
+                  label={t.simple.create.qrStyleTipLabel}
+                  text={t.simple.create.qrStyleTipText}
+                  testId="create-qr-style-tip-btn"
+                  panelTestId="create-qr-style-tip-panel"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label={t.simple.create.qrStyleLabel}>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={qrMode === 'outer-frame'}
+                  onClick={() => setQrMode('outer-frame')}
+                  data-testid="create-simple-style-outer"
+                  className={`chm-spring-btn text-start rounded-2xl border p-3.5 min-h-[44px] cursor-pointer space-y-1 ${
+                    qrMode === 'outer-frame'
+                      ? 'ga-surface-subtle ga-border-strong ga-text ring-2 ring-[var(--ga-accent)]/25'
+                      : 'ga-card-solid ga-border ga-text-secondary'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold">
+                    <Frame className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
+                    <span>{t.simple.create.styleOuterTitle}</span>
+                  </div>
+                  <p className="text-[11px] ga-text-secondary leading-relaxed">
+                    {t.simple.create.styleOuterDesc}
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={qrMode === 'in-image'}
+                  onClick={() => setQrMode('in-image')}
+                  data-testid="create-simple-style-inside"
+                  className={`chm-spring-btn text-start rounded-2xl border p-3.5 min-h-[44px] cursor-pointer space-y-1 ${
+                    qrMode === 'in-image'
+                      ? 'ga-surface-subtle ga-border-strong ga-text ring-2 ring-[var(--ga-accent)]/25'
+                      : 'ga-card-solid ga-border ga-text-secondary'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold">
+                    <QrCode className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
+                    <span>{t.simple.create.styleInsideTitle}</span>
+                  </div>
+                  <p className="text-[11px] ga-text-secondary leading-relaxed">
+                    {t.simple.create.styleInsideDesc}
+                  </p>
+                </button>
+              </div>
+
+              {artworkRaster && qrMode === 'outer-frame' && (
                 <div
                   data-testid="create-outer-live-preview"
                   className={`rounded-xl border p-3 flex flex-col items-center gap-2.5 ${outerFrameColors}`}
                 >
-                  <img
-                    src={artworkPreviewUrl}
+                  <SafeArtworkImage
+                    raster={artworkRaster}
                     alt={artworkTitle || sourceFileName}
                     className="max-h-48 object-contain rounded border ga-border"
                   />
                   <div className="w-full flex items-center justify-end gap-2 text-[11px] font-mono opacity-85">
                     {showLabel && <span>CHM v3 · {licenseId}</span>}
                     <OuterMiniQrCanvas previewUrl={qrSizing.previewUrl} />
+                  </div>
+                </div>
+              )}
+
+              {artworkRaster && qrMode === 'in-image' && (
+                <div
+                  data-testid="create-inside-live-preview"
+                  className="relative rounded-xl border ga-border ga-surface-subtle p-3 flex justify-center"
+                >
+                  <div className="relative inline-block">
+                    <SafeArtworkImage
+                      raster={artworkRaster}
+                      alt={artworkTitle || sourceFileName}
+                      className="max-h-48 object-contain rounded border ga-border"
+                    />
+                    <div
+                      aria-hidden="true"
+                      className="absolute bottom-2 end-2 rounded-lg bg-white/80 backdrop-blur-xs p-1 border border-slate-300/70 shadow-xs"
+                    >
+                      <OuterMiniQrCanvas previewUrl={qrSizing.previewUrl} />
+                    </div>
                   </div>
                 </div>
               )}
@@ -2005,9 +2186,16 @@ export function CreateCertificatePage() {
                   <h3 className="text-sm sm:text-base font-semibold ga-text">
                     {t.minimal.create.step3Title}
                   </h3>
-                  <span className="ga-status-info rounded-full border px-2.5 py-0.5 text-[11px] font-medium">
-                    {t.nextGen.create.qrV3SelfContainedBadge}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="ga-status-info rounded-full border px-2.5 py-0.5 text-[11px] font-medium">
+                      {t.nextGen.create.qrV3SelfContainedBadge}
+                    </span>
+                    <HelpTip
+                      label={t.simple.advancedTips.protocolModesLabel}
+                      text={t.simple.advancedTips.protocolModesText}
+                      testId="create-protocol-tip-btn"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="tablist">
@@ -2120,7 +2308,7 @@ export function CreateCertificatePage() {
                   </details>
                 </div>
 
-                {qrMode === 'outer-frame' && artworkPreviewUrl && (
+                {qrMode === 'outer-frame' && artworkRaster && (
                   <div
                     data-testid="create-outer-live-preview"
                     className={`rounded-xl border p-3 flex flex-col items-center gap-2.5 ${outerFrameColors}`}
@@ -2132,8 +2320,8 @@ export function CreateCertificatePage() {
                       </div>
                     )}
 
-                    <img
-                      src={artworkPreviewUrl}
+                    <SafeArtworkImage
+                      raster={artworkRaster}
                       alt={artworkTitle || sourceFileName}
                       className="max-h-52 object-contain rounded border ga-border"
                     />
@@ -2355,15 +2543,19 @@ export function CreateCertificatePage() {
               type="submit"
               disabled={busy || !artworkRaster || qrSizing.tier === 'capacity-exceeded'}
               data-testid="create-sign-button"
-              className="ga-btn-primary w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-2xl px-7 py-3.5 text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] cursor-pointer"
+              className="chm-spring-btn ga-btn-primary w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-2xl px-7 py-3.5 text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed min-h-[50px] cursor-pointer"
             >
               <FileSignature className="h-5 w-5 shrink-0" aria-hidden="true" />
               <span>
                 {busy
-                  ? qrMode === 'in-image'
-                    ? t.qrStudio.signingBusy
-                    : t.create.signingBusy
-                  : t.minimal.create.signAndDownloadBtn}
+                  ? !isAdvanced
+                    ? t.simple.create.stampingBusy
+                    : qrMode === 'in-image'
+                      ? t.qrStudio.signingBusy
+                      : t.create.signingBusy
+                  : !isAdvanced
+                    ? t.simple.create.step3Cta
+                    : t.minimal.create.signAndDownloadBtn}
               </span>
             </button>
           </div>
@@ -2371,25 +2563,31 @@ export function CreateCertificatePage() {
       </form>
 
       {/* Step 3 — Save Certified PNG */}
-      {signedResult && signedPreviewUrl && (
+      {signedResult && (
         <section
           ref={resultSectionRef}
           data-testid="create-result-section"
           className="ga-card rounded-2xl border ga-border-strong p-5 space-y-5"
         >
           <div className="space-y-1">
-            <h2 className="text-base sm:text-lg font-semibold ga-text-accent">
-              {t.humanUx.createUx.step3SaveTitle}
+            <h2 className="text-base sm:text-lg font-bold ga-text-accent">
+              {!isAdvanced ? t.simple.create.celebrationTitle : t.humanUx.createUx.step3SaveTitle}
             </h2>
-            <p className="text-xs ga-text-secondary">{t.humanUx.createUx.step3Subtitle}</p>
+            <p className="text-xs ga-text-secondary">
+              {!isAdvanced ? t.simple.create.celebrationSubtitle : t.humanUx.createUx.step3Subtitle}
+            </p>
           </div>
 
-          <div className="w-full rounded-xl border ga-border ga-surface-subtle p-3 flex justify-center">
-            <img
-              src={signedPreviewUrl}
-              alt="Signed artwork with QR code"
-              className="max-h-[380px] object-contain rounded"
-            />
+          <div className="relative w-full rounded-xl border ga-border ga-surface-subtle p-3 flex justify-center overflow-hidden">
+            <StampCeremony active={stampCeremonyActive}>
+              <SafeArtworkImage
+                pngBytes={signedResult.pngBytes}
+                raster={signedResult.raster}
+                alt="Signed artwork with QR code"
+                testId="create-signed-preview"
+                className="max-h-[380px] object-contain rounded"
+              />
+            </StampCeremony>
           </div>
 
           <div className="w-full flex flex-wrap gap-2.5">
@@ -2450,12 +2648,81 @@ export function CreateCertificatePage() {
             <Link
               to={localVerifyRoute}
               data-testid="open-local-verify"
-              className="ga-btn-secondary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium ga-text-accent min-h-[44px]"
+              className="chm-spring-btn ga-btn-secondary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium ga-text-accent min-h-[44px]"
             >
               <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>{t.nav.verify}</span>
+              <span>{!isAdvanced ? t.simple.create.verifyNowBtn : t.nav.verify}</span>
             </Link>
           </div>
+
+          {/* Mandatory HelpTip #3: Gentle post-sign .chkey.json backup reminder */}
+          {!isAdvanced && (
+            <div
+              data-testid="create-post-backup-card"
+              className="rounded-2xl border ga-border-strong ga-surface-subtle p-4 space-y-3"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold ga-text">
+                  <KeyRound className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
+                  <span>{t.simple.create.backupCardTitle}</span>
+                  <HelpTip
+                    label={t.simple.create.backupTipLabel}
+                    text={t.simple.create.backupTipText}
+                    testId="create-backup-tip-btn"
+                    panelTestId="create-backup-tip-panel"
+                  />
+                </div>
+                {postBackupSaved && (
+                  <span
+                    data-testid="create-post-backup-saved"
+                    className="ga-status-success inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold"
+                  >
+                    <Check className="h-3 w-3" aria-hidden="true" />
+                    <span>{t.simple.create.backupSavedBadge}</span>
+                  </span>
+                )}
+              </div>
+
+              {selectedKey?.encryptedBackup ? (
+                <button
+                  type="button"
+                  data-testid="create-post-backup-btn"
+                  onClick={() => void handlePostSignBackup()}
+                  className="chm-spring-btn ga-btn-secondary inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold min-h-[44px] cursor-pointer"
+                >
+                  <Download className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
+                  <span>{t.simple.create.backupReadyBtn}</span>
+                </button>
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-2.5">
+                  <input
+                    type="password"
+                    value={postBackupPassphrase}
+                    onChange={(e) => setPostBackupPassphrase(e.target.value)}
+                    placeholder={t.simple.create.backupPassPlaceholder}
+                    data-testid="create-post-backup-pass"
+                    className="ga-input flex-1 rounded-xl px-3 py-2 text-xs sm:text-sm min-h-[44px]"
+                  />
+                  <button
+                    type="button"
+                    disabled={postBackupBusy}
+                    onClick={() => void handlePostSignBackup()}
+                    data-testid="create-post-backup-create-btn"
+                    className="chm-spring-btn ga-btn-secondary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold disabled:opacity-50 min-h-[44px] cursor-pointer"
+                  >
+                    <Download className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
+                    <span>{t.simple.create.backupCreateAndSaveBtn}</span>
+                  </button>
+                </div>
+              )}
+
+              {postBackupError && (
+                <p role="alert" className="text-xs text-[var(--ga-error-text)]">
+                  {postBackupError}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-2.5 pt-1 border-t ga-border">
             <button
@@ -2541,7 +2808,14 @@ export function CreateCertificatePage() {
                 )}
 
                 <div className="ga-surface-subtle rounded-xl border ga-border p-3">
-                  <dt className="text-xs ga-text-muted">{t.create.artworkShaLabel}</dt>
+                  <dt className="flex items-center gap-1.5 text-xs ga-text-muted">
+                    <span>{t.create.artworkShaLabel}</span>
+                    <HelpTip
+                      label={t.simple.advancedTips.canonicalRgbaLabel}
+                      text={t.simple.advancedTips.canonicalRgbaText}
+                      testId="create-rgba-tip-btn"
+                    />
+                  </dt>
                   <dd className="font-mono text-xs ga-text-accent break-all mt-0.5">
                     {bytesToHex(signedResult.manifest.sha256)}
                   </dd>

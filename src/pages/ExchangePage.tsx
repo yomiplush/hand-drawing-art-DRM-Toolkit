@@ -4,6 +4,7 @@ import { AlertTriangle, KeyRound, ShieldCheck, Smartphone } from 'lucide-react';
 import { ChmExchangeView } from '@yomiplush/chm-exchange/react';
 import type { ChmExchangeTheme, ExchangeTab } from '@yomiplush/chm-exchange/react';
 import '@yomiplush/chm-exchange/styles.css';
+import { HelpTip } from '../components/HelpTip';
 import { useAppPreferences } from '../components/PreferencesContext';
 import { HelpIconButton } from '../components/ui/HelpIconButton';
 import { SimpleModeBanner } from '../components/ui/SimpleModeBanner';
@@ -77,9 +78,16 @@ export function ExchangePage() {
   return (
     <div data-testid="exchange-page" className="space-y-6">
       <header className="flex items-center justify-between gap-4 border-b ga-border pb-4">
-        <h1 className="text-2xl sm:text-3xl font-semibold ga-text">
-          {t.minimal.nav.keyExchangeItem}
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl sm:text-3xl font-semibold ga-text">
+            {t.minimal.nav.keyExchangeItem}
+          </h1>
+          <HelpTip
+            label={t.simple.advancedTips.exchangeLabel}
+            text={t.simple.advancedTips.exchangeText}
+            testId="exchange-tip-btn"
+          />
+        </div>
 
         <HelpIconButton
           label={t.minimal.exchange.helpLabel}

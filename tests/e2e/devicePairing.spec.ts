@@ -95,10 +95,8 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
       // 1. Setup PC (Owner) identity on /keys and verify navigation link to /devices
       await pagePC.goto('/');
       await dismissCookieBannerIfVisible(pagePC);
-      await pagePC.getByTestId('nav-menu-toggle').click();
-      await pagePC.getByTestId('nav-mode-toggle-advanced').click();
-      await expect(pagePC.getByTestId('menu-devices-link')).toBeVisible();
-      await pagePC.keyboard.press('Escape');
+      await pagePC.getByTestId('header-mode-toggle-advanced').click();
+      await expect(pagePC.getByTestId('cockpit-devices-link')).toBeVisible();
 
       await pagePC.goto('/keys');
       await pagePC.getByTestId('keygen-label').fill('YomiPlush');

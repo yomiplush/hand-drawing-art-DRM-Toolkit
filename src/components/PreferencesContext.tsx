@@ -9,6 +9,7 @@ import {
   resolveTheme,
 } from '../core/preferences/appPreferences';
 import type { AppMode, ResolvedTheme, ThemeMode } from '../core/preferences/appPreferences';
+import { useReducedMotion } from '../state/uiPreferences';
 
 interface PreferencesContextValue {
   mode: AppMode;
@@ -19,6 +20,7 @@ interface PreferencesContextValue {
   resolvedTheme: ResolvedTheme;
   setTheme: (next: ThemeMode) => void;
   toggleTheme: () => void;
+  reducedMotion: boolean;
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
@@ -27,6 +29,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const [mode, setModeState] = useState<AppMode>(getStoredAppMode);
   const [theme, setThemeState] = useState<ThemeMode>(getStoredThemeMode);
   const [systemDark, setSystemDark] = useState<boolean>(getSystemPrefersDark);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
@@ -71,6 +74,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
         resolvedTheme,
         setTheme,
         toggleTheme,
+        reducedMotion,
       }}
     >
       {children}

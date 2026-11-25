@@ -17,9 +17,8 @@ function buildSamplePng(width = 160, height = 120): Buffer {
 }
 
 async function enableAdvancedMode(page: Page): Promise<void> {
-  await page.getByTestId('nav-menu-toggle').click();
-  await page.getByTestId('nav-mode-toggle-advanced').click();
-  await page.keyboard.press('Escape');
+  await page.getByTestId('header-mode-toggle-advanced').click();
+  await expect(page.getByTestId('advanced-cockpit-bar')).toBeVisible();
 }
 
 test.describe('Protocol v3 Self-Contained Metadata, Profiles, Creation Evidence (.chmevidence), and Compact QR', () => {

@@ -18,8 +18,8 @@ const RIBBONS: RibbonConfig[] = [
     frequency: 0.0019,
     speed: 0.14,
     phase: 0.0,
-    crestAlpha: 0.16,
-    fillTopAlpha: 0.09,
+    crestAlpha: 0.14,
+    fillTopAlpha: 0.08,
   },
   {
     yRatio: 0.56,
@@ -27,8 +27,8 @@ const RIBBONS: RibbonConfig[] = [
     frequency: 0.0015,
     speed: -0.1,
     phase: 1.7,
-    crestAlpha: 0.2,
-    fillTopAlpha: 0.11,
+    crestAlpha: 0.17,
+    fillTopAlpha: 0.09,
   },
   {
     yRatio: 0.65,
@@ -36,8 +36,8 @@ const RIBBONS: RibbonConfig[] = [
     frequency: 0.0022,
     speed: 0.09,
     phase: 3.4,
-    crestAlpha: 0.13,
-    fillTopAlpha: 0.07,
+    crestAlpha: 0.11,
+    fillTopAlpha: 0.06,
   },
 ];
 
@@ -79,22 +79,21 @@ export function Ps3WaveBackground() {
     const drawFrame = (elapsedSec: number) => {
       const bg = ctx.createLinearGradient(0, 0, 0, height);
       if (isDark) {
-        // Gentle Azure Night Canvas (#0C1424 -> #142744)
-        bg.addColorStop(0, '#0C1424');
-        bg.addColorStop(0.5, '#101D34');
-        bg.addColorStop(0.85, '#142744');
-        bg.addColorStop(1, '#0C1424');
+        // Studio Canvas Night (#0F1115 -> #181B22)
+        bg.addColorStop(0, '#0F1115');
+        bg.addColorStop(0.5, '#13161D');
+        bg.addColorStop(0.85, '#181B22');
+        bg.addColorStop(1, '#0F1115');
       } else {
-        // Gentle Azure Morning Stationery (#FFFFFF / #F5F8FD -> #DCE9FA wash)
-        bg.addColorStop(0, '#FFFFFF');
-        bg.addColorStop(0.45, '#F5F8FD');
-        bg.addColorStop(0.88, '#E7F0FC');
-        bg.addColorStop(1, '#DCE9FA');
+        // Studio Canvas Light (#FAFAFA -> #EEF4FC)
+        bg.addColorStop(0, '#FAFAFA');
+        bg.addColorStop(0.48, '#F6F8FC');
+        bg.addColorStop(0.88, '#EDF3FC');
+        bg.addColorStop(1, '#E4EEF9');
       }
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, width, height);
 
-      // Soft watercolor atmospheric glow
       const glow = ctx.createRadialGradient(
         width * 0.5,
         height * 0.36,
@@ -104,13 +103,13 @@ export function Ps3WaveBackground() {
         Math.max(width, height) * 0.65,
       );
       if (isDark) {
-        glow.addColorStop(0, 'rgba(61, 115, 197, 0.16)');
-        glow.addColorStop(0.55, 'rgba(40, 89, 182, 0.08)');
-        glow.addColorStop(1, 'rgba(12, 20, 36, 0)');
+        glow.addColorStop(0, 'rgba(61, 115, 197, 0.14)');
+        glow.addColorStop(0.55, 'rgba(40, 89, 182, 0.06)');
+        glow.addColorStop(1, 'rgba(15, 17, 21, 0)');
       } else {
-        glow.addColorStop(0, 'rgba(130, 184, 255, 0.22)');
-        glow.addColorStop(0.55, 'rgba(220, 233, 250, 0.28)');
-        glow.addColorStop(1, 'rgba(245, 248, 253, 0)');
+        glow.addColorStop(0, 'rgba(130, 184, 255, 0.18)');
+        glow.addColorStop(0.55, 'rgba(226, 236, 250, 0.22)');
+        glow.addColorStop(1, 'rgba(250, 250, 250, 0)');
       }
       ctx.fillStyle = glow;
       ctx.fillRect(0, 0, width, height);
@@ -145,12 +144,12 @@ export function Ps3WaveBackground() {
         const ribbonGrad = ctx.createLinearGradient(0, baseY - r.amplitude, 0, height);
         if (isDark) {
           ribbonGrad.addColorStop(0, `rgba(130, 184, 255, ${r.fillTopAlpha})`);
-          ribbonGrad.addColorStop(0.4, `rgba(61, 115, 197, ${r.fillTopAlpha * 0.5})`);
-          ribbonGrad.addColorStop(1, 'rgba(12, 20, 36, 0)');
+          ribbonGrad.addColorStop(0.4, `rgba(61, 115, 197, ${r.fillTopAlpha * 0.45})`);
+          ribbonGrad.addColorStop(1, 'rgba(15, 17, 21, 0)');
         } else {
-          ribbonGrad.addColorStop(0, `rgba(61, 115, 197, ${r.fillTopAlpha * 0.85})`);
-          ribbonGrad.addColorStop(0.42, `rgba(130, 184, 255, ${r.fillTopAlpha * 0.55})`);
-          ribbonGrad.addColorStop(1, 'rgba(245, 248, 253, 0)');
+          ribbonGrad.addColorStop(0, `rgba(61, 115, 197, ${r.fillTopAlpha * 0.78})`);
+          ribbonGrad.addColorStop(0.42, `rgba(130, 184, 255, ${r.fillTopAlpha * 0.48})`);
+          ribbonGrad.addColorStop(1, 'rgba(250, 250, 250, 0)');
         }
         ctx.fillStyle = ribbonGrad;
         ctx.fill();
@@ -165,7 +164,7 @@ export function Ps3WaveBackground() {
         ctx.lineTo(last[0], last[1]);
         ctx.strokeStyle = isDark
           ? `rgba(130, 184, 255, ${r.crestAlpha})`
-          : `rgba(40, 89, 182, ${r.crestAlpha * 0.65})`;
+          : `rgba(40, 89, 182, ${r.crestAlpha * 0.55})`;
         ctx.lineWidth = 1;
         ctx.stroke();
       }
