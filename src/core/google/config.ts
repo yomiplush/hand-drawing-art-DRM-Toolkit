@@ -3,7 +3,10 @@ export const DEFAULT_GOOGLE_CLIENT_ID =
 
 export const PRODUCTION_ORIGIN = 'https://certified-handmade.com';
 export const GIS_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
+export const GOOGLE_DRIVE_APPDATA_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+/** @deprecated Legacy visible My Drive scope; retained as constant only for disclosure references. */
 export const GOOGLE_DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+export const GOOGLE_DRIVE_SYNC_SCOPE = GOOGLE_DRIVE_APPDATA_SCOPE;
 export const GOOGLE_DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3';
 export const GOOGLE_DRIVE_UPLOAD_BASE = 'https://www.googleapis.com/upload/drive/v3';
 
@@ -113,6 +116,6 @@ export function checkGoogleDriveEnvironmentSupport(params?: {
     reason: 'ok',
     clientId,
     origin,
-    message: 'Google Drive connection is supported in this environment.',
+    message: 'Google Drive appDataFolder sync is supported in this environment.',
   };
 }

@@ -2,6 +2,7 @@ import { GOOGLE_DRIVE_API_BASE, GOOGLE_DRIVE_UPLOAD_BASE } from './config';
 
 export const DRIVE_FOLDER_NAME = 'Certified Handmade';
 export const DRIVE_FOLDER_MIME = 'application/vnd.google-apps.folder';
+export const DRIVE_APPDATA_SPACE = 'appDataFolder' as const;
 export const CHM_APP_PROPERTY_VALUE = 'certified-handmade';
 
 export type DriveFileRole =
@@ -12,6 +13,9 @@ export type DriveFileRole =
   | 'profiles'
   | 'policies'
   | 'settings'
+  | 'identities'
+  | 'devices'
+  | 'recovery'
   | 'snapshot';
 
 export interface DriveFileMetadata {
@@ -112,6 +116,7 @@ export class GoogleDriveClient {
   async listAppFiles(params: {
     accessToken: string;
     query: string;
+    spaces?: 'appDataFolder' | 'drive';
     fields?: string;
     pageSize?: number;
   }): Promise<DriveFileMetadata[]> {
@@ -120,7 +125,7 @@ export class GoogleDriveClient {
       'files(id,name,mimeType,parents,appProperties,modifiedTime,size,trashed)';
     const url = new URL(`${GOOGLE_DRIVE_API_BASE}/files`);
     url.searchParams.set('q', params.query);
-    url.searchParams.set('spaces', 'drive');
+    url.searchParams.set('spaces', params.spaces ?? DRIVE_APPDATA_SPACE);
     url.searchParams.set('fields', fields);
     url.searchParams.set('pageSize', String(params.pageSize ?? 100));
     const res = await this.requestWithRetry(url.toString(), { method: 'GET' }, params.accessToken);
@@ -145,6 +150,10 @@ export class GoogleDriveClient {
     }
   }
 
+  /**
+   * Ensures a hidden Certified Handmade Vault root folder inside Google Drive's
+   * isolated `appDataFolder` space (never clutters user's visible My Drive).
+   */
   async ensureVaultRootFolder(params: {
     accessToken: string;
     knownFolderId?: string;
@@ -164,9 +173,10 @@ export class GoogleDriveClient {
       }
     }
 
-    // Recover folder even if moved or renamed by user using appProperties!
+    // Recover folder inside hidden appDataFolder via appProperties
     const foundByProps = await this.listAppFiles({
       accessToken: params.accessToken,
+      spaces: DRIVE_APPDATA_SPACE,
       query: `mimeType='${DRIVE_FOLDER_MIME}' and trashed=false and appProperties has { key='chmApp' and value='${CHM_APP_PROPERTY_VALUE}' } and appProperties has { key='chmRole' and value='root' }`,
       pageSize: 10,
     });
@@ -186,10 +196,12 @@ export class GoogleDriveClient {
         body: JSON.stringify({
           name: DRIVE_FOLDER_NAME,
           mimeType: DRIVE_FOLDER_MIME,
+          parents: [DRIVE_APPDATA_SPACE],
           appProperties: {
             chmApp: CHM_APP_PROPERTY_VALUE,
             chmRole: 'root',
-            chmSchema: '1',
+            chmSpace: DRIVE_APPDATA_SPACE,
+            chmSchema: '2',
           },
         }),
       },
@@ -214,6 +226,7 @@ export class GoogleDriveClient {
     }
     return this.listAppFiles({
       accessToken: params.accessToken,
+      spaces: DRIVE_APPDATA_SPACE,
       query: q,
       pageSize: 200,
     });
@@ -256,7 +269,7 @@ export class GoogleDriveClient {
       },
     };
     if (!params.existingFileId) {
-      metadata.parents = [params.folderId];
+      metadata.parents = [params.folderId || DRIVE_APPDATA_SPACE];
     }
 
     const boundaryBytes = new Uint8Array(8);

@@ -1,3 +1,4 @@
+import type { EncryptedKeyBackup } from '../crypto/keyBackup';
 import { exportVaultBackupBundle, importVaultBackupJson } from '../vault/vaultBackup';
 import type { VaultBackupBundleV1 } from '../vault/types';
 import {
@@ -6,12 +7,16 @@ import {
 } from '../vault/vaultCrypto';
 import {
   type PersistedDriveAccountState,
+  type SyncedRecoveryKeyEntry,
   createDriveVaultKeyShareForDevice,
   initializeOrUnlockDriveVault,
+  listEncryptedKeyRecoveryBackups,
   loadDriveAccountState,
   resolveVaultSyncConflict,
+  restoreAuthorKeyFromDriveRecovery,
   rotateDriveVaultKeyEpoch,
   runGoogleDriveSync,
+  uploadEncryptedKeyRecoveryBackup,
 } from '../vault/driveSyncEngine';
 import type {
   StorageProvider,
@@ -27,7 +32,7 @@ import { googleAuthManager, type InMemoryGoogleAuthManager } from './gisAuth';
 export class GoogleDriveStorageProvider implements StorageProvider {
   readonly id = 'google-drive' as const;
   readonly kind = 'cloud' as const;
-  readonly label = 'Personal Google Drive (Encrypted Vault)';
+  readonly label = 'Google Drive App Data (Encrypted Vault)';
   readonly capabilities: StorageProviderCapabilities = {
     supportsIncrementalSync: true,
     supportsOffline: false,
@@ -137,8 +142,8 @@ export class GoogleDriveStorageProvider implements StorageProvider {
         : !auth.connected
           ? 'Not connected. Local browser storage works 100% independently.'
           : !this.isVaultUnlocked()
-            ? `Connected as ${accountLabel ?? 'Google user'}. Enter Vault passphrase to unlock sync.`
-            : `Synced as ${accountLabel ?? 'Google user'} (client-side AES-256-GCM encrypted).`,
+            ? `Connected as ${accountLabel ?? 'Google user'} (appDataFolder scope). Enter Vault passphrase to unlock sync.`
+            : `Synced as ${accountLabel ?? 'Google user'} in hidden appDataFolder (client-side AES-256-GCM encrypted).`,
       error: auth.lastError ?? state?.rollbackWarning,
     };
   }
@@ -159,6 +164,58 @@ export class GoogleDriveStorageProvider implements StorageProvider {
       keyring: this.unlockedKeyring,
     });
     return syncResult;
+  }
+
+  async uploadOptionalEncryptedRecoveryBackup(params: {
+    authorKeyId?: string;
+    encryptedKeyEnvelope?: EncryptedKeyBackup;
+  }): Promise<{ entries: SyncedRecoveryKeyEntry[]; fileId: string }> {
+    const token = this.authManager.getAccessTokenOrThrow();
+    const account = this.authManager.getState().account;
+    if (!account || !this.unlockedKeyring || this.activeAccountKey !== account.accountKey) {
+      throw new Error('Unlock Google Drive Vault before uploading an encrypted key recovery backup.');
+    }
+    return uploadEncryptedKeyRecoveryBackup({
+      client: this.driveClient,
+      accessToken: token,
+      accountKey: account.accountKey,
+      keyring: this.unlockedKeyring,
+      authorKeyId: params.authorKeyId,
+      encryptedKeyEnvelope: params.encryptedKeyEnvelope,
+    });
+  }
+
+  async listOptionalEncryptedRecoveryBackups(): Promise<SyncedRecoveryKeyEntry[]> {
+    const token = this.authManager.getAccessTokenOrThrow();
+    const account = this.authManager.getState().account;
+    if (!account || !this.unlockedKeyring || this.activeAccountKey !== account.accountKey) {
+      throw new Error('Unlock Google Drive Vault first to view encrypted key recovery backups.');
+    }
+    return listEncryptedKeyRecoveryBackups({
+      client: this.driveClient,
+      accessToken: token,
+      accountKey: account.accountKey,
+      keyring: this.unlockedKeyring,
+    });
+  }
+
+  async restoreKeyFromOptionalRecoveryBackup(params: {
+    publicKey: string;
+    backupPassphrase: string;
+  }) {
+    const token = this.authManager.getAccessTokenOrThrow();
+    const account = this.authManager.getState().account;
+    if (!account || !this.unlockedKeyring || this.activeAccountKey !== account.accountKey) {
+      throw new Error('Unlock Google Drive Vault first to restore an encrypted key backup.');
+    }
+    return restoreAuthorKeyFromDriveRecovery({
+      client: this.driveClient,
+      accessToken: token,
+      accountKey: account.accountKey,
+      keyring: this.unlockedKeyring,
+      publicKey: params.publicKey,
+      backupPassphrase: params.backupPassphrase,
+    });
   }
 
   async resolveConflict(params: {

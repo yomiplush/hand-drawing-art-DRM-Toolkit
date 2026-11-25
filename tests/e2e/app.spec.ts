@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, test } from '@playwright/test';
+import { type Page, expect, test } from '@playwright/test';
 import { decode as decodePng, encode as encodePng } from 'fast-png';
 
 function buildTestArtworkPng(width = 160, height = 120): Buffer {
@@ -17,8 +17,20 @@ function buildTestArtworkPng(width = 160, height = 120): Buffer {
   return Buffer.from(encodePng({ width, height, data, depth: 8, channels: 4 }));
 }
 
+async function enableAdvancedMode(page: Page): Promise<void> {
+  await page.getByTestId('nav-menu-toggle').click();
+  await page.getByTestId('nav-mode-toggle-advanced').click();
+  await page.keyboard.press('Escape');
+}
+
+async function enableSimpleMode(page: Page): Promise<void> {
+  await page.getByTestId('nav-menu-toggle').click();
+  await page.getByTestId('nav-mode-toggle-simple').click();
+  await page.keyboard.press('Escape');
+}
+
 test.describe('Certified Handmade E2E suite', () => {
-  test('minimal homepage, contextual ? help, compact menu, key lifecycle, 4-step signing, compact verify rows, and multilingual switching', async ({
+  test('minimal homepage, Gentle Azure theme toggle, Simple/Advanced mode preservation, key lifecycle, 3-step signing, verify log, and multilingual switching', async ({
     page,
   }, testInfo) => {
     const externalRequests: string[] = [];
@@ -36,15 +48,23 @@ test.describe('Certified Handmade E2E suite', () => {
 
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(page.getByTestId('home-tagline')).toContainText('Your Art. Your Rights.');
-    await expect(page.getByTestId('home-cta-create')).toBeVisible();
-    await expect(page.getByTestId('home-cta-verify')).toBeVisible();
+    await expect(page.getByTestId('home-tagline')).toContainText('Your art. Your proof.');
+    await expect(page.getByTestId('home-subtitle')).toContainText(
+      'Always free. No sign-up. No image uploads.',
+    );
+    await expect(page.getByTestId('home-cta-create')).toContainText('Certify Artwork');
+    await expect(page.getByTestId('home-cta-verify')).toContainText('Verify Artwork');
 
-    // Long-form sections stay out of the homepage by default
+    // No crypto jargon or long-form technical sections cluttering the default Simple homepage
     await expect(page.getByTestId('home-faq-section')).toHaveCount(0);
     await expect(page.getByTestId('home-howto-section')).toHaveCount(0);
+    await expect(page.getByTestId('home-docs-link')).toHaveCount(0);
+    const homeMainText = await page.locator('main').innerText();
+    for (const jargon of ['Ed25519', 'SHA-256', 'AES-256-GCM', 'Nostr']) {
+      expect(homeMainText).not.toContain(jargon);
+    }
 
-    // PS3-inspired animated wave background canvas is mounted and sized
+    // Gentle Azure animated wave background canvas is mounted and sized
     const waveCanvas = page.getByTestId('ps3-wave-bg');
     await expect(waveCanvas).toBeVisible();
     const box = await waveCanvas.boundingBox();
@@ -58,28 +78,56 @@ test.describe('Certified Handmade E2E suite', () => {
     await expect(page.getByTestId('cookie-consent-banner')).toBeHidden();
 
     // Verify >=44x44 touch targets on key homepage controls
-    for (const tid of ['home-cta-create', 'home-cta-verify', 'home-help-btn', 'nav-menu-toggle']) {
+    for (const tid of [
+      'home-cta-create',
+      'home-cta-verify',
+      'home-help-btn',
+      'nav-menu-toggle',
+      'theme-toggle-btn',
+    ]) {
       const targetBox = await page.getByTestId(tid).boundingBox();
       expect(targetBox).not.toBeNull();
       expect(targetBox!.height).toBeGreaterThanOrEqual(44);
       expect(targetBox!.width).toBeGreaterThanOrEqual(44);
     }
 
+    // Light / Dark theme switching updates html[data-theme] cleanly
+    const initialTheme = await page.locator('html').getAttribute('data-theme');
+    await page.getByTestId('theme-toggle-btn').click();
+    const flippedTheme = await page.locator('html').getAttribute('data-theme');
+    expect(flippedTheme).not.toBe(initialTheme);
+    await page.getByTestId('theme-toggle-btn').click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', initialTheme ?? 'light');
+
     // Open contextual ? Help dialog and close with Escape
     await page.getByTestId('home-help-btn').click();
     const helpPanel = page.getByTestId('home-help-panel');
     await expect(helpPanel).toBeVisible();
     await expect(helpPanel).toContainText('What Certified Handmade Does');
-    await expect(helpPanel).toContainText('Limits of Cryptographic Claims');
+    await expect(helpPanel).toContainText('What Proof Means (Honest Limits)');
     await expect(helpPanel.locator('a[href="/docs"]')).toBeVisible();
     await expect(helpPanel.locator('a[href="/tutorial"]')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(helpPanel).toBeHidden();
 
-    // Open compact Menu and verify all secondary routes are present
+    // Open compact Menu -> verify Simple Mode starts cleanly -> toggle Advanced Mode to inspect all routes -> back to Simple
     await page.getByTestId('nav-menu-toggle').click();
     await expect(page.getByTestId('nav-menu-panel')).toBeVisible();
+    await expect(page.getByTestId('nav-mode-toggle-simple')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('menu-storage-link')).toBeVisible();
     await expect(page.getByTestId('menu-keys-link')).toBeVisible();
+    await expect(page.getByTestId('menu-tutorial-link')).toBeVisible();
+    await expect(page.getByTestId('menu-exchange-link')).toHaveCount(0);
+    await expect(page.getByTestId('menu-docs-link')).toHaveCount(0);
+
+    await page.getByTestId('nav-mode-toggle-advanced').click();
+    await expect(page.getByTestId('nav-mode-toggle-advanced')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect(page.getByTestId('menu-keys-link')).toBeVisible();
+    await expect(page.getByTestId('menu-devices-link')).toBeVisible();
+    await expect(page.getByTestId('menu-vault-link')).toBeVisible();
     await expect(page.getByTestId('menu-exchange-link')).toBeVisible();
     await expect(page.getByTestId('menu-docs-link')).toBeVisible();
     await expect(page.getByTestId('menu-tutorial-link')).toBeVisible();
@@ -87,6 +135,8 @@ test.describe('Certified Handmade E2E suite', () => {
       'href',
       '/docs#standalone',
     );
+
+    await page.getByTestId('nav-mode-toggle-simple').click();
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('nav-menu-panel')).toBeHidden();
 
@@ -94,7 +144,7 @@ test.describe('Certified Handmade E2E suite', () => {
     const langSelect = page.getByTestId('lang-select');
     await langSelect.selectOption('ja');
     await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
-    await expect(page.getByTestId('home-tagline')).toContainText('あなたの作品。あなたの権利。');
+    await expect(page.getByTestId('home-tagline')).toContainText('大切な絵に、あなたの証を。');
     await langSelect.selectOption('zh-CN');
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
     await langSelect.selectOption('ko');
@@ -141,19 +191,31 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.getByTestId('restore-submit').click();
     await expect(page.getByTestId('author-key-card')).toHaveCount(1);
 
-    // 2. Create signed PNG via 4-step workflow & expandable metadata controls
+    // 2. Create signed PNG via 3-step Simple Mode workflow & confirm zero data loss when toggling Simple <-> Advanced
     const artPath = testInfo.outputPath('artwork.png');
     fs.writeFileSync(artPath, buildTestArtworkPng());
 
     await page.goto('/create');
+    await expect(page.getByTestId('create-step-indicator-1')).toBeVisible();
+    await expect(page.getByTestId('create-step-indicator-2')).toBeVisible();
+    await expect(page.getByTestId('create-step-indicator-3')).toBeVisible();
+
     await page.getByTestId('create-image-input').setInputFiles(artPath);
     await expect(page.getByText('160 × 120 px')).toBeVisible();
     await expect(page.getByTestId('create-outer-live-preview')).toBeVisible();
 
-    // Optional metadata lives inside AdvancedSettings disclosure
-    await page.locator('[data-testid="create-identity-advanced"] > button').click();
+    // Author & Artwork fields are directly editable in Simple Mode
     await page.getByTestId('create-author-input').fill('YomiPlush');
     await page.getByTestId('create-title-input').fill('Moonlight E2E');
+
+    // Toggle Simple -> Advanced -> Simple without page reload & verify unsaved draft stays intact
+    await enableAdvancedMode(page);
+    await expect(page.getByTestId('create-mode-studio')).toBeVisible();
+    await expect(page.getByTestId('create-author-input')).toHaveValue('YomiPlush');
+    await expect(page.getByTestId('create-title-input')).toHaveValue('Moonlight E2E');
+    await enableSimpleMode(page);
+    await expect(page.getByTestId('create-mode-studio')).toHaveCount(0);
+    await expect(page.getByTestId('create-title-input')).toHaveValue('Moonlight E2E');
 
     await expect(page.getByTestId('create-license-summary')).toBeVisible();
     await page.getByTestId('create-license-select').selectOption('CC-BY-NC-4.0');
@@ -171,8 +233,12 @@ test.describe('Certified Handmade E2E suite', () => {
     const verifyHref = await page.getByTestId('open-local-verify').getAttribute('href');
     expect(verifyHref).toContain('/verify#proof=');
 
-    // 3. Upload signed PNG on /verify -> compact rows + ? explanation toggles + technical disclosure
+    // 3. Upload signed PNG on /verify -> Simple Mode 3-step & status rows, then Advanced Mode details + history log
     await page.goto('/verify');
+    await expect(page.getByTestId('verify-step-indicator-1')).toBeVisible();
+    await expect(page.getByTestId('verify-step-indicator-2')).toBeVisible();
+    await expect(page.getByTestId('verify-step-indicator-3')).toBeVisible();
+
     await page.getByTestId('verify-image-input').setInputFiles(signedPngPath);
     await expect(page.getByTestId('verification-results')).toBeVisible();
     await expect(page.getByTestId('verify-license-summary')).toContainText('CC BY-NC 4.0');
@@ -188,9 +254,9 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.getByTestId('status-identity-help').click();
     await expect(page.getByTestId('status-identity')).toContainText('Trusted Keys');
 
-    // Technical manifest details are collapsed until expanded
-    await page.locator('[data-testid="verify-manifest-details"] > button').click();
-    await expect(page.getByTestId('verify-manifest-details')).toContainText('Moonlight E2E');
+    // Technical manifest details & history log stay hidden in Simple Mode
+    await expect(page.getByTestId('verify-manifest-details')).toHaveCount(0);
+    await expect(page.getByTestId('verify-history-panel')).toHaveCount(0);
 
     // Trust this key locally from /verify (requires explicit out-of-band confirmation checkbox)
     await expect(page.getByTestId('verify-no-local-notice-note')).toBeVisible();
@@ -200,6 +266,14 @@ test.describe('Certified Handmade E2E suite', () => {
     await expect(page.getByTestId('verify-trust-btn')).toBeEnabled();
     await page.getByTestId('verify-trust-btn').click();
     await expect(page.getByTestId('status-identity')).toContainText('Trusted (YomiPlush Official)');
+
+    // Enable Advanced Mode -> verify manifest details & local verification log entry appear
+    await enableAdvancedMode(page);
+    await page.locator('[data-testid="verify-manifest-details"] > button').click();
+    await expect(page.getByTestId('verify-manifest-details')).toContainText('Moonlight E2E');
+    await expect(page.getByTestId('verify-history-panel')).toBeVisible();
+    await expect(page.getByTestId('verify-history-item').first()).toContainText('Moonlight E2E');
+    await enableSimpleMode(page);
 
     // 4. Direct navigation to /verify#proof=... -> results & Quick DRM card prioritized ABOVE optional Step 2 CTA
     await page.goto(verifyHref!);
@@ -301,7 +375,7 @@ test.describe('Certified Handmade E2E suite', () => {
       'href',
       'https://certified-handmade.com/?hl=ja',
     );
-    await expect(page.getByTestId('home-tagline')).toContainText('あなたの作品。あなたの権利。');
+    await expect(page.getByTestId('home-tagline')).toContainText('大切な絵に、あなたの証を。');
     const leakedLocaleStorage = await page.evaluate(() => ({
       lsLocale: localStorage.getItem('chm_locale'),
       cookie: document.cookie,
@@ -337,13 +411,13 @@ test.describe('Certified Handmade E2E suite', () => {
     expect(pageErrors).toEqual([]);
   });
 
-  test('menu GitHub & Sponsor links, /qr-studio redirect, and unified In-Image QR Studio inside /create', async ({
+  test('menu GitHub & Sponsor links, /qr-studio redirect, and unified In-Image QR Studio inside /create (Advanced Mode)', async ({
     page,
   }, testInfo) => {
     await page.goto('/');
     await page.getByTestId('cookie-reject-btn').click();
 
-    // Open Menu -> verify GitHub link + adjacent Sponsor Heart link
+    // Open Menu -> verify GitHub link + adjacent Sponsor Heart link -> enable Advanced Mode for QR Studio
     await page.getByTestId('nav-menu-toggle').click();
     const githubLink = page.getByTestId('header-github-link');
     const sponsorLink = page.getByTestId('header-sponsor-link');
@@ -360,6 +434,8 @@ test.describe('Certified Handmade E2E suite', () => {
     expect(githubBox).not.toBeNull();
     expect(sponsorBox).not.toBeNull();
     expect(sponsorBox!.x).toBeGreaterThan(githubBox!.x);
+
+    await page.getByTestId('nav-mode-toggle-advanced').click();
     await page.keyboard.press('Escape');
 
     // /qr-studio removed from navigation & redirects to /create?mode=studio
@@ -417,10 +493,9 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.goto('/');
     await page.getByTestId('cookie-reject-btn').click();
 
-    // Generate key & sign a test artwork in /create
+    // Sign a test artwork in Simple Mode on /create (auto-generates local key seamlessly on sign)
     await page.goto('/create');
-    await page.getByTestId('create-quick-keygen').click();
-    await expect(page.getByTestId('create-key-select')).toBeVisible();
+    await expect(page.getByTestId('create-auto-key-info')).toBeVisible();
 
     const artBuffer = buildTestArtworkPng(160, 120);
     const artPath = testInfo.outputPath('mobile-art.png');
@@ -551,10 +626,12 @@ test.describe('Certified Handmade E2E suite', () => {
     // Follow guided CTA from Tutorial into /create
     await page.getByTestId('tutorial-step-cta-0').click();
     await expect(page).toHaveURL(/\/create$/);
-    await expect(page.getByTestId('create-quick-keygen')).toBeVisible();
+    await expect(page.getByTestId('create-auto-key-info')).toBeVisible();
+    await expect(page.getByTestId('create-image-input')).toBeVisible();
+    await expect(page.getByTestId('create-sign-button')).toBeVisible();
   });
 
-  test('1-click keygen on /create with default ARR license and multilingual license guide on /docs', async ({
+  test('1-click keygen on /create (Advanced Mode) with default ARR license and multilingual license guide on /docs', async ({
     page,
   }, testInfo) => {
     await page.goto('/');
@@ -562,11 +639,12 @@ test.describe('Certified Handmade E2E suite', () => {
     await expect(page.getByTestId('home-cta-create')).toBeVisible();
     await expect(page.getByTestId('home-cta-verify')).toBeVisible();
 
-    // Switch to Japanese and verify CTA + 1-click keygen on /create
+    // Switch to Japanese and verify artist-friendly CTA + 1-click keygen on /create (Advanced Mode)
     await page.getByTestId('lang-select').selectOption('ja');
-    await expect(page.getByTestId('home-cta-create')).toContainText('QR証明書を作成');
+    await expect(page.getByTestId('home-cta-create')).toContainText('作品を証明する');
 
     await page.goto('/create');
+    await enableAdvancedMode(page);
     await expect(page.getByTestId('create-license-summary')).toContainText('無断使用');
     await page.getByTestId('create-quick-keygen').click();
     await expect(page.getByTestId('create-key-select')).toBeVisible();
@@ -628,6 +706,7 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.getByTestId('cookie-reject-btn').click();
 
     await page.goto('/create');
+    await enableAdvancedMode(page);
     await page.getByTestId('create-quick-passphrase').fill('offline-backup-pass');
     await page.getByTestId('create-quick-keygen').click();
     await expect(page.getByTestId('create-key-select')).toBeVisible();
@@ -676,7 +755,6 @@ test.describe('Certified Handmade E2E suite', () => {
     await expect(page.getByTestId('status-integrity')).toContainText('Matched');
     await context.setOffline(false);
   });
-
 
   test('out-of-band trust state, offline revocation notices, and key-possession challenge-response', async ({
     page,
@@ -841,21 +919,58 @@ test.describe('Certified Handmade E2E suite', () => {
     }
   });
 
-  test('homepage renders immediately without blocking splash and exposes Google Drive overview and /privacypolicy link', async ({
+  test('homepage renders immediately without blocking splash and exposes /storage + /privacypolicy drive.appdata notice', async ({
     page,
   }) => {
     await page.goto('/');
     await expect(page.getByTestId('moon-startup-splash')).toHaveCount(0);
     await expect(page.getByTestId('home-cta-create')).toBeVisible();
-    await expect(page.getByTestId('home-overview-section')).toBeVisible();
-    await expect(page.getByTestId('home-overview-section')).toContainText('drive.file');
+    await expect(page.getByTestId('home-subtitle')).toContainText(
+      'Always free. No sign-up. No image uploads.',
+    );
+    await expect(page.getByTestId('home-storage-link')).toHaveAttribute('href', '/storage');
     await expect(page.getByTestId('home-privacy-link')).toHaveAttribute('href', '/privacypolicy');
     await expect(page.getByTestId('footer-privacy-link')).toHaveAttribute('href', '/privacypolicy');
 
     await page.getByTestId('home-privacy-link').click();
     await expect(page).toHaveURL(/\/privacypolicy$/);
     await expect(page.getByTestId('privacy-google-drive-section')).toBeVisible();
+    await expect(page.getByTestId('privacy-google-drive-section')).toContainText('drive.appdata');
+    await expect(page.getByTestId('privacy-google-drive-section')).toContainText('appDataFolder');
     await expect(page.getByTestId('privacy-google-drive-section')).toContainText('Limited Use');
+  });
+
+  test('mobile 390x844 has zero horizontal overflow across all primary routes in Simple and Advanced mode', async ({
+    page,
+  }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', (err) => pageErrors.push(err.message));
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await page.getByTestId('cookie-reject-btn').click();
+
+    const routes = ['/', '/create', '/verify', '/keys', '/storage', '/devices', '/tutorial', '/docs'];
+    for (const route of routes) {
+      await page.goto(route);
+      await page.waitForTimeout(80);
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow, `Simple Mode 390x844 overflow on ${route}`).toBeLessThanOrEqual(1);
+    }
+
+    await enableAdvancedMode(page);
+    for (const route of ['/create', '/verify', '/storage']) {
+      await page.goto(route);
+      await page.waitForTimeout(80);
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow, `Advanced Mode 390x844 overflow on ${route}`).toBeLessThanOrEqual(1);
+    }
+
+    expect(pageErrors).toEqual([]);
   });
 
   test('respects prefers-reduced-motion cleanly', async ({ browser }) => {

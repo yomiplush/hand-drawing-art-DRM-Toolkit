@@ -1,6 +1,6 @@
 # Pluggable Storage Providers & Encrypted Vault Synchronization (`STORAGE-PROVIDERS.md`)
 
-**Scope:** Storage abstraction (`StorageProvider`), Vault AEAD cryptography (`vaultCrypto.ts`), and bidirectional incremental Drive sync (`driveSyncEngine.ts`)  
+**Scope:** Storage abstraction (`StorageProvider`), Vault AEAD cryptography (`vaultCrypto.ts`), and bidirectional incremental Drive `appDataFolder` sync (`driveSyncEngine.ts`)  
 **Status:** Implemented (`src/core/storage/providers/*`, `src/core/vault/*`)
 
 ---
@@ -16,9 +16,9 @@ CHM Core
 ├── StorageProviderRegistry (src/core/storage/providers/providerRegistry.ts)
 │   ├── IndexedDbStorageProvider      (Local browser IndexedDB v7 — always active)
 │   ├── PortableFileStorageProvider   (Offline encrypted/plain .chmvault.json files)
-│   ├── GoogleDriveStorageProvider    (Opt-in personal Google Drive Encrypted Vault)
+│   ├── GoogleDriveStorageProvider    (Opt-in personal Google Drive appDataFolder Encrypted Vault)
 │   └── [Future Providers]            (IPFS / Helia, WebDAV, Peer-to-Peer WebRTC)
-└── Human-Friendly UI (/vault, /storage, /create, /verify)
+└── Human-Friendly UI (/vault, /storage, /create, /verify — Simple & Advanced Modes)
 ```
 
 ### Built-In Providers (`defaultStorageRegistry`)
@@ -27,7 +27,7 @@ CHM Core
 | --- | --- | --- | --- | --- |
 | `indexeddb` | `IndexedDbStorageProvider` | `local` | Offline, Passphrase Archive | Browser IndexedDB `certified-handmade-store` (`v7`) |
 | `portable-file` | `PortableFileStorageProvider` | `file` | Offline, Passphrase Archive | User filesystem `.chmvault.json` |
-| `google-drive` | `GoogleDriveStorageProvider` | `cloud` | Incremental Sync, Passphrase Encryption, Account Switch | User's personal Google Drive (`My Drive/Certified Handmade`) |
+| `google-drive` | `GoogleDriveStorageProvider` | `cloud` | Incremental Sync, Passphrase Encryption, Account Switch | User's hidden Google Drive `appDataFolder` (`drive.appdata` scope) |
 
 > Future decentralized backends (IPFS/Helia pinning, personal WebDAV servers, or P2P sync) implement the same `StorageProvider` interface (`getStatus`, `exportSnapshot`, `importSnapshot`, `exportEncryptedSnapshot`, `importEncryptedSnapshot`, optional `sync`, `disconnect`) without modifying Core Cryptography or Identity code. Note that free public IPFS without dedicated pinning does not guarantee permanent availability, so local IndexedDB and `.chmvault.json` always remain primary truth.
 
@@ -47,13 +47,7 @@ Every remote Vault record is encrypted strictly client-side via Web Crypto API b
 3. **HKDF-SHA256 Per-Purpose Subkey Derivation (`derivePurposeSubkey`):**
    - Salt: `SHA-256("chm-hkdf-salt:" + vaultId)`
    - Info: `"chm-vault-v1:" + purpose + ":epoch=" + epoch`
-   - Cryptographically separates 6 domains so compromise or ciphertext analysis in one category cannot cross into another:
-     - `manifest`
-     - `proofs`
-     - `profiles`
-     - `policies`
-     - `settings`
-     - `snapshots`
+   - Cryptographically isolates categories so ciphertext analysis in one collection cannot cross into another (`manifest`, `proofs`, `profiles`, `policies`, `settings`, `snapshots`, plus authenticated identity/device/recovery collections).
 4. **Per-Record AEAD Envelope (`chm-vault-aead-v1`):**
    - Fresh 12-byte CSPRNG IV for every encryption call (nonce reuse forbidden).
    - `contentHash`: lowercase hex `SHA-256` of canonical JSON plaintext.
@@ -72,16 +66,19 @@ Every remote Vault record is encrypted strictly client-side via Web Crypto API b
 1. **Signed Proofs as Immutable Chunks (`proofs-chunk`):**
    - IndexedDB `proofVault` keys every signed proof by `id = SHA-256(proofBytes)`. Different proof payloads never overwrite an existing `id`.
    - Proofs upload in content-addressed immutable batches (`PROOF_CHUNK_SIZE = 100`, filename `chunk-<batchHash>-<epoch>.chmv`). Already-known chunk hashes skip re-upload (`skippedDuplicateCount`), and downloaded remote proofs re-run full Ed25519 verification (`verifyAndBuildVaultProofRecord`) before saving locally.
-2. **Rollback & Divergent Manifest Detection:**
+2. **Author Public Identities, Device Enrollments & Revocations (`identities.chmv`, `devices.chmv`):**
+   - Public keys, paired device certificates (`SignedEnrollmentCertificate`), and signed device revocations (`SignedDeviceRevocationNotice`) sync monotonically inside `appDataFolder` without uploading raw private keys or granting automatic signing permission on Google login alone.
+   - Optional encrypted key recovery (`recovery.chmv`) is **opt-in only**, storing separately passphrase-encrypted key envelopes (`encryptedKeyEnvelope` wrapped with PBKDF2-SHA256 + AES-256-GCM inside Vault AEAD).
+3. **Rollback & Divergent Manifest Detection:**
    - Every encrypted manifest carries monotonic `manifestSeq`, `prevManifestHash`, and `epoch`.
    - If a pulled remote manifest shows `manifestSeq < state.lastManifestSeq` or same `manifestSeq` with divergent `contentHash`, `runGoogleDriveSync` records `rollbackWarning`, aborts automatic pull, and preserves local data cleanly.
-3. **Three-Way Conflict Detection (No Silent Last-Write-Wins):**
+4. **Three-Way Conflict Detection (No Silent Last-Write-Wins):**
    - Mutable collections (**Author Profiles**, **Policy Presets**, and **Vault Settings**) compare `(localContentHash, remoteContentHash, syncedEntityHashes[key])` instead of blindly trusting `updatedAt` timestamps.
    - Concurrent modifications to the same record on two offline devices are **never overwritten silently**—both `localRecord` and `remoteRecord` are preserved inside `PersistedDriveAccountState.conflicts` until the user explicitly chooses `keep-local`, `accept-remote`, or `keep-both` (`resolveVaultSyncConflict`).
-4. **Logical Deletes via Tombstones (`STORE_VAULT_TOMBSTONES`):**
+5. **Logical Deletes via Tombstones (`STORE_VAULT_TOMBSTONES`):**
    - Deleting a proof, profile, or policy preset records a `VaultTombstoneRecord` (`entityType`, `entityId`, `deletedAt`) merged union-style during sync so deleted records are not silently resurrected by stale devices.
-5. **Offline Queue & Exponential Backoff Retries:**
+6. **Offline Queue & Exponential Backoff Retries:**
    - Mutations occurring offline are queued in `PersistedDriveAccountState.pendingQueue` inside IndexedDB `storageState` (`CHM_DB_VERSION = 7`) and flushed on next online sync. Local saves always succeed immediately even if cloud sync fails.
    - Transient Drive API errors (`429`, `500`, `502`, `503`, `504`) retry cleanly with jittered exponential backoff (`baseBackoffMs * 2^attempt + jitter`).
-6. **Runtime Defense-in-Depth (`assertNoForbiddenSyncSecrets`):**
-   - Recursively inspects every outbound object before encryption and throws immediately if it detects `Uint8Array`/`ArrayBuffer` buffers or sensitive field names (`raster`, `rgba`, `pixels`, `pngBytes`, `imageData`, `projectFileBytes`, `webCryptoPrivateKey`, `encryptedBackup`, `seed32`, `privateKey`, `secretKey`, `nsec`, `nip49`, `encryptedSecret`, `accessToken`, `access_token`).
+7. **Runtime Defense-in-Depth (`assertNoForbiddenSyncSecrets`):**
+   - Recursively inspects every outbound object before encryption and throws immediately if it detects `Uint8Array`/`ArrayBuffer` buffers or sensitive field names (`raster`, `rgba`, `pixels`, `pngBytes`, `imageData`, `projectFileBytes`, `webCryptoPrivateKey`, `seed32`, `privateKey`, `secretKey`, `nsec`, `nip49`, `encryptedSecret`, `accessToken`, `access_token`), while only allowing passphrase-encrypted `EncryptedKeyBackup` structures when `allowRecoveryEnvelopes` is explicitly opted in.

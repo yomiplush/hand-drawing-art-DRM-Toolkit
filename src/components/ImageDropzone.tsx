@@ -39,10 +39,10 @@ export function ImageDropzone({
         setDragging(false);
         handleFiles(e.dataTransfer.files);
       }}
-      className={`relative rounded-xl border border-dashed transition-colors p-6 text-center ${
+      className={`relative rounded-2xl border-2 border-dashed transition-all p-6 sm:p-8 text-center ${
         dragging
-          ? 'border-sky-300/70 bg-sky-400/10'
-          : 'border-white/[0.16] bg-[#030b18]/55 hover:border-white/[0.3] hover:bg-[#041122]/75'
+          ? 'border-[var(--ga-accent)] bg-[var(--ga-accent-soft)] scale-[1.01]'
+          : 'ga-border-strong ga-surface-subtle hover:border-[var(--ga-accent)]'
       } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
     >
       <input
@@ -61,13 +61,13 @@ export function ImageDropzone({
       />
       <label
         htmlFor={inputId}
-        className="flex flex-col items-center justify-center gap-2 cursor-pointer min-h-[110px]"
+        className="flex flex-col items-center justify-center gap-2.5 cursor-pointer min-h-[124px]"
       >
-        <div className="rounded-lg bg-white/[0.06] p-2.5 border border-white/[0.1] text-sky-200">
-          <UploadCloud className="h-5 w-5" aria-hidden="true" />
+        <div className="rounded-xl ga-card-solid p-3 text-[var(--ga-accent)]">
+          <UploadCloud className="h-6 w-6" aria-hidden="true" />
         </div>
-        <span className="text-sm sm:text-base font-medium text-slate-100">{title}</span>
-        {subtitle && <span className="text-xs text-slate-400 max-w-md">{subtitle}</span>}
+        <span className="text-sm sm:text-base font-semibold ga-text">{title}</span>
+        {subtitle && <span className="text-xs sm:text-sm ga-text-muted max-w-md">{subtitle}</span>}
       </label>
     </div>
   );

@@ -99,7 +99,8 @@ export function MoonStartupSplash() {
       data-phase={phase}
       role="presentation"
       onClick={() => beginExit(true)}
-      className={`fixed inset-0 z-[70] flex flex-col items-center justify-center overflow-hidden px-6 select-none bg-[#020813] ${
+      style={{ backgroundColor: 'var(--ga-bg)' }}
+      className={`fixed inset-0 z-[70] flex flex-col items-center justify-center overflow-hidden px-6 select-none ${
         isExiting
           ? `pointer-events-none opacity-0 scale-[1.025] transition-all ease-out ${
               fastExit ? 'duration-200' : 'duration-[350ms]'
@@ -107,13 +108,13 @@ export function MoonStartupSplash() {
           : 'pointer-events-auto opacity-100 scale-100 cursor-pointer'
       }`}
     >
-      {/* Nocturnal atmospheric backdrop */}
+      {/* Gentle Azure atmospheric backdrop */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(circle at 50% 45%, rgba(14, 78, 138, 0.28) 0%, rgba(4, 18, 38, 0.92) 48%, #020813 100%)',
+            'radial-gradient(circle at 50% 45%, var(--ga-accent-soft) 0%, var(--ga-bg) 72%)',
         }}
       />
 
@@ -125,7 +126,7 @@ export function MoonStartupSplash() {
           e.stopPropagation();
           beginExit(true);
         }}
-        className="absolute top-4 end-4 sm:top-6 sm:end-6 z-10 inline-flex items-center justify-center rounded-full border border-white/[0.14] bg-[#061426]/70 backdrop-blur-md px-3.5 py-2 text-xs font-medium text-slate-300 hover:border-sky-300/45 hover:text-white transition-colors min-h-[44px] min-w-[44px] cursor-pointer"
+        className="ga-btn-secondary absolute top-4 end-4 sm:top-6 sm:end-6 z-10 inline-flex items-center justify-center rounded-full px-3.5 py-2 text-xs font-medium transition-colors min-h-[44px] min-w-[44px] cursor-pointer"
       >
         {skipLabel}
       </button>
@@ -138,7 +139,7 @@ export function MoonStartupSplash() {
           className="moon-splash-halo pointer-events-none absolute -top-6 h-60 w-60 sm:h-72 sm:w-72 rounded-full"
           style={{
             background:
-              'radial-gradient(circle, rgba(125, 211, 252, 0.26) 0%, rgba(56, 189, 248, 0.1) 42%, rgba(2, 8, 19, 0) 72%)',
+              'radial-gradient(circle, rgba(61, 115, 197, 0.22) 0%, rgba(130, 184, 255, 0.08) 48%, transparent 72%)',
           }}
         />
 
@@ -147,37 +148,37 @@ export function MoonStartupSplash() {
           viewBox="0 0 240 240"
           fill="none"
           aria-hidden="true"
-          className="relative w-44 h-44 sm:w-52 sm:h-52 drop-shadow-[0_0_24px_rgba(56,189,248,0.28)]"
+          className="relative w-44 h-44 sm:w-52 sm:h-52 drop-shadow-[0_0_24px_rgba(61,115,197,0.25)]"
         >
           <defs>
             <radialGradient id={bgHaloId} cx="42%" cy="46%" r="58%">
-              <stop offset="0%" stopColor="#7dd3fc" stopOpacity="0.28" />
-              <stop offset="60%" stopColor="#0ea5e9" stopOpacity="0.08" />
-              <stop offset="100%" stopColor="#020813" stopOpacity="0" />
+              <stop offset="0%" stopColor="#82B8FF" stopOpacity="0.28" />
+              <stop offset="60%" stopColor="#3D73C5" stopOpacity="0.08" />
+              <stop offset="100%" stopColor="#3D73C5" stopOpacity="0" />
             </radialGradient>
 
             <linearGradient id={moonFillId} x1="68" y1="68" x2="164" y2="172" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#f8fafc" />
-              <stop offset="48%" stopColor="#bae6fd" />
-              <stop offset="100%" stopColor="#38bdf8" />
+              <stop offset="0%" stopColor="#DCE9FA" />
+              <stop offset="48%" stopColor="#82B8FF" />
+              <stop offset="100%" stopColor="#2859B6" />
             </linearGradient>
 
             <linearGradient id={moonEdgeId} x1="90" y1="64" x2="162" y2="168" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
-              <stop offset="60%" stopColor="#7dd3fc" stopOpacity="0.85" />
-              <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.35" />
+              <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.95" />
+              <stop offset="60%" stopColor="#82B8FF" stopOpacity="0.85" />
+              <stop offset="100%" stopColor="#3D73C5" stopOpacity="0.45" />
             </linearGradient>
 
             <linearGradient id={ringGradId} x1="36" y1="36" x2="204" y2="204" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#7dd3fc" stopOpacity="0.85" />
-              <stop offset="50%" stopColor="#38bdf8" stopOpacity="0.35" />
-              <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.75" />
+              <stop offset="0%" stopColor="#82B8FF" stopOpacity="0.85" />
+              <stop offset="50%" stopColor="#3D73C5" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="#2859B6" stopOpacity="0.75" />
             </linearGradient>
 
             <radialGradient id={veilGradId} cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#020813" stopOpacity="0.98" />
-              <stop offset="78%" stopColor="#020813" stopOpacity="0.92" />
-              <stop offset="100%" stopColor="#020813" stopOpacity="0" />
+              <stop offset="0%" stopColor="#0C1424" stopOpacity="0.9" />
+              <stop offset="78%" stopColor="#0C1424" stopOpacity="0.65" />
+              <stop offset="100%" stopColor="#0C1424" stopOpacity="0" />
             </radialGradient>
 
             <clipPath id={clipMoonId}>
@@ -185,24 +186,21 @@ export function MoonStartupSplash() {
             </clipPath>
           </defs>
 
-          {/* Soft inner atmospheric disc */}
           <circle cx="120" cy="120" r="88" fill={`url(#${bgHaloId})`} />
 
-          {/* Outer celestial orbit ring */}
           <g className="moon-splash-orbit" style={{ transformOrigin: '120px 120px' }}>
             <circle
               cx="120"
               cy="120"
               r="98"
-              stroke="rgba(125, 211, 252, 0.22)"
+              stroke="rgba(61, 115, 197, 0.28)"
               strokeWidth="1"
               strokeDasharray="6 10"
             />
-            <circle cx="120" cy="22" r="2.2" fill="#7dd3fc" opacity="0.85" />
-            <circle cx="218" cy="120" r="1.6" fill="#38bdf8" opacity="0.65" />
+            <circle cx="120" cy="22" r="2.2" fill="#82B8FF" opacity="0.85" />
+            <circle cx="218" cy="120" r="1.6" fill="#3D73C5" opacity="0.65" />
           </g>
 
-          {/* Precision cryptographic seal arc trace */}
           <circle
             cx="120"
             cy="120"
@@ -214,7 +212,6 @@ export function MoonStartupSplash() {
             style={{ transformOrigin: '120px 120px', transform: 'rotate(-115deg)' }}
           />
 
-          {/* Crescent Moon Core + Eclipse Veil Reveal */}
           <g clipPath={`url(#${clipMoonId})`}>
             <g className="moon-splash-moon-group" style={{ transformOrigin: '120px 120px' }}>
               <path
@@ -230,7 +227,6 @@ export function MoonStartupSplash() {
               />
             </g>
 
-            {/* Gliding eclipse veil (pure transform+opacity, Safari-safe) */}
             <circle
               cx="116"
               cy="122"
@@ -240,20 +236,18 @@ export function MoonStartupSplash() {
             />
           </g>
 
-          {/* Hero 4-point star flare near crescent inner arc */}
           <g className="moon-splash-sparkle" style={{ transformOrigin: '148px 94px' }}>
             <path
               d="M 148 82 L 150.6 91.4 L 160 94 L 150.6 96.6 L 148 106 L 145.4 96.6 L 136 94 L 145.4 91.4 Z"
-              fill="#e0f2fe"
+              fill="#82B8FF"
             />
           </g>
 
-          {/* Staggered nocturnal micro-stars */}
           <circle
             cx="76"
             cy="72"
             r="2"
-            fill="#bae6fd"
+            fill="#82B8FF"
             className="moon-splash-star moon-splash-star-1"
             style={{ transformOrigin: '76px 72px' }}
           />
@@ -261,7 +255,7 @@ export function MoonStartupSplash() {
             cx="176"
             cy="132"
             r="1.8"
-            fill="#7dd3fc"
+            fill="#3D73C5"
             className="moon-splash-star moon-splash-star-2"
             style={{ transformOrigin: '176px 132px' }}
           />
@@ -269,7 +263,7 @@ export function MoonStartupSplash() {
             cx="68"
             cy="158"
             r="1.5"
-            fill="#38bdf8"
+            fill="#82B8FF"
             className="moon-splash-star moon-splash-star-3"
             style={{ transformOrigin: '68px 158px' }}
           />
@@ -277,7 +271,7 @@ export function MoonStartupSplash() {
             cx="166"
             cy="68"
             r="1.6"
-            fill="#e0f2fe"
+            fill="#DCE9FA"
             className="moon-splash-star moon-splash-star-4"
             style={{ transformOrigin: '166px 68px' }}
           />
@@ -287,15 +281,15 @@ export function MoonStartupSplash() {
         <div className="mt-1 flex flex-col items-center space-y-2.5 max-w-full">
           <div
             aria-hidden="true"
-            className="moon-splash-hairline h-px w-28 bg-gradient-to-r from-transparent via-cyan-300/80 to-transparent"
+            className="moon-splash-hairline h-px w-28 bg-gradient-to-r from-transparent via-[var(--ga-accent)] to-transparent"
           />
           <p
             data-testid="moon-splash-brand"
-            className="moon-splash-wordmark text-xl sm:text-2xl font-semibold text-white tracking-tight"
+            className="moon-splash-wordmark text-xl sm:text-2xl font-semibold ga-text tracking-tight"
           >
             {t.appName}
           </p>
-          <p className="moon-splash-tagline text-xs sm:text-sm font-medium text-cyan-200/90 tracking-wide">
+          <p className="moon-splash-tagline text-xs sm:text-sm font-medium text-[var(--ga-accent)] tracking-wide">
             {t.minimal.home.tagline}
           </p>
         </div>

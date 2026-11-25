@@ -17,10 +17,10 @@ interface CompactStatusProps {
 }
 
 const TONE_CLASSES: Record<StatusTone, string> = {
-  success: 'border-emerald-400/35 bg-emerald-950/35 text-emerald-100',
-  info: 'border-sky-300/35 bg-[#05162b]/75 text-sky-100',
-  warning: 'border-amber-400/35 bg-amber-950/30 text-amber-100',
-  danger: 'border-rose-500/45 bg-rose-950/45 text-rose-100',
+  success: 'ga-status-success',
+  info: 'ga-status-info',
+  warning: 'ga-status-warning',
+  danger: 'ga-status-error',
 };
 
 export function CompactStatus({
@@ -38,14 +38,14 @@ export function CompactStatus({
   return (
     <div
       data-testid={testId}
-      className={`rounded-xl border backdrop-blur-md px-4 py-3 flex flex-wrap items-center justify-between gap-2.5 ${TONE_CLASSES[tone]}`}
+      className={`rounded-2xl border px-4 py-3 flex flex-wrap items-center justify-between gap-2.5 ${TONE_CLASSES[tone]}`}
     >
       <div className="flex items-center gap-3 min-w-0 flex-1">
         <span className="shrink-0" aria-hidden="true">
           {icon}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-[11px] font-medium uppercase tracking-wider opacity-75">
+          <div className="text-[11px] font-medium uppercase tracking-wider opacity-80">
             {label}
           </div>
           <div className="flex flex-wrap items-center gap-2">

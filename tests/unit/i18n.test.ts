@@ -5,6 +5,7 @@ import { ARTWORK_DETAILS_I18N } from '../../src/i18n/artworkDetails';
 import { en } from '../../src/i18n/en';
 import { GOOGLE_COMPLIANCE_I18N } from '../../src/i18n/googleCompliance';
 import { HOWTO_I18N } from '../../src/i18n/howto';
+import { HUMAN_UX_I18N } from '../../src/i18n/humanUx';
 import { ja } from '../../src/i18n/ja';
 import { LICENSE_I18N } from '../../src/i18n/licenses';
 import { ko, zhCN, zhTW } from '../../src/i18n/locales/eastAsia';
@@ -280,6 +281,29 @@ describe('13-language license guide & simple how-to translations', () => {
       if (locale !== 'en') {
         expect(gc.homeOverview.appPurposeTitle).not.toBe(GOOGLE_COMPLIANCE_I18N.en.homeOverview.appPurposeTitle);
         expect(gc.privacyPolicyGoogle.sectionTitle).not.toBe(GOOGLE_COMPLIANCE_I18N.en.privacyPolicyGoogle.sectionTitle);
+      }
+    }
+  });
+
+  it('provides Human UX, 3-step flows, Drive recovery & key recovery guide across all 13 languages', () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      const h = HUMAN_UX_I18N[locale];
+      expect(h.mode.simpleModeBannerTitle.trim().length).toBeGreaterThan(5);
+      expect(h.mode.switchToAdvancedBtn.trim().length).toBeGreaterThan(3);
+      expect(h.createUx.step1Short.trim().length).toBeGreaterThan(2);
+      expect(h.createUx.step2Short.trim().length).toBeGreaterThan(2);
+      expect(h.createUx.step3Short.trim().length).toBeGreaterThan(2);
+      expect(h.verifyUx.historyTitle.trim().length).toBeGreaterThan(3);
+      expect(h.driveRecovery.crossDeviceTitle.trim().length).toBeGreaterThan(5);
+      expect(h.driveRecovery.recoverySectionTitle.trim().length).toBeGreaterThan(5);
+      expect(h.keyRecoveryGuide.steps).toHaveLength(4);
+      for (const st of h.keyRecoveryGuide.steps) {
+        expect(st.title.trim().length).toBeGreaterThan(3);
+        expect(st.body.trim().length).toBeGreaterThan(10);
+      }
+      if (locale !== 'en') {
+        expect(h.mode.switchToAdvancedBtn).not.toBe(HUMAN_UX_I18N.en.mode.switchToAdvancedBtn);
+        expect(h.keyRecoveryGuide.title).not.toBe(HUMAN_UX_I18N.en.keyRecoveryGuide.title);
       }
     }
   });

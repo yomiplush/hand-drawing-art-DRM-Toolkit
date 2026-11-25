@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { expect, test } from '@playwright/test';
+import { type Page, expect, test } from '@playwright/test';
 import { encode as encodePng } from 'fast-png';
 
 function buildSamplePng(width = 160, height = 120): Buffer {
@@ -14,6 +14,12 @@ function buildSamplePng(width = 160, height = 120): Buffer {
     }
   }
   return Buffer.from(encodePng({ width, height, data, depth: 8, channels: 4 }));
+}
+
+async function enableAdvancedMode(page: Page): Promise<void> {
+  await page.getByTestId('nav-menu-toggle').click();
+  await page.getByTestId('nav-mode-toggle-advanced').click();
+  await page.keyboard.press('Escape');
 }
 
 test.describe('Protocol v3 Self-Contained Metadata, Profiles, Creation Evidence (.chmevidence), and Compact QR', () => {
@@ -56,8 +62,9 @@ test.describe('Protocol v3 Self-Contained Metadata, Profiles, Creation Evidence 
     const wrongFilePath = testInfo.outputPath('wrong-file.png');
     fs.writeFileSync(wrongFilePath, Buffer.from('NOT-THE-RECORDED-SKETCH'));
 
-    // 1. Open /create -> generate quick key -> upload image -> inspect live QR sizing card
+    // 1. Open /create -> enable Advanced Mode -> generate quick key -> upload image -> inspect live QR sizing card
     await page.goto('/create');
+    await enableAdvancedMode(page);
     await page.getByTestId('create-quick-keygen').click();
     await expect(page.getByTestId('create-key-select')).toBeVisible();
     await page.getByTestId('create-image-input').setInputFiles(artPath);

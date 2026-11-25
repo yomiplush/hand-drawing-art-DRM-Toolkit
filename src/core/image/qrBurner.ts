@@ -173,13 +173,16 @@ function renderLabelToRgba(
   lines: string[],
   theme: FrameTheme,
 ): Uint8ClampedArray | null {
-  if (typeof document === 'undefined') {
-    return null;
+  let ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
+  if (typeof OffscreenCanvas !== 'undefined') {
+    const canvas = new OffscreenCanvas(width, height);
+    ctx = canvas.getContext('2d');
+  } else if (typeof document !== 'undefined') {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    ctx = canvas.getContext('2d');
   }
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
   if (!ctx) return null;
 
   ctx.clearRect(0, 0, width, height);

@@ -128,7 +128,7 @@ export function QrCameraScanner({ onDetected }: QrCameraScannerProps) {
           <button
             type="button"
             onClick={startCamera}
-            className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-400 transition-colors min-h-[44px]"
+            className="ga-btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors min-h-[44px] cursor-pointer"
           >
             <Camera className="h-4 w-4" aria-hidden="true" />
             <span>{t.verify.cameraStart}</span>
@@ -137,25 +137,25 @@ export function QrCameraScanner({ onDetected }: QrCameraScannerProps) {
           <button
             type="button"
             onClick={stopCamera}
-            className="inline-flex items-center gap-2 rounded-lg bg-rose-500/20 border border-rose-400/40 px-4 py-2.5 text-sm font-semibold text-rose-200 hover:bg-rose-500/30 transition-colors min-h-[44px]"
+            className="ga-status-error inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors min-h-[44px] cursor-pointer"
           >
             <StopCircle className="h-4 w-4" aria-hidden="true" />
             <span>{t.verify.cameraStop}</span>
           </button>
         )}
-        <span className="text-xs text-slate-400">{t.verify.cameraHint}</span>
+        <span className="text-xs ga-text-muted">{t.verify.cameraHint}</span>
       </div>
 
       {errorMsg && (
         <div
           role="alert"
-          className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200"
+          className="ga-status-error rounded-xl border p-3 text-sm"
         >
           {errorMsg}
         </div>
       )}
 
-      <div className={active ? 'relative overflow-hidden rounded-xl border border-cyan-500/30 bg-black' : 'hidden'}>
+      <div className={active ? 'relative overflow-hidden rounded-xl border ga-border-strong bg-black' : 'hidden'}>
         <video
           ref={videoRef}
           playsInline

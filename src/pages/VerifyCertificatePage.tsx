@@ -6,35 +6,37 @@ import {
   CheckCircle2,
   ChevronDown,
   ClipboardPaste,
+  Clock,
   Cpu,
   ExternalLink,
   Eye,
   FileCheck2,
   FileImage,
   HelpCircle,
+  History,
   Info,
   Link2,
   Loader2,
   Share2,
   ShieldAlert,
+  SlidersHorizontal,
   Trash2,
   Upload,
   User,
 } from 'lucide-react';
 import { ImageDropzone } from '../components/ImageDropzone';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
+import { useAppPreferences } from '../components/PreferencesContext';
 import { QrCameraScanner } from '../components/QrCameraScanner';
 import { StatusDimensionsGrid } from '../components/StatusBadge';
 import { AdvancedSettings } from '../components/ui/AdvancedSettings';
+import { FriendlyErrorAlert } from '../components/ui/FriendlyErrorAlert';
 import { HelpIconButton } from '../components/ui/HelpIconButton';
+import { ThreeStepIndicator, WorkerProgressBar } from '../components/ui/StepProgressBar';
 import { VerifiedArtworkDetailsCard } from '../components/VerifiedArtworkDetailsCard';
 import { base64UrlEncode, bytesToHex } from '../core/crypto/sha256';
-import {
-  comparePerceptualHashes,
-  computePerceptualHashes,
-} from '../core/image/perceptualHash';
+import { comparePerceptualHashes } from '../core/image/perceptualHash';
 import type { PerceptualComparisonResult } from '../core/image/perceptualHash';
-import { decodeImageFileToCanonicalRgba8 } from '../core/image/pngCodec';
 import type { CanonicalRaster } from '../core/image/pngCodec';
 import { isLikelyEvidenceExtensionText } from '../core/manifest/evidenceExtension';
 import { PROTOCOL_VERSION_COMPACT } from '../core/manifest/types';
@@ -56,7 +58,13 @@ import type {
   EvidenceRecordsMatchResult,
   SuppliedEvidenceFileInput,
 } from '../core/verify/evidenceVerifier';
-import { verifyImageWithEmbeddedQr, verifyProofAndArtwork } from '../core/verify/verifier';
+import {
+  appendVerificationLog,
+  clearVerificationLogs,
+  loadVerificationLogs,
+  type VerificationLogEntry,
+} from '../core/verify/verificationLog';
+import { imageWorkerClient, type WorkerProgressStage } from '../core/workers/imageWorkerClient';
 import { useI18n } from '../i18n/context';
 
 type InputTab = 'image' | 'camera' | 'proof';
@@ -84,6 +92,7 @@ function detectUrlProofInput(routerHash: string, routerSearch: string): string |
 
 export function VerifyCertificatePage() {
   const { t } = useI18n();
+  const { isAdvanced, setMode } = useAppPreferences();
   const location = useLocation();
   const proofBundleInputId = useId();
   const evidenceFileInputId = useId();
@@ -100,6 +109,10 @@ export function VerifyCertificatePage() {
   );
   const [cameraAutoVerified, setCameraAutoVerified] = useState<boolean>(false);
   const [verifyingProof, setVerifyingProof] = useState<boolean>(() => hasInitialHashProof);
+  const [workerProgress, setWorkerProgress] = useState<{
+    percent: number;
+    stage: WorkerProgressStage;
+  } | null>(null);
   const [proofInput, setProofInput] = useState(() =>
     hasInitialHashProof ? window.location.href : '',
   );
@@ -131,6 +144,29 @@ export function VerifyCertificatePage() {
   const [simComparisonResult, setSimComparisonResult] =
     useState<PerceptualComparisonResult | null>(null);
   const [simComparisonError, setSimComparisonError] = useState<string | null>(null);
+
+  const [verificationLogs, setVerificationLogs] = useState<VerificationLogEntry[]>(() =>
+    loadVerificationLogs(),
+  );
+
+  const recordLog = useCallback(
+    (res: VerificationResult, sourceLabel: string, qrStrategy?: string) => {
+      const updated = appendVerificationLog({
+        sourceLabel,
+        protocolVersion: res.manifest?.version ?? null,
+        signatureStatus: res.signatureStatus,
+        integrityStatus: res.integrityStatus,
+        identityStatus: res.identityStatus,
+        artworkTitle: res.manifest?.artworkTitle,
+        authorName: res.manifest?.authorName,
+        authorFingerprintShort: res.publicKeyFingerprintShort ?? null,
+        artworkIdHex: res.manifest?.artworkIdHex,
+        qrStrategy,
+      });
+      setVerificationLogs(updated);
+    },
+    [],
+  );
 
   const runEvidenceVerification = useCallback(
     async (
@@ -192,7 +228,12 @@ export function VerifyCertificatePage() {
   );
 
   const runProofVerify = useCallback(
-    async (rawProof: string, raster: CanonicalRaster | null) => {
+    async (
+      rawProof: string,
+      raster: CanonicalRaster | null,
+      sourceLabel = 'Proof link / JSON',
+      skipLog = false,
+    ) => {
       setErrorMsg(null);
       setTrustSavedMsg(null);
       setTrustConfirmChecked(false);
@@ -205,24 +246,35 @@ export function VerifyCertificatePage() {
       }
       setActiveProofRaw(rawProof);
       setVerifyingProof(true);
+      setWorkerProgress({ percent: 12, stage: 'verifying' });
       try {
-        const res = await verifyProofAndArtwork({
-          proofInput: rawProof,
-          artworkRaster: raster,
-        });
+        const { verification: res } = await imageWorkerClient.verifyProof(
+          {
+            proofInput: rawProof,
+            artworkRaster: raster,
+          },
+          (percent, stage) => setWorkerProgress({ percent, stage }),
+        );
         setResult(res);
+        if (!skipLog) {
+          recordLog(res, sourceLabel);
+        }
         await runEvidenceVerification(
           evidenceInputRaw,
           res.proofBytes,
           res.manifest,
           suppliedEvidenceFiles,
         );
+      } catch (err) {
+        setErrorMsg(err instanceof Error ? err.message : 'Failed to verify proof');
       } finally {
         setVerifyingProof(false);
+        setWorkerProgress(null);
       }
     },
     [
       evidenceInputRaw,
+      recordLog,
       runEvidenceVerification,
       suppliedEvidenceFiles,
       t.artworkDetails.verifyStandaloneError,
@@ -237,11 +289,17 @@ export function VerifyCertificatePage() {
     void Promise.resolve().then(async () => {
       if (!active) return;
       setVerifyingProof(true);
+      setWorkerProgress({ percent: 15, stage: 'verifying' });
       try {
-        const res = await verifyProofAndArtwork({
-          proofInput: urlProof,
-          artworkRaster: null,
-        });
+        const { verification: res } = await imageWorkerClient.verifyProof(
+          {
+            proofInput: urlProof,
+            artworkRaster: null,
+          },
+          (percent, stage) => {
+            if (active) setWorkerProgress({ percent, stage });
+          },
+        );
         if (active) {
           setLaunchedWithHashProof(true);
           setCameraAutoVerified(false);
@@ -255,6 +313,7 @@ export function VerifyCertificatePage() {
           setPasteFeedback(null);
           setTrustSavedMsg(null);
           setResult(res);
+          recordLog(res, 'URL proof link');
           await runEvidenceVerification(
             evidenceInputRaw,
             res.proofBytes,
@@ -265,6 +324,7 @@ export function VerifyCertificatePage() {
       } finally {
         if (active) {
           setVerifyingProof(false);
+          setWorkerProgress(null);
         }
       }
     });
@@ -275,6 +335,7 @@ export function VerifyCertificatePage() {
     evidenceInputRaw,
     location.hash,
     location.search,
+    recordLog,
     runEvidenceVerification,
     suppliedEvidenceFiles,
   ]);
@@ -291,9 +352,13 @@ export function VerifyCertificatePage() {
       setSimComparisonError(null);
       setLaunchedWithHashProof(false);
       setCameraAutoVerified(false);
+      setVerifyingProof(true);
+      setWorkerProgress({ percent: 10, stage: 'decoding' });
       try {
-        const rawBytes = new Uint8Array(await file.arrayBuffer());
-        const res = await verifyImageWithEmbeddedQr({ fileOrBytes: rawBytes });
+        const res = await imageWorkerClient.verifyImage(
+          { fileOrBytes: file },
+          (percent, stage) => setWorkerProgress({ percent, stage }),
+        );
         setAttachedRaster(res.raster);
         setAttachedFileName(file.name);
         setActiveProofRaw(res.qrRawText);
@@ -302,6 +367,7 @@ export function VerifyCertificatePage() {
           `QR decoded (${res.qrStrategy}) · ${res.imageWidth}×${res.imageHeight} px (${res.sourceFormat})`,
         );
         setResult(res.verification);
+        recordLog(res.verification, file.name, res.qrStrategy);
         await runEvidenceVerification(
           evidenceInputRaw,
           res.verification.proofBytes,
@@ -313,28 +379,35 @@ export function VerifyCertificatePage() {
         setEvidenceSummary(null);
         setV3EvidenceMatch(null);
         setErrorMsg(err instanceof Error ? err.message : 'Failed to verify image');
+      } finally {
+        setVerifyingProof(false);
+        setWorkerProgress(null);
       }
     },
-    [evidenceInputRaw, runEvidenceVerification, suppliedEvidenceFiles],
+    [evidenceInputRaw, recordLog, runEvidenceVerification, suppliedEvidenceFiles],
   );
 
   const handleAttachArtworkForProof = useCallback(
     async (file: File) => {
       setErrorMsg(null);
       setPasteFeedback(null);
+      setWorkerProgress({ percent: 15, stage: 'decoding' });
       try {
-        const rawBytes = new Uint8Array(await file.arrayBuffer());
-        const { raster } = await decodeImageFileToCanonicalRgba8(rawBytes);
+        const { raster } = await imageWorkerClient.decodeImage(file, (percent, stage) =>
+          setWorkerProgress({ percent, stage }),
+        );
         setAttachedRaster(raster);
         setAttachedFileName(file.name);
         setSimComparisonName(null);
         setSimComparisonResult(null);
         setSimComparisonError(null);
         if (activeProofRaw) {
-          await runProofVerify(activeProofRaw, raster);
+          await runProofVerify(activeProofRaw, raster, file.name);
         }
       } catch (err) {
         setErrorMsg(err instanceof Error ? err.message : 'Failed to decode artwork image');
+      } finally {
+        setWorkerProgress(null);
       }
     },
     [activeProofRaw, runProofVerify],
@@ -408,7 +481,7 @@ export function VerifyCertificatePage() {
         if (!active) return;
 
         try {
-          const res = await verifyImageWithEmbeddedQr({ fileOrBytes: rawBytes });
+          const res = await imageWorkerClient.verifyImage({ fileOrBytes: rawBytes });
           if (!active) return;
           setLaunchedWithHashProof(false);
           setCameraAutoVerified(false);
@@ -422,6 +495,7 @@ export function VerifyCertificatePage() {
           );
           setErrorMsg(null);
           setResult(res.verification);
+          recordLog(res.verification, rawName, res.qrStrategy);
           await runEvidenceVerification(
             evidenceInputRaw,
             res.verification.proofBytes,
@@ -429,7 +503,7 @@ export function VerifyCertificatePage() {
             suppliedEvidenceFiles,
           );
         } catch {
-          const { raster } = await decodeImageFileToCanonicalRgba8(rawBytes);
+          const { raster } = await imageWorkerClient.decodeImage(rawBytes);
           if (!active) return;
           setAttachedRaster(raster);
           setAttachedFileName(rawName);
@@ -437,7 +511,7 @@ export function VerifyCertificatePage() {
           const hash = window.location.hash;
           if (hash && hash.includes('proof=')) {
             setActiveTab('proof');
-            await runProofVerify(hash, raster);
+            await runProofVerify(hash, raster, rawName);
           } else {
             setQrInfoNote(t.verifyMobile.sharedImageNoQrNote);
           }
@@ -455,6 +529,7 @@ export function VerifyCertificatePage() {
   }, [
     evidenceInputRaw,
     location.search,
+    recordLog,
     runEvidenceVerification,
     runProofVerify,
     suppliedEvidenceFiles,
@@ -539,7 +614,7 @@ export function VerifyCertificatePage() {
     e.preventDefault();
     setQrInfoNote(null);
     setCameraAutoVerified(false);
-    await runProofVerify(proofInput, attachedRaster);
+    await runProofVerify(proofInput, attachedRaster, attachedFileName || 'Manual proof');
   };
 
   const handleProofBundleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -562,7 +637,7 @@ export function VerifyCertificatePage() {
       setProofInput(text);
       setCameraAutoVerified(false);
       setQrInfoNote(`Loaded proof bundle: ${file.name}`);
-      await runProofVerify(text, attachedRaster);
+      await runProofVerify(text, attachedRaster, file.name);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Failed to read proof bundle file');
     }
@@ -575,7 +650,7 @@ export function VerifyCertificatePage() {
       setQrInfoNote(
         attachedRaster ? 'QR detected from local camera stream' : t.verifyMobile.cameraFollowUpHint,
       );
-      void runProofVerify(rawText, attachedRaster);
+      void runProofVerify(rawText, attachedRaster, 'Camera QR scan');
     },
     [attachedRaster, runProofVerify, t.verifyMobile.cameraFollowUpHint],
   );
@@ -599,7 +674,7 @@ export function VerifyCertificatePage() {
     setTrustConfirmChecked(false);
     setTrustSavedMsg(label);
     if (activeProofRaw) {
-      await runProofVerify(activeProofRaw, attachedRaster);
+      await runProofVerify(activeProofRaw, attachedRaster, attachedFileName || 'Proof', true);
     }
   };
 
@@ -620,7 +695,7 @@ export function VerifyCertificatePage() {
     setTrustLabelInput('');
     setTrustConfirmChecked(false);
     if (activeProofRaw) {
-      await runProofVerify(activeProofRaw, attachedRaster);
+      await runProofVerify(activeProofRaw, attachedRaster, attachedFileName || 'Proof', true);
     }
   };
 
@@ -636,7 +711,7 @@ export function VerifyCertificatePage() {
     setTrustConfirmChecked(false);
     setTrustSavedMsg(label);
     if (activeProofRaw) {
-      await runProofVerify(activeProofRaw, attachedRaster);
+      await runProofVerify(activeProofRaw, attachedRaster, attachedFileName || 'Proof', true);
     }
   };
 
@@ -647,10 +722,11 @@ export function VerifyCertificatePage() {
       return;
     }
     try {
-      const rawBytes = new Uint8Array(await file.arrayBuffer());
-      const { raster: candidateRaster } = await decodeImageFileToCanonicalRgba8(rawBytes);
-      const refHashes = computePerceptualHashes(attachedRaster);
-      const candHashes = computePerceptualHashes(candidateRaster);
+      const { raster: candidateRaster } = await imageWorkerClient.decodeImage(file);
+      const [refHashes, candHashes] = await Promise.all([
+        imageWorkerClient.computePerceptualHashes(attachedRaster),
+        imageWorkerClient.computePerceptualHashes(candidateRaster),
+      ]);
       const comparison = comparePerceptualHashes(refHashes, candHashes);
       setSimComparisonName(file.name);
       setSimComparisonResult(comparison);
@@ -706,20 +782,14 @@ export function VerifyCertificatePage() {
   };
 
   const policyPillTone = (signal: PolicySignal) => {
-    if (signal === 'disallow') {
-      return 'border-rose-400/35 bg-rose-500/10 text-rose-200';
-    }
-    if (signal === 'allow') {
-      return 'border-emerald-400/35 bg-emerald-500/10 text-emerald-200';
-    }
-    return 'border-white/[0.12] bg-[#030b18]/65 text-slate-300';
+    if (signal === 'disallow') return 'ga-status-error';
+    if (signal === 'allow') return 'ga-status-success';
+    return 'ga-surface-subtle ga-text-secondary ga-border';
   };
 
   const tabClass = (tab: InputTab) =>
-    `inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors min-h-[44px] cursor-pointer ${
-      activeTab === tab
-        ? 'bg-white/[0.12] text-white border border-white/[0.22]'
-        : 'bg-[#030b18]/65 text-slate-300 border border-white/[0.09] hover:border-white/[0.2]'
+    `inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors min-h-[44px] cursor-pointer ${
+      activeTab === tab ? 'ga-surface-subtle ga-text border ga-border-strong' : 'ga-btn-secondary'
     }`;
 
   const showTopProofStep2Cta =
@@ -775,9 +845,23 @@ export function VerifyCertificatePage() {
         hasV3ExtendedPolicy),
   );
 
+  const activeStep: 1 | 2 | 3 = verifyingProof || workerProgress ? 2 : result ? 3 : 1;
+
+  const progressStageLabel = workerProgress
+    ? workerProgress.stage === 'decoding'
+      ? t.humanUx.verifyUx.progressStages.decoding
+      : workerProgress.stage === 'scanning-qr'
+        ? t.humanUx.verifyUx.progressStages.scanningQr
+        : workerProgress.stage === 'verifying'
+          ? t.humanUx.verifyUx.progressStages.verifying
+          : workerProgress.stage === 'hashing'
+            ? t.humanUx.verifyUx.progressStages.hashing
+            : t.humanUx.verifyUx.progressStages.complete
+    : '';
+
   const proofForm = (
     <form onSubmit={handleManualProofSubmit} className="space-y-3">
-      <label htmlFor="proofInput" className="block text-xs font-medium text-slate-300">
+      <label htmlFor="proofInput" className="block text-xs font-medium ga-text-secondary">
         {t.verify.proofInputLabel}
       </label>
       <textarea
@@ -787,10 +871,10 @@ export function VerifyCertificatePage() {
         onChange={(e) => setProofInput(e.target.value)}
         placeholder={t.verify.proofInputPlaceholder}
         data-testid="verify-proof-textarea"
-        className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/75 p-3 text-xs font-mono text-white placeholder:text-slate-500"
+        className="ga-input w-full rounded-xl p-3 text-xs font-mono"
       />
       <div className="space-y-1.5">
-        <label htmlFor={proofBundleInputId} className="block text-xs font-medium text-slate-300">
+        <label htmlFor={proofBundleInputId} className="block text-xs font-medium ga-text-secondary">
           {t.verify.proofBundleUploadLabel}
         </label>
         <input
@@ -799,26 +883,33 @@ export function VerifyCertificatePage() {
           accept=".json,.chproof.json,application/json"
           data-testid="verify-proof-bundle-input"
           onChange={(e) => void handleProofBundleFileChange(e)}
-          className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border file:border-slate-700 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:font-medium file:text-slate-100 hover:file:bg-slate-700"
+          className="block w-full text-xs ga-text-secondary file:mr-3 file:rounded-xl file:border file:border-[var(--ga-border-strong)] file:bg-[var(--ga-surface-subtle)] file:px-3 file:py-2 file:text-xs file:font-medium file:text-[var(--ga-text)] cursor-pointer"
         />
       </div>
       <button
         type="submit"
         data-testid="verify-proof-submit"
-        className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-white min-h-[44px] cursor-pointer"
+        className="ga-btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold min-h-[44px] cursor-pointer"
       >
         <span>{t.verify.verifyProofBtn}</span>
       </button>
     </form>
   );
 
-  const optionalExtensionSection = (
+  const showEvidenceSection =
+    isAdvanced ||
+    Boolean(evidenceInputRaw) ||
+    Boolean(result?.manifest?.evidenceHashes && result.manifest.evidenceHashes.length > 0);
+
+  const optionalExtensionSection = showEvidenceSection ? (
     <AdvancedSettings
       label={t.artworkDetails.verifySectionTitle}
       summary={evidenceFileName || t.artworkDetails.verifySectionHint}
       testId="verify-evidence-panel"
     >
-      <p className="text-xs text-slate-300 leading-relaxed">{t.artworkDetails.verifySectionHint}</p>
+      <p className="text-xs ga-text-secondary leading-relaxed">
+        {t.artworkDetails.verifySectionHint}
+      </p>
 
       <div className="flex flex-wrap items-center gap-2.5">
         <input
@@ -831,18 +922,18 @@ export function VerifyCertificatePage() {
         />
         <label
           htmlFor={evidenceFileInputId}
-          className="inline-flex items-center gap-2 rounded-lg border border-sky-300/35 bg-sky-500/15 px-3.5 py-2 text-xs sm:text-sm font-medium text-sky-100 hover:bg-sky-500/25 min-h-[44px] cursor-pointer"
+          className="ga-btn-secondary inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-medium min-h-[44px] cursor-pointer"
         >
-          <FileCheck2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <FileCheck2 className="h-4 w-4 shrink-0 ga-text-accent" aria-hidden="true" />
           <span>{t.artworkDetails.verifyAttachEvidenceBtn}</span>
         </label>
 
         {canAttachLocalEvidenceFiles && (
           <label
             htmlFor={localFilesInputId}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/[0.16] bg-[#030b18]/75 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-100 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
+            className="ga-btn-secondary inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-medium min-h-[44px] cursor-pointer"
           >
-            <Upload className="h-4 w-4 shrink-0 text-sky-300" aria-hidden="true" />
+            <Upload className="h-4 w-4 shrink-0 ga-text-accent" aria-hidden="true" />
             <span>{t.artworkDetails.verifyAttachFilesBtn}</span>
           </label>
         )}
@@ -859,7 +950,7 @@ export function VerifyCertificatePage() {
               setStandaloneEvidenceError(null);
               void runEvidenceVerification(null, result?.proofBytes, result?.manifest, []);
             }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] px-3 py-2 text-xs text-slate-300 hover:border-rose-400/40 hover:text-rose-200 min-h-[44px] cursor-pointer"
+            className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs min-h-[44px] cursor-pointer"
           >
             <Trash2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <span>{t.artworkDetails.verifyClearEvidenceBtn}</span>
@@ -879,7 +970,7 @@ export function VerifyCertificatePage() {
                 [],
               );
             }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] px-3 py-2 text-xs text-slate-300 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
+            className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs min-h-[44px] cursor-pointer"
           >
             <span>{t.artworkDetails.verifyClearFilesBtn}</span>
           </button>
@@ -887,7 +978,7 @@ export function VerifyCertificatePage() {
       </div>
 
       {evidenceFileName && (
-        <p className="text-xs font-mono text-sky-300">
+        <p className="text-xs font-mono ga-text-accent">
           {evidenceFileName}
           {suppliedEvidenceFiles.length > 0
             ? ` · ${suppliedEvidenceFiles.length} file(s)`
@@ -896,17 +987,17 @@ export function VerifyCertificatePage() {
       )}
 
       {evidenceHashProgress && (
-        <p role="status" className="text-xs font-mono text-sky-300">
+        <p role="status" className="text-xs font-mono ga-text-accent">
           {evidenceHashProgress}
         </p>
       )}
     </AdvancedSettings>
-  );
+  ) : null;
 
   const inputTabsSection = (
     <section
       data-testid="verify-input-section"
-      className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-5 space-y-4"
+      className="ga-card rounded-2xl p-5 space-y-4"
     >
       <div className="flex flex-wrap gap-2" role="tablist">
         <button
@@ -958,15 +1049,15 @@ export function VerifyCertificatePage() {
               disabled={pasteBusy}
               onClick={() => void handlePasteButtonClick()}
               data-testid="verify-paste-image-btn"
-              className="inline-flex items-center gap-2 rounded-lg border border-sky-300/35 bg-sky-500/15 px-4 py-2.5 text-sm font-medium text-sky-100 hover:bg-sky-500/25 disabled:opacity-50 min-h-[44px] cursor-pointer"
+              className="ga-btn-secondary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium disabled:opacity-50 min-h-[44px] cursor-pointer"
             >
-              <ClipboardPaste className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <ClipboardPaste className="h-4 w-4 shrink-0 ga-text-accent" aria-hidden="true" />
               <span>{pasteBusy ? t.verifyMobile.pasteBusy : t.verifyMobile.pasteImageBtn}</span>
             </button>
-            <span className="text-xs text-slate-400">{t.verifyMobile.pasteHint}</span>
+            <span className="text-xs ga-text-muted">{t.verifyMobile.pasteHint}</span>
           </div>
           {pasteFeedback && (
-            <p role="status" className="text-xs text-amber-200">
+            <p role="status" className="ga-status-warning rounded-xl border px-3 py-2 text-xs">
               {pasteFeedback}
             </p>
           )}
@@ -977,39 +1068,40 @@ export function VerifyCertificatePage() {
 
       {activeTab === 'proof' &&
         (launchedWithHashProof ? (
-          <details className="group rounded-lg border border-white/[0.1] bg-[#030b18]/55 p-3">
-            <summary className="flex items-center justify-between gap-2 cursor-pointer text-xs sm:text-sm font-medium text-slate-200 list-none select-none min-h-[44px]">
+          <details className="group ga-surface-subtle rounded-xl border ga-border p-3">
+            <summary className="flex items-center justify-between gap-2 cursor-pointer text-xs sm:text-sm font-medium ga-text list-none select-none min-h-[44px]">
               <span>{t.verifyMobile.rawProofToggle}</span>
               <ChevronDown
-                className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180 shrink-0"
+                className="h-4 w-4 ga-text-muted transition-transform group-open:rotate-180 shrink-0"
                 aria-hidden="true"
               />
             </summary>
-            <div className="pt-3 mt-3 border-t border-white/[0.08]">{proofForm}</div>
+            <div className="pt-3 mt-3 border-t ga-border">{proofForm}</div>
           </details>
         ) : (
           proofForm
         ))}
 
-      {qrInfoNote && <p className="text-xs font-mono text-sky-300">{qrInfoNote}</p>}
+      {qrInfoNote && (
+        <p className="ga-surface-subtle rounded-xl border ga-border px-3 py-2 text-xs font-mono ga-text-accent">
+          {qrInfoNote}
+        </p>
+      )}
 
       {errorMsg && (
-        <div
-          role="alert"
-          className="rounded-lg border border-rose-500/40 bg-rose-500/15 p-3 text-sm text-rose-200"
-        >
-          {errorMsg}
-        </div>
+        <FriendlyErrorAlert
+          error={errorMsg}
+          onDismiss={() => setErrorMsg(null)}
+          testId="verify-error-alert"
+        />
       )}
 
       {standaloneEvidenceError && (
-        <div
-          role="alert"
-          data-testid="verify-standalone-evidence-error"
-          className="rounded-lg border border-rose-500/40 bg-rose-500/15 p-3 text-xs sm:text-sm text-rose-200"
-        >
-          {standaloneEvidenceError}
-        </div>
+        <FriendlyErrorAlert
+          error={standaloneEvidenceError}
+          onDismiss={() => setStandaloneEvidenceError(null)}
+          testId="verify-standalone-evidence-error"
+        />
       )}
     </section>
   );
@@ -1017,19 +1109,19 @@ export function VerifyCertificatePage() {
   const step2ArtworkCtaSection = showTopProofStep2Cta ? (
     <section
       data-testid="verify-proof-artwork-cta"
-      className="rounded-xl border border-sky-400/40 bg-sky-500/10 backdrop-blur-md p-5 space-y-3"
+      className="ga-status-info rounded-2xl border p-5 space-y-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base sm:text-lg font-semibold text-white">
+        <h2 className="text-base sm:text-lg font-semibold ga-text">
           {t.verifyMobile.proofStep2Title}
         </h2>
         {attachedFileName && (
-          <span className="rounded-full border border-sky-300/40 bg-sky-400/15 px-3 py-1 text-xs font-mono text-sky-100">
+          <span className="ga-status-info rounded-full border px-3 py-1 text-xs font-mono">
             {t.verifyMobile.attachedReadyBadge}: {attachedFileName}
           </span>
         )}
       </div>
-      <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+      <p className="text-xs sm:text-sm ga-text-secondary leading-relaxed">
         {t.verifyMobile.proofStep2Desc}
       </p>
       <ImageDropzone
@@ -1047,45 +1139,52 @@ export function VerifyCertificatePage() {
           disabled={pasteBusy}
           onClick={() => void handlePasteButtonClick()}
           data-testid="verify-paste-image-btn"
-          className="inline-flex items-center gap-2 rounded-lg border border-sky-300/40 bg-[#051224]/80 px-4 py-2.5 text-sm font-semibold text-sky-100 hover:bg-sky-500/20 disabled:opacity-50 min-h-[44px] cursor-pointer"
+          className="ga-btn-secondary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50 min-h-[44px] cursor-pointer"
         >
-          <ClipboardPaste className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <ClipboardPaste className="h-4 w-4 shrink-0 ga-text-accent" aria-hidden="true" />
           <span>{pasteBusy ? t.verifyMobile.pasteBusy : t.verifyMobile.pasteImageBtn}</span>
         </button>
-        <span className="text-xs text-slate-300">{t.verifyMobile.pasteHint}</span>
+        <span className="text-xs ga-text-secondary">{t.verifyMobile.pasteHint}</span>
       </div>
       {pasteFeedback && (
-        <p role="status" className="text-xs text-amber-200">
+        <p role="status" className="ga-status-warning rounded-xl border px-3 py-2 text-xs">
           {pasteFeedback}
         </p>
       )}
     </section>
   ) : null;
 
-  const verifyingSpinnerCard =
-    verifyingProof && !result ? (
-      <div
-        role="status"
-        data-testid="verify-auto-status-banner"
-        className="rounded-xl border border-sky-400/35 bg-sky-500/10 p-4 flex items-center gap-3 text-sm text-sky-100"
-      >
-        <Loader2 className="h-4 w-4 text-sky-300 animate-spin shrink-0" aria-hidden="true" />
-        <span>{t.minimal.verify.verifyingProofLabel}</span>
-      </div>
-    ) : null;
+  const verifyingSpinnerCard = workerProgress ? (
+    <WorkerProgressBar
+      percent={workerProgress.percent}
+      label={progressStageLabel || t.minimal.verify.verifyingProofLabel}
+      testId="verify-worker-progress"
+    />
+  ) : verifyingProof && !result ? (
+    <div
+      role="status"
+      data-testid="verify-auto-status-banner"
+      className="ga-status-info rounded-2xl border p-4 flex items-center gap-3 text-sm"
+    >
+      <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden="true" />
+      <span>{t.minimal.verify.verifyingProofLabel}</span>
+    </div>
+  ) : null;
 
   const resultsSection = result ? (
     <div className="space-y-5" data-testid="verification-results">
       {prioritizeResultsTop && result.manifest && (
         <div
           data-testid="verify-auto-verified-pill"
-          className="inline-flex items-center gap-2 rounded-full border border-emerald-400/35 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-medium text-emerald-200"
+          className="ga-status-success inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium"
         >
-          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300 shrink-0" aria-hidden="true" />
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span>{t.minimal.verify.autoVerifiedBadge}</span>
-          <span className="font-mono text-[11px] text-emerald-100/80">
-            · Protocol v{result.manifest.version}
-          </span>
+          {isAdvanced && (
+            <span className="font-mono text-[11px] opacity-85">
+              · Protocol v{result.manifest.version}
+            </span>
+          )}
         </div>
       )}
 
@@ -1104,17 +1203,17 @@ export function VerifyCertificatePage() {
           <div
             role="alert"
             data-testid="verify-key-notice-banner"
-            className="rounded-xl border border-amber-400/45 bg-amber-500/15 p-4 space-y-2.5 text-xs sm:text-sm text-amber-100"
+            className="ga-status-warning rounded-2xl border p-4 space-y-2.5 text-xs sm:text-sm"
           >
             <div className="flex items-start gap-2.5">
-              <AlertTriangle className="h-5 w-5 text-amber-300 shrink-0 mt-0.5" aria-hidden="true" />
+              <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" aria-hidden="true" />
               <div className="space-y-1">
-                <p className="font-semibold text-amber-200">
+                <p className="font-semibold">
                   {result.keyNoticeStatus === 'revocation-notice'
                     ? t.hardening.notices.localMatchBannerRevoked
                     : t.hardening.notices.localMatchBannerRotated}
                 </p>
-                <p className="text-xs text-amber-100/90 leading-relaxed">
+                <p className="text-xs opacity-90 leading-relaxed">
                   {t.hardening.notices.historicalValidNote}
                 </p>
               </div>
@@ -1122,31 +1221,31 @@ export function VerifyCertificatePage() {
             {(result.keyNotices ?? []).map((notice) => (
               <div
                 key={notice.id}
-                className="rounded-lg border border-amber-300/25 bg-[#030b18]/65 p-3 space-y-1 text-xs"
+                className="ga-surface-subtle rounded-xl border ga-border p-3 space-y-1 text-xs"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-amber-200">
+                  <span className="font-semibold ga-text">
                     {notice.noticeType === 'revocation'
                       ? t.hardening.notices.revokeBadge
                       : t.hardening.notices.rotateBadge}
                   </span>
-                  <span className="font-mono text-slate-300">
+                  <span className="font-mono ga-text-secondary">
                     {t.hardening.notices.reasons[notice.reason]}
                   </span>
                   {notice.replacementFingerprintShort && (
-                    <span className="font-mono text-sky-200">
+                    <span className="font-mono ga-text-accent">
                       → {notice.replacementFingerprintShort}
                     </span>
                   )}
                 </div>
-                <div className="font-mono text-[11px] text-slate-300">
+                <div className="font-mono text-[11px] ga-text-muted">
                   {t.hardening.notices.issuedAtLabel}:{' '}
                   {new Date(notice.noticeIssuedAt * 1000).toISOString()}
                 </div>
-                {notice.note && <p className="text-slate-200 break-words">{notice.note}</p>}
+                {notice.note && <p className="ga-text break-words">{notice.note}</p>}
               </div>
             ))}
-            <p className="text-[11px] text-amber-200/85 leading-relaxed">
+            <p className="text-[11px] opacity-90 leading-relaxed">
               {t.hardening.notices.compromiseWarning}
             </p>
           </div>
@@ -1157,73 +1256,74 @@ export function VerifyCertificatePage() {
           <div
             role="note"
             data-testid="verify-no-local-notice-note"
-            className="rounded-xl border border-white/[0.1] bg-[#030b18]/60 p-3 flex items-start gap-2.5 text-xs text-slate-300"
+            className="ga-surface-subtle rounded-xl border ga-border p-3 flex items-start gap-2.5 text-xs ga-text-secondary"
           >
-            <Info className="h-4 w-4 text-sky-300 shrink-0 mt-0.5" aria-hidden="true" />
+            <Info className="h-4 w-4 ga-text-accent shrink-0 mt-0.5" aria-hidden="true" />
             <span>{t.hardening.notices.noneLocalInfo}</span>
           </div>
         )}
 
       {result.errors.length > 0 && (
-        <div
-          role="alert"
-          className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 space-y-1 text-xs sm:text-sm text-rose-200"
-        >
-          {result.errors.map((err, i) => (
-            <p key={i}>{err}</p>
-          ))}
-        </div>
+        <FriendlyErrorAlert
+          error={result.errors.join(' · ')}
+          testId="verify-result-errors"
+        />
       )}
 
       {result.manifest && (
         <section
           data-testid="verify-drm-quick-card"
-          className="rounded-xl border border-white/[0.12] bg-[#051224]/75 backdrop-blur-md p-5 space-y-4"
+          className="ga-card rounded-2xl p-5 space-y-4"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm sm:text-base font-semibold text-white">
+            <h2 className="text-sm sm:text-base font-semibold ga-text">
               {t.minimal.verify.declaredSummaryTitle}
             </h2>
-            <span className="rounded-md border border-white/[0.1] bg-[#030b18]/75 px-2.5 py-1 text-xs font-mono text-sky-200">
+            <span className="ga-surface-subtle rounded-lg border ga-border px-2.5 py-1 text-xs font-mono ga-text-accent">
               v{result.manifest.version} · {result.publicKeyFingerprintShort ?? ''}
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm">
-            <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/60 px-3.5 py-2.5">
-              <div className="text-[11px] text-slate-400">{t.verify.fields.artworkTitle}</div>
-              <div className="font-medium text-white mt-0.5 break-words">
+            <div className="ga-surface-subtle rounded-xl border ga-border px-3.5 py-2.5">
+              <div className="text-[11px] ga-text-muted">{t.verify.fields.artworkTitle}</div>
+              <div className="font-medium ga-text mt-0.5 break-words">
                 {result.manifest.artworkTitle || t.verify.fields.none}
               </div>
             </div>
 
-            <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/60 px-3.5 py-2.5">
-              <div className="text-[11px] text-slate-400">{t.verify.fields.authorName}</div>
-              <div className="font-medium text-white mt-0.5 break-words">
+            <div className="ga-surface-subtle rounded-xl border ga-border px-3.5 py-2.5">
+              <div className="text-[11px] ga-text-muted">{t.verify.fields.authorName}</div>
+              <div className="font-medium ga-text mt-0.5 break-words">
                 {result.manifest.authorName || t.verify.fields.none}
               </div>
             </div>
 
             {result.manifest.license.attributionName && (
-              <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/60 px-3.5 py-2.5">
-                <div className="text-[11px] text-slate-400">{t.verify.fields.attribution}</div>
-                <div className="font-medium text-white mt-0.5 break-words">
+              <div className="ga-surface-subtle rounded-xl border ga-border px-3.5 py-2.5">
+                <div className="text-[11px] ga-text-muted">{t.verify.fields.attribution}</div>
+                <div className="font-medium ga-text mt-0.5 break-words">
                   {result.manifest.license.attributionName}
                 </div>
               </div>
             )}
 
             <div
-              className={`rounded-lg border border-white/[0.08] bg-[#030b18]/60 px-3.5 py-2.5 ${
+              className={`ga-surface-subtle rounded-xl border ga-border px-3.5 py-2.5 ${
                 result.manifest.license.attributionName ? '' : 'sm:col-span-2'
               }`}
             >
-              <div className="text-[11px] text-slate-400">{t.verify.fields.issuedAt}</div>
-              <div className="font-mono text-xs text-slate-200 mt-0.5">
+              <div className="text-[11px] ga-text-muted">{t.verify.fields.issuedAt}</div>
+              <div className="font-mono text-xs ga-text mt-0.5">
                 {new Date(result.manifest.issuedAt * 1000).toLocaleString()}
               </div>
             </div>
           </div>
+
+          <p className="text-[11px] ga-text-muted flex items-start gap-1.5 leading-relaxed">
+            <Clock className="h-3.5 w-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+            <span>{t.humanUx.verifyUx.selfDeclaredTimestampNote}</span>
+          </p>
 
           <LicenseSummaryCard
             licenseId={result.manifest.license.licenseId}
@@ -1232,12 +1332,12 @@ export function VerifyCertificatePage() {
           />
 
           <div className="space-y-2" data-testid="verify-drm-policy-pills">
-            <div className="text-xs font-medium text-slate-400">
+            <div className="text-xs font-medium ga-text-muted">
               {t.minimal.verify.rightsSignalsLabel}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div
-                className={`rounded-lg border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.commercialUse)}`}
+                className={`rounded-xl border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.commercialUse)}`}
               >
                 <div className="opacity-75 text-[11px]">{t.verify.fields.commercial}</div>
                 <div className="font-semibold mt-0.5">
@@ -1245,7 +1345,7 @@ export function VerifyCertificatePage() {
                 </div>
               </div>
               <div
-                className={`rounded-lg border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.redistribution)}`}
+                className={`rounded-xl border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.redistribution)}`}
               >
                 <div className="opacity-75 text-[11px]">{t.verify.fields.redistribution}</div>
                 <div className="font-semibold mt-0.5">
@@ -1253,7 +1353,7 @@ export function VerifyCertificatePage() {
                 </div>
               </div>
               <div
-                className={`rounded-lg border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.aiTraining)}`}
+                className={`rounded-xl border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.aiTraining)}`}
               >
                 <div className="opacity-75 text-[11px]">{t.verify.fields.aiTraining}</div>
                 <div className="font-semibold mt-0.5">
@@ -1266,9 +1366,11 @@ export function VerifyCertificatePage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
                 {result.manifest.license.allowsDerivatives !== undefined && (
                   <div
-                    className={`rounded-lg border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.allowsDerivatives)}`}
+                    className={`rounded-xl border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.allowsDerivatives)}`}
                   >
-                    <div className="opacity-75 text-[11px]">{t.nextGen.verify.v3DerivativesLabel}</div>
+                    <div className="opacity-75 text-[11px]">
+                      {t.nextGen.verify.v3DerivativesLabel}
+                    </div>
                     <div className="font-semibold mt-0.5">
                       {formatPolicySignal(result.manifest.license.allowsDerivatives)}
                     </div>
@@ -1276,7 +1378,7 @@ export function VerifyCertificatePage() {
                 )}
                 {result.manifest.license.allowsModifications !== undefined && (
                   <div
-                    className={`rounded-lg border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.allowsModifications)}`}
+                    className={`rounded-xl border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.allowsModifications)}`}
                   >
                     <div className="opacity-75 text-[11px]">
                       {t.nextGen.verify.v3ModificationsLabel}
@@ -1287,7 +1389,7 @@ export function VerifyCertificatePage() {
                   </div>
                 )}
                 {result.manifest.license.requiresAttribution !== undefined && (
-                  <div className="rounded-lg border border-white/[0.12] bg-[#030b18]/65 px-3 py-2 text-xs text-slate-200">
+                  <div className="ga-surface-subtle rounded-xl border ga-border px-3 py-2 text-xs ga-text">
                     <div className="opacity-75 text-[11px]">
                       {t.nextGen.verify.v3RequiresAttributionLabel}
                     </div>
@@ -1304,9 +1406,11 @@ export function VerifyCertificatePage() {
             {result.manifest.policyNote && (
               <div
                 data-testid="verify-v3-policy-note"
-                className="rounded-lg border border-white/[0.1] bg-[#030b18]/65 px-3 py-2 text-xs text-slate-200"
+                className="ga-surface-subtle rounded-xl border ga-border px-3 py-2 text-xs ga-text-secondary"
               >
-                <span className="text-[11px] text-slate-400">{t.nextGen.verify.v3PolicyNoteLabel}: </span>
+                <span className="text-[11px] ga-text-muted">
+                  {t.nextGen.verify.v3PolicyNoteLabel}:{' '}
+                </span>
                 <span className="break-words">{result.manifest.policyNote}</span>
               </div>
             )}
@@ -1317,18 +1421,13 @@ export function VerifyCertificatePage() {
             result.trustedKeyUnconfirmed && (
               <div
                 data-testid="verify-unconfirmed-trust-card"
-                className="rounded-xl border border-amber-400/35 bg-amber-500/10 p-4 space-y-3"
+                className="ga-status-warning rounded-xl border p-4 space-y-3"
               >
                 <div className="flex items-start gap-2.5">
-                  <ShieldAlert
-                    className="h-4 w-4 text-amber-300 shrink-0 mt-0.5"
-                    aria-hidden="true"
-                  />
+                  <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
                   <div className="space-y-1 text-xs">
-                    <p className="font-semibold text-amber-200">
-                      {t.hardening.trust.unconfirmedBadge}
-                    </p>
-                    <p className="text-slate-200 leading-relaxed">
+                    <p className="font-semibold">{t.hardening.trust.unconfirmedBadge}</p>
+                    <p className="opacity-90 leading-relaxed">
                       {t.hardening.trust.unconfirmedHelp}
                     </p>
                   </div>
@@ -1336,18 +1435,18 @@ export function VerifyCertificatePage() {
                 {result.publicKeyFingerprintHex && (
                   <div
                     data-testid="verify-trust-fingerprint-hex"
-                    className="rounded-lg border border-white/[0.1] bg-[#030b18]/80 px-3 py-2 font-mono text-[11px] text-sky-200 break-all"
+                    className="ga-surface-subtle rounded-lg border ga-border px-3 py-2 font-mono text-[11px] ga-text break-all"
                   >
                     {result.publicKeyFingerprintHex}
                   </div>
                 )}
-                <label className="flex items-start gap-2.5 text-xs text-slate-200 cursor-pointer min-h-[44px] py-1">
+                <label className="flex items-start gap-2.5 text-xs ga-text cursor-pointer min-h-[44px] py-1">
                   <input
                     type="checkbox"
                     checked={trustConfirmChecked}
                     onChange={(e) => setTrustConfirmChecked(e.target.checked)}
                     data-testid="verify-trust-confirm-checkbox"
-                    className="mt-0.5 h-4 w-4 rounded accent-emerald-400 shrink-0"
+                    className="mt-0.5 h-4 w-4 rounded accent-[var(--ga-primary-bg)] shrink-0"
                   />
                   <span>{t.hardening.trust.confirmCheckbox}</span>
                 </label>
@@ -1356,7 +1455,7 @@ export function VerifyCertificatePage() {
                   disabled={!trustConfirmChecked}
                   onClick={() => void handleConfirmUnconfirmedKey()}
                   data-testid="verify-confirm-now-btn"
-                  className="rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-4 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-45 disabled:cursor-not-allowed min-h-[44px] cursor-pointer"
+                  className="ga-btn-primary rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-45 disabled:cursor-not-allowed min-h-[44px] cursor-pointer"
                 >
                   {t.hardening.trust.confirmNowBtn}
                 </button>
@@ -1368,18 +1467,18 @@ export function VerifyCertificatePage() {
             !result.trustedKeyUnconfirmed && (
               <form
                 onSubmit={handleTrustThisKey}
-                className="rounded-xl border border-white/[0.1] bg-[#030b18]/65 p-4 space-y-3"
+                className="ga-surface-subtle rounded-xl border ga-border p-4 space-y-3"
               >
-                <p className="text-xs sm:text-sm font-medium text-slate-200">
+                <p className="text-xs sm:text-sm font-medium ga-text">
                   {t.verify.trustKeyPrompt}
                 </p>
-                <p className="text-xs text-slate-300 leading-relaxed">
+                <p className="text-xs ga-text-secondary leading-relaxed">
                   {t.hardening.trust.outOfBandNote}
                 </p>
                 {result.publicKeyFingerprintHex && (
                   <div
                     data-testid="verify-trust-fingerprint-hex"
-                    className="rounded-lg border border-white/[0.1] bg-[#030b18] px-3 py-2 font-mono text-[11px] text-sky-200 break-all"
+                    className="ga-card-solid rounded-lg border ga-border px-3 py-2 font-mono text-[11px] ga-text-accent break-all"
                   >
                     {result.publicKeyFingerprintHex}
                   </div>
@@ -1391,15 +1490,15 @@ export function VerifyCertificatePage() {
                   placeholder={t.verify.trustKeyLabelInput}
                   maxLength={64}
                   data-testid="verify-trust-label-input"
-                  className="w-full rounded-lg border border-white/[0.14] bg-[#030b18] px-3 py-2 text-sm text-white min-h-[44px]"
+                  className="ga-input w-full rounded-xl px-3 py-2 text-sm min-h-[44px]"
                 />
-                <label className="flex items-start gap-2.5 text-xs text-slate-200 cursor-pointer min-h-[44px] py-1">
+                <label className="flex items-start gap-2.5 text-xs ga-text cursor-pointer min-h-[44px] py-1">
                   <input
                     type="checkbox"
                     checked={trustConfirmChecked}
                     onChange={(e) => setTrustConfirmChecked(e.target.checked)}
                     data-testid="verify-trust-confirm-checkbox"
-                    className="mt-0.5 h-4 w-4 rounded accent-emerald-400 shrink-0"
+                    className="mt-0.5 h-4 w-4 rounded accent-[var(--ga-primary-bg)] shrink-0"
                   />
                   <span>{t.hardening.trust.confirmCheckbox}</span>
                 </label>
@@ -1408,7 +1507,7 @@ export function VerifyCertificatePage() {
                     type="submit"
                     disabled={!trustConfirmChecked}
                     data-testid="verify-trust-btn"
-                    className="rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-4 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-45 disabled:cursor-not-allowed min-h-[44px] cursor-pointer"
+                    className="ga-btn-primary rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-45 disabled:cursor-not-allowed min-h-[44px] cursor-pointer"
                   >
                     {t.verify.trustKeyBtn}
                   </button>
@@ -1416,7 +1515,7 @@ export function VerifyCertificatePage() {
                     type="button"
                     onClick={() => void handleSaveUnconfirmedKey()}
                     data-testid="verify-trust-unconfirmed-btn"
-                    className="rounded-lg border border-white/[0.16] bg-[#030b18]/80 px-4 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
+                    className="ga-btn-secondary rounded-xl px-4 py-2 text-xs sm:text-sm font-medium min-h-[44px] cursor-pointer"
                   >
                     {t.hardening.trust.saveUnconfirmedBtn}
                   </button>
@@ -1425,34 +1524,39 @@ export function VerifyCertificatePage() {
             )}
 
           {trustSavedMsg && (
-            <p role="status" className="text-xs text-emerald-300">
+            <p
+              role="status"
+              className="ga-status-success rounded-xl border px-3 py-2 text-xs font-medium"
+            >
               {t.verify.trustedAlready} {trustSavedMsg}
             </p>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <Link
-              to={`/exchange?inspect=${encodeURIComponent(base64UrlEncode(result.manifest.publicKey))}`}
-              data-testid="verify-inspect-exchange-link"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-300/35 bg-sky-400/10 px-3.5 py-2 text-xs sm:text-sm font-medium text-sky-200 hover:bg-sky-400/20 min-h-[44px]"
-            >
-              <Share2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span>{t.verify.inspectInExchangeBtn}</span>
-            </Link>
-          </div>
+          {isAdvanced && (
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+              <Link
+                to={`/exchange?inspect=${encodeURIComponent(base64UrlEncode(result.manifest.publicKey))}`}
+                data-testid="verify-inspect-exchange-link"
+                className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-medium min-h-[44px]"
+              >
+                <Share2 className="h-3.5 w-3.5 shrink-0 ga-text-accent" aria-hidden="true" />
+                <span>{t.verify.inspectInExchangeBtn}</span>
+              </Link>
+            </div>
+          )}
         </section>
       )}
 
       {hasV3SelfContainedMetadata && result.manifest && (
         <section
           data-testid="verify-v3-metadata-card"
-          className="rounded-xl border border-sky-400/25 bg-[#051224]/75 backdrop-blur-md p-5 space-y-4"
+          className="ga-card rounded-2xl p-5 space-y-4"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm sm:text-base font-semibold text-white">
+            <h2 className="text-sm sm:text-base font-semibold ga-text">
               {t.nextGen.verify.v3MetadataTitle}
             </h2>
-            <span className="rounded-full border border-sky-400/35 bg-sky-500/10 px-2.5 py-0.5 text-[11px] font-mono text-sky-200">
+            <span className="ga-status-info rounded-full border px-2.5 py-0.5 text-[11px] font-mono">
               {t.nextGen.create.qrV3SelfContainedBadge}
             </span>
           </div>
@@ -1460,10 +1564,10 @@ export function VerifyCertificatePage() {
           {result.manifest.description && (
             <div
               data-testid="verify-v3-description"
-              className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-1.5"
+              className="ga-surface-subtle rounded-xl border ga-border p-4 space-y-1.5"
             >
-              <div className="text-[11px] text-slate-400">{t.artworkDetails.descriptionLabel}</div>
-              <p className="text-xs sm:text-sm text-slate-200 whitespace-pre-wrap break-words leading-relaxed">
+              <div className="text-[11px] ga-text-muted">{t.artworkDetails.descriptionLabel}</div>
+              <p className="text-xs sm:text-sm ga-text whitespace-pre-wrap break-words leading-relaxed">
                 {result.manifest.description}
               </p>
             </div>
@@ -1472,19 +1576,19 @@ export function VerifyCertificatePage() {
           {(safeV3Website || safeV3SnsLinks.length > 0 || safeV3PortfolioLinks.length > 0) && (
             <div
               data-testid="verify-v3-creator-links"
-              className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-3"
+              className="ga-surface-subtle rounded-xl border ga-border p-4 space-y-3"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="flex items-center gap-2 text-xs font-semibold text-sky-200">
+                <span className="flex items-center gap-2 text-xs font-semibold ga-text-accent">
                   <User className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   <span>{t.artworkDetails.groupCreator}</span>
                 </span>
-                <span className="rounded-full border border-white/[0.12] bg-[#020813]/75 px-2.5 py-0.5 text-[10px] text-slate-300">
+                <span className="ga-card-solid rounded-full border ga-border px-2.5 py-0.5 text-[10px] ga-text-secondary">
                   {t.artworkDetails.verifyProfileSelfDeclared}
                 </span>
               </div>
 
-              <p className="text-[11px] text-slate-400 leading-relaxed">
+              <p className="text-[11px] ga-text-muted leading-relaxed">
                 {t.nextGen.verify.v3ProfileSnapshotNote}
               </p>
 
@@ -1495,7 +1599,7 @@ export function VerifyCertificatePage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     data-testid="verify-v3-website"
-                    className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-sky-300 hover:text-sky-200 underline underline-offset-4 break-all"
+                    className="inline-flex items-center gap-1.5 text-xs sm:text-sm ga-text-accent underline underline-offset-4 break-all"
                   >
                     <span>{safeV3Website}</span>
                     <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -1505,7 +1609,7 @@ export function VerifyCertificatePage() {
 
               {safeV3SnsLinks.length > 0 && (
                 <div className="space-y-1.5">
-                  <div className="text-[11px] text-slate-400">
+                  <div className="text-[11px] ga-text-muted">
                     {t.nextGen.verify.v3SnsLinksLabel}
                   </div>
                   <ul className="flex flex-wrap gap-2">
@@ -1515,7 +1619,7 @@ export function VerifyCertificatePage() {
                           href={link.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-[#020813]/75 px-3 py-1.5 text-xs text-sky-200 hover:border-sky-400/40 break-all"
+                          className="ga-card-solid inline-flex items-center gap-1.5 rounded-lg border ga-border px-3 py-1.5 text-xs ga-text-accent hover:border-[var(--ga-border-strong)] break-all"
                         >
                           <span>
                             {link.platformLabel ? `[${link.platformLabel}] ` : ''}
@@ -1531,7 +1635,7 @@ export function VerifyCertificatePage() {
 
               {safeV3PortfolioLinks.length > 0 && (
                 <div className="space-y-1.5">
-                  <div className="text-[11px] text-slate-400">
+                  <div className="text-[11px] ga-text-muted">
                     {t.nextGen.verify.v3PortfolioLinksLabel}
                   </div>
                   <ul className="flex flex-wrap gap-2">
@@ -1541,7 +1645,7 @@ export function VerifyCertificatePage() {
                           href={link.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-[#020813]/75 px-3 py-1.5 text-xs text-sky-200 hover:border-sky-400/40 break-all"
+                          className="ga-card-solid inline-flex items-center gap-1.5 rounded-lg border ga-border px-3 py-1.5 text-xs ga-text-accent hover:border-[var(--ga-border-strong)] break-all"
                         >
                           <span>{link.label ? `${link.label}: ${link.url}` : link.url}</span>
                           <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -1558,9 +1662,9 @@ export function VerifyCertificatePage() {
             result.manifest.creationEnvironment) && (
             <div
               data-testid="verify-v3-creation"
-              className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-3"
+              className="ga-surface-subtle rounded-xl border ga-border p-4 space-y-3"
             >
-              <div className="flex items-center gap-2 text-xs font-semibold text-sky-200">
+              <div className="flex items-center gap-2 text-xs font-semibold ga-text-accent">
                 <Cpu className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>{t.artworkDetails.groupCreation}</span>
               </div>
@@ -1568,7 +1672,7 @@ export function VerifyCertificatePage() {
               {result.manifest.creationMethod && (
                 <div
                   data-testid="verify-v3-creation-method"
-                  className="rounded-lg border border-sky-400/25 bg-sky-500/10 px-3 py-2 text-xs sm:text-sm text-sky-100"
+                  className="ga-status-info rounded-xl border px-3 py-2 text-xs sm:text-sm"
                 >
                   <span className="font-semibold">
                     {t.artworkDetails.verifyMethodPrefix}{' '}
@@ -1581,31 +1685,31 @@ export function VerifyCertificatePage() {
               {result.manifest.creationEnvironment && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                   {result.manifest.creationEnvironment.software && (
-                    <div className="rounded-lg border border-white/[0.08] bg-[#020813]/70 p-2.5">
-                      <div className="text-[11px] text-slate-400">
+                    <div className="ga-card-solid rounded-lg border ga-border p-2.5">
+                      <div className="text-[11px] ga-text-muted">
                         {t.artworkDetails.softwareLabel}
                       </div>
-                      <div className="text-white mt-0.5 break-words">
+                      <div className="ga-text mt-0.5 break-words">
                         {result.manifest.creationEnvironment.software}
                       </div>
                     </div>
                   )}
                   {result.manifest.creationEnvironment.hardware && (
-                    <div className="rounded-lg border border-white/[0.08] bg-[#020813]/70 p-2.5">
-                      <div className="text-[11px] text-slate-400">
+                    <div className="ga-card-solid rounded-lg border ga-border p-2.5">
+                      <div className="text-[11px] ga-text-muted">
                         {t.artworkDetails.hardwareLabel}
                       </div>
-                      <div className="text-white mt-0.5 break-words">
+                      <div className="ga-text mt-0.5 break-words">
                         {result.manifest.creationEnvironment.hardware}
                       </div>
                     </div>
                   )}
                   {result.manifest.creationEnvironment.inputDevice && (
-                    <div className="rounded-lg border border-white/[0.08] bg-[#020813]/70 p-2.5">
-                      <div className="text-[11px] text-slate-400">
+                    <div className="ga-card-solid rounded-lg border ga-border p-2.5">
+                      <div className="text-[11px] ga-text-muted">
                         {t.artworkDetails.inputDeviceLabel}
                       </div>
-                      <div className="text-white mt-0.5 break-words">
+                      <div className="ga-text mt-0.5 break-words">
                         {result.manifest.creationEnvironment.inputDevice}
                       </div>
                     </div>
@@ -1615,16 +1719,16 @@ export function VerifyCertificatePage() {
 
               {result.manifest.creationEnvironment?.notes && (
                 <div>
-                  <div className="text-[11px] text-slate-400">
+                  <div className="text-[11px] ga-text-muted">
                     {t.artworkDetails.creationNotesLabel}
                   </div>
-                  <p className="text-xs text-slate-200 whitespace-pre-wrap break-words mt-0.5">
+                  <p className="text-xs ga-text-secondary whitespace-pre-wrap break-words mt-0.5">
                     {result.manifest.creationEnvironment.notes}
                   </p>
                 </div>
               )}
 
-              <p className="text-[11px] text-slate-400 leading-relaxed">
+              <p className="text-[11px] ga-text-muted leading-relaxed">
                 {t.artworkDetails.verifyStatementOnlyNote}
               </p>
             </div>
@@ -1633,19 +1737,19 @@ export function VerifyCertificatePage() {
           {result.manifest.evidenceHashes && result.manifest.evidenceHashes.length > 0 && (
             <div
               data-testid="verify-v3-evidence-hashes"
-              className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-3"
+              className="ga-surface-subtle rounded-xl border ga-border p-4 space-y-3"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="flex items-center gap-2 text-xs font-semibold text-sky-200">
+                <span className="flex items-center gap-2 text-xs font-semibold ga-text-accent">
                   <FileCheck2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   <span>{t.nextGen.verify.v3EvidenceHashesTitle}</span>
                 </span>
                 <label
                   htmlFor={localFilesInputId}
                   data-testid="verify-v3-attach-local-files-btn"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-sky-300/35 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-100 hover:bg-sky-500/25 cursor-pointer"
+                  className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium cursor-pointer"
                 >
-                  <Upload className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <Upload className="h-3.5 w-3.5 shrink-0 ga-text-accent" aria-hidden="true" />
                   <span>{t.artworkDetails.verifyAttachFilesBtn}</span>
                 </label>
               </div>
@@ -1655,20 +1759,20 @@ export function VerifyCertificatePage() {
                   <li
                     key={rec.index}
                     data-testid={`verify-v3-evidence-record-${rec.index}`}
-                    className="rounded-lg border border-white/[0.08] bg-[#020813]/75 p-3 space-y-1.5 text-xs"
+                    className="ga-card-solid rounded-lg border ga-border p-3 space-y-1.5 text-xs"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-medium text-white break-words">
+                      <span className="font-medium ga-text break-words">
                         {rec.label || `Evidence #${rec.index + 1}`}
-                        <span className="ms-2 rounded bg-white/[0.08] px-2 py-0.5 text-[10px] text-slate-300">
+                        <span className="ms-2 rounded ga-surface-subtle px-2 py-0.5 text-[10px] ga-text-secondary">
                           {formatCategory(rec.category)}
                         </span>
                       </span>
                       <span
                         className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
                           rec.status === 'verified'
-                            ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200'
-                            : 'border-white/[0.14] bg-white/[0.05] text-slate-300'
+                            ? 'ga-status-success'
+                            : 'ga-surface-subtle ga-border ga-text-secondary'
                         }`}
                       >
                         {rec.status === 'verified' ? (
@@ -1683,10 +1787,10 @@ export function VerifyCertificatePage() {
                         </span>
                       </span>
                     </div>
-                    <div className="font-mono text-[11px] text-slate-400 break-all">
+                    <div className="font-mono text-[11px] ga-text-muted break-all">
                       SHA-256: {rec.sha256Hex} · {rec.byteLength.toLocaleString()} bytes
                       {rec.matchedFileName && (
-                        <span className="ms-2 text-emerald-300">
+                        <span className="ms-2 text-[var(--ga-success-text)]">
                           ({t.artworkDetails.verifyMatchedLocalFile} {rec.matchedFileName})
                         </span>
                       )}
@@ -1699,14 +1803,14 @@ export function VerifyCertificatePage() {
                 <div
                   role="alert"
                   data-testid="verify-v3-evidence-mismatched-files"
-                  className="rounded-xl border border-rose-400/40 bg-rose-500/15 p-3 space-y-1.5 text-xs text-rose-100"
+                  className="ga-status-error rounded-xl border p-3 space-y-1.5 text-xs"
                 >
-                  <div className="flex items-center gap-2 font-semibold text-rose-200">
+                  <div className="flex items-center gap-2 font-semibold">
                     <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
                     <span>{t.artworkDetails.verifyEvidenceMismatchTitle}</span>
                   </div>
                   <p>{t.artworkDetails.verifyEvidenceMismatchHint}</p>
-                  <ul className="space-y-1 font-mono text-[11px] text-rose-200 break-all">
+                  <ul className="space-y-1 font-mono text-[11px] break-all">
                     {v3EvidenceMatch.mismatchedSuppliedFiles.map((f, idx) => (
                       <li key={idx}>
                         {f.fileName} ({f.byteLength.toLocaleString()} bytes) · SHA-256:{' '}
@@ -1720,7 +1824,7 @@ export function VerifyCertificatePage() {
           )}
 
           {!evidenceInputRaw && (
-            <p className="text-[11px] text-slate-400 leading-relaxed">
+            <p className="text-[11px] ga-text-muted leading-relaxed">
               {t.nextGen.verify.v3NoExtensionNeededNote}
             </p>
           )}
@@ -1733,13 +1837,13 @@ export function VerifyCertificatePage() {
         <div
           role="note"
           data-testid="verify-qr-mask-notice"
-          className="rounded-xl border border-sky-400/35 bg-sky-500/10 p-4 flex items-start gap-3 text-xs sm:text-sm text-sky-100"
+          className="ga-status-info rounded-2xl border p-4 flex items-start gap-3 text-xs sm:text-sm"
         >
-          <Info className="h-5 w-5 text-sky-300 shrink-0 mt-0.5" aria-hidden="true" />
+          <Info className="h-5 w-5 shrink-0 mt-0.5" aria-hidden="true" />
           <div className="space-y-1">
-            <h2 className="font-semibold text-sky-200">{t.verify.qrMaskNoticeTitle}</h2>
-            <p className="text-sky-100/90 leading-relaxed">{t.verify.qrMaskNoticeBody}</p>
-            <p className="font-mono text-xs text-sky-200">
+            <h2 className="font-semibold">{t.verify.qrMaskNoticeTitle}</h2>
+            <p className="opacity-90 leading-relaxed">{t.verify.qrMaskNoticeBody}</p>
+            <p className="font-mono text-xs">
               qrMask: [{result.manifest.qrMask.join(', ')}]
               {result.qrMaskCoveragePct != null && (
                 <span data-testid="verify-qrmask-coverage" className="ms-2">
@@ -1752,7 +1856,9 @@ export function VerifyCertificatePage() {
                 role="alert"
                 data-testid="verify-qrmask-warning"
                 className={`text-xs font-medium mt-1 ${
-                  result.qrMaskCoverageTier === 'high' ? 'text-rose-200' : 'text-amber-200'
+                  result.qrMaskCoverageTier === 'high'
+                    ? 'text-[var(--ga-error-text)]'
+                    : 'text-[var(--ga-warning-text)]'
                 }`}
               >
                 {result.qrMaskCoverageTier === 'high'
@@ -1765,11 +1871,11 @@ export function VerifyCertificatePage() {
       )}
 
       {result.manifest && !showTopProofStep2Cta && (
-        <section className="rounded-xl border border-white/[0.1] bg-[#051224]/65 backdrop-blur-md p-5 space-y-3">
-          <h2 className="text-sm sm:text-base font-semibold text-white">
+        <section className="ga-card rounded-2xl p-5 space-y-3">
+          <h2 className="text-sm sm:text-base font-semibold ga-text">
             {t.verify.attachArtworkTitle}
           </h2>
-          <p className="text-xs text-slate-400">{t.verify.attachArtworkHint}</p>
+          <p className="text-xs ga-text-muted">{t.verify.attachArtworkHint}</p>
           <ImageDropzone
             onFileSelected={handleAttachArtworkForProof}
             title={
@@ -1782,9 +1888,10 @@ export function VerifyCertificatePage() {
         </section>
       )}
 
-      <p className="text-xs text-slate-400 px-1">{t.verify.trustReminder}</p>
+      <p className="text-xs ga-text-muted px-1">{t.verify.trustReminder}</p>
 
-      {attachedRaster && (
+      {/* Non-cryptographic Perceptual Similarity Check (Advanced Mode) */}
+      {isAdvanced && attachedRaster && (
         <AdvancedSettings
           label={t.hardening.similarity.sectionTitle}
           testId="verify-similarity-panel"
@@ -1793,14 +1900,14 @@ export function VerifyCertificatePage() {
             <div className="flex flex-wrap items-center gap-2">
               <span
                 data-testid="verify-similarity-noncrypto-badge"
-                className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-500/15 px-3 py-1 text-[11px] font-semibold text-amber-200"
+                className="ga-status-warning inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold"
               >
                 <Eye className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>{t.hardening.similarity.badgeNonCrypto}</span>
               </span>
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              {t.hardening.similarity.subtitle}
+            <p className="text-xs ga-text-secondary leading-relaxed">
+              {t.humanUx.verifyUx.perceptualNotice}
             </p>
             <ImageDropzone
               onFileSelected={handleSimilarityCompareFile}
@@ -1808,18 +1915,16 @@ export function VerifyCertificatePage() {
               testId="verify-similarity-input"
             />
             {simComparisonError && (
-              <p role="alert" className="text-xs text-rose-300">
-                {simComparisonError}
-              </p>
+              <FriendlyErrorAlert error={simComparisonError} onDismiss={() => setSimComparisonError(null)} />
             )}
             {simComparisonResult && (
               <div
                 data-testid="verify-similarity-result"
-                className="rounded-xl border border-white/[0.12] bg-[#030b18]/75 p-4 space-y-2.5 text-xs"
+                className="ga-surface-subtle rounded-xl border ga-border p-4 space-y-2.5 text-xs"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-medium text-sky-200 truncate">{simComparisonName}</span>
-                  <span className="rounded bg-white/[0.08] px-2 py-0.5 font-semibold text-slate-100">
+                  <span className="font-medium ga-text-accent truncate">{simComparisonName}</span>
+                  <span className="ga-card-solid rounded border ga-border px-2 py-0.5 font-semibold ga-text">
                     {simComparisonResult.band === 'high'
                       ? t.hardening.similarity.bandHigh
                       : simComparisonResult.band === 'moderate'
@@ -1828,30 +1933,28 @@ export function VerifyCertificatePage() {
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono">
-                  <div className="rounded-lg border border-white/[0.08] bg-[#020813]/80 p-2.5">
-                    <div className="text-[11px] text-slate-400">
+                  <div className="ga-card-solid rounded-lg border ga-border p-2.5">
+                    <div className="text-[11px] ga-text-muted">
                       {t.hardening.similarity.combinedLabel}
                     </div>
-                    <div className="text-sm font-semibold text-white mt-0.5">
+                    <div className="text-sm font-semibold ga-text mt-0.5">
                       {simComparisonResult.combinedSimilarityPct}%
                     </div>
                   </div>
-                  <div className="rounded-lg border border-white/[0.08] bg-[#020813]/80 p-2.5">
-                    <div className="text-[11px] text-slate-400">
+                  <div className="ga-card-solid rounded-lg border ga-border p-2.5">
+                    <div className="text-[11px] ga-text-muted">
                       {t.hardening.similarity.dHashLabel}
                     </div>
-                    <div className="text-sm text-sky-200 mt-0.5">
-                      {simComparisonResult.dHashSimilarityPct}% (d={simComparisonResult.dHashHamming}
-                      )
+                    <div className="text-sm ga-text-accent mt-0.5">
+                      {simComparisonResult.dHashSimilarityPct}% (d={simComparisonResult.dHashHamming})
                     </div>
                   </div>
-                  <div className="rounded-lg border border-white/[0.08] bg-[#020813]/80 p-2.5">
-                    <div className="text-[11px] text-slate-400">
+                  <div className="ga-card-solid rounded-lg border ga-border p-2.5">
+                    <div className="text-[11px] ga-text-muted">
                       {t.hardening.similarity.pHashLabel}
                     </div>
-                    <div className="text-sm text-sky-200 mt-0.5">
-                      {simComparisonResult.pHashSimilarityPct}% (d={simComparisonResult.pHashHamming}
-                      )
+                    <div className="text-sm ga-text-accent mt-0.5">
+                      {simComparisonResult.pHashSimilarityPct}% (d={simComparisonResult.pHashHamming})
                     </div>
                   </div>
                 </div>
@@ -1864,21 +1967,22 @@ export function VerifyCertificatePage() {
                       setSimComparisonResult(null);
                       setSimComparisonError(null);
                     }}
-                    className="rounded-lg border border-white/[0.14] px-3 py-1.5 text-xs text-slate-200 hover:border-white/[0.3] min-h-[36px] cursor-pointer"
+                    className="ga-btn-secondary rounded-xl px-3 py-1.5 text-xs min-h-[36px] cursor-pointer"
                   >
                     {t.hardening.similarity.clearBtn}
                   </button>
                 </div>
               </div>
             )}
-            <p className="text-[11px] text-slate-400 leading-relaxed">
+            <p className="text-[11px] ga-text-muted leading-relaxed">
               {t.hardening.similarity.disclaimer}
             </p>
           </div>
         </AdvancedSettings>
       )}
 
-      {result.manifest && (
+      {/* Raw Manifest & CBOR Inspector (Advanced Mode) */}
+      {isAdvanced && result.manifest && (
         <AdvancedSettings
           label={t.minimal.verify.detailsLabel}
           testId="verify-manifest-details"
@@ -2009,17 +2113,94 @@ export function VerifyCertificatePage() {
           </dl>
         </AdvancedSettings>
       )}
+
+      {!isAdvanced && result.manifest && (
+        <div
+          data-testid="verify-simple-advanced-hint"
+          className="ga-surface-subtle rounded-xl border ga-border px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-xs ga-text-secondary"
+        >
+          <span>{t.humanUx.verifyUx.historyAdvancedHint}</span>
+          <button
+            type="button"
+            onClick={() => setMode('advanced')}
+            className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium min-h-[36px] cursor-pointer"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>{t.humanUx.mode.switchToAdvancedBtn}</span>
+          </button>
+        </div>
+      )}
     </div>
+  ) : null;
+
+  const historySection = isAdvanced ? (
+    <section
+      data-testid="verify-history-panel"
+      className="ga-card rounded-2xl p-5 space-y-3"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="space-y-0.5">
+          <h2 className="text-sm sm:text-base font-semibold ga-text flex items-center gap-2">
+            <History className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
+            <span>{t.humanUx.verifyUx.historyTitle}</span>
+          </h2>
+          <p className="text-xs ga-text-muted">{t.humanUx.verifyUx.historySubtitle}</p>
+        </div>
+        {verificationLogs.length > 0 && (
+          <button
+            type="button"
+            data-testid="verify-history-clear-btn"
+            onClick={() => setVerificationLogs(clearVerificationLogs())}
+            className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium min-h-[36px] cursor-pointer"
+          >
+            <Trash2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>{t.humanUx.verifyUx.historyClearBtn}</span>
+          </button>
+        )}
+      </div>
+
+      {verificationLogs.length === 0 ? (
+        <p className="text-xs ga-text-muted py-2">{t.humanUx.verifyUx.historyEmpty}</p>
+      ) : (
+        <ul className="space-y-2">
+          {verificationLogs.slice(0, 15).map((entry) => (
+            <li
+              key={entry.id}
+              data-testid="verify-history-item"
+              className="ga-surface-subtle rounded-xl border ga-border px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs"
+            >
+              <div className="space-y-0.5 min-w-0">
+                <div className="font-medium ga-text truncate">
+                  {entry.artworkTitle || entry.sourceLabel}
+                  {entry.authorName ? ` · ${entry.authorName}` : ''}
+                </div>
+                <div className="font-mono text-[11px] ga-text-muted">
+                  {new Date(entry.checkedAt).toLocaleString()} · {entry.sourceLabel}
+                  {entry.authorFingerprintShort ? ` · ${entry.authorFingerprintShort}` : ''}
+                </div>
+              </div>
+              <span
+                className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium shrink-0 ${
+                  entry.signatureStatus === 'valid' ? 'ga-status-success' : 'ga-status-error'
+                }`}
+              >
+                {entry.signatureStatus === 'valid'
+                  ? t.humanUx.verifyUx.historyValidLabel
+                  : t.humanUx.verifyUx.historyInvalidLabel}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   ) : null;
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
-      <header className="flex items-start justify-between gap-4 border-b border-white/[0.08] pb-4">
+      <header className="flex items-start justify-between gap-4 border-b ga-border pb-4">
         <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-semibold text-white">
-            {t.home.ctaVerify}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400">{t.minimal.verify.dropHint}</p>
+          <h1 className="text-2xl sm:text-3xl font-semibold ga-text">{t.home.ctaVerify}</h1>
+          <p className="text-xs sm:text-sm ga-text-secondary">{t.minimal.verify.dropHint}</p>
         </div>
 
         <HelpIconButton
@@ -2029,9 +2210,19 @@ export function VerifyCertificatePage() {
           testId="verify-help-btn"
         >
           <p>{t.minimal.verify.helpBody}</p>
-          <p className="text-xs text-slate-400">{t.verify.trustReminder}</p>
+          <p className="text-xs ga-text-muted">{t.verify.trustReminder}</p>
         </HelpIconButton>
       </header>
+
+      <ThreeStepIndicator
+        activeStep={activeStep}
+        testIdPrefix="verify-step-indicator"
+        steps={[
+          { number: 1, label: t.humanUx.verifyUx.step1Short },
+          { number: 2, label: t.humanUx.verifyUx.step2Short },
+          { number: 3, label: t.humanUx.verifyUx.step3Short },
+        ]}
+      />
 
       {canAttachLocalEvidenceFiles && (
         <input
@@ -2051,6 +2242,7 @@ export function VerifyCertificatePage() {
           {optionalExtensionSection}
           {step2ArtworkCtaSection}
           {inputTabsSection}
+          {historySection}
         </>
       ) : (
         <>
@@ -2059,6 +2251,7 @@ export function VerifyCertificatePage() {
           {optionalExtensionSection}
           {step2ArtworkCtaSection}
           {resultsSection}
+          {historySection}
         </>
       )}
     </div>
@@ -2067,11 +2260,9 @@ export function VerifyCertificatePage() {
 
 function DetailRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3">
-      <dt className="text-xs text-slate-400">{label}</dt>
-      <dd className={`mt-0.5 text-slate-100 break-all ${mono ? 'font-mono text-xs' : ''}`}>
-        {value}
-      </dd>
+    <div className="ga-surface-subtle rounded-xl border ga-border p-3">
+      <dt className="text-xs ga-text-muted">{label}</dt>
+      <dd className={`mt-0.5 ga-text break-all ${mono ? 'font-mono text-xs' : ''}`}>{value}</dd>
     </div>
   );
 }

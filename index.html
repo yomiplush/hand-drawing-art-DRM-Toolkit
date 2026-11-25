@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#06111e" />
+    <meta name="theme-color" content="#F5F8FD" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0C1424" media="(prefers-color-scheme: dark)" />
     <meta name="referrer" content="no-referrer" />
     <meta
       http-equiv="Content-Security-Policy"
@@ -33,7 +34,7 @@
     />
     <meta
       property="og:description"
-      content="Your artwork should outlive the platform that certifies it. 100% local-first, standalone Ed25519 + SHA-256 + AES-256-GCM Cryptographic Artwork Provenance &amp; QR verification toolkit."
+      content="Your art. Your proof. Always free, no sign-up, and no image uploads. Local-first artwork provenance and offline QR verification."
     />
     <meta property="og:url" content="https://certified-handmade.com/" />
     <meta property="og:image" content="https://certified-handmade.com/og-card.png" />
@@ -50,7 +51,7 @@
     />
     <meta
       name="twitter:description"
-      content="100% local, standalone open-source Cryptographic Artwork Provenance toolkit. Ed25519 signatures, SHA-256 tamper detection, AES-256-GCM backups &amp; offline verification."
+      content="100% local, standalone open-source Cryptographic Artwork Provenance toolkit. Always free, no sign-up, no image uploads."
     />
     <meta name="twitter:image" content="https://certified-handmade.com/og-card.png" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -88,7 +89,7 @@
               "Ed25519 digital signatures & SHA-256 RGBA8 canonical pixel tamper detection",
               "AES-256-GCM & PBKDF2-SHA256 encrypted key backups (.chkey.json)",
               "Lossless PNG outer QR frame & manual translucent In-Image QR Studio",
-              "Standalone offline PWA, Go/JS offline verifiers & optional personal Google Drive AES-256-GCM encrypted vault (drive.file)"
+              "Standalone offline PWA, Go/JS offline verifiers & optional personal Google Drive AES-256-GCM encrypted appDataFolder sync (drive.appdata)"
             ],
             "keywords": "Cryptographic Artwork Provenance, Hand-drawing Artist, Hand-drawn Art DRM, Tamper Detection, Local-First, Standalone, 手描き, 手描きDRM, 来歴証明, ローカル駆動, スタンドアローン"
           },
@@ -126,20 +127,20 @@
       }
     </script>
   </head>
-  <body class="bg-[#06111e] text-slate-100 antialiased selection:bg-cyan-500/30 selection:text-cyan-100">
+  <body class="antialiased">
     <div id="root">
-      <main style="max-width:56rem;margin:0 auto;padding:2rem 1.25rem;font-family:system-ui,-apple-system,sans-serif;line-height:1.6;color:#e2e8f0">
+      <main style="max-width:56rem;margin:0 auto;padding:2rem 1.25rem;font-family:system-ui,-apple-system,sans-serif;line-height:1.6;">
         <h1>Certified Handmade — Cryptographic Artwork Provenance &amp; Offline QR Certificates</h1>
-        <p>Your artwork should outlive the platform that certifies it. / あなたの作品は、それを証明するプラットフォームより長く生き続けるべきだ。</p>
-        <p>Open-source, 100% local-first &amp; standalone Cryptographic Artwork Provenance toolkit for hand-drawing artists (手描きアーティストのための完全ローカル駆動・暗号学的来歴証明・権利表明ツール). Sign lossless PNG illustrations with Ed25519 signatures, SHA-256 tamper detection, and AES-256-GCM key backups—zero login, zero server uploads, offline PWA ready.</p>
-        <p>Optional Google Drive Vault (<code>https://www.googleapis.com/auth/drive.file</code>): Only if you explicitly connect Google Drive in Storage, Certified Handmade stores client-side AES-256-GCM encrypted proof records, profiles, and backups inside your own My Drive/Certified Handmade folder—never accessing other Drive files or uploading original artwork images.</p>
+        <p>Your art. Your proof. / 大切な絵に、あなたの証を。</p>
+        <p>Open-source, 100% local-first &amp; standalone artwork provenance toolkit for illustrators and artists. Sign lossless PNG illustrations locally with zero logins and zero server uploads.</p>
+        <p>Optional Google Drive App-Private Vault (<code>https://www.googleapis.com/auth/drive.appdata</code>): Only if you explicitly connect Google Drive in Storage, Certified Handmade stores client-side AES-256-GCM encrypted records inside your hidden appDataFolder—never touching visible Drive files or uploading original artwork images.</p>
         <nav aria-label="Primary pages">
-          <a href="/create">Create Provenance Certificate &amp; In-Image QR Studio</a> ·
-          <a href="/verify">Verify Artwork &amp; QR Proof</a> ·
-          <a href="/tutorial">Step-by-Step Tutorial</a> ·
-          <a href="/keys">Encrypted Signing Keys (AES-256-GCM)</a> ·
-          <a href="/storage">Storage &amp; Optional Google Drive Vault</a> ·
-          <a href="/docs">Cryptographic Spec &amp; Docs</a> ·
+          <a href="/create">Certify Artwork</a> ·
+          <a href="/verify">Verify Artwork</a> ·
+          <a href="/tutorial">Tutorial</a> ·
+          <a href="/keys">Signing Keys</a> ·
+          <a href="/storage">Sync &amp; Storage</a> ·
+          <a href="/docs">Technical Docs</a> ·
           <a href="/privacypolicy">Privacy Policy</a> ·
           <a href="/?hl=ja">日本語版 (Japanese)</a>
         </nav>

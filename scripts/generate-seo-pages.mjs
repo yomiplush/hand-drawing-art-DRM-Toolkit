@@ -100,12 +100,12 @@ const ROUTES = [
     slug: 'privacypolicy',
     title: 'Privacy Policy, GDPR & Google Drive Limited Use Notice | Certified Handmade',
     description:
-      'GDPR & Google API privacy disclosure: zero tracking, zero analytics, 100% local artwork/key processing, and optional RAM-only OAuth Google Drive (drive.file) client-side AES-256-GCM encrypted vault storage.',
+      'GDPR & Google API privacy disclosure: zero tracking, zero analytics, 100% local artwork/key processing, and optional RAM-only OAuth Google Drive (drive.appdata) client-side AES-256-GCM encrypted vault storage.',
     keywords:
-      'Privacy Policy, GDPR Compliance, Google Drive Limited Use, drive.file, Zero Telemetry, Local-Only Web App, Offline Privacy, プライバシーポリシー, 完全ローカル',
-    heading: 'Privacy Policy, GDPR & Google Drive (drive.file) Limited Use Notice',
+      'Privacy Policy, GDPR Compliance, Google Drive Limited Use, drive.appdata, Zero Telemetry, Local-Only Web App, Offline Privacy, プライバシーポリシー, 完全ローカル',
+    heading: 'Privacy Policy, GDPR & Google Drive (drive.appdata) Limited Use Notice',
     summary:
-      'Certified Handmade processes all artwork files and cryptographic keys strictly locally in your browser with zero analytics or tracking cookies. Optional Google Drive sync uses only the narrow drive.file scope with RAM-only OAuth tokens and client-side AES-256-GCM encryption in strict compliance with the Google API Services User Data Policy (Limited Use).',
+      'Certified Handmade processes all artwork files and cryptographic keys strictly locally in your browser with zero analytics or tracking cookies. Optional Google Drive sync uses only the narrow drive.appdata scope with RAM-only OAuth tokens and client-side AES-256-GCM encryption inside your hidden appDataFolder in strict compliance with the Google API Services User Data Policy (Limited Use).',
   },
 ];
 
@@ -164,7 +164,7 @@ for (const route of ROUTES) {
   );
   html = html.replace(
     /<main[\s\S]*?<\/main>/,
-    `<main style="max-width:56rem;margin:0 auto;padding:2rem 1.25rem;font-family:system-ui,-apple-system,sans-serif;line-height:1.6;color:#e2e8f0"><h1>${escapeHtml(route.heading)}</h1><p>${escapeHtml(route.summary)}</p><nav aria-label="Primary pages"><a href="/">Home</a> · <a href="/create">Create</a> · <a href="/verify">Verify</a> · <a href="/tutorial">Tutorial</a> · <a href="/keys">Keys</a> · <a href="/devices">Devices</a> · <a href="/storage">Storage</a> · <a href="/exchange">Exchange</a> · <a href="/docs">Docs</a> · <a href="/privacypolicy">Privacy Policy</a></nav></main>`,
+    `<main style="max-width:56rem;margin:0 auto;padding:2rem 1.25rem;font-family:system-ui,-apple-system,sans-serif;line-height:1.6;"><h1>${escapeHtml(route.heading)}</h1><p>${escapeHtml(route.summary)}</p><nav aria-label="Primary pages"><a href="/">Home</a> · <a href="/create">Create</a> · <a href="/verify">Verify</a> · <a href="/tutorial">Tutorial</a> · <a href="/keys">Keys</a> · <a href="/devices">Devices</a> · <a href="/storage">Storage</a> · <a href="/exchange">Exchange</a> · <a href="/docs">Docs</a> · <a href="/privacypolicy">Privacy Policy</a></nav></main>`,
   );
 
   const outPath = path.join(distDir, `${route.slug}.html`);

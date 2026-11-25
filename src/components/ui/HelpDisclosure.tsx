@@ -34,7 +34,7 @@ export function HelpDisclosure({
     <div
       data-testid={testId}
       onKeyDown={handleKeyDown}
-      className={`rounded-xl border border-white/[0.1] bg-[#041021]/65 backdrop-blur-md ${className}`}
+      className={`rounded-2xl ga-card ${className}`}
     >
       <button
         ref={triggerRef}
@@ -42,14 +42,14 @@ export function HelpDisclosure({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((prev) => !prev)}
-        className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-start text-xs sm:text-sm font-medium text-slate-200 hover:text-white transition-colors min-h-[44px] cursor-pointer rounded-xl"
+        className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-start text-xs sm:text-sm font-medium ga-text hover:opacity-90 transition-colors min-h-[44px] cursor-pointer rounded-2xl"
       >
         <span className="inline-flex items-center gap-2 min-w-0">
-          {icon ?? <HelpCircle className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />}
+          {icon ?? <HelpCircle className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />}
           <span className="truncate">{label}</span>
         </span>
         <ChevronDown
-          className={`h-4 w-4 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`h-4 w-4 ga-text-muted shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
           aria-hidden="true"
         />
       </button>
@@ -59,7 +59,7 @@ export function HelpDisclosure({
           id={panelId}
           role="region"
           aria-label={label}
-          className="border-t border-white/[0.08] px-4 py-3 text-xs sm:text-sm text-slate-300 leading-relaxed"
+          className="border-t ga-border px-4 py-3 text-xs sm:text-sm ga-text-secondary leading-relaxed"
         >
           {children}
         </div>

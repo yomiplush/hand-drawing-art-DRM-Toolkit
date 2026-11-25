@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSignedArtworkPng } from '../../src/core/manifest/signArtwork';
 import {
   DRIVE_FOLDER_MIME,
-  GOOGLE_DRIVE_FILE_SCOPE,
+  DRIVE_APPDATA_SPACE,
+  GOOGLE_DRIVE_APPDATA_SCOPE,
   GoogleDriveClient,
   GoogleDriveStorageProvider,
   InMemoryGoogleAuthManager,
@@ -12,7 +13,7 @@ import {
 } from '../../src/core/google';
 import { savePolicyPreset } from '../../src/core/policies';
 import { listAuthorProfiles, saveAuthorProfile } from '../../src/core/profiles';
-import { createAuthorKey, openChmDatabase } from '../../src/core/storage/keyStore';
+import { createAuthorKey, listAuthorKeys, openChmDatabase } from '../../src/core/storage/keyStore';
 import {
   VAULT_CRYPTO_FORMAT,
   VAULT_KEYRING_FORMAT,
@@ -20,7 +21,10 @@ import {
   listAllVaultProofs,
   saveDriveAccountState,
   saveProofToVault,
+  listEncryptedKeyRecoveryBackups,
+  restoreAuthorKeyFromDriveRecovery,
   saveVaultSettings,
+  uploadEncryptedKeyRecoveryBackup,
 } from '../../src/core/vault';
 import { InMemoryIdbBackend, createInMemoryIndexedDb } from '../helpers/inMemoryIndexedDb';
 
@@ -68,7 +72,7 @@ function createMockDriveFetch() {
         id: fileId,
         name: meta.name,
         mimeType: meta.mimeType ?? 'application/json',
-        parents: meta.parents ?? existing?.parents ?? ['root'],
+        parents: meta.parents ?? existing?.parents ?? [DRIVE_APPDATA_SPACE],
         appProperties: meta.appProperties ?? existing?.appProperties ?? {},
         modifiedTime: new Date().toISOString(),
         content: payloadText,
@@ -82,6 +86,7 @@ function createMockDriveFetch() {
       const body = JSON.parse(String(init?.body ?? '{}')) as {
         name: string;
         mimeType: string;
+        parents?: string[];
         appProperties?: Record<string, string>;
       };
       const id = `folder-${nextId++}`;
@@ -89,7 +94,7 @@ function createMockDriveFetch() {
         id,
         name: body.name,
         mimeType: body.mimeType,
-        parents: ['root'],
+        parents: body.parents ?? [DRIVE_APPDATA_SPACE],
         appProperties: body.appProperties ?? {},
         modifiedTime: new Date().toISOString(),
       };
@@ -99,6 +104,9 @@ function createMockDriveFetch() {
 
     // List files
     if (url.pathname === '/drive/v3/files' && method === 'GET') {
+      if (url.searchParams.get('spaces') && url.searchParams.get('spaces') !== DRIVE_APPDATA_SPACE) {
+        return new Response(JSON.stringify({ files: [] }), { status: 200 });
+      }
       const q = url.searchParams.get('q') ?? '';
       const list = Array.from(files.values()).filter((f) => {
         if (q.includes(`mimeType='${DRIVE_FOLDER_MIME}'`) && f.mimeType !== DRIVE_FOLDER_MIME) {
@@ -218,7 +226,7 @@ describe('Google OAuth 2.0 Memory-Only Auth, Drive Folder Recovery & Encrypted S
             cfg.callback({
               access_token: `mem-secret-token-${activeAccountId}`,
               expires_in: 3600,
-              scope: GOOGLE_DRIVE_FILE_SCOPE,
+              scope: GOOGLE_DRIVE_APPDATA_SCOPE,
             });
           }
         },
@@ -257,7 +265,7 @@ describe('Google OAuth 2.0 Memory-Only Auth, Drive Folder Recovery & Encrypted S
     nextTokenOutcome = 'missing-scope';
     await expect(
       auth.connectInteractive({ origin: 'https://certified-handmade.com' }),
-    ).rejects.toThrow(/drive\.file/);
+    ).rejects.toThrow(/drive\.appdata/);
 
     nextTokenOutcome = 'ok';
     const sessionA = await auth.connectInteractive({ origin: 'https://certified-handmade.com' });
@@ -459,5 +467,102 @@ describe('Google OAuth 2.0 Memory-Only Auth, Drive Folder Recovery & Encrypted S
     await providerB.disconnect({ revokeAuthorization: false });
     expect(spy).toHaveBeenCalled();
     expect(await listAllVaultProofs()).toHaveLength(1);
+  });
+
+  it('stores Vault files inside appDataFolder and supports explicit opt-in encrypted key recovery', async () => {
+    const drive = createMockDriveFetch();
+    const client = new GoogleDriveClient({
+      fetchImpl: drive.fetchImpl,
+      sleepMs: async () => {},
+    });
+    const auth = new InMemoryGoogleAuthManager({
+      fetchAbout: async () => ({
+        accountKey: 'acct-recovery',
+        permissionId: 'acct-recovery',
+        emailAddress: 'artist@example.com',
+        displayName: 'Artist',
+      }),
+    });
+    auth._setTestSession({
+      accessToken: 'ram-only-tok-recovery',
+      expiresInSeconds: 3600,
+      account: { accountKey: 'acct-recovery', emailAddress: 'artist@example.com', displayName: 'Artist' },
+    });
+
+    const providerA = new GoogleDriveStorageProvider({ authManager: auth, driveClient: client });
+    const { record: authorKey } = await createAuthorKey({
+      label: 'Artist Studio Key',
+      backupPassphrase: 'key-backup-strong-pass',
+    });
+    const { keyring: keyringA } = await providerA.unlockOrInitializeVault({
+      vaultPassphrase: 'vault-passphrase-abc123',
+      pbkdf2Iterations: 100_000,
+    });
+    await providerA.sync();
+
+    // Sync writes exclusively inside appDataFolder, and NEVER creates a recovery file automatically
+    for (const file of drive.files.values()) {
+      expect(file.appProperties.chmRole).not.toBe('recovery');
+    }
+
+    // Explicit opt-in: upload encrypted key recovery envelope
+    const uploaded = await uploadEncryptedKeyRecoveryBackup({
+      client,
+      accessToken: auth.getAccessTokenOrThrow(),
+      accountKey: 'acct-recovery',
+      keyring: keyringA,
+      authorKeyId: authorKey.id,
+    });
+    expect(uploaded.entries).toHaveLength(1);
+    const recoveryDriveFile = Array.from(drive.files.values()).find(
+      (f) => f.appProperties.chmRole === 'recovery',
+    );
+    expect(recoveryDriveFile).toBeDefined();
+    expect(recoveryDriveFile?.content).not.toContain('key-backup-strong-pass');
+    expect(recoveryDriveFile?.content).not.toContain('Artist Studio Key');
+
+    // Fresh Device B unlocks Vault with Vault passphrase, then lists & restores key only with key passphrase
+    const deviceBBackend = new InMemoryIdbBackend();
+    setBackend(deviceBBackend);
+    const dbB = await openChmDatabase();
+    dbB.close();
+
+    const providerB = new GoogleDriveStorageProvider({ authManager: auth, driveClient: client });
+    const { keyring: keyringB } = await providerB.unlockOrInitializeVault({
+      vaultPassphrase: 'vault-passphrase-abc123',
+    });
+    await providerB.sync();
+
+    const entriesOnB = await listEncryptedKeyRecoveryBackups({
+      client,
+      accessToken: auth.getAccessTokenOrThrow(),
+      accountKey: 'acct-recovery',
+      keyring: keyringB,
+    });
+    expect(entriesOnB).toHaveLength(1);
+    expect(entriesOnB[0].fingerprint).toBe(authorKey.fingerprintHex);
+
+    await expect(
+      restoreAuthorKeyFromDriveRecovery({
+        client,
+        accessToken: auth.getAccessTokenOrThrow(),
+        accountKey: 'acct-recovery',
+        keyring: keyringB,
+        publicKey: entriesOnB[0].publicKey,
+        backupPassphrase: 'wrong-key-passphrase',
+      }),
+    ).rejects.toThrow();
+
+    await restoreAuthorKeyFromDriveRecovery({
+      client,
+      accessToken: auth.getAccessTokenOrThrow(),
+      accountKey: 'acct-recovery',
+      keyring: keyringB,
+      publicKey: entriesOnB[0].publicKey,
+      backupPassphrase: 'key-backup-strong-pass',
+    });
+
+    const restoredKeys = await listAuthorKeys();
+    expect(restoredKeys.some((k) => k.fingerprintHex === authorKey.fingerprintHex)).toBe(true);
   });
 });

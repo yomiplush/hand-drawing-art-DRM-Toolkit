@@ -1,4 +1,3 @@
-
 import {
   AlertTriangle,
   CheckCircle2,
@@ -72,10 +71,10 @@ export function VerifiedArtworkDetailsCard({
 
   const statusTone =
     summary.status === 'valid'
-      ? 'border-emerald-400/35 bg-emerald-500/10 text-emerald-200'
+      ? 'ga-status-success'
       : summary.status === 'unsupported'
-        ? 'border-amber-400/35 bg-amber-500/10 text-amber-200'
-        : 'border-rose-400/40 bg-rose-500/15 text-rose-200';
+        ? 'ga-status-warning'
+        : 'ga-status-error';
 
   const statusText =
     summary.status === 'valid'
@@ -117,7 +116,7 @@ export function VerifiedArtworkDetailsCard({
           <div
             role="alert"
             data-testid="verify-extension-errors"
-            className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 space-y-1 text-xs text-rose-200"
+            className="rounded-xl border ga-status-error p-3 space-y-1 text-xs"
           >
             {summary.errors.map((err, i) => (
               <p key={i}>{err}</p>
@@ -131,25 +130,25 @@ export function VerifiedArtworkDetailsCard({
             {ext.artworkMetadata && (
               <div
                 data-testid="verify-ext-artwork-metadata"
-                className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-2.5"
+                className="rounded-xl ga-surface-subtle p-4 space-y-2.5"
               >
-                <div className="flex items-center gap-2 text-xs font-semibold text-sky-200">
+                <div className="flex items-center gap-2 text-xs font-semibold ga-text-accent">
                   <Info className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   <span>{t.artworkDetails.groupArtwork}</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm">
                   {ext.artworkMetadata.title && (
                     <div>
-                      <div className="text-[11px] text-slate-400">{t.artworkDetails.titleLabel}</div>
-                      <div className="font-medium text-white break-words">
+                      <div className="text-[11px] ga-text-muted">{t.artworkDetails.titleLabel}</div>
+                      <div className="font-medium ga-text break-words">
                         {ext.artworkMetadata.title}
                       </div>
                     </div>
                   )}
                   {ext.artworkMetadata.artistName && (
                     <div>
-                      <div className="text-[11px] text-slate-400">{t.artworkDetails.artistLabel}</div>
-                      <div className="font-medium text-white break-words">
+                      <div className="text-[11px] ga-text-muted">{t.artworkDetails.artistLabel}</div>
+                      <div className="font-medium ga-text break-words">
                         {ext.artworkMetadata.artistName}
                       </div>
                     </div>
@@ -157,10 +156,10 @@ export function VerifiedArtworkDetailsCard({
                 </div>
                 {ext.artworkMetadata.description && (
                   <div>
-                    <div className="text-[11px] text-slate-400">
+                    <div className="text-[11px] ga-text-muted">
                       {t.artworkDetails.descriptionLabel}
                     </div>
-                    <p className="text-xs sm:text-sm text-slate-200 whitespace-pre-wrap break-words mt-0.5 leading-relaxed">
+                    <p className="text-xs sm:text-sm ga-text-secondary whitespace-pre-wrap break-words mt-0.5 leading-relaxed">
                       {ext.artworkMetadata.description}
                     </p>
                   </div>
@@ -172,20 +171,20 @@ export function VerifiedArtworkDetailsCard({
             {ext.creatorProfile && (
               <div
                 data-testid="verify-ext-creator-profile"
-                className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-2.5"
+                className="rounded-xl ga-surface-subtle p-4 space-y-2.5"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="flex items-center gap-2 text-xs font-semibold text-sky-200">
+                  <span className="flex items-center gap-2 text-xs font-semibold ga-text-accent">
                     <User className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                     <span>{t.artworkDetails.groupCreator}</span>
                   </span>
-                  <span className="rounded-full border border-white/[0.12] bg-[#020813]/75 px-2.5 py-0.5 text-[10px] text-slate-300">
+                  <span className="rounded-full ga-card-solid px-2.5 py-0.5 text-[10px] ga-text-muted">
                     {t.artworkDetails.verifyProfileSelfDeclared}
                   </span>
                 </div>
 
                 {ext.creatorProfile.displayName && (
-                  <div className="text-sm font-medium text-white break-words">
+                  <div className="text-sm font-medium ga-text break-words">
                     {ext.creatorProfile.displayName}
                   </div>
                 )}
@@ -196,7 +195,7 @@ export function VerifiedArtworkDetailsCard({
                       href={ext.creatorProfile.website}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-sky-300 hover:text-sky-200 underline underline-offset-4 break-all"
+                      className="inline-flex items-center gap-1.5 text-xs sm:text-sm ga-text-accent hover:underline underline-offset-4 break-all"
                     >
                       <span>{ext.creatorProfile.website}</span>
                       <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -213,7 +212,7 @@ export function VerifiedArtworkDetailsCard({
                             href={link.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-[#020813]/75 px-3 py-1.5 text-xs text-sky-200 hover:border-sky-400/40 break-all"
+                            className="inline-flex items-center gap-1.5 rounded-lg ga-card-solid px-3 py-1.5 text-xs ga-text-accent hover:underline break-all"
                           >
                             <span>{link.label ? `${link.label}: ${link.url}` : link.url}</span>
                             <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -230,9 +229,9 @@ export function VerifiedArtworkDetailsCard({
             {(ext.creationMethod !== undefined || ext.creationEnvironment) && (
               <div
                 data-testid="verify-ext-creation"
-                className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-3"
+                className="rounded-xl ga-surface-subtle p-4 space-y-3"
               >
-                <div className="flex items-center gap-2 text-xs font-semibold text-sky-200">
+                <div className="flex items-center gap-2 text-xs font-semibold ga-text-accent">
                   <Cpu className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   <span>{t.artworkDetails.groupCreation}</span>
                 </div>
@@ -240,7 +239,7 @@ export function VerifiedArtworkDetailsCard({
                 {ext.creationMethod && (
                   <div
                     data-testid="verify-ext-creation-method"
-                    className="rounded-lg border border-sky-400/25 bg-sky-500/10 px-3 py-2 text-xs sm:text-sm text-sky-100"
+                    className="rounded-lg border ga-status-info px-3 py-2 text-xs sm:text-sm"
                   >
                     <span className="font-semibold">
                       {t.artworkDetails.verifyMethodPrefix}{' '}
@@ -253,31 +252,31 @@ export function VerifiedArtworkDetailsCard({
                 {ext.creationEnvironment && (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                     {ext.creationEnvironment.software && (
-                      <div className="rounded-lg border border-white/[0.08] bg-[#020813]/70 p-2.5">
-                        <div className="text-[11px] text-slate-400">
+                      <div className="rounded-lg ga-card-solid p-2.5">
+                        <div className="text-[11px] ga-text-muted">
                           {t.artworkDetails.softwareLabel}
                         </div>
-                        <div className="text-white mt-0.5 break-words">
+                        <div className="ga-text mt-0.5 break-words">
                           {ext.creationEnvironment.software}
                         </div>
                       </div>
                     )}
                     {ext.creationEnvironment.hardware && (
-                      <div className="rounded-lg border border-white/[0.08] bg-[#020813]/70 p-2.5">
-                        <div className="text-[11px] text-slate-400">
+                      <div className="rounded-lg ga-card-solid p-2.5">
+                        <div className="text-[11px] ga-text-muted">
                           {t.artworkDetails.hardwareLabel}
                         </div>
-                        <div className="text-white mt-0.5 break-words">
+                        <div className="ga-text mt-0.5 break-words">
                           {ext.creationEnvironment.hardware}
                         </div>
                       </div>
                     )}
                     {ext.creationEnvironment.inputDevice && (
-                      <div className="rounded-lg border border-white/[0.08] bg-[#020813]/70 p-2.5">
-                        <div className="text-[11px] text-slate-400">
+                      <div className="rounded-lg ga-card-solid p-2.5">
+                        <div className="text-[11px] ga-text-muted">
                           {t.artworkDetails.inputDeviceLabel}
                         </div>
-                        <div className="text-white mt-0.5 break-words">
+                        <div className="ga-text mt-0.5 break-words">
                           {ext.creationEnvironment.inputDevice}
                         </div>
                       </div>
@@ -287,16 +286,16 @@ export function VerifiedArtworkDetailsCard({
 
                 {ext.creationEnvironment?.notes && (
                   <div>
-                    <div className="text-[11px] text-slate-400">
+                    <div className="text-[11px] ga-text-muted">
                       {t.artworkDetails.creationNotesLabel}
                     </div>
-                    <p className="text-xs text-slate-200 whitespace-pre-wrap break-words mt-0.5">
+                    <p className="text-xs ga-text-secondary whitespace-pre-wrap break-words mt-0.5">
                       {ext.creationEnvironment.notes}
                     </p>
                   </div>
                 )}
 
-                <p className="text-[11px] text-slate-400 leading-relaxed">
+                <p className="text-[11px] ga-text-muted leading-relaxed">
                   {t.artworkDetails.verifyStatementOnlyNote}
                 </p>
               </div>
@@ -306,10 +305,10 @@ export function VerifiedArtworkDetailsCard({
             {summary.recordChecks.length > 0 && (
               <div
                 data-testid="verify-ext-evidence-records"
-                className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-3"
+                className="rounded-xl ga-surface-subtle p-4 space-y-3"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="flex items-center gap-2 text-xs font-semibold text-sky-200">
+                  <span className="flex items-center gap-2 text-xs font-semibold ga-text-accent">
                     <FileCheck2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                     <span>{t.artworkDetails.verifyEvidenceSummaryTitle}</span>
                   </span>
@@ -317,7 +316,7 @@ export function VerifiedArtworkDetailsCard({
                     {summary.verifiedRecordCount > 0 && (
                       <span
                         data-testid="verify-evidence-verified-count"
-                        className="rounded-full border border-emerald-400/35 bg-emerald-500/15 px-2.5 py-0.5 text-emerald-200"
+                        className="rounded-full border ga-status-success px-2.5 py-0.5"
                       >
                         {summary.verifiedRecordCount} {t.artworkDetails.verifyEvidenceVerifiedCount}
                       </span>
@@ -325,7 +324,7 @@ export function VerifiedArtworkDetailsCard({
                     {summary.unavailableRecordCount > 0 && (
                       <span
                         data-testid="verify-evidence-unavailable-count"
-                        className="rounded-full border border-white/[0.14] bg-[#020813]/75 px-2.5 py-0.5 text-slate-300"
+                        className="rounded-full ga-card-solid px-2.5 py-0.5 ga-text-muted"
                       >
                         {summary.unavailableRecordCount}{' '}
                         {t.artworkDetails.verifyEvidenceUnavailableCount}
@@ -339,20 +338,20 @@ export function VerifiedArtworkDetailsCard({
                     <li
                       key={rec.index}
                       data-testid={`verify-evidence-record-${rec.index}`}
-                      className="rounded-lg border border-white/[0.08] bg-[#020813]/75 p-3 space-y-1.5 text-xs"
+                      className="rounded-lg ga-card-solid p-3 space-y-1.5 text-xs"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-medium text-white break-words">
+                        <span className="font-medium ga-text break-words">
                           {rec.label || `Evidence #${rec.index + 1}`}
-                          <span className="ms-2 rounded bg-white/[0.08] px-2 py-0.5 text-[10px] text-slate-300">
+                          <span className="ms-2 rounded ga-surface-subtle px-2 py-0.5 text-[10px] ga-text-muted">
                             {formatCategory(rec.category)}
                           </span>
                         </span>
                         <span
                           className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
                             rec.status === 'verified'
-                              ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200'
-                              : 'border-white/[0.14] bg-white/[0.05] text-slate-300'
+                              ? 'ga-status-success'
+                              : 'ga-surface-subtle ga-text-muted'
                           }`}
                         >
                           {rec.status === 'verified' ? (
@@ -367,10 +366,10 @@ export function VerifiedArtworkDetailsCard({
                           </span>
                         </span>
                       </div>
-                      <div className="font-mono text-[11px] text-slate-400 break-all">
+                      <div className="font-mono text-[11px] ga-text-muted break-all">
                         SHA-256: {rec.sha256Hex} · {rec.byteLength.toLocaleString()} bytes
                         {rec.matchedFileName && (
-                          <span className="ms-2 text-emerald-300">
+                          <span className="ms-2 text-[var(--ga-success-text)]">
                             ({t.artworkDetails.verifyMatchedLocalFile} {rec.matchedFileName})
                           </span>
                         )}
@@ -386,14 +385,14 @@ export function VerifiedArtworkDetailsCard({
               <div
                 role="alert"
                 data-testid="verify-evidence-mismatched-files"
-                className="rounded-xl border border-rose-400/40 bg-rose-500/15 p-4 space-y-2 text-xs text-rose-100"
+                className="rounded-xl border ga-status-error p-4 space-y-2 text-xs"
               >
-                <div className="flex items-center gap-2 font-semibold text-rose-200">
+                <div className="flex items-center gap-2 font-semibold">
                   <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <span>{t.artworkDetails.verifyEvidenceMismatchTitle}</span>
                 </div>
                 <p>{t.artworkDetails.verifyEvidenceMismatchHint}</p>
-                <ul className="space-y-1 font-mono text-[11px] text-rose-200 break-all">
+                <ul className="space-y-1 font-mono text-[11px] break-all">
                   {summary.mismatchedSuppliedFiles.map((f, idx) => (
                     <li key={idx}>
                       {f.fileName} ({f.byteLength.toLocaleString()} bytes) · SHA-256:{' '}

@@ -18,6 +18,36 @@ export interface PngHeaderInfo {
   colorType: number;
 }
 
+function getImageDataFromBitmap(
+  bitmap: ImageBitmap,
+  width: number,
+  height: number,
+): Uint8Array {
+  if (typeof OffscreenCanvas !== 'undefined') {
+    const canvas = new OffscreenCanvas(width, height);
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) {
+      throw new Error('Failed to create 2D OffscreenCanvas context');
+    }
+    ctx.drawImage(bitmap, 0, 0);
+    const imgData = ctx.getImageData(0, 0, width, height);
+    return new Uint8Array(imgData.data);
+  }
+  if (typeof document !== 'undefined') {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) {
+      throw new Error('Failed to create 2D canvas context');
+    }
+    ctx.drawImage(bitmap, 0, 0);
+    const imgData = ctx.getImageData(0, 0, width, height);
+    return new Uint8Array(imgData.data);
+  }
+  throw new Error('No 2D canvas context available to decode image');
+}
+
 export function inspectPngHeader(bytes: Uint8Array): PngHeaderInfo {
   if (!hasPngSignature(bytes)) {
     throw new Error('Invalid PNG signature');
@@ -240,7 +270,7 @@ export async function decodeImageFileToCanonicalRgba8(
     };
   }
 
-  // Fallback for JPEG, WebP, etc. using browser image decoder
+  // Fallback for JPEG, WebP, etc. using browser image decoder (works in Workers via OffscreenCanvas)
   const blob = fileOrBytes instanceof Uint8Array ? new Blob([new Uint8Array(bytes)]) : fileOrBytes;
   let bitmap: ImageBitmap | null = null;
   try {
@@ -261,17 +291,8 @@ export async function decodeImageFileToCanonicalRgba8(
       ) {
         throw new Error(`Image dimensions (${width}x${height}) exceed safety limits`);
       }
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx) {
-        throw new Error('Failed to create 2D canvas context');
-      }
-      ctx.drawImage(bitmap, 0, 0);
-      const imgData = ctx.getImageData(0, 0, width, height);
       return {
-        raster: { width, height, data: new Uint8Array(imgData.data) },
+        raster: { width, height, data: getImageDataFromBitmap(bitmap, width, height) },
         sourceFormat: 'browser-raster',
       };
     }
@@ -279,7 +300,11 @@ export async function decodeImageFileToCanonicalRgba8(
     bitmap?.close();
   }
 
-  // Legacy HTMLImageElement fallback
+  if (typeof document === 'undefined') {
+    throw new Error('Image decoder unavailable in this worker/runtime environment');
+  }
+
+  // Legacy HTMLImageElement fallback (main thread only)
   const url = URL.createObjectURL(blob);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {

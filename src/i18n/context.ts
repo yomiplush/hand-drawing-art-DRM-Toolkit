@@ -6,6 +6,7 @@ import type { Translations } from './en';
 import type { GoogleComplianceTranslations } from './googleCompliance';
 import type { HardeningTranslations } from './hardening';
 import type { HowToTranslations } from './howto';
+import type { HumanUxTranslations } from './humanUx';
 import type { LicenseGuideTranslations } from './licenses';
 import type { MinimalUiTranslations } from './minimalUi';
 import type { NextGenTranslations } from './nextGen';
@@ -31,6 +32,7 @@ export type FullTranslations = Translations & {
   vault: VaultTranslations;
   nextGen: NextGenTranslations;
   googleCompliance: GoogleComplianceTranslations;
+  humanUx: HumanUxTranslations;
 };
 
 export interface LocaleOption {

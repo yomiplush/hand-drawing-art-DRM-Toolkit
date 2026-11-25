@@ -1,4 +1,16 @@
-import { bytesToHex, sha256Sync } from '../crypto/sha256';
+import { computePublicKeyFingerprintSync, parsePairingQrInput } from '@yomiplush/chm-exchange/core';
+import { isValidStrictEd25519PublicKey } from '../crypto/ed25519';
+import {
+  KEY_BACKUP_FORMAT,
+  KEY_BACKUP_VERSION,
+  type EncryptedKeyBackup,
+} from '../crypto/keyBackup';
+import { base64UrlDecode, bytesToHex, sha256Sync } from '../crypto/sha256';
+import {
+  NOSTR_WRAPPING_KEY_RECORD_ID,
+  isValidNostrDeviceKeyRecord,
+  type NostrDeviceKeyRecord,
+} from '../nostr/nostrKeyStore';
 import {
   listPolicyPresets,
   upsertPolicyPresetsBatch,
@@ -10,11 +22,24 @@ import {
   upsertAuthorProfilesBatch,
 } from '../profiles/profileStore';
 import type { AuthorProfile } from '../profiles/types';
+import type { DeviceRevocationRecord, PairedDeviceRecord } from '../storage/devicePairingStore';
 import {
-  STORE_POLICY_PRESETS,
+  importDeviceRevocationNotice,
+  loadDevicePairingState,
+} from '../storage/devicePairingStore';
+import {
   STORE_CREATOR_PROFILES,
+  STORE_NOSTR_KEYS,
+  STORE_PAIRED_DEVICES,
+  STORE_POLICY_PRESETS,
   STORE_PROOF_VAULT,
   STORE_STORAGE_STATE,
+  STORE_TRUSTED_KEYS,
+  type TrustedKeyRecord,
+  getAuthorKey,
+  listAuthorKeys,
+  listTrustedKeys,
+  restoreAuthorKeyFromBackup,
   runChmTransaction,
   withChmStore,
 } from '../storage/keyStore';
@@ -58,6 +83,39 @@ export interface DriveRemoteChunkRef {
   proofIds: string[];
 }
 
+export interface SyncedAuthorIdentityRecord {
+  publicKeyBase64Url: string;
+  fingerprintHex: string;
+  fingerprintShort: string;
+  label: string;
+  createdAt: string;
+  sourceKind: 'author-public' | 'trusted-artist';
+  verificationState?: 'confirmed' | 'unconfirmed';
+  linkedNostrPubkeyHex?: string;
+  linkedNostrNpub?: string;
+}
+
+export interface SyncedDevicesSnapshotPayload {
+  schemaVersion: 1;
+  pairedDevices: PairedDeviceRecord[];
+  revocations: DeviceRevocationRecord[];
+}
+
+export interface SyncedRecoveryKeyEntry {
+  publicKey: string;
+  fingerprint: string;
+  label: string;
+  createdAt: string;
+  uploadedAt: string;
+  encryptedKeyEnvelope: EncryptedKeyBackup;
+}
+
+export interface SyncedRecoveryVaultPayload {
+  format: 'chm-recovery-vault-bundle-v1';
+  version: 1;
+  entries: SyncedRecoveryKeyEntry[];
+}
+
 export interface EncryptedDriveManifestPayload {
   schemaVersion: 1;
   vaultId: string;
@@ -69,6 +127,9 @@ export interface EncryptedDriveManifestPayload {
   profilesFile?: { fileId: string; contentHash: string };
   policiesFile?: { fileId: string; contentHash: string };
   settingsFile?: { fileId: string; contentHash: string };
+  identitiesFile?: { fileId: string; contentHash: string };
+  devicesFile?: { fileId: string; contentHash: string };
+  recoveryFile?: { fileId: string; contentHash: string };
   tombstones: VaultTombstoneRecord[];
 }
 
@@ -104,6 +165,9 @@ export interface PersistedDriveAccountState {
   profilesFileId?: string;
   policiesFileId?: string;
   settingsFileId?: string;
+  identitiesFileId?: string;
+  devicesFileId?: string;
+  recoveryFileId?: string;
   lastSyncedAt?: string;
   lastManifestSeq: number;
   lastManifestHash: string;
@@ -266,6 +330,85 @@ function mergeTombstones(
   return Array.from(map.values()).sort((a, b) => a.id.localeCompare(b.id));
 }
 
+async function listLocalPublicNostrIdentity(): Promise<{ pubkeyHex: string; npub: string } | null> {
+  try {
+    const rows = await withChmStore<unknown[]>(STORE_NOSTR_KEYS, 'readonly', (s) => s.getAll());
+    for (const row of rows ?? []) {
+      if (
+        row &&
+        typeof row === 'object' &&
+        (row as { deviceIdHex?: string }).deviceIdHex !== NOSTR_WRAPPING_KEY_RECORD_ID &&
+        isValidNostrDeviceKeyRecord(row)
+      ) {
+        const rec = row as NostrDeviceKeyRecord;
+        return { pubkeyHex: rec.nostrPubkeyHex, npub: rec.npub };
+      }
+    }
+  } catch {
+    // Store unavailable
+  }
+  return null;
+}
+
+function validateRemoteAuthorIdentity(raw: unknown): SyncedAuthorIdentityRecord | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const r = raw as Partial<SyncedAuthorIdentityRecord>;
+  if (
+    typeof r.publicKeyBase64Url !== 'string' ||
+    typeof r.fingerprintHex !== 'string' ||
+    typeof r.fingerprintShort !== 'string' ||
+    typeof r.label !== 'string' ||
+    typeof r.createdAt !== 'string'
+  ) {
+    return null;
+  }
+  try {
+    const pk = base64UrlDecode(r.publicKeyBase64Url);
+    if (pk.length !== 32 || !isValidStrictEd25519PublicKey(pk)) return null;
+    const fp = computePublicKeyFingerprintSync(pk);
+    if (fp.fullHex !== r.fingerprintHex) return null;
+    return {
+      publicKeyBase64Url: r.publicKeyBase64Url,
+      fingerprintHex: fp.fullHex,
+      fingerprintShort: fp.shortDisplay,
+      label: r.label.trim().slice(0, 64) || 'Synced Artist',
+      createdAt: r.createdAt,
+      sourceKind: r.sourceKind === 'author-public' ? 'author-public' : 'trusted-artist',
+      verificationState: r.verificationState === 'confirmed' ? 'confirmed' : 'unconfirmed',
+      ...(typeof r.linkedNostrPubkeyHex === 'string' && /^[0-9a-f]{64}$/i.test(r.linkedNostrPubkeyHex)
+        ? { linkedNostrPubkeyHex: r.linkedNostrPubkeyHex.toLowerCase() }
+        : {}),
+      ...(typeof r.linkedNostrNpub === 'string' && r.linkedNostrNpub.startsWith('npub1')
+        ? { linkedNostrNpub: r.linkedNostrNpub }
+        : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function assertValidEncryptedKeyBackupEnvelope(raw: unknown): EncryptedKeyBackup {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error('Encrypted key backup must be an object');
+  }
+  const b = raw as Partial<EncryptedKeyBackup>;
+  if (
+    b.format !== KEY_BACKUP_FORMAT ||
+    b.version !== KEY_BACKUP_VERSION ||
+    b.kdf !== 'PBKDF2-SHA256' ||
+    b.cipher !== 'AES-256-GCM' ||
+    typeof b.salt !== 'string' ||
+    typeof b.iv !== 'string' ||
+    typeof b.publicKey !== 'string' ||
+    typeof b.fingerprint !== 'string' ||
+    typeof b.ciphertext !== 'string'
+  ) {
+    throw new Error('Only client-side AES-256-GCM + PBKDF2-SHA256 encrypted key backups can be uploaded.');
+  }
+  assertNoForbiddenSyncSecrets(b, 'encryptedKeyBackup');
+  return b as EncryptedKeyBackup;
+}
+
 export interface InitializeOrUnlockDriveVaultResult {
   vaultId: string;
   keyring: UnlockedVaultKeyring;
@@ -274,8 +417,8 @@ export interface InitializeOrUnlockDriveVaultResult {
 }
 
 /**
- * Ensures the user's personal `Certified Handmade` Drive folder exists (recovering via
- * appProperties if moved) and initializes or unlocks the passphrase-protected Vault keyring.
+ * Ensures the user's hidden `Certified Handmade` Drive appDataFolder exists (recovering via
+ * appProperties if needed) and initializes or unlocks the passphrase-protected Vault keyring.
  * Connecting Google alone NEVER unlocks an existing remote Vault without the passphrase
  * (or a cross-device VMK share imported beforehand).
  */
@@ -374,6 +517,9 @@ export async function initializeOrUnlockDriveVault(params: {
     profilesFileId: undefined,
     policiesFileId: undefined,
     settingsFileId: undefined,
+    identitiesFileId: undefined,
+    devicesFileId: undefined,
+    recoveryFileId: undefined,
     knownProofChunks: [],
     rollbackWarning: undefined,
   };
@@ -418,12 +564,15 @@ function sanitizeProofForSync(p: VaultProofRecord): VaultProofRecord {
 }
 
 /**
- * Full bi-directional incremental encrypted Vault sync with Google Drive:
- * - Recovers folder via appProperties if moved/deleted
+ * Full bi-directional incremental encrypted Vault sync with Google Drive (`appDataFolder`):
+ * - Recovers folder via appProperties if deleted/reset
  * - Checks monotonic manifest sequence/hash for rollback attacks
  * - Applies three-way conflict detection & preserves local+remote without LWW overwrites
  * - Treats signed proofs as immutable content-addressed records + delta chunks
+ * - Syncs public Author Identities (+ linked Nostr public key) without transferring signing keys
+ * - Syncs verified Paired Device enrollment certificates & monotonic Device Revocations
  * - Synchronizes logical delete tombstones
+ * - NEVER auto-uploads raw private keys or artwork images
  */
 export async function runGoogleDriveSync(params: {
   client: GoogleDriveClient;
@@ -449,6 +598,9 @@ export async function runGoogleDriveSync(params: {
       profilesFileId: undefined,
       policiesFileId: undefined,
       settingsFileId: undefined,
+      identitiesFileId: undefined,
+      devicesFileId: undefined,
+      recoveryFileId: undefined,
       knownProofChunks: [],
     };
   } else {
@@ -666,7 +818,6 @@ export async function runGoogleDriveSync(params: {
         mergedProfilesForRemote.push(local);
         syncedHashes[`profile:${pid}`] = localHash!;
       } else {
-        // Concurrent conflict! Preserve BOTH without LWW overwrite
         if (!conflicts.some((c) => c.entityType === 'profile' && c.entityId === pid)) {
           conflicts.push({
             id: `conflict:profile:${pid}`,
@@ -925,7 +1076,262 @@ export async function runGoogleDriveSync(params: {
     skippedDuplicateCount++;
   }
 
-  // 6. Publish updated encrypted manifest with incremented sequence
+  // 6. Public Author Identities + Linked Nostr Public Key Sync (ZERO private keys ever!)
+  const [localAuthorKeys, localTrustedKeys, localNostrPub] = await Promise.all([
+    listAuthorKeys(),
+    listTrustedKeys(),
+    listLocalPublicNostrIdentity(),
+  ]);
+  const localAuthorPubMap = new Map(localAuthorKeys.map((k) => [k.publicKeyBase64Url, k]));
+  const localTrustedMap = new Map(localTrustedKeys.map((t) => [t.publicKeyBase64Url, t]));
+
+  let remoteIdentitiesMeta = remoteManifest?.identitiesFile
+    ? driveFiles.find((f) => f.id === remoteManifest!.identitiesFile!.fileId)
+    : driveFiles.find((f) => f.appProperties?.chmRole === 'identities');
+  let remoteIdentities: SyncedAuthorIdentityRecord[] = [];
+  if (remoteIdentitiesMeta) {
+    const idEnv = await params.client.downloadJsonFile<EncryptedVaultRecordEnvelope>({
+      accessToken: params.accessToken,
+      fileId: remoteIdentitiesMeta.id,
+    });
+    const rawIdentities = await decryptVaultRecordJson<unknown[]>({
+      keyring: params.keyring,
+      envelope: idEnv,
+      expectedPurpose: 'identities',
+      expectedRecordId: 'identities',
+    });
+    if (Array.isArray(rawIdentities)) {
+      remoteIdentities = rawIdentities
+        .map(validateRemoteAuthorIdentity)
+        .filter((x): x is SyncedAuthorIdentityRecord => Boolean(x));
+    }
+  }
+
+  const identityMap = new Map<string, SyncedAuthorIdentityRecord>();
+  for (const ak of localAuthorKeys) {
+    identityMap.set(ak.publicKeyBase64Url, {
+      publicKeyBase64Url: ak.publicKeyBase64Url,
+      fingerprintHex: ak.fingerprintHex,
+      fingerprintShort: ak.fingerprintShort,
+      label: ak.label,
+      createdAt: ak.createdAt,
+      sourceKind: 'author-public',
+      verificationState: 'confirmed',
+      ...(localNostrPub
+        ? {
+            linkedNostrPubkeyHex: localNostrPub.pubkeyHex,
+            linkedNostrNpub: localNostrPub.npub,
+          }
+        : {}),
+    });
+  }
+  for (const tk of localTrustedKeys) {
+    if (!identityMap.has(tk.publicKeyBase64Url)) {
+      identityMap.set(tk.publicKeyBase64Url, {
+        publicKeyBase64Url: tk.publicKeyBase64Url,
+        fingerprintHex: tk.fingerprintHex,
+        fingerprintShort: tk.fingerprintShort,
+        label: tk.label,
+        createdAt: tk.addedAt,
+        sourceKind: 'trusted-artist',
+        verificationState: tk.verificationState ?? 'confirmed',
+      });
+    }
+  }
+
+  const newTrustedToStore: TrustedKeyRecord[] = [];
+  for (const rem of remoteIdentities) {
+    if (!identityMap.has(rem.publicKeyBase64Url)) {
+      identityMap.set(rem.publicKeyBase64Url, rem);
+    }
+    if (!localAuthorPubMap.has(rem.publicKeyBase64Url) && !localTrustedMap.has(rem.publicKeyBase64Url)) {
+      const pkBytes = base64UrlDecode(rem.publicKeyBase64Url);
+      const isConfirmed = rem.sourceKind === 'author-public' || rem.verificationState === 'confirmed';
+      newTrustedToStore.push({
+        publicKeyBase64Url: rem.publicKeyBase64Url,
+        publicKey: pkBytes,
+        fingerprintHex: rem.fingerprintHex,
+        fingerprintShort: rem.fingerprintShort,
+        label: rem.label,
+        note: rem.linkedNostrNpub
+          ? `Synced identity • Nostr ${rem.linkedNostrNpub}`
+          : 'Synced from encrypted Google Drive Vault',
+        addedAt: rem.createdAt,
+        verificationState: isConfirmed ? 'confirmed' : 'unconfirmed',
+        confirmedAt: isConfirmed ? new Date().toISOString() : undefined,
+      });
+      downloadedCount++;
+    }
+  }
+  if (newTrustedToStore.length > 0) {
+    await runChmTransaction([STORE_TRUSTED_KEYS], 'readwrite', (tx) => {
+      const store = tx.objectStore(STORE_TRUSTED_KEYS);
+      for (const rec of newTrustedToStore) {
+        store.put(rec);
+      }
+    });
+  }
+
+  const mergedIdentitiesForRemote = Array.from(identityMap.values()).sort((a, b) =>
+    a.publicKeyBase64Url.localeCompare(b.publicKeyBase64Url),
+  );
+  let nextIdentitiesFile = remoteManifest?.identitiesFile;
+  if (mergedIdentitiesForRemote.length > 0) {
+    assertNoForbiddenSyncSecrets(mergedIdentitiesForRemote, 'identities');
+    const localIdsHash = computeRecordContentHash(JSON.stringify(mergedIdentitiesForRemote));
+    if (localIdsHash !== remoteManifest?.identitiesFile?.contentHash) {
+      const env = await encryptVaultRecordJson({
+        keyring: params.keyring,
+        purpose: 'identities',
+        recordId: 'identities',
+        payload: mergedIdentitiesForRemote,
+      });
+      const uploadedIds = await params.client.upsertJsonFile({
+        accessToken: params.accessToken,
+        folderId: folder.id,
+        existingFileId: remoteIdentitiesMeta?.id ?? state.identitiesFileId,
+        opaqueFileName: 'identities.chmv',
+        appProperties: {
+          chmRole: 'identities',
+          chmVaultId: params.keyring.vaultId,
+          chmHash: env.contentHash.slice(0, 24),
+        },
+        jsonPayload: env,
+      });
+      remoteIdentitiesMeta = uploadedIds;
+      nextIdentitiesFile = { fileId: uploadedIds.id, contentHash: env.contentHash };
+      uploadedCount++;
+    } else {
+      skippedDuplicateCount++;
+    }
+  }
+
+  // 7. Paired Devices & Monotonic Device Revocations Sync
+  let remoteDevicesMeta = remoteManifest?.devicesFile
+    ? driveFiles.find((f) => f.id === remoteManifest!.devicesFile!.fileId)
+    : driveFiles.find((f) => f.appProperties?.chmRole === 'devices');
+  let remoteDevicesPayload: SyncedDevicesSnapshotPayload | null = null;
+  if (remoteDevicesMeta) {
+    const devEnv = await params.client.downloadJsonFile<EncryptedVaultRecordEnvelope>({
+      accessToken: params.accessToken,
+      fileId: remoteDevicesMeta.id,
+    });
+    remoteDevicesPayload = await decryptVaultRecordJson<SyncedDevicesSnapshotPayload>({
+      keyring: params.keyring,
+      envelope: devEnv,
+      expectedPurpose: 'devices',
+      expectedRecordId: 'devices',
+    });
+  }
+
+  const localPairingBefore = await loadDevicePairingState();
+  const localRevMap = new Map(localPairingBefore.revocations.map((r) => [r.key, r]));
+  for (const remRev of remoteDevicesPayload?.revocations ?? []) {
+    if (!remRev || typeof remRev.token !== 'string') continue;
+    const localRev = localRevMap.get(remRev.key);
+    if (!localRev || remRev.sequence > localRev.sequence) {
+      try {
+        await importDeviceRevocationNotice(remRev.token);
+        downloadedCount++;
+      } catch {
+        // Ignore forged or malformed remote revocation tokens
+      }
+    }
+  }
+
+  const pairingAfterRevs = await loadDevicePairingState();
+  const localDevMap = new Map(pairingAfterRevs.pairedDevices.map((d) => [d.key, d]));
+  const revokedPubSet = new Set(pairingAfterRevs.revocations.map((r) => r.devicePublicKeyBase64Url));
+  const revAfterMap = new Map(pairingAfterRevs.revocations.map((r) => [r.key, r]));
+
+  const remoteDevicesToStore: PairedDeviceRecord[] = [];
+  for (const remDev of remoteDevicesPayload?.pairedDevices ?? []) {
+    if (!remDev || typeof remDev.key !== 'string' || localDevMap.has(remDev.key)) continue;
+    if (!remDev.enrollmentToken) continue;
+    try {
+      const parsed = parsePairingQrInput(remDev.enrollmentToken);
+      if (parsed.kind !== 'enrollment-certificate') continue;
+      const cert = parsed.certificate.payload;
+      if (
+        cert.ownerFingerprintHex !== remDev.ownerFingerprintHex ||
+        cert.ownerPublicKeyBase64Url !== remDev.ownerPublicKeyBase64Url ||
+        cert.deviceIdHex !== remDev.deviceIdHex ||
+        cert.devicePublicKeyBase64Url !== remDev.devicePublicKeyBase64Url
+      ) {
+        continue;
+      }
+      const revMatch = revAfterMap.get(remDev.key);
+      const isRevoked = Boolean(revMatch) || revokedPubSet.has(remDev.devicePublicKeyBase64Url);
+      const recordToStore: PairedDeviceRecord = {
+        ...remDev,
+        localVerificationStatus: isRevoked
+          ? 'revoked'
+          : remDev.ownerConfirmedTrust
+            ? 'active-trusted'
+            : 'active-unverified-owner',
+        revocationNoticeToken: revMatch?.token ?? remDev.revocationNoticeToken,
+        revokedAt: revMatch?.revokedAt ?? remDev.revokedAt,
+        revocationReason: revMatch?.reason ?? remDev.revocationReason,
+        revocationSequence: revMatch?.sequence ?? remDev.revocationSequence,
+      };
+      remoteDevicesToStore.push(recordToStore);
+      localDevMap.set(recordToStore.key, recordToStore);
+      downloadedCount++;
+    } catch {
+      // Skip malformed enrollment token
+    }
+  }
+  if (remoteDevicesToStore.length > 0) {
+    await runChmTransaction([STORE_PAIRED_DEVICES], 'readwrite', (tx) => {
+      const store = tx.objectStore(STORE_PAIRED_DEVICES);
+      for (const dev of remoteDevicesToStore) {
+        store.put(dev);
+      }
+    });
+  }
+
+  const finalPairingState = await loadDevicePairingState();
+  const mergedDevicesPayload: SyncedDevicesSnapshotPayload = {
+    schemaVersion: 1,
+    pairedDevices: [...finalPairingState.pairedDevices].sort((a, b) => a.key.localeCompare(b.key)),
+    revocations: [...finalPairingState.revocations].sort((a, b) => a.key.localeCompare(b.key)),
+  };
+
+  let nextDevicesFile = remoteManifest?.devicesFile;
+  if (
+    mergedDevicesPayload.pairedDevices.length > 0 ||
+    mergedDevicesPayload.revocations.length > 0
+  ) {
+    assertNoForbiddenSyncSecrets(mergedDevicesPayload, 'devices');
+    const localDevsHash = computeRecordContentHash(JSON.stringify(mergedDevicesPayload));
+    if (localDevsHash !== remoteManifest?.devicesFile?.contentHash) {
+      const env = await encryptVaultRecordJson({
+        keyring: params.keyring,
+        purpose: 'devices',
+        recordId: 'devices',
+        payload: mergedDevicesPayload,
+      });
+      const uploadedDevs = await params.client.upsertJsonFile({
+        accessToken: params.accessToken,
+        folderId: folder.id,
+        existingFileId: remoteDevicesMeta?.id ?? state.devicesFileId,
+        opaqueFileName: 'devices.chmv',
+        appProperties: {
+          chmRole: 'devices',
+          chmVaultId: params.keyring.vaultId,
+          chmHash: env.contentHash.slice(0, 24),
+        },
+        jsonPayload: env,
+      });
+      remoteDevicesMeta = uploadedDevs;
+      nextDevicesFile = { fileId: uploadedDevs.id, contentHash: env.contentHash };
+      uploadedCount++;
+    } else {
+      skippedDuplicateCount++;
+    }
+  }
+
+  // 8. Publish updated encrypted manifest with incremented sequence
   const nextSeq = Math.max(state.lastManifestSeq, remoteManifest?.manifestSeq ?? 0) + 1;
   const manifestPayload: EncryptedDriveManifestPayload = {
     schemaVersion: 1,
@@ -938,6 +1344,9 @@ export async function runGoogleDriveSync(params: {
     ...(nextProfilesFile ? { profilesFile: nextProfilesFile } : {}),
     ...(nextPoliciesFile ? { policiesFile: nextPoliciesFile } : {}),
     ...(nextSettingsFile ? { settingsFile: nextSettingsFile } : {}),
+    ...(nextIdentitiesFile ? { identitiesFile: nextIdentitiesFile } : {}),
+    ...(nextDevicesFile ? { devicesFile: nextDevicesFile } : {}),
+    ...(remoteManifest?.recoveryFile ? { recoveryFile: remoteManifest.recoveryFile } : {}),
     tombstones: mergedTombstones,
   };
   assertNoForbiddenSyncSecrets(manifestPayload, 'manifest');
@@ -972,6 +1381,9 @@ export async function runGoogleDriveSync(params: {
     profilesFileId: remoteProfilesMeta?.id,
     policiesFileId: remotePoliciesMeta?.id,
     settingsFileId: remoteSettingsMeta?.id,
+    identitiesFileId: remoteIdentitiesMeta?.id,
+    devicesFileId: remoteDevicesMeta?.id,
+    recoveryFileId: state.recoveryFileId,
     lastSyncedAt: syncedAt,
     lastManifestSeq: nextSeq,
     lastManifestHash: manifestEnv.contentHash,
@@ -997,9 +1409,175 @@ export async function runGoogleDriveSync(params: {
       message:
         conflicts.length > 0
           ? `Synced with ${conflicts.length} conflict(s) preserved for review.`
-          : 'Encrypted Vault synchronized with your personal Google Drive.',
+          : 'Encrypted Vault synchronized with Google Drive App Data.',
     },
   };
+}
+
+/**
+ * Explicit opt-in ONLY: uploads a client-side AES-256-GCM + PBKDF2-SHA256 encrypted
+ * Author Key recovery bundle into the user's hidden Drive appDataFolder.
+ * Raw private seeds are NEVER accepted or transmitted.
+ */
+export async function uploadEncryptedKeyRecoveryBackup(params: {
+  client: GoogleDriveClient;
+  accessToken: string;
+  accountKey: string;
+  keyring: UnlockedVaultKeyring;
+  authorKeyId?: string;
+  encryptedKeyEnvelope?: EncryptedKeyBackup;
+}): Promise<{ entries: SyncedRecoveryKeyEntry[]; fileId: string }> {
+  let envelope: EncryptedKeyBackup | undefined = params.encryptedKeyEnvelope;
+  let labelOverride: string | undefined;
+  if (!envelope && params.authorKeyId) {
+    const key = await getAuthorKey(params.authorKeyId);
+    if (!key) {
+      throw new Error('Selected Author key not found locally');
+    }
+    if (!key.encryptedBackup) {
+      throw new Error(
+        'This key uses non-extractable hardware/Web Crypto storage without a passphrase-encrypted backup envelope. Export or create a passphrase-protected backup first.',
+      );
+    }
+    envelope = key.encryptedBackup;
+    labelOverride = key.label;
+  }
+  const validated = assertValidEncryptedKeyBackupEnvelope(envelope);
+
+  const state = await loadDriveAccountState(params.accountKey);
+  const { folder } = await params.client.ensureVaultRootFolder({
+    accessToken: params.accessToken,
+    knownFolderId: state.folderId,
+  });
+  const driveFiles = await params.client.findVaultFilesInFolder({
+    accessToken: params.accessToken,
+    folderId: folder.id,
+    vaultId: params.keyring.vaultId,
+  });
+  const existingMeta =
+    (state.recoveryFileId && driveFiles.find((f) => f.id === state.recoveryFileId)) ||
+    driveFiles.find((f) => f.appProperties?.chmRole === 'recovery');
+
+  let existingEntries: SyncedRecoveryKeyEntry[] = [];
+  if (existingMeta) {
+    const rawEnv = await params.client.downloadJsonFile<EncryptedVaultRecordEnvelope>({
+      accessToken: params.accessToken,
+      fileId: existingMeta.id,
+    });
+    const decrypted = await decryptVaultRecordJson<SyncedRecoveryVaultPayload>({
+      keyring: params.keyring,
+      envelope: rawEnv,
+      expectedPurpose: 'recovery',
+      expectedRecordId: 'recovery',
+    });
+    if (decrypted?.format === 'chm-recovery-vault-bundle-v1' && Array.isArray(decrypted.entries)) {
+      existingEntries = decrypted.entries;
+    }
+  }
+
+  const nextEntry: SyncedRecoveryKeyEntry = {
+    publicKey: validated.publicKey,
+    fingerprint: validated.fingerprint,
+    label: labelOverride ?? validated.label,
+    createdAt: validated.createdAt,
+    uploadedAt: new Date().toISOString(),
+    encryptedKeyEnvelope: validated,
+  };
+  const filtered = existingEntries.filter((e) => e.publicKey !== nextEntry.publicKey);
+  filtered.push(nextEntry);
+
+  const payload: SyncedRecoveryVaultPayload = {
+    format: 'chm-recovery-vault-bundle-v1',
+    version: 1,
+    entries: filtered,
+  };
+  assertNoForbiddenSyncSecrets(payload, 'recovery');
+
+  const env = await encryptVaultRecordJson({
+    keyring: params.keyring,
+    purpose: 'recovery',
+    recordId: 'recovery',
+    payload,
+  });
+  const uploaded = await params.client.upsertJsonFile({
+    accessToken: params.accessToken,
+    folderId: folder.id,
+    existingFileId: existingMeta?.id ?? state.recoveryFileId,
+    opaqueFileName: 'recovery.chmkb',
+    appProperties: {
+      chmRole: 'recovery',
+      chmVaultId: params.keyring.vaultId,
+      chmHash: env.contentHash.slice(0, 24),
+    },
+    jsonPayload: env,
+  });
+
+  await saveDriveAccountState({
+    ...state,
+    folderId: folder.id,
+    vaultId: params.keyring.vaultId,
+    recoveryFileId: uploaded.id,
+  });
+
+  return { entries: filtered, fileId: uploaded.id };
+}
+
+export async function listEncryptedKeyRecoveryBackups(params: {
+  client: GoogleDriveClient;
+  accessToken: string;
+  accountKey: string;
+  keyring: UnlockedVaultKeyring;
+}): Promise<SyncedRecoveryKeyEntry[]> {
+  const state = await loadDriveAccountState(params.accountKey);
+  const { folder } = await params.client.ensureVaultRootFolder({
+    accessToken: params.accessToken,
+    knownFolderId: state.folderId,
+  });
+  const driveFiles = await params.client.findVaultFilesInFolder({
+    accessToken: params.accessToken,
+    folderId: folder.id,
+    vaultId: params.keyring.vaultId,
+  });
+  const meta =
+    (state.recoveryFileId && driveFiles.find((f) => f.id === state.recoveryFileId)) ||
+    driveFiles.find((f) => f.appProperties?.chmRole === 'recovery');
+  if (!meta) return [];
+
+  const rawEnv = await params.client.downloadJsonFile<EncryptedVaultRecordEnvelope>({
+    accessToken: params.accessToken,
+    fileId: meta.id,
+  });
+  const decrypted = await decryptVaultRecordJson<SyncedRecoveryVaultPayload>({
+    keyring: params.keyring,
+    envelope: rawEnv,
+    expectedPurpose: 'recovery',
+    expectedRecordId: 'recovery',
+  });
+  if (decrypted?.format !== 'chm-recovery-vault-bundle-v1' || !Array.isArray(decrypted.entries)) {
+    return [];
+  }
+  return decrypted.entries;
+}
+
+export async function restoreAuthorKeyFromDriveRecovery(params: {
+  client: GoogleDriveClient;
+  accessToken: string;
+  accountKey: string;
+  keyring: UnlockedVaultKeyring;
+  publicKey: string;
+  backupPassphrase: string;
+}) {
+  const entries = await listEncryptedKeyRecoveryBackups({
+    client: params.client,
+    accessToken: params.accessToken,
+    accountKey: params.accountKey,
+    keyring: params.keyring,
+  });
+  const match = entries.find((e) => e.publicKey === params.publicKey);
+  if (!match) {
+    throw new Error('Encrypted recovery backup not found for this Author key.');
+  }
+  return restoreAuthorKeyFromBackup(match.encryptedKeyEnvelope, params.backupPassphrase);
 }
 
 /**
@@ -1026,7 +1604,6 @@ export async function resolveVaultSyncConflict(params: {
       await upsertAuthorProfilesBatch([remote]);
       syncedHashes[`profile:${target.entityId}`] = hashProfileRecord(remote);
     } else if (params.resolution === 'keep-local') {
-      // Force next push to treat local as intentional winner over remote
       syncedHashes[`profile:${target.entityId}`] = target.remoteContentHash;
     } else {
       const cloned: AuthorProfile = {
@@ -1119,7 +1696,6 @@ export async function rotateDriveVaultKeyEpoch(params: {
   };
   await saveDriveAccountState(nextState);
 
-  // Immediately re-sync manifest/profiles/policies/settings under the new epoch
   const synced = await runGoogleDriveSync({
     client: params.client,
     accessToken: params.accessToken,

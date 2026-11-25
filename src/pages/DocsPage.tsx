@@ -16,31 +16,32 @@ import { useI18n } from '../i18n/context';
 
 export function DocsPage() {
   const { t } = useI18n();
+  const recovery = t.humanUx.keyRecoveryGuide;
 
   return (
     <div className="space-y-8">
-      <header className="space-y-2 border-b border-white/[0.08] pb-5">
-        <h1 className="text-2xl sm:text-3xl font-semibold text-white">{t.docs.title}</h1>
-        <p className="text-sm sm:text-base text-slate-300">{t.docs.subtitle}</p>
+      <header className="space-y-2 border-b ga-border pb-5">
+        <h1 className="text-2xl sm:text-3xl font-semibold ga-text">{t.docs.title}</h1>
+        <p className="text-sm sm:text-base ga-text-secondary">{t.docs.subtitle}</p>
       </header>
 
-      <section className="rounded-xl border border-white/[0.1] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4">
+      <section className="ga-card rounded-2xl p-5 space-y-4">
         <div className="space-y-1">
-          <h2 className="text-base sm:text-lg font-medium text-white flex items-center gap-2">
-            <Compass className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+          <h2 className="text-base sm:text-lg font-medium ga-text flex items-center gap-2">
+            <Compass className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
             <span>{t.howTo.docsUsageTitle}</span>
           </h2>
-          <p className="text-xs sm:text-sm text-slate-300">{t.howTo.homeSubtitle}</p>
+          <p className="text-xs sm:text-sm ga-text-secondary">{t.howTo.homeSubtitle}</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {t.howTo.steps.map((step) => (
             <div
               key={step.title}
-              className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-1.5"
+              className="ga-surface-subtle rounded-xl p-4 space-y-1.5"
             >
-              <h3 className="text-sm font-medium text-sky-200">{step.title}</h3>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">{step.desc}</p>
+              <h3 className="text-sm font-medium text-[var(--ga-accent)]">{step.title}</h3>
+              <p className="text-xs sm:text-sm ga-text-secondary leading-relaxed">{step.desc}</p>
             </div>
           ))}
         </div>
@@ -52,14 +53,14 @@ export function DocsPage() {
 
       <section
         data-testid="docs-licenses-section"
-        className="rounded-xl border border-white/[0.1] bg-[#051224]/65 backdrop-blur-md p-5 space-y-4"
+        className="ga-card rounded-2xl p-5 space-y-4"
       >
         <div className="space-y-1">
-          <h2 className="text-base sm:text-lg font-medium text-white flex items-center gap-2">
-            <Scale className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+          <h2 className="text-base sm:text-lg font-medium ga-text flex items-center gap-2">
+            <Scale className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
             <span>{t.licenses.guideTitle}</span>
           </h2>
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <p className="text-xs sm:text-sm ga-text-secondary leading-relaxed">
             {t.licenses.guideSubtitle}
           </p>
         </div>
@@ -71,15 +72,15 @@ export function DocsPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-          <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-1.5">
-            <h3 className="text-sm font-medium text-slate-100">{t.licenses.signalGuideTitle}</h3>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <div className="ga-surface-subtle rounded-xl p-4 space-y-1.5">
+            <h3 className="text-sm font-medium ga-text">{t.licenses.signalGuideTitle}</h3>
+            <p className="text-xs sm:text-sm ga-text-secondary leading-relaxed">
               {t.licenses.signalGuideBody}
             </p>
           </div>
-          <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-1.5">
-            <h3 className="text-sm font-medium text-slate-100">{t.licenses.appLicenseTitle}</h3>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <div className="ga-surface-subtle rounded-xl p-4 space-y-1.5">
+            <h3 className="text-sm font-medium ga-text">{t.licenses.appLicenseTitle}</h3>
+            <p className="text-xs sm:text-sm ga-text-secondary leading-relaxed">
               {t.licenses.appLicenseBody}
             </p>
           </div>
@@ -90,28 +91,51 @@ export function DocsPage() {
         {t.docs.sections.map((section) => (
           <section
             key={section.title}
-            className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-2"
+            className="ga-card rounded-2xl p-5 space-y-2"
           >
-            <h2 className="text-base sm:text-lg font-medium text-slate-100 flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+            <h2 className="text-base sm:text-lg font-medium ga-text flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
               <span>{section.title}</span>
             </h2>
-            <p className="text-sm text-slate-300/90 leading-relaxed">{section.body}</p>
+            <p className="text-sm ga-text-secondary leading-relaxed">{section.body}</p>
           </section>
         ))}
 
         <section
-          data-testid="docs-evidence-section"
-          className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-3"
+          data-testid="docs-key-recovery-section"
+          className="ga-card rounded-2xl p-5 space-y-4"
         >
-          <h2 className="text-base sm:text-lg font-medium text-slate-100 flex items-center gap-2">
-            <FileCheck2 className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+          <div className="space-y-1">
+            <h2 className="text-base sm:text-lg font-medium ga-text flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
+              <span>{recovery.title}</span>
+            </h2>
+            <p className="text-xs sm:text-sm ga-text-secondary leading-relaxed">
+              {recovery.subtitle}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {recovery.steps.map((step) => (
+              <div key={step.title} className="ga-surface-subtle rounded-xl p-4 space-y-1.5">
+                <h3 className="text-sm font-semibold ga-text">{step.title}</h3>
+                <p className="text-xs sm:text-sm ga-text-secondary leading-relaxed">{step.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section
+          data-testid="docs-evidence-section"
+          className="ga-card rounded-2xl p-5 space-y-3"
+        >
+          <h2 className="text-base sm:text-lg font-medium ga-text flex items-center gap-2">
+            <FileCheck2 className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
             <span>{t.artworkDetails.docsTitle}</span>
           </h2>
-          <p className="text-sm text-slate-300/90 leading-relaxed">{t.artworkDetails.docsLead}</p>
-          <div className="space-y-1.5 text-xs sm:text-sm text-slate-300">
-            <div className="font-medium text-sky-200">{t.artworkDetails.docsModesTitle}</div>
-            <ul className="space-y-1 list-disc list-inside text-slate-300/90">
+          <p className="text-sm ga-text-secondary leading-relaxed">{t.artworkDetails.docsLead}</p>
+          <div className="space-y-1.5 text-xs sm:text-sm ga-text-secondary">
+            <div className="font-medium text-[var(--ga-accent)]">{t.artworkDetails.docsModesTitle}</div>
+            <ul className="space-y-1 list-disc list-inside ga-text-secondary">
               <li>{t.artworkDetails.docsModeA}</li>
               <li>{t.artworkDetails.docsModeB}</li>
               <li>{t.artworkDetails.docsModeC}</li>
@@ -121,13 +145,13 @@ export function DocsPage() {
 
         <section
           data-testid="docs-notices-section"
-          className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-2"
+          className="ga-card rounded-2xl p-5 space-y-2"
         >
-          <h2 className="text-base sm:text-lg font-medium text-slate-100 flex items-center gap-2">
-            <KeyRound className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+          <h2 className="text-base sm:text-lg font-medium ga-text flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
             <span>{t.hardening.docsAddendum.noticesTitle}</span>
           </h2>
-          <p className="text-sm text-slate-300/90 leading-relaxed">
+          <p className="text-sm ga-text-secondary leading-relaxed">
             {t.hardening.docsAddendum.noticesBody}
           </p>
         </section>
@@ -135,26 +159,28 @@ export function DocsPage() {
         <section
           id="device-pairing"
           data-testid="docs-device-pairing-section"
-          className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-3"
+          className="ga-card rounded-2xl p-5 space-y-3"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <h2 className="text-base sm:text-lg font-medium text-slate-100 flex items-center gap-2">
-              <Smartphone className="h-4 w-4 text-cyan-300 shrink-0" aria-hidden="true" />
+            <h2 className="text-base sm:text-lg font-medium ga-text flex items-center gap-2">
+              <Smartphone className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
               <span>{t.devices.docsPairingTitle}</span>
             </h2>
             <Link
               to="/devices"
-              className="text-xs font-medium text-cyan-300 hover:text-cyan-200 underline underline-offset-4 shrink-0"
+              className="text-xs font-medium text-[var(--ga-accent)] hover:underline underline-offset-4 shrink-0"
             >
               {t.devices.navItem} →
             </Link>
           </div>
-          <p className="text-sm text-slate-300/90 leading-relaxed">
+          <p className="text-sm ga-text-secondary leading-relaxed">
             {t.devices.docsPairingBody}
           </p>
-          <div className="pt-2 border-t border-white/[0.08] space-y-1.5" data-testid="docs-sync-section">
-            <h3 className="text-sm sm:text-base font-medium text-sky-200">{t.devices.docsSyncTitle}</h3>
-            <p className="text-xs sm:text-sm text-slate-300/90 leading-relaxed">
+          <div className="pt-2 border-t ga-border space-y-1.5" data-testid="docs-sync-section">
+            <h3 className="text-sm sm:text-base font-medium text-[var(--ga-accent)]">
+              {t.devices.docsSyncTitle}
+            </h3>
+            <p className="text-xs sm:text-sm ga-text-secondary leading-relaxed">
               {t.devices.docsSyncBody}
             </p>
           </div>
@@ -162,31 +188,31 @@ export function DocsPage() {
 
         <section
           data-testid="docs-cli-section"
-          className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-3"
+          className="ga-card rounded-2xl p-5 space-y-3"
         >
-          <h2 className="text-base sm:text-lg font-medium text-slate-100 flex items-center gap-2">
-            <Terminal className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+          <h2 className="text-base sm:text-lg font-medium ga-text flex items-center gap-2">
+            <Terminal className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
             <span>{t.hardening.docsAddendum.cliTitle}</span>
           </h2>
-          <p className="text-sm text-slate-300/90 leading-relaxed">
+          <p className="text-sm ga-text-secondary leading-relaxed">
             {t.hardening.docsAddendum.cliBody}
           </p>
-          <pre className="rounded-lg border border-white/[0.08] bg-[#030b18] p-3 text-xs font-mono text-sky-200 overflow-x-auto">
+          <pre className="ga-surface-subtle rounded-xl p-3 text-xs font-mono text-[var(--ga-accent)] overflow-x-auto">
             {`node tools/chm-verify.mjs signed-artwork.png --evidence artwork.chmevidence --evidence-file sketch.png\ngo run ./tools/chm-verify --evidence artwork.chmevidence --evidence-file sketch.png signed-artwork.png`}
           </pre>
         </section>
       </div>
 
-      <section className="rounded-xl border border-white/[0.09] bg-[#051224]/65 backdrop-blur-md p-5 space-y-3">
-        <h2 className="text-base sm:text-lg font-medium text-white flex items-center gap-2">
-          <Package className="h-4 w-4 text-sky-300" aria-hidden="true" />
+      <section className="ga-card rounded-2xl p-5 space-y-3">
+        <h2 className="text-base sm:text-lg font-medium ga-text flex items-center gap-2">
+          <Package className="h-4 w-4 text-[var(--ga-accent)]" aria-hidden="true" />
           <span>{t.docs.ossTitle}</span>
         </h2>
-        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-300">
+        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm ga-text-secondary">
           {t.docs.ossList.map((item) => (
             <li
               key={item}
-              className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 px-3 py-2"
+              className="ga-surface-subtle rounded-xl px-3 py-2"
             >
               {item}
             </li>

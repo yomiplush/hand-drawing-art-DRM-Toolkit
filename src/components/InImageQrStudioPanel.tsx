@@ -134,7 +134,7 @@ export function InImageQrStudioPanel({
     if (!ctx) return;
 
     ctx.clearRect(0, 0, dispW, dispH);
-    ctx.fillStyle = '#0b1628';
+    ctx.fillStyle = '#142744';
     ctx.fillRect(0, 0, dispW, dispH);
 
     if (baseCanvasRef.current) {
@@ -188,7 +188,7 @@ export function InImageQrStudioPanel({
       ctx.lineWidth = 2.5;
       ctx.strokeRect(gx, gy, gs, gs);
     } else {
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.95)';
+      ctx.strokeStyle = 'rgba(61, 115, 197, 0.95)';
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 4]);
       ctx.strokeRect(gx, gy, gs, gs);
@@ -299,10 +299,10 @@ export function InImageQrStudioPanel({
 
   const coverageTone =
     coverageStats.tier === 'high'
-      ? 'border-rose-400/45 bg-rose-500/15 text-rose-200'
+      ? 'ga-status-error'
       : coverageStats.tier === 'caution'
-        ? 'border-amber-400/45 bg-amber-500/15 text-amber-200'
-        : 'border-sky-400/35 bg-sky-500/10 text-sky-200';
+        ? 'ga-status-warning'
+        : 'ga-status-info';
 
   const coverageTierLabel =
     coverageStats.tier === 'high'
@@ -314,11 +314,11 @@ export function InImageQrStudioPanel({
   return (
     <div
       data-testid="qrstudio-panel"
-      className="rounded-xl border border-sky-400/25 bg-[#041021]/70 p-4 space-y-4"
+      className="ga-card rounded-2xl p-4 space-y-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-slate-200">
-          <Move className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+        <div className="flex items-center gap-2 text-xs sm:text-sm font-medium ga-text">
+          <Move className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
           <span>{t.qrStudio.previewTitle}</span>
         </div>
 
@@ -336,15 +336,13 @@ export function InImageQrStudioPanel({
           <div
             data-testid="qrstudio-readability-badge"
             className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
-              isScannable
-                ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200'
-                : 'border-amber-400/45 bg-amber-500/15 text-amber-200'
+              isScannable ? 'ga-status-success' : 'ga-status-warning'
             }`}
           >
             {isScannable ? (
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300 shrink-0" aria-hidden="true" />
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             ) : (
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-300 shrink-0" aria-hidden="true" />
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             )}
             <span>{isScannable ? t.qrStudio.readabilityOk : t.qrStudio.readabilityWarn}</span>
           </div>
@@ -355,10 +353,8 @@ export function InImageQrStudioPanel({
         <div
           role="note"
           data-testid="qrstudio-coverage-warning"
-          className={`rounded-lg border px-3 py-2 text-xs leading-relaxed flex items-start gap-2 ${
-            coverageStats.tier === 'high'
-              ? 'border-rose-400/40 bg-rose-500/10 text-rose-100'
-              : 'border-amber-400/40 bg-amber-500/10 text-amber-100'
+          className={`rounded-xl border px-3 py-2 text-xs leading-relaxed flex items-start gap-2 ${
+            coverageStats.tier === 'high' ? 'ga-status-error' : 'ga-status-warning'
           }`}
         >
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
@@ -370,7 +366,7 @@ export function InImageQrStudioPanel({
         </div>
       )}
 
-      <div className="flex flex-col items-center justify-center rounded-xl border border-white/[0.08] bg-[#020813]/85 p-3">
+      <div className="ga-surface-subtle flex flex-col items-center justify-center rounded-xl p-3">
         <canvas
           ref={canvasRef}
           data-testid="qrstudio-preview-canvas"
@@ -389,10 +385,8 @@ export function InImageQrStudioPanel({
             aria-pressed={highlightMask}
             data-testid="qrstudio-highlight-mask-toggle"
             onClick={() => setHighlightMask((prev) => !prev)}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors min-h-[40px] cursor-pointer ${
-              highlightMask
-                ? 'border-amber-400/60 bg-amber-500/20 text-amber-100'
-                : 'border-white/[0.14] bg-[#030b18]/75 text-slate-200 hover:border-sky-400/50'
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors min-h-[40px] cursor-pointer ${
+              highlightMask ? 'ga-status-warning' : 'ga-btn-secondary'
             }`}
           >
             <Eye className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -407,9 +401,9 @@ export function InImageQrStudioPanel({
                 onChangeBoxSize(recommendedBoxSize);
                 setOptimizedHintVisible(true);
               }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/40 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-100 hover:bg-sky-500/25 min-h-[40px] cursor-pointer"
+              className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium min-h-[40px] cursor-pointer"
             >
-              <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <Sparkles className="h-3.5 w-3.5 shrink-0 text-[var(--ga-accent)]" aria-hidden="true" />
               <span>
                 {t.hardening.qrMaskSafety.optimizeSizeBtn} ({recommendedBoxSize}px)
               </span>
@@ -418,7 +412,7 @@ export function InImageQrStudioPanel({
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-slate-400 me-1">{t.qrStudio.presetsLabel}</span>
+          <span className="text-xs ga-text-muted me-1">{t.qrStudio.presetsLabel}</span>
           {(
             [
               ['topLeft', t.qrStudio.presets.topLeft],
@@ -433,7 +427,7 @@ export function InImageQrStudioPanel({
               type="button"
               onClick={() => applyPreset(presetKey)}
               data-testid={`qrstudio-preset-${presetKey}`}
-              className="rounded-lg border border-white/[0.14] bg-[#030b18]/75 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-sky-400/50 hover:text-white transition-colors min-h-[40px] cursor-pointer"
+              className="ga-btn-secondary rounded-xl px-3 py-1.5 text-xs font-medium transition-colors min-h-[40px] cursor-pointer"
             >
               {label}
             </button>
@@ -442,7 +436,7 @@ export function InImageQrStudioPanel({
       </div>
 
       {optimizedHintVisible && (
-        <p role="status" className="text-[11px] text-sky-300">
+        <p role="status" className="text-[11px] text-[var(--ga-accent)]">
           {t.hardening.qrMaskSafety.appliedHint} ({recommendedBoxSize} × {recommendedBoxSize} px)
         </p>
       )}
@@ -495,9 +489,9 @@ export function InImageAdvancedControls({
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="qrX" className="flex justify-between text-xs text-slate-300">
+          <label htmlFor="qrX" className="flex justify-between text-xs ga-text-secondary">
             <span>{t.qrStudio.xLabel}</span>
-            <span className="font-mono text-white">{clampedOptions?.x ?? qrX} px</span>
+            <span className="font-mono ga-text">{clampedOptions?.x ?? qrX} px</span>
           </label>
           <input
             id="qrX"
@@ -511,14 +505,14 @@ export function InImageAdvancedControls({
             value={clampedOptions?.x ?? qrX}
             onChange={(e) => onChangeX(Number(e.target.value))}
             data-testid="qrstudio-x-slider"
-            className="w-full accent-sky-300 mt-1"
+            className="w-full accent-[var(--ga-primary-bg)] mt-1"
           />
         </div>
 
         <div>
-          <label htmlFor="qrY" className="flex justify-between text-xs text-slate-300">
+          <label htmlFor="qrY" className="flex justify-between text-xs ga-text-secondary">
             <span>{t.qrStudio.yLabel}</span>
-            <span className="font-mono text-white">{clampedOptions?.y ?? qrY} px</span>
+            <span className="font-mono ga-text">{clampedOptions?.y ?? qrY} px</span>
           </label>
           <input
             id="qrY"
@@ -532,14 +526,14 @@ export function InImageAdvancedControls({
             value={clampedOptions?.y ?? qrY}
             onChange={(e) => onChangeY(Number(e.target.value))}
             data-testid="qrstudio-y-slider"
-            className="w-full accent-sky-300 mt-1"
+            className="w-full accent-[var(--ga-primary-bg)] mt-1"
           />
         </div>
 
         <div>
-          <label htmlFor="qrBoxSize" className="flex justify-between text-xs text-slate-300">
+          <label htmlFor="qrBoxSize" className="flex justify-between text-xs ga-text-secondary">
             <span>{t.qrStudio.sizeLabel}</span>
-            <span className="font-mono text-white">{clampedOptions?.boxSize ?? qrBoxSize} px</span>
+            <span className="font-mono ga-text">{clampedOptions?.boxSize ?? qrBoxSize} px</span>
           </label>
           <input
             id="qrBoxSize"
@@ -549,14 +543,14 @@ export function InImageAdvancedControls({
             value={clampedOptions?.boxSize ?? qrBoxSize}
             onChange={(e) => onChangeBoxSize(Number(e.target.value))}
             data-testid="qrstudio-size-slider"
-            className="w-full accent-sky-300 mt-1"
+            className="w-full accent-[var(--ga-primary-bg)] mt-1"
           />
         </div>
 
         <div>
-          <label htmlFor="qrOpacity" className="flex justify-between text-xs text-slate-300">
+          <label htmlFor="qrOpacity" className="flex justify-between text-xs ga-text-secondary">
             <span>{t.qrStudio.opacityLabel}</span>
-            <span className="font-mono text-white">{qrOpacityPct}%</span>
+            <span className="font-mono ga-text">{qrOpacityPct}%</span>
           </label>
           <input
             id="qrOpacity"
@@ -567,12 +561,12 @@ export function InImageAdvancedControls({
             value={qrOpacityPct}
             onChange={(e) => onChangeOpacityPct(Number(e.target.value))}
             data-testid="qrstudio-opacity-slider"
-            className="w-full accent-sky-300 mt-1"
+            className="w-full accent-[var(--ga-primary-bg)] mt-1"
           />
         </div>
 
         <div>
-          <label htmlFor="qrStyle" className="block text-xs text-slate-300 mb-1">
+          <label htmlFor="qrStyle" className="block text-xs ga-text-secondary mb-1">
             {t.qrStudio.styleLabel}
           </label>
           <select
@@ -580,7 +574,7 @@ export function InImageAdvancedControls({
             value={qrStyle}
             onChange={(e) => onChangeStyle(e.target.value as InImageQrStyle)}
             data-testid="qrstudio-style-select"
-            className="w-full rounded-lg border border-white/[0.14] bg-[#061224] px-3 py-2 text-xs sm:text-sm text-white min-h-[44px]"
+            className="ga-input w-full rounded-xl px-3 py-2 text-xs sm:text-sm min-h-[44px]"
           >
             <option value="frosted-light">{t.qrStudio.styles['frosted-light']}</option>
             <option value="frosted-dark">{t.qrStudio.styles['frosted-dark']}</option>
@@ -590,7 +584,7 @@ export function InImageAdvancedControls({
         </div>
 
         <div>
-          <label htmlFor="eccLevel" className="block text-xs text-slate-300 mb-1">
+          <label htmlFor="eccLevel" className="block text-xs ga-text-secondary mb-1">
             {t.qrStudio.eccLabel}
           </label>
           <select
@@ -598,7 +592,7 @@ export function InImageAdvancedControls({
             value={eccLevel}
             onChange={(e) => onChangeEcc(e.target.value as QrErrorCorrectionLevel)}
             data-testid="qrstudio-ecc-select"
-            className="w-full rounded-lg border border-white/[0.14] bg-[#061224] px-3 py-2 text-xs sm:text-sm text-white min-h-[44px]"
+            className="ga-input w-full rounded-xl px-3 py-2 text-xs sm:text-sm min-h-[44px]"
           >
             <option value="M">{t.qrStudio.eccOptions.M}</option>
             <option value="Q">{t.qrStudio.eccOptions.Q}</option>
@@ -608,7 +602,7 @@ export function InImageAdvancedControls({
 
         {onChangeQuietZone && (
           <div className="sm:col-span-2">
-            <label htmlFor="qrQuietZone" className="block text-xs text-slate-300 mb-1">
+            <label htmlFor="qrQuietZone" className="block text-xs ga-text-secondary mb-1">
               {t.minimal.create.quietZoneLabel}
             </label>
             <select
@@ -616,7 +610,7 @@ export function InImageAdvancedControls({
               value={qrQuietZone}
               onChange={(e) => onChangeQuietZone(Number(e.target.value))}
               data-testid="qrstudio-quietzone-select"
-              className="w-full rounded-lg border border-white/[0.14] bg-[#061224] px-3 py-2 text-xs sm:text-sm text-white min-h-[44px]"
+              className="ga-input w-full rounded-xl px-3 py-2 text-xs sm:text-sm min-h-[44px]"
             >
               <option value={0}>{t.minimal.create.quietZoneNone}</option>
               <option value={1}>{t.minimal.create.quietZoneMinimal}</option>
@@ -627,12 +621,12 @@ export function InImageAdvancedControls({
       </div>
 
       {clampedOptions && (
-        <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/50 p-3 text-xs text-slate-300 space-y-1">
-          <div className="font-mono text-sky-300">
+        <div className="ga-surface-subtle rounded-xl p-3 text-xs ga-text-secondary space-y-1">
+          <div className="font-mono text-[var(--ga-accent)]">
             {t.qrStudio.maskRegionLabel}: [{clampedOptions.x}, {clampedOptions.y},{' '}
             {clampedOptions.boxSize}, {clampedOptions.boxSize}]
           </div>
-          <p className="text-[11px] text-slate-400 leading-relaxed">{t.qrStudio.maskedDigestNote}</p>
+          <p className="text-[11px] ga-text-muted leading-relaxed">{t.qrStudio.maskedDigestNote}</p>
         </div>
       )}
     </div>

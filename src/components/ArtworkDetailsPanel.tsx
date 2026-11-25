@@ -26,6 +26,7 @@ import type {
 } from '../core/manifest/types';
 import { useI18n } from '../i18n/context';
 import { AdvancedSettings } from './ui/AdvancedSettings';
+import { FriendlyErrorAlert } from './ui/FriendlyErrorAlert';
 
 export interface LocalEvidenceDraftItem {
   id: string;
@@ -127,10 +128,10 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
   };
 
   const groupBtnClass = (active: boolean) =>
-    `w-full flex items-center justify-between gap-2 rounded-lg border px-3.5 py-2.5 text-start text-xs sm:text-sm font-medium transition-colors min-h-[44px] cursor-pointer ${
+    `w-full flex items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-start text-xs sm:text-sm font-medium transition-colors min-h-[44px] cursor-pointer ${
       active
-        ? 'border-sky-300/45 bg-sky-500/15 text-white'
-        : 'border-white/[0.09] bg-[#030b18]/60 text-slate-300 hover:border-white/[0.22]'
+        ? 'ga-status-info ga-border-strong'
+        : 'ga-surface-subtle ga-text-secondary hover:ga-text'
     }`;
 
   return (
@@ -139,7 +140,7 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
       summary={totalCount > 0 ? `${totalCount}` : t.artworkDetails.disclosureHint}
       testId="create-artwork-details"
     >
-      <p className="text-xs text-slate-400 leading-relaxed">{t.artworkDetails.disclosureHint}</p>
+      <p className="text-xs ga-text-muted leading-relaxed">{t.artworkDetails.disclosureHint}</p>
 
       <div className="space-y-2.5">
         {/* Creation Method & Environment */}
@@ -152,10 +153,10 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
             className={groupBtnClass(openGroup === 'creation')}
           >
             <span className="inline-flex items-center gap-2">
-              <Cpu className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+              <Cpu className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
               <span>{t.artworkDetails.groupCreation}</span>
               {creationCount > 0 && (
-                <span className="rounded-full bg-sky-400/20 px-2 py-0.5 text-[10px] font-mono text-sky-200">
+                <span className="ga-status-info rounded-full border px-2 py-0.5 text-[10px] font-mono">
                   {creationCount}
                 </span>
               )}
@@ -167,11 +168,11 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
           </button>
 
           {openGroup === 'creation' && (
-            <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/50 p-3.5 space-y-3">
+            <div className="ga-surface-subtle rounded-xl p-3.5 space-y-3">
               <div>
                 <label
                   htmlFor="creationMethod"
-                  className="block text-xs font-medium text-slate-300 mb-1"
+                  className="block text-xs font-medium ga-text-secondary mb-1"
                 >
                   {t.artworkDetails.creationMethodLabel}
                 </label>
@@ -185,7 +186,7 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
                     }))
                   }
                   data-testid="details-creation-method"
-                  className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+                  className="ga-input w-full rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
                 >
                   <option value="">{t.artworkDetails.methodNotDeclared}</option>
                   <option value="hand-drawn-no-ai">{t.artworkDetails.methodHandDrawnNoAi}</option>
@@ -204,9 +205,9 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <div className="flex justify-between text-xs text-slate-300 mb-1">
+                  <div className="flex justify-between text-xs ga-text-secondary mb-1">
                     <label htmlFor="envSoftware">{t.artworkDetails.softwareLabel}</label>
-                    <span className="font-mono text-slate-400">
+                    <span className="font-mono ga-text-muted">
                       {utf8ByteLength(draft.envSoftware)} / {MAX_ENV_FIELD_UTF8_BYTES}
                     </span>
                   </div>
@@ -219,14 +220,14 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
                     }
                     placeholder={t.artworkDetails.softwarePlaceholder}
                     data-testid="details-creation-software"
-                    className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
+                    className="ga-input w-full rounded-xl px-3 py-2 text-sm min-h-[44px]"
                   />
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-xs text-slate-300 mb-1">
+                  <div className="flex justify-between text-xs ga-text-secondary mb-1">
                     <label htmlFor="envHardware">{t.artworkDetails.hardwareLabel}</label>
-                    <span className="font-mono text-slate-400">
+                    <span className="font-mono ga-text-muted">
                       {utf8ByteLength(draft.envHardware)} / {MAX_ENV_FIELD_UTF8_BYTES}
                     </span>
                   </div>
@@ -239,14 +240,14 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
                     }
                     placeholder={t.artworkDetails.hardwarePlaceholder}
                     data-testid="details-creation-hardware"
-                    className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
+                    className="ga-input w-full rounded-xl px-3 py-2 text-sm min-h-[44px]"
                   />
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-xs text-slate-300 mb-1">
+                  <div className="flex justify-between text-xs ga-text-secondary mb-1">
                     <label htmlFor="envInputDevice">{t.artworkDetails.inputDeviceLabel}</label>
-                    <span className="font-mono text-slate-400">
+                    <span className="font-mono ga-text-muted">
                       {utf8ByteLength(draft.envInputDevice)} / {MAX_ENV_FIELD_UTF8_BYTES}
                     </span>
                   </div>
@@ -259,15 +260,15 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
                     }
                     placeholder={t.artworkDetails.inputDevicePlaceholder}
                     data-testid="details-creation-input"
-                    className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
+                    className="ga-input w-full rounded-xl px-3 py-2 text-sm min-h-[44px]"
                   />
                 </div>
               </div>
 
               <div>
-                <div className="flex justify-between text-xs text-slate-300 mb-1">
+                <div className="flex justify-between text-xs ga-text-secondary mb-1">
                   <label htmlFor="envNotes">{t.artworkDetails.creationNotesLabel}</label>
-                  <span className="font-mono text-slate-400">
+                  <span className="font-mono ga-text-muted">
                     {utf8ByteLength(draft.envNotes)} / {MAX_ENV_NOTES_UTF8_BYTES}
                   </span>
                 </div>
@@ -280,11 +281,11 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
                   }
                   placeholder={t.artworkDetails.creationNotesPlaceholder}
                   data-testid="details-creation-notes"
-                  className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                  className="ga-input w-full rounded-xl px-3 py-2 text-sm"
                 />
               </div>
 
-              <p className="text-[11px] text-slate-400 leading-relaxed">
+              <p className="text-[11px] ga-text-muted leading-relaxed">
                 {t.artworkDetails.declarationHonestyNote}
               </p>
             </div>
@@ -301,10 +302,10 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
             className={groupBtnClass(openGroup === 'evidence')}
           >
             <span className="inline-flex items-center gap-2">
-              <FileCheck2 className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+              <FileCheck2 className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
               <span>{t.artworkDetails.groupEvidence}</span>
               {evidenceCount > 0 && (
-                <span className="rounded-full bg-sky-400/20 px-2 py-0.5 text-[10px] font-mono text-sky-200">
+                <span className="ga-status-info rounded-full border px-2 py-0.5 text-[10px] font-mono">
                   {evidenceCount}
                 </span>
               )}
@@ -316,7 +317,7 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
           </button>
 
           {openGroup === 'evidence' && (
-            <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/50 p-3.5 space-y-3">
+            <div className="ga-surface-subtle rounded-xl p-3.5 space-y-3">
               <div className="flex flex-wrap items-center gap-2.5">
                 <input
                   id={evidenceFileInputId}
@@ -331,9 +332,9 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
                 />
                 <label
                   htmlFor={evidenceFileInputId}
-                  className="inline-flex items-center gap-2 rounded-lg border border-sky-300/35 bg-sky-500/15 px-3.5 py-2 text-xs sm:text-sm font-medium text-sky-100 hover:bg-sky-500/25 min-h-[44px] cursor-pointer"
+                  className="ga-btn-secondary inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-medium min-h-[44px] cursor-pointer"
                 >
-                  <Upload className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <Upload className="h-4 w-4 shrink-0 text-[var(--ga-accent)]" aria-hidden="true" />
                   <span>{t.artworkDetails.evidencePickBtn}</span>
                 </label>
               </div>
@@ -342,16 +343,17 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
                 <p
                   role="status"
                   data-testid="details-evidence-progress"
-                  className="text-xs font-mono text-sky-300"
+                  className="text-xs font-mono text-[var(--ga-accent)]"
                 >
                   {hashingStatus}
                 </p>
               )}
 
               {evidenceError && (
-                <p role="alert" className="text-xs text-rose-300">
-                  {evidenceError}
-                </p>
+                <FriendlyErrorAlert
+                  error={evidenceError}
+                  onDismiss={() => setEvidenceError(null)}
+                />
               )}
 
               {draft.evidenceItems.length > 0 && (
@@ -359,7 +361,7 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
                   {draft.evidenceItems.map((item, idx) => (
                     <li
                       key={item.id}
-                      className="rounded-lg border border-white/[0.09] bg-[#020813]/75 p-3 space-y-2 text-xs"
+                      className="ga-card-solid rounded-xl p-3 space-y-2 text-xs"
                     >
                       <div className="grid grid-cols-1 sm:grid-cols-[1fr_165px_auto] gap-2 items-center">
                         <input
@@ -375,7 +377,7 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
                               ),
                             }))
                           }
-                          className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-2.5 py-1.5 text-xs text-white min-h-[40px]"
+                          className="ga-input w-full rounded-lg px-2.5 py-1.5 text-xs min-h-[40px]"
                         />
 
                         <select
@@ -391,7 +393,7 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
                               ),
                             }))
                           }
-                          className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-2.5 py-1.5 text-xs text-white min-h-[40px]"
+                          className="ga-input w-full rounded-lg px-2.5 py-1.5 text-xs min-h-[40px]"
                         >
                           <option value="sketch">{t.artworkDetails.catSketch}</option>
                           <option value="wip">{t.artworkDetails.catWip}</option>
@@ -410,12 +412,12 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
                             }))
                           }
                           aria-label={t.artworkDetails.removeBtn}
-                          className="inline-flex items-center justify-center rounded-lg border border-white/[0.12] px-2.5 py-1.5 text-slate-300 hover:border-rose-400/40 hover:text-rose-200 min-h-[40px] cursor-pointer"
+                          className="ga-btn-secondary inline-flex items-center justify-center rounded-lg px-2.5 py-1.5 min-h-[40px] cursor-pointer hover:text-[var(--ga-error-text)]"
                         >
                           <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                         </button>
                       </div>
-                      <div className="font-mono text-[11px] text-slate-400 break-all">
+                      <div className="font-mono text-[11px] ga-text-muted break-all">
                         SHA-256: {item.sha256Hex} · {item.byteLength.toLocaleString()} bytes
                         {item.mimeType ? ` · ${item.mimeType}` : ''}
                       </div>
@@ -424,7 +426,7 @@ export function ArtworkDetailsPanel({ draft, onChange }: ArtworkDetailsPanelProp
                 </ul>
               )}
 
-              <p className="text-[11px] text-slate-400 leading-relaxed">
+              <p className="text-[11px] ga-text-muted leading-relaxed">
                 {t.artworkDetails.evidencePrivacyNote}
               </p>
             </div>

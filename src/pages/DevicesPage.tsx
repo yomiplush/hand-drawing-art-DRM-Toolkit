@@ -33,7 +33,9 @@ import {
   Upload,
   XCircle,
 } from 'lucide-react';
+import { FriendlyErrorAlert } from '../components/ui/FriendlyErrorAlert';
 import { HelpIconButton } from '../components/ui/HelpIconButton';
+import { SimpleModeBanner } from '../components/ui/SimpleModeBanner';
 import { supportsWebCryptoEd25519 } from '../core/crypto/ed25519';
 import {
   approvePairingRequestAsOwner,
@@ -1322,12 +1324,12 @@ export function DevicesPage() {
 
   return (
     <div data-testid="devices-page" className="space-y-6 min-w-0">
-      <header className="flex items-start justify-between gap-3 sm:gap-4 border-b border-white/[0.08] pb-4 min-w-0">
+      <header className="flex items-start justify-between gap-3 sm:gap-4 border-b border-[var(--ga-border)] pb-4 min-w-0">
         <div className="space-y-1 min-w-0 flex-1">
-          <h1 className="text-2xl sm:text-3xl font-semibold text-white break-words">
+          <h1 className="text-2xl sm:text-3xl font-semibold ga-text break-words">
             {t.devices.title}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 leading-relaxed break-words">
+          <p className="text-xs sm:text-sm ga-text-muted leading-relaxed break-words">
             {t.devices.subtitle}
           </p>
         </div>
@@ -1339,32 +1341,34 @@ export function DevicesPage() {
           testId="devices-help-btn"
           panelTestId="devices-help-panel"
         >
-          <ul className="space-y-2 list-disc ps-4 text-xs text-slate-200 leading-relaxed">
+          <ul className="space-y-2 list-disc ps-4 text-xs ga-text-secondary leading-relaxed">
             {t.devices.helpPoints.map((pt, idx) => (
               <li key={idx}>{pt}</li>
             ))}
           </ul>
-          <div className="rounded-lg border border-sky-400/25 bg-sky-500/10 p-3 text-xs text-sky-100">
+          <div className="ga-status-info rounded-xl border p-3 text-xs">
             {t.devices.noRootKeyCopyNote}
           </div>
         </HelpIconButton>
       </header>
 
+      <SimpleModeBanner testId="devices-simple-mode-banner" />
+
       {corruptionWarnings.length > 0 && (
         <div
           role="alert"
           data-testid="pairing-corruption-warning"
-          className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-4 space-y-2 text-xs text-rose-100"
+          className="ga-status-error rounded-xl border p-4 space-y-2 text-xs"
         >
           <div className="flex items-center gap-2 font-semibold">
-            <ShieldAlert className="h-4 w-4 text-rose-300 shrink-0" aria-hidden="true" />
+            <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{t.devices.corruptRecordWarningTitle}</span>
           </div>
           <ul className="space-y-1.5">
             {corruptionWarnings.map((w, idx) => (
               <li
                 key={`${w.store}:${w.recordKey}:${idx}`}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-black/25 px-3 py-2"
+                className="ga-card-solid flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2"
               >
                 <span className="break-all">
                   {w.store} ({w.recordKey}): {w.reason}
@@ -1375,7 +1379,7 @@ export function DevicesPage() {
                   onClick={() =>
                     void clearCorruptDevicePairingRecord(w.store, w.recordKey).then(refreshAll)
                   }
-                  className="rounded-md border border-rose-400/40 bg-rose-500/15 px-2.5 py-1 text-[11px] font-medium text-rose-100 hover:bg-rose-500/25 cursor-pointer"
+                  className="ga-status-error rounded-md border px-2.5 py-1 text-[11px] font-medium hover:opacity-90 cursor-pointer"
                 >
                   {t.devices.clearCorruptRecordBtn}
                 </button>
@@ -1387,15 +1391,15 @@ export function DevicesPage() {
 
       {/* Top Identity Cards: My ID + This Device */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-w-0">
-        <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-3 min-w-0">
+        <section className="ga-card rounded-2xl border p-4 sm:p-5 space-y-3 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-base font-semibold text-white flex items-center gap-2">
-              <KeyRound className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+            <h2 className="text-base font-semibold ga-text flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
               <span>{t.devices.myIdSectionTitle}</span>
             </h2>
             <Link
               to="/keys"
-              className="text-xs font-medium text-sky-300 hover:text-sky-200 underline underline-offset-4 shrink-0"
+              className="text-xs font-medium text-[var(--ga-accent)] hover:text-[var(--ga-accent)] underline underline-offset-4 shrink-0"
             >
               {t.devices.goToKeysBackupBtn}
             </Link>
@@ -1403,9 +1407,9 @@ export function DevicesPage() {
 
           {authorKeys.length === 0 ? (
             <div className="space-y-3">
-              <p className="text-xs text-slate-300 leading-relaxed">{t.devices.myIdEmptyDesc}</p>
+              <p className="text-xs ga-text-secondary leading-relaxed">{t.devices.myIdEmptyDesc}</p>
               <form onSubmit={handleQuickCreateAuthorKey} className="space-y-2.5">
-                <label className="block text-xs font-medium text-slate-300">
+                <label className="block text-xs font-medium ga-text-secondary">
                   {t.devices.quickCreateIdLabel}
                 </label>
                 <input
@@ -1415,7 +1419,7 @@ export function DevicesPage() {
                   maxLength={64}
                   placeholder={t.devices.quickCreateIdPlaceholder}
                   data-testid="pairing-quick-myid-name"
-                  className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+                  className="ga-input w-full rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
                 />
                 <input
                   type="password"
@@ -1423,17 +1427,13 @@ export function DevicesPage() {
                   onChange={(e) => setQuickIdPass(e.target.value)}
                   placeholder={t.devices.quickCreateIdPassPlaceholder}
                   data-testid="pairing-quick-myid-pass"
-                  className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+                  className="ga-input w-full rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
                 />
-                {quickIdError && (
-                  <p role="alert" className="text-xs text-rose-300">
-                    {quickIdError}
-                  </p>
-                )}
+                {quickIdError && <FriendlyErrorAlert error={quickIdError} onDismiss={() => setQuickIdError(null)} />}
                 <button
                   type="submit"
                   data-testid="pairing-quick-myid-submit"
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-white min-h-[44px] cursor-pointer"
+                  className="ga-btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold min-h-[44px] cursor-pointer"
                 >
                   <PlusCircle className="h-4 w-4" aria-hidden="true" />
                   <span>{t.devices.quickCreateIdBtn}</span>
@@ -1446,16 +1446,16 @@ export function DevicesPage() {
                 <div
                   key={k.id}
                   data-testid="myid-summary-card"
-                  className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 px-3 py-2.5 space-y-1.5"
+                  className="ga-card-solid rounded-xl border px-3 py-2.5 space-y-1.5"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-semibold text-sm text-white">{k.label}</span>
-                    <span className="rounded-full border border-sky-400/30 bg-sky-500/10 px-2 py-0.5 text-[11px] text-sky-200">
+                    <span className="font-semibold text-sm ga-text">{k.label}</span>
+                    <span className="ga-status-info rounded-full border px-2 py-0.5 text-[11px] font-medium">
                       {k.fingerprintShort}
                     </span>
                   </div>
-                  <details className="text-[11px] text-slate-400">
-                    <summary className="cursor-pointer hover:text-slate-200">
+                  <details className="text-[11px] ga-text-muted">
+                    <summary className="cursor-pointer hover:text-[var(--ga-text)]">
                       {t.devices.technicalDetailsSummary}
                     </summary>
                     <div className="mt-1.5 space-y-1 font-mono break-all">
@@ -1473,24 +1473,24 @@ export function DevicesPage() {
           )}
         </section>
 
-        <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-3 min-w-0">
-          <h2 className="text-base font-semibold text-white flex items-center gap-2">
-            <Laptop className="h-4 w-4 text-cyan-300 shrink-0" aria-hidden="true" />
+        <section className="ga-card rounded-2xl border p-4 sm:p-5 space-y-3 min-w-0">
+          <h2 className="text-base font-semibold ga-text flex items-center gap-2">
+            <Laptop className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
             <span>{t.devices.thisDeviceTitle}</span>
           </h2>
 
           {localDevice ? (
             <div className="space-y-2.5">
-              <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/65 px-3 py-2.5 space-y-1.5">
+              <div className="ga-card-solid rounded-xl border px-3 py-2.5 space-y-1.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-semibold text-sm text-white" data-testid="local-device-name">
+                  <span className="font-semibold text-sm ga-text" data-testid="local-device-name">
                     {localDevice.deviceName}
                   </span>
                   <div className="flex flex-wrap items-center gap-1.5">
                     {!localDevice.revokedLocally && localDeviceActivePairings.length > 0 && (
                       <span
                         data-testid="local-device-paired-badge"
-                        className="rounded-full border border-emerald-400/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-200"
+                        className="ga-status-success rounded-full border px-2 py-0.5 text-[11px] font-medium"
                       >
                         {t.devices.alreadyPairedBadge}
                       </span>
@@ -1498,8 +1498,8 @@ export function DevicesPage() {
                     <span
                       className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
                         localDevice.revokedLocally
-                          ? 'border-rose-400/40 bg-rose-500/15 text-rose-200'
-                          : 'border-cyan-400/30 bg-cyan-500/10 text-cyan-200'
+                          ? 'ga-status-error'
+                          : 'ga-status-info'
                       }`}
                     >
                       {localDevice.revokedLocally ? t.devices.statusRevoked : localDevice.fingerprintShort}
@@ -1507,15 +1507,15 @@ export function DevicesPage() {
                   </div>
                 </div>
                 {!localDevice.revokedLocally && localDeviceActivePairings.length > 0 && (
-                  <p className="text-[11px] text-emerald-200/90">
+                  <p className="text-[11px] text-[var(--ga-success-text)]">
                     {t.devices.alreadyPairedUnderOwnersLabel}:{' '}
                     {localDeviceActivePairings
                       .map((d) => `${d.ownerDisplayName} (${d.ownerFingerprintShort})`)
                       .join(', ')}
                   </p>
                 )}
-                <details className="text-[11px] text-slate-400">
-                  <summary className="cursor-pointer hover:text-slate-200">
+                <details className="text-[11px] ga-text-muted">
+                  <summary className="cursor-pointer hover:text-[var(--ga-text)]">
                     {t.devices.technicalDetailsSummary}
                   </summary>
                   <div className="mt-1.5 space-y-1 font-mono break-all">
@@ -1539,14 +1539,14 @@ export function DevicesPage() {
                 <div
                   role="alert"
                   data-testid="device-revoked-alert"
-                  className="rounded-lg border border-rose-400/40 bg-rose-500/10 p-3 space-y-2 text-xs text-rose-100"
+                  className="ga-status-error rounded-xl border p-3 space-y-2 text-xs"
                 >
                   <p>{t.devices.thisDeviceRevokedAlert}</p>
                   <button
                     type="button"
                     data-testid="device-regenerate-btn"
                     onClick={() => void handleRegenerateDeviceIdentity()}
-                    className="rounded-lg border border-rose-300/40 bg-rose-500/20 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500/30 min-h-[44px] cursor-pointer"
+                    className="ga-status-error rounded-xl border px-3 py-2 text-xs font-semibold hover:opacity-90 min-h-[44px] cursor-pointer"
                   >
                     {t.devices.regenerateDeviceIdBtn}
                   </button>
@@ -1556,14 +1556,14 @@ export function DevicesPage() {
                   type="button"
                   data-testid="device-regenerate-btn"
                   onClick={() => void handleRegenerateDeviceIdentity()}
-                  className="rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
+                  className="ga-btn-secondary rounded-xl px-3 py-2 text-xs font-medium min-h-[44px] cursor-pointer"
                 >
                   {t.devices.createSeparateDeviceIdBtn}
                 </button>
               )}
             </div>
           ) : (
-            <p className="text-xs text-slate-300 leading-relaxed">{t.devices.step1Desc}</p>
+            <p className="text-xs ga-text-secondary leading-relaxed">{t.devices.step1Desc}</p>
           )}
         </section>
       </div>
@@ -1571,7 +1571,7 @@ export function DevicesPage() {
       {/* Navigation Tabs */}
       <div
         role="tablist"
-        className="flex flex-wrap gap-2 border-b border-white/[0.1] pb-3"
+        className="flex flex-wrap gap-2 border-b border-[var(--ga-border)] pb-3"
       >
         <button
           type="button"
@@ -1581,11 +1581,11 @@ export function DevicesPage() {
           onClick={() => setActiveTab('add')}
           className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium min-h-[44px] cursor-pointer transition-colors ${
             activeTab === 'add'
-              ? 'bg-sky-500/20 text-white border border-sky-400/45'
-              : 'bg-[#051224]/70 text-slate-300 border border-white/[0.1] hover:text-white'
+              ? 'bg-[var(--ga-primary-bg)] text-[var(--ga-primary-text)] border border-transparent'
+              : 'ga-btn-secondary'
           }`}
         >
-          <Smartphone className="h-4 w-4 text-sky-300" aria-hidden="true" />
+          <Smartphone className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{t.devices.addDeviceTab}</span>
         </button>
 
@@ -1597,11 +1597,11 @@ export function DevicesPage() {
           onClick={() => setActiveTab('approve')}
           className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium min-h-[44px] cursor-pointer transition-colors ${
             activeTab === 'approve'
-              ? 'bg-sky-500/20 text-white border border-sky-400/45'
-              : 'bg-[#051224]/70 text-slate-300 border border-white/[0.1] hover:text-white'
+              ? 'bg-[var(--ga-primary-bg)] text-[var(--ga-primary-text)] border border-transparent'
+              : 'ga-btn-secondary'
           }`}
         >
-          <QrCode className="h-4 w-4 text-cyan-300" aria-hidden="true" />
+          <QrCode className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{t.devices.approveDeviceTab}</span>
         </button>
 
@@ -1613,11 +1613,11 @@ export function DevicesPage() {
           onClick={() => setActiveTab('registry')}
           className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium min-h-[44px] cursor-pointer transition-colors ${
             activeTab === 'registry'
-              ? 'bg-sky-500/20 text-white border border-sky-400/45'
-              : 'bg-[#051224]/70 text-slate-300 border border-white/[0.1] hover:text-white'
+              ? 'bg-[var(--ga-primary-bg)] text-[var(--ga-primary-text)] border border-transparent'
+              : 'ga-btn-secondary'
           }`}
         >
-          <ShieldCheck className="h-4 w-4 text-emerald-300" aria-hidden="true" />
+          <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
             {t.devices.registryTab} ({pairedDevices.length})
           </span>
@@ -1631,11 +1631,11 @@ export function DevicesPage() {
           onClick={() => setActiveTab('sync')}
           className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium min-h-[44px] cursor-pointer transition-colors ${
             activeTab === 'sync'
-              ? 'bg-sky-500/20 text-white border border-sky-400/45'
-              : 'bg-[#051224]/70 text-slate-300 border border-white/[0.1] hover:text-white'
+              ? 'bg-[var(--ga-primary-bg)] text-[var(--ga-primary-text)] border border-transparent'
+              : 'ga-btn-secondary'
           }`}
         >
-          <RefreshCw className="h-4 w-4 text-sky-300" aria-hidden="true" />
+          <RefreshCw className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{t.devices.sync.tabLabel}</span>
           {syncSettings.enabled && (
             <span
@@ -1659,47 +1659,45 @@ export function DevicesPage() {
             <div
               role="status"
               data-testid="pairing-completed-banner"
-              className="rounded-xl border border-emerald-400/45 bg-emerald-500/15 p-4 space-y-1.5 text-xs text-emerald-100"
+              className="ga-status-success rounded-xl border p-4 space-y-1.5 text-xs"
             >
-              <div className="flex items-center gap-2 text-base font-semibold text-emerald-200">
+              <div className="flex items-center gap-2 text-base font-semibold text-[var(--ga-success-text)]">
                 <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden="true" />
                 <span>{t.devices.pairingCompletedTitle}</span>
               </div>
               <p>{t.devices.pairingCompletedDesc}</p>
-              <p className="text-[11px] text-emerald-200/90">
+              <p className="text-[11px] text-[var(--ga-success-text)]">
                 {completedDevice.deviceName} · {completedDevice.ownerDisplayName} ({t.devices.ownerConfirmedBadge})
               </p>
             </div>
           )}
 
           {receivedInviteError && (
-            <div
-              role="alert"
-              data-testid="pairing-invite-accept-error"
-              className="rounded-xl border border-rose-400/45 bg-rose-500/10 p-4 text-xs text-rose-200"
-            >
-              {receivedInviteError}
-            </div>
+            <FriendlyErrorAlert
+              error={receivedInviteError}
+              testId="pairing-invite-accept-error"
+              onDismiss={() => setReceivedInviteError(null)}
+            />
           )}
 
           {receivedInvite && (
             <section
               data-testid="pairing-invite-accept-card"
-              className="rounded-xl border border-sky-400/45 bg-[#051224]/90 backdrop-blur-md p-4 sm:p-5 space-y-4"
+              className="ga-card rounded-2xl border border-[var(--ga-border-strong)] p-4 sm:p-5 space-y-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="space-y-1">
-                  <h2 className="text-lg font-semibold text-white">{t.devices.inviteAcceptHeading}</h2>
-                  <p className="text-xs text-slate-300 leading-relaxed">{t.devices.inviteAcceptDesc}</p>
+                  <h2 className="text-lg font-semibold ga-text">{t.devices.inviteAcceptHeading}</h2>
+                  <p className="text-xs ga-text-secondary leading-relaxed">{t.devices.inviteAcceptDesc}</p>
                 </div>
-                <span className="rounded-full border border-sky-400/35 bg-sky-500/15 px-2.5 py-0.5 text-[11px] font-medium text-sky-200">
+                <span className="ga-status-info rounded-full border px-2.5 py-0.5 text-[11px] font-medium">
                   {t.devices.requestExpiresIn}: {formatCountdown(receivedInvite.expiresAt, nowUnix)}
                 </span>
               </div>
 
-              <div className="rounded-lg border border-white/[0.08] bg-[#030b18]/75 px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
-                <span className="text-slate-400">{t.devices.inviteFromOwnerLabel}</span>
-                <span className="font-semibold text-sky-200">
+              <div className="ga-surface-subtle rounded-xl border border-[var(--ga-border)] px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="ga-text-muted">{t.devices.inviteFromOwnerLabel}</span>
+                <span className="font-semibold text-[var(--ga-accent)]">
                   {receivedInvite.ownerDisplayName} ({receivedInvite.ownerFingerprintShort})
                 </span>
               </div>
@@ -1709,7 +1707,7 @@ export function DevicesPage() {
               ) && (
                 <p
                   role="note"
-                  className="rounded-lg border border-amber-400/35 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"
+                  className="ga-status-warning rounded-xl border px-3 py-2 text-xs"
                 >
                   {t.devices.inviteAlreadyPairedNote}
                 </p>
@@ -1718,7 +1716,7 @@ export function DevicesPage() {
               {!receivedInviteSentState ? (
                 <form onSubmit={handleAcceptAndSendInvite} className="space-y-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                    <label className="block text-xs font-medium ga-text-secondary mb-1">
                       {t.devices.deviceNameLabel}
                     </label>
                     <input
@@ -1728,13 +1726,13 @@ export function DevicesPage() {
                       maxLength={64}
                       placeholder={t.devices.deviceNamePlaceholder}
                       data-testid="invite-device-name-input"
-                      className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+                      className="ga-input w-full rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
                     />
                   </div>
 
                   {!webCryptoSupported && (
                     <div>
-                      <label className="block text-xs font-medium text-slate-300 mb-1">
+                      <label className="block text-xs font-medium ga-text-secondary mb-1">
                         {t.devices.devicePassLabel}
                       </label>
                       <input
@@ -1742,12 +1740,12 @@ export function DevicesPage() {
                         value={devicePassInput}
                         onChange={(e) => setDevicePassInput(e.target.value)}
                         placeholder={t.devices.devicePassPlaceholder}
-                        className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+                        className="ga-input w-full rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
                       />
                     </div>
                   )}
 
-                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                  <p className="text-[11px] ga-text-muted leading-relaxed">
                     {t.devices.inviteRelayNotice}
                   </p>
 
@@ -1756,7 +1754,7 @@ export function DevicesPage() {
                       type="submit"
                       disabled={receivedInviteSending || nowUnix > receivedInvite.expiresAt}
                       data-testid="invite-accept-send-btn"
-                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-300 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-sky-200 disabled:opacity-50 min-h-[44px] cursor-pointer"
+                      className="ga-btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50 min-h-[44px] cursor-pointer"
                     >
                       <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                       <span>
@@ -1770,7 +1768,7 @@ export function DevicesPage() {
                         setReceivedInvite(null);
                         setReceivedInviteError(null);
                       }}
-                      className="inline-flex items-center justify-center rounded-lg border border-white/[0.14] bg-[#030b18] px-4 py-2.5 text-xs font-medium text-slate-200 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
+                      className="ga-btn-secondary inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-xs font-medium min-h-[44px] cursor-pointer"
                     >
                       {t.devices.inviteCancelReceiveBtn}
                     </button>
@@ -1778,17 +1776,17 @@ export function DevicesPage() {
                 </form>
               ) : (
                 <div data-testid="invite-sent-waiting-panel" className="space-y-3">
-                  <div className="rounded-lg border border-sky-400/35 bg-sky-500/10 p-3.5 space-y-2 text-xs">
-                    <div className="font-semibold text-sm text-sky-200 flex items-center gap-2">
+                  <div className="ga-status-info rounded-xl border p-3.5 space-y-2 text-xs">
+                    <div className="font-semibold text-sm text-[var(--ga-accent)] flex items-center gap-2">
                       <RefreshCw className="h-4 w-4 animate-spin shrink-0" aria-hidden="true" />
                       <span>{t.devices.inviteSentWaitingTitle}</span>
                     </div>
-                    <p className="text-slate-200 leading-relaxed">{t.devices.inviteSentWaitingDesc}</p>
-                    <div className="rounded-lg border border-sky-400/35 bg-[#020813] px-3 py-2 flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-slate-400">{t.devices.sync.confirmationCodeLabel}:</span>
+                    <p className="ga-text-secondary leading-relaxed">{t.devices.inviteSentWaitingDesc}</p>
+                    <div className="ga-surface-subtle rounded-xl border border-[var(--ga-border-strong)] px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+                      <span className="ga-text-muted">{t.devices.sync.confirmationCodeLabel}:</span>
                       <span
                         data-testid="invite-sent-confirm-code"
-                        className="font-mono text-base font-bold tracking-wider text-sky-200"
+                        className="font-mono text-base font-bold tracking-wider text-[var(--ga-accent)]"
                       >
                         {receivedInviteSentState.confirmCode}
                       </span>
@@ -1800,7 +1798,7 @@ export function DevicesPage() {
                       type="button"
                       data-testid="invite-wait-check-btn"
                       onClick={() => void pollInviteCertOnce()}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/40 bg-sky-500/15 px-3 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-500/25 min-h-[44px] cursor-pointer"
+                      className="ga-status-info inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold hover:opacity-90 min-h-[44px] cursor-pointer"
                     >
                       <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>{t.devices.inviteCheckNowBtn}</span>
@@ -1812,17 +1810,17 @@ export function DevicesPage() {
                         setReceivedInviteSentState(null);
                         setReceivedInvite(null);
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#030b18] px-3 py-2 text-xs font-medium text-slate-200 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
+                      className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium min-h-[44px] cursor-pointer"
                     >
                       <span>{t.devices.inviteCancelReceiveBtn}</span>
                     </button>
                   </div>
 
-                  <details className="text-xs text-slate-300">
-                    <summary className="cursor-pointer hover:text-white">
+                  <details className="text-xs ga-text-secondary">
+                    <summary className="cursor-pointer hover:text-[var(--ga-text)]">
                       {t.devices.inviteManualFallbackSummary}
                     </summary>
-                    <p className="mt-2 text-[11px] text-slate-400">
+                    <p className="mt-2 text-[11px] ga-text-muted">
                       {t.devices.step2NewDesc}
                     </p>
                   </details>
@@ -1834,14 +1832,14 @@ export function DevicesPage() {
             <div
               role="note"
               data-testid="owner-in-add-tab-hint"
-              className="rounded-xl border border-sky-400/35 bg-sky-500/10 p-4 flex flex-wrap items-center justify-between gap-3 text-xs text-sky-100 leading-relaxed"
+              className="ga-status-info rounded-xl border p-4 flex flex-wrap items-center justify-between gap-3 text-xs leading-relaxed"
             >
               <span className="flex-1 min-w-[240px]">{t.devices.ownerInAddTabHint}</span>
               <button
                 type="button"
                 data-testid="owner-switch-to-approve-btn"
                 onClick={() => setActiveTab('approve')}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-sky-300 px-3.5 py-2 text-xs font-semibold text-slate-950 hover:bg-sky-200 min-h-[40px] cursor-pointer shrink-0"
+                className="ga-btn-primary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold min-h-[44px] cursor-pointer shrink-0"
               >
                 <QrCode className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>{t.devices.switchToApproveTabBtn}</span>
@@ -1851,17 +1849,17 @@ export function DevicesPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
           {/* Step 1 */}
-          <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-4 min-w-0">
+          <section className="ga-card rounded-2xl border p-4 sm:p-5 space-y-4 min-w-0">
             <div className="space-y-1">
-              <h2 className="text-lg font-semibold text-white">{t.devices.step1Heading}</h2>
-              <p className="text-xs text-slate-300 leading-relaxed">{t.devices.step1Desc}</p>
+              <h2 className="text-lg font-semibold ga-text">{t.devices.step1Heading}</h2>
+              <p className="text-xs ga-text-secondary leading-relaxed">{t.devices.step1Desc}</p>
             </div>
 
             {localDevice && !localDevice.revokedLocally && localDeviceActivePairings.length > 0 && (
               <div
                 role="note"
                 data-testid="pairing-already-paired-note"
-                className="rounded-lg border border-sky-400/30 bg-sky-500/10 p-3 text-xs text-sky-100 leading-relaxed"
+                className="ga-status-info rounded-xl border p-3 text-xs leading-relaxed"
               >
                 {t.devices.alreadyPairedStep1Note}
               </div>
@@ -1869,7 +1867,7 @@ export function DevicesPage() {
 
             <form onSubmit={handleStartPairingSession} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="block text-xs font-medium ga-text-secondary mb-1">
                   {t.devices.deviceNameLabel}
                 </label>
                 <input
@@ -1879,13 +1877,13 @@ export function DevicesPage() {
                   maxLength={64}
                   placeholder={t.devices.deviceNamePlaceholder}
                   data-testid="pairing-device-name-input"
-                  className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+                  className="ga-input w-full rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
                 />
               </div>
 
               {!webCryptoSupported && (
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                  <label className="block text-xs font-medium ga-text-secondary mb-1">
                     {t.devices.devicePassLabel}
                   </label>
                   <input
@@ -1894,22 +1892,24 @@ export function DevicesPage() {
                     onChange={(e) => setDevicePassInput(e.target.value)}
                     placeholder={t.devices.devicePassPlaceholder}
                     data-testid="pairing-device-pass-input"
-                    className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+                    className="ga-input w-full rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
                   />
                 </div>
               )}
 
               {step1Error && (
-                <p role="alert" data-testid="pairing-step1-error" className="text-xs text-rose-300">
-                  {step1Error}
-                </p>
+                <FriendlyErrorAlert
+                  error={step1Error}
+                  testId="pairing-step1-error"
+                  onDismiss={() => setStep1Error(null)}
+                />
               )}
 
               <button
                 type="submit"
                 disabled={Boolean(localDevice?.revokedLocally)}
                 data-testid="pairing-create-req-btn"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-white disabled:opacity-50 min-h-[44px] cursor-pointer"
+                className="ga-btn-primary w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50 min-h-[44px] cursor-pointer"
               >
                 <QrCode className="h-4 w-4" aria-hidden="true" />
                 <span>{t.devices.generateRequestQrBtn}</span>
@@ -1919,15 +1919,15 @@ export function DevicesPage() {
             {displayedSession && displayedQrUrl && (
               <div
                 data-testid="pairing-request-qr-panel"
-                className="rounded-xl border border-sky-400/35 bg-[#030b18]/80 p-4 space-y-3"
+                className="ga-card-solid rounded-xl border border-[var(--ga-border-strong)] p-4 space-y-3"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-white">{t.devices.requestQrTitle}</h3>
+                  <h3 className="text-sm font-semibold ga-text">{t.devices.requestQrTitle}</h3>
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
                       displayedRequestExpired
-                        ? 'bg-rose-500/20 text-rose-200 border border-rose-400/40'
-                        : 'bg-sky-500/15 text-sky-200 border border-sky-400/35'
+                        ? 'ga-status-error border'
+                        : 'ga-status-info border'
                     }`}
                   >
                     {displayedRequestExpired
@@ -1942,17 +1942,17 @@ export function DevicesPage() {
                 />
 
                 {displayedReqConfirmCode && (
-                  <div className="rounded-lg border border-sky-400/30 bg-[#020813] px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="ga-surface-subtle rounded-xl border border-[var(--ga-border-strong)] px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
                     <div>
-                      <span className="text-slate-400">{t.devices.sync.confirmationCodeLabel}: </span>
+                      <span className="ga-text-muted">{t.devices.sync.confirmationCodeLabel}: </span>
                       <span
                         data-testid="pairing-req-confirm-code"
-                        className="font-mono font-bold tracking-wider text-sky-200 text-sm"
+                        className="font-mono font-bold tracking-wider text-[var(--ga-accent)] text-sm"
                       >
                         {displayedReqConfirmCode}
                       </span>
                     </div>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] ga-text-muted">
                       {t.devices.sync.confirmationCodeHint}
                     </span>
                   </div>
@@ -1965,7 +1965,7 @@ export function DevicesPage() {
                     value={displayedQrUrl}
                     data-testid="pairing-req-url-input"
                     aria-label={t.devices.requestQrTitle}
-                    className="w-full rounded-lg border border-white/[0.12] bg-[#020813] px-3 py-2 text-xs font-mono text-slate-300"
+                    className="ga-input w-full rounded-xl px-3 py-2 text-xs font-mono ga-text-secondary"
                   />
 
                   <div className="flex flex-wrap gap-2">
@@ -1978,7 +1978,7 @@ export function DevicesPage() {
                           `chm-pair-request-${displayedSession.deviceIdHex.slice(0, 8)}.png`,
                         )
                       }
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 hover:bg-sky-500/20 min-h-[44px] cursor-pointer"
+                      className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium min-h-[44px] cursor-pointer"
                     >
                       <Download className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>{t.devices.downloadQrPngBtn}</span>
@@ -1987,10 +1987,10 @@ export function DevicesPage() {
                     <button
                       type="button"
                       onClick={() => void handleCopy('req-url', displayedQrUrl)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#051224] px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
+                      className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium min-h-[44px] cursor-pointer"
                     >
                       {copiedKey === 'req-url' ? (
-                        <Check className="h-3.5 w-3.5 text-emerald-300" />
+                        <Check className="h-3.5 w-3.5 text-[var(--ga-success-text)]" />
                       ) : (
                         <Copy className="h-3.5 w-3.5" />
                       )}
@@ -2001,7 +2001,7 @@ export function DevicesPage() {
                       type="button"
                       data-testid="pairing-cancel-req-btn"
                       onClick={() => void handleCancelPairingRequest(displayedSession.requestIdHex)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/35 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200 hover:bg-rose-500/20 min-h-[44px] cursor-pointer"
+                      className="ga-status-error inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium hover:opacity-90 min-h-[44px] cursor-pointer"
                     >
                       <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>{t.devices.cancelRequestBtn}</span>
@@ -2013,24 +2013,24 @@ export function DevicesPage() {
           </section>
 
           {/* Step 2 on New Device */}
-          <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-4 min-w-0">
+          <section className="ga-card rounded-2xl border p-4 sm:p-5 space-y-4 min-w-0">
             <div className="space-y-1">
-              <h2 className="text-lg font-semibold text-white">{t.devices.step2NewHeading}</h2>
-              <p className="text-xs text-slate-300 leading-relaxed">{t.devices.step2NewDesc}</p>
+              <h2 className="text-lg font-semibold ga-text">{t.devices.step2NewHeading}</h2>
+              <p className="text-xs ga-text-secondary leading-relaxed">{t.devices.step2NewDesc}</p>
             </div>
 
             {completedDevice && !completedViaInvite && (
               <div
                 role="status"
                 data-testid="pairing-completed-banner"
-                className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-4 space-y-1.5 text-xs text-emerald-100"
+                className="ga-status-success rounded-xl border p-4 space-y-1.5 text-xs"
               >
-                <div className="flex items-center gap-2 text-sm font-semibold text-emerald-200">
+                <div className="flex items-center gap-2 text-sm font-semibold text-[var(--ga-success-text)]">
                   <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <span>{t.devices.pairingCompletedTitle}</span>
                 </div>
                 <p>{t.devices.pairingCompletedDesc}</p>
-                <p className="text-[11px] text-emerald-200/90">
+                <p className="text-[11px] text-[var(--ga-success-text)]">
                   {completedDevice.deviceName} · {completedDevice.ownerDisplayName} (
                   {completedDevice.localVerificationStatus === 'active-trusted'
                     ? t.devices.ownerConfirmedBadge
@@ -2040,7 +2040,7 @@ export function DevicesPage() {
               </div>
             )}
 
-            <div className="rounded-xl border border-white/[0.08] bg-[#030b18]/70 p-3 space-y-3">
+            <div className="ga-surface-subtle rounded-xl border border-[var(--ga-border)] p-3 space-y-3">
               <QrCameraScanner
                 startLabel={t.devices.scanCameraBtn}
                 stopLabel={t.devices.stopCameraBtn}
@@ -2052,8 +2052,8 @@ export function DevicesPage() {
                 }}
               />
 
-              <div className="pt-2 border-t border-white/[0.08] space-y-2">
-                <label htmlFor={certUploadId} className="block text-xs font-medium text-slate-300">
+              <div className="pt-2 border-t border-[var(--ga-border)] space-y-2">
+                <label htmlFor={certUploadId} className="block text-xs font-medium ga-text-secondary">
                   {t.devices.uploadQrImageLabel}
                 </label>
                 <input
@@ -2066,12 +2066,12 @@ export function DevicesPage() {
                     e.currentTarget.value = '';
                     void handleCertQrFileUpload(file);
                   }}
-                  className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border file:border-slate-700 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:font-medium file:text-slate-100 hover:file:bg-slate-700"
+                  className="block w-full text-xs ga-text-secondary file:mr-3 file:rounded-lg file:border file:border-[var(--ga-border-strong)] file:bg-[var(--ga-surface-subtle)] file:px-3 file:py-2 file:text-xs file:font-medium file:text-[var(--ga-text)] hover:file:opacity-90"
                 />
               </div>
 
-              <div className="pt-2 border-t border-white/[0.08] space-y-2">
-                <label className="block text-xs font-medium text-slate-300">
+              <div className="pt-2 border-t border-[var(--ga-border)] space-y-2">
+                <label className="block text-xs font-medium ga-text-secondary">
                   {t.devices.pasteInputLabel}
                 </label>
                 <textarea
@@ -2080,13 +2080,13 @@ export function DevicesPage() {
                   onChange={(e) => setCertInput(e.target.value)}
                   placeholder={t.devices.pasteInputPlaceholder}
                   data-testid="pairing-cert-text-input"
-                  className="w-full rounded-lg border border-white/[0.14] bg-[#020813] px-3 py-2 text-xs font-mono text-white"
+                  className="ga-input w-full rounded-xl px-3 py-2 text-xs font-mono"
                 />
                 <button
                   type="button"
                   data-testid="pairing-cert-inspect-btn"
                   onClick={() => void inspectCertValue(certInput)}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-sky-400/40 bg-sky-500/15 px-4 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-500/25 min-h-[44px] cursor-pointer"
+                  className="ga-status-info inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold hover:opacity-90 min-h-[44px] cursor-pointer"
                 >
                   <span>{t.devices.verifyCertBtn}</span>
                 </button>
@@ -2094,7 +2094,7 @@ export function DevicesPage() {
             </div>
 
             {step2StatusMsg && (
-              <p role="status" data-testid="pairing-step2-status" className="text-xs text-emerald-300">
+              <p role="status" data-testid="pairing-step2-status" className="text-xs text-[var(--ga-success-text)]">
                 {step2StatusMsg}
               </p>
             )}
@@ -2103,7 +2103,7 @@ export function DevicesPage() {
               <div
                 role="alert"
                 data-testid="pairing-step2-error"
-                className="rounded-lg border border-rose-400/35 bg-rose-500/10 p-3 space-y-2 text-xs text-rose-200 leading-relaxed"
+                className="ga-status-error rounded-xl border p-3.5 space-y-2 text-xs leading-relaxed"
               >
                 <p>{step2Error}</p>
                 {step2WrongTypeKind === 'pairing-request-owner' && step2WrongReqRaw && (
@@ -2119,7 +2119,7 @@ export function DevicesPage() {
                       setStep2WrongReqRaw(null);
                       void inspectIncomingRequestValue(req);
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-sky-300 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-sky-200 min-h-[36px] cursor-pointer"
+                    className="ga-btn-primary inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold min-h-[36px] cursor-pointer"
                   >
                     <QrCode className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>{t.devices.sendToApproveTabBtn}</span>
@@ -2131,26 +2131,26 @@ export function DevicesPage() {
             {certInspection && (
               <div
                 data-testid="pairing-cert-preview"
-                className="rounded-xl border border-cyan-400/35 bg-[#030b18]/85 p-4 space-y-3"
+                className="ga-card-solid rounded-xl border border-[var(--ga-border-strong)] p-4 space-y-3"
               >
                 <div className="space-y-1 text-xs">
-                  <div className="font-semibold text-sm text-white">
+                  <div className="font-semibold text-sm ga-text">
                     {certInspection.certificate.payload.ownerDisplayName} (
                     {certInspection.certificate.payload.ownerFingerprintShort})
                   </div>
-                  <div className="text-slate-300">
+                  <div className="ga-text-secondary">
                     {t.devices.confirmDeviceNameLabel}:{' '}
                     {certInspection.certificate.payload.deviceDisplayName}
                   </div>
-                  <div className="text-slate-300">
+                  <div className="ga-text-secondary">
                     {t.devices.confirmPermissionLabel}: {t.devices.confirmPermissionValue}
                   </div>
                   {certInspectConfirmCode && (
-                    <div className="pt-1 text-slate-300">
+                    <div className="pt-1 ga-text-secondary">
                       {t.devices.sync.confirmationCodeLabel}:{' '}
                       <span
                         data-testid="pairing-cert-confirm-code"
-                        className="font-mono font-bold tracking-wider text-cyan-200"
+                        className="font-mono font-bold tracking-wider text-[var(--ga-accent)]"
                       >
                         {certInspectConfirmCode}
                       </span>
@@ -2159,7 +2159,7 @@ export function DevicesPage() {
                 </div>
 
                 {certInspection.requiresOwnerTrustConfirmation ? (
-                  <div className="rounded-lg border border-amber-400/35 bg-amber-500/10 p-3 space-y-2 text-xs text-amber-100">
+                  <div className="ga-status-warning rounded-xl border p-3 space-y-2 text-xs">
                     <p>{t.devices.ownerUnverifiedWarning}</p>
                     <label className="flex items-start gap-2 cursor-pointer">
                       <input
@@ -2173,14 +2173,14 @@ export function DevicesPage() {
                     </label>
                   </div>
                 ) : (
-                  <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/15 px-3 py-1 text-xs text-emerald-200">
+                  <div className="inline-flex items-center gap-1.5 ga-status-success rounded-full border px-3 py-1 text-xs font-medium">
                     <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>{t.devices.ownerConfirmedBadge}</span>
                   </div>
                 )}
 
-                <details className="text-[11px] text-slate-400">
-                  <summary className="cursor-pointer hover:text-slate-200">
+                <details className="text-[11px] ga-text-muted">
+                  <summary className="cursor-pointer hover:text-[var(--ga-text)]">
                     {t.devices.technicalDetailsSummary}
                   </summary>
                   <div className="mt-1.5 space-y-1 font-mono break-all">
@@ -2200,7 +2200,7 @@ export function DevicesPage() {
                   type="button"
                   data-testid="pairing-complete-btn"
                   onClick={() => void handleCompletePairing()}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-300 min-h-[44px] cursor-pointer"
+                  className="ga-btn-primary w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold min-h-[44px] cursor-pointer"
                 >
                   <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                   <span>{t.devices.completePairingBtn}</span>
@@ -2215,36 +2215,36 @@ export function DevicesPage() {
       {/* TAB 2: EXISTING OWNER DEVICE APPROVAL */}
       {activeTab === 'approve' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
-          <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-4 min-w-0">
+          <section className="ga-card rounded-2xl border p-4 sm:p-5 space-y-4 min-w-0">
             <div className="space-y-1">
-              <h2 className="text-lg font-semibold text-white">{t.devices.approveHeading}</h2>
-              <p className="text-xs text-slate-300 leading-relaxed">{t.devices.approveDesc}</p>
+              <h2 className="text-lg font-semibold ga-text">{t.devices.approveHeading}</h2>
+              <p className="text-xs ga-text-secondary leading-relaxed">{t.devices.approveDesc}</p>
             </div>
 
             {authorKeys.length === 0 && (
               <div
                 role="alert"
                 data-testid="approve-no-owner-alert"
-                className="rounded-xl border border-amber-400/45 bg-amber-500/10 p-3.5 space-y-2.5 text-xs text-amber-100 leading-relaxed"
+                className="ga-status-warning rounded-xl border p-3.5 space-y-2.5 text-xs leading-relaxed"
               >
-                <div className="flex items-start gap-2 font-semibold text-amber-200">
+                <div className="flex items-start gap-2 font-semibold text-[var(--ga-warning-text)]">
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
                   <span>{t.devices.approveNoOwnerTitle}</span>
                 </div>
-                <p className="text-amber-100/90">{t.devices.approveNoOwnerDesc}</p>
+                <p className="opacity-90">{t.devices.approveNoOwnerDesc}</p>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     data-testid="approve-no-owner-go-add-btn"
                     onClick={() => setActiveTab('add')}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-amber-300 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-amber-200 min-h-[36px] cursor-pointer"
+                    className="inline-flex items-center gap-1.5 ga-btn-primary rounded-xl px-3 py-1.5 text-xs font-semibold min-h-[36px] cursor-pointer"
                   >
                     <span>{t.devices.approveNoOwnerGoAddBtn}</span>
                   </button>
                   <Link
                     to="/keys"
                     data-testid="approve-no-owner-go-keys-link"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300/40 bg-[#051224] px-3 py-1.5 text-xs font-medium text-amber-100 hover:border-amber-300 min-h-[36px]"
+                    className="inline-flex items-center gap-1.5 ga-btn-secondary rounded-xl px-3 py-1.5 text-xs font-medium min-h-[36px]"
                   >
                     <span>{t.devices.approveNoOwnerGoKeysBtn}</span>
                   </Link>
@@ -2255,14 +2255,14 @@ export function DevicesPage() {
             {authorKeys.length > 0 && (
               <div className="space-y-2.5">
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                  <label className="block text-xs font-medium ga-text-secondary mb-1">
                     {t.devices.selectOwnerIdLabel}
                   </label>
                   <select
                     value={selectedAuthorKeyId}
                     onChange={(e) => setSelectedAuthorKeyId(e.target.value)}
                     data-testid="pairing-owner-select"
-                    className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+                    className="ga-input w-full rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
                   >
                     {authorKeys.map((k) => (
                       <option key={k.id} value={k.id}>
@@ -2274,7 +2274,7 @@ export function DevicesPage() {
 
                 {selectedOwnerKey?.storageMode === 'noble-encrypted-seed' && (
                   <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                    <label className="block text-xs font-medium ga-text-secondary mb-1">
                       {t.devices.ownerPassphraseLabel}
                     </label>
                     <input
@@ -2283,7 +2283,7 @@ export function DevicesPage() {
                       onChange={(e) => setOwnerPassphrase(e.target.value)}
                       placeholder={t.devices.ownerPassphrasePlaceholder}
                       data-testid="pairing-owner-passphrase"
-                      className="w-full rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+                      className="ga-input w-full rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
                     />
                   </div>
                 )}
@@ -2293,20 +2293,22 @@ export function DevicesPage() {
             {authorKeys.length > 0 && (
               <div
                 data-testid="pairing-invite-card"
-                className="rounded-xl border border-sky-400/40 bg-sky-500/10 p-4 space-y-3"
+                className="ga-surface-subtle rounded-xl border border-[var(--ga-border-strong)] p-4 space-y-3"
               >
                 <div className="space-y-1">
-                  <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                    <QrCode className="h-4 w-4 text-sky-300 shrink-0" aria-hidden="true" />
+                  <h3 className="text-sm font-semibold ga-text flex items-center gap-2">
+                    <QrCode className="h-4 w-4 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
                     <span>{t.devices.inviteSectionTitle}</span>
                   </h3>
-                  <p className="text-xs text-slate-200 leading-relaxed">{t.devices.inviteSectionDesc}</p>
+                  <p className="text-xs ga-text-secondary leading-relaxed">{t.devices.inviteSectionDesc}</p>
                 </div>
 
                 {inviteError && (
-                  <p role="alert" data-testid="pairing-invite-error" className="text-xs text-rose-300">
-                    {inviteError}
-                  </p>
+                  <FriendlyErrorAlert
+                    error={inviteError}
+                    testId="pairing-invite-error"
+                    onDismiss={() => setInviteError(null)}
+                  />
                 )}
 
                 {!activeInviteSession ? (
@@ -2314,7 +2316,7 @@ export function DevicesPage() {
                     type="button"
                     data-testid="pairing-create-invite-btn"
                     onClick={() => void handleCreatePairingInvite()}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-300 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-sky-200 min-h-[44px] cursor-pointer"
+                    className="ga-btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold min-h-[44px] cursor-pointer"
                   >
                     <QrCode className="h-4 w-4" aria-hidden="true" />
                     <span>{t.devices.createInviteQrBtn}</span>
@@ -2322,15 +2324,15 @@ export function DevicesPage() {
                 ) : (
                   <div
                     data-testid="pairing-invite-qr-panel"
-                    className="rounded-xl border border-sky-400/35 bg-[#030b18]/85 p-4 space-y-3"
+                    className="ga-card-solid rounded-xl border border-[var(--ga-border-strong)] p-4 space-y-3"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h4 className="text-sm font-semibold text-white">{t.devices.inviteQrTitle}</h4>
+                      <h4 className="text-sm font-semibold ga-text">{t.devices.inviteQrTitle}</h4>
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
                           nowUnix > activeInviteSession.invite.expiresAt
-                            ? 'bg-rose-500/20 text-rose-200 border border-rose-400/40'
-                            : 'bg-sky-500/15 text-sky-200 border border-sky-400/35'
+                            ? 'ga-status-error border'
+                            : 'ga-status-info border'
                         }`}
                       >
                         {nowUnix > activeInviteSession.invite.expiresAt
@@ -2347,7 +2349,7 @@ export function DevicesPage() {
                     <p
                       role="status"
                       data-testid="pairing-invite-status"
-                      className="text-xs text-sky-200 leading-relaxed flex items-center gap-2"
+                      className="text-xs text-[var(--ga-accent)] leading-relaxed flex items-center gap-2"
                     >
                       <RefreshCw
                         className={`h-3.5 w-3.5 shrink-0 ${inviteCheckingNow && !inviteRelayStatus ? 'animate-spin' : ''}`}
@@ -2362,7 +2364,7 @@ export function DevicesPage() {
                       value={activeInviteSession.qrUrl}
                       data-testid="pairing-invite-url-input"
                       aria-label={t.devices.inviteQrTitle}
-                      className="w-full rounded-lg border border-white/[0.12] bg-[#020813] px-3 py-2 text-xs font-mono text-slate-300"
+                      className="ga-input w-full rounded-xl px-3 py-2 text-xs font-mono ga-text-secondary"
                     />
 
                     <div className="flex flex-wrap gap-2">
@@ -2370,7 +2372,7 @@ export function DevicesPage() {
                         type="button"
                         data-testid="pairing-invite-check-btn"
                         onClick={() => void pollInviteRequestOnce()}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/40 bg-sky-500/15 px-3 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-500/25 min-h-[44px] cursor-pointer"
+                        className="ga-status-info inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold hover:opacity-90 min-h-[44px] cursor-pointer"
                       >
                         <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                         <span>{t.devices.inviteCheckNowBtn}</span>
@@ -2384,7 +2386,7 @@ export function DevicesPage() {
                             `chm-pair-invite-${activeInviteSession.invite.inviteIdHex.slice(0, 8)}.png`,
                           )
                         }
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 hover:bg-sky-500/20 min-h-[44px] cursor-pointer"
+                        className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium min-h-[44px] cursor-pointer"
                       >
                         <Download className="h-3.5 w-3.5" aria-hidden="true" />
                         <span>{t.devices.downloadQrPngBtn}</span>
@@ -2393,10 +2395,10 @@ export function DevicesPage() {
                       <button
                         type="button"
                         onClick={() => void handleCopy('invite-url', activeInviteSession.qrUrl)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#051224] px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
+                        className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium min-h-[44px] cursor-pointer"
                       >
                         {copiedKey === 'invite-url' ? (
-                          <Check className="h-3.5 w-3.5 text-emerald-300" />
+                          <Check className="h-3.5 w-3.5 text-[var(--ga-success-text)]" />
                         ) : (
                           <Copy className="h-3.5 w-3.5" />
                         )}
@@ -2407,7 +2409,7 @@ export function DevicesPage() {
                         type="button"
                         data-testid="pairing-invite-cancel-btn"
                         onClick={handleClosePairingInvite}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/35 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200 hover:bg-rose-500/20 min-h-[44px] cursor-pointer"
+                        className="ga-status-error inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium hover:opacity-90 min-h-[44px] cursor-pointer"
                       >
                         <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
                         <span>{t.devices.cancelInviteBtn}</span>
@@ -2418,11 +2420,11 @@ export function DevicesPage() {
               </div>
             )}
 
-            <div className="text-[11px] font-medium text-slate-400 pt-1">
+            <div className="text-[11px] font-medium ga-text-muted pt-1">
               {t.devices.inviteManualDivider}
             </div>
 
-            <div className="rounded-xl border border-white/[0.08] bg-[#030b18]/70 p-3 space-y-3">
+            <div className="ga-surface-subtle rounded-xl border border-[var(--ga-border)] p-3 space-y-3">
               <QrCameraScanner
                 startLabel={t.devices.scanCameraBtn}
                 stopLabel={t.devices.stopCameraBtn}
@@ -2434,8 +2436,8 @@ export function DevicesPage() {
                 }}
               />
 
-              <div className="pt-2 border-t border-white/[0.08] space-y-2">
-                <label htmlFor={reqUploadId} className="block text-xs font-medium text-slate-300">
+              <div className="pt-2 border-t border-[var(--ga-border)] space-y-2">
+                <label htmlFor={reqUploadId} className="block text-xs font-medium ga-text-secondary">
                   {t.devices.uploadQrImageLabel}
                 </label>
                 <input
@@ -2448,12 +2450,12 @@ export function DevicesPage() {
                     e.currentTarget.value = '';
                     void handleReqQrFileUpload(file);
                   }}
-                  className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border file:border-slate-700 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:font-medium file:text-slate-100 hover:file:bg-slate-700"
+                  className="block w-full text-xs ga-text-secondary file:mr-3 file:rounded-lg file:border file:border-[var(--ga-border-strong)] file:bg-[var(--ga-surface-subtle)] file:px-3 file:py-2 file:text-xs file:font-medium file:text-[var(--ga-text)] hover:file:opacity-90"
                 />
               </div>
 
-              <div className="pt-2 border-t border-white/[0.08] space-y-2">
-                <label className="block text-xs font-medium text-slate-300">
+              <div className="pt-2 border-t border-[var(--ga-border)] space-y-2">
+                <label className="block text-xs font-medium ga-text-secondary">
                   {t.devices.pasteInputLabel}
                 </label>
                 <textarea
@@ -2462,13 +2464,13 @@ export function DevicesPage() {
                   onChange={(e) => setIncomingReqInput(e.target.value)}
                   placeholder={t.devices.pasteInputPlaceholder}
                   data-testid="pairing-req-paste-input"
-                  className="w-full rounded-lg border border-white/[0.14] bg-[#020813] px-3 py-2 text-xs font-mono text-white"
+                  className="ga-input w-full rounded-xl px-3 py-2 text-xs font-mono"
                 />
                 <button
                   type="button"
                   data-testid="pairing-req-inspect-btn"
                   onClick={() => void inspectIncomingRequestValue(incomingReqInput)}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-sky-400/40 bg-sky-500/15 px-4 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-500/25 min-h-[44px] cursor-pointer"
+                  className="ga-status-info inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold hover:opacity-90 min-h-[44px] cursor-pointer"
                 >
                   <span>{t.devices.verifyCertBtn}</span>
                 </button>
@@ -2476,49 +2478,49 @@ export function DevicesPage() {
             </div>
 
             {approveError && (
-              <p role="alert" data-testid="pairing-approve-error" className="text-xs text-rose-300">
+              <p role="alert" data-testid="pairing-approve-error" className="ga-status-error rounded-xl border p-3 text-xs leading-relaxed">
                 {approveError}
               </p>
             )}
           </section>
 
-          <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-4 min-w-0">
+          <section className="ga-card rounded-2xl border p-4 sm:p-5 space-y-4 min-w-0">
             {reqInspection && (
               <div
                 data-testid="pairing-approve-confirm-card"
-                className="rounded-xl border border-sky-400/45 bg-[#030b18]/90 p-4 space-y-4"
+                className="ga-card-solid rounded-xl border border-[var(--ga-border-strong)] p-4 space-y-4"
               >
-                <h3 className="text-base font-semibold text-white">
+                <h3 className="text-base font-semibold ga-text">
                   {t.devices.confirmDialogTitlePrefix}
                   {reqInspection.request.payload.deviceDisplayName}
                   {t.devices.confirmDialogTitleSuffix}
                 </h3>
 
                 <dl className="space-y-2 text-xs">
-                  <div className="flex flex-wrap justify-between gap-2 border-b border-white/[0.06] pb-1.5">
-                    <dt className="text-slate-400">{t.devices.confirmDeviceNameLabel}</dt>
-                    <dd className="font-semibold text-white">
+                  <div className="flex flex-wrap justify-between gap-2 border-b border-[var(--ga-border)] pb-1.5">
+                    <dt className="ga-text-muted">{t.devices.confirmDeviceNameLabel}</dt>
+                    <dd className="font-semibold ga-text">
                       {reqInspection.request.payload.deviceDisplayName}
                     </dd>
                   </div>
-                  <div className="flex flex-wrap justify-between gap-2 border-b border-white/[0.06] pb-1.5">
-                    <dt className="text-slate-400">{t.devices.confirmOwnerIdLabel}</dt>
-                    <dd className="font-semibold text-sky-200">
+                  <div className="flex flex-wrap justify-between gap-2 border-b border-[var(--ga-border)] pb-1.5">
+                    <dt className="ga-text-muted">{t.devices.confirmOwnerIdLabel}</dt>
+                    <dd className="font-semibold text-[var(--ga-accent)]">
                       {selectedOwnerKey
                         ? `${selectedOwnerKey.label} (${selectedOwnerKey.fingerprintShort})`
                         : t.devices.myIdEmptyDesc}
                     </dd>
                   </div>
-                  <div className="flex flex-wrap justify-between gap-2 border-b border-white/[0.06] pb-1.5">
-                    <dt className="text-slate-400">{t.devices.confirmPermissionLabel}</dt>
-                    <dd className="text-slate-200">{t.devices.confirmPermissionValue}</dd>
+                  <div className="flex flex-wrap justify-between gap-2 border-b border-[var(--ga-border)] pb-1.5">
+                    <dt className="ga-text-muted">{t.devices.confirmPermissionLabel}</dt>
+                    <dd className="ga-text-secondary">{t.devices.confirmPermissionValue}</dd>
                   </div>
                   {reqInspectConfirmCode && (
                     <div className="flex flex-wrap justify-between gap-2">
-                      <dt className="text-slate-400">{t.devices.sync.confirmationCodeLabel}</dt>
+                      <dt className="ga-text-muted">{t.devices.sync.confirmationCodeLabel}</dt>
                       <dd
                         data-testid="pairing-approve-confirm-code"
-                        className="font-mono font-bold tracking-wider text-sky-200 text-sm"
+                        className="font-mono font-bold tracking-wider text-[var(--ga-accent)] text-sm"
                       >
                         {reqInspectConfirmCode}
                       </dd>
@@ -2526,8 +2528,8 @@ export function DevicesPage() {
                   )}
                 </dl>
 
-                <details className="text-[11px] text-slate-400">
-                  <summary className="cursor-pointer hover:text-slate-200">
+                <details className="text-[11px] ga-text-muted">
+                  <summary className="cursor-pointer hover:text-[var(--ga-text)]">
                     {t.devices.technicalDetailsSummary}
                   </summary>
                   <div className="mt-1.5 space-y-1 font-mono break-all">
@@ -2553,21 +2555,21 @@ export function DevicesPage() {
                   <div
                     role="alert"
                     data-testid="approve-card-no-owner-warning"
-                    className="rounded-lg border border-amber-400/45 bg-amber-500/10 p-3 space-y-2 text-xs text-amber-100 leading-relaxed"
+                    className="ga-status-warning rounded-xl border p-3 space-y-2 text-xs leading-relaxed"
                   >
-                    <p className="font-semibold text-amber-200">{t.devices.approveNoOwnerTitle}</p>
+                    <p className="font-semibold text-[var(--ga-warning-text)]">{t.devices.approveNoOwnerTitle}</p>
                     <p>{t.devices.approveNoOwnerDesc}</p>
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => setActiveTab('add')}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-300 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-amber-200 min-h-[36px] cursor-pointer"
+                        className="inline-flex items-center gap-1.5 ga-btn-primary rounded-xl px-3 py-1.5 text-xs font-semibold min-h-[36px] cursor-pointer"
                       >
                         <span>{t.devices.approveNoOwnerGoAddBtn}</span>
                       </button>
                       <Link
                         to="/keys"
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300/40 bg-[#051224] px-3 py-1.5 text-xs font-medium text-amber-100 hover:border-amber-300 min-h-[36px]"
+                        className="inline-flex items-center gap-1.5 ga-btn-secondary rounded-xl px-3 py-1.5 text-xs font-medium min-h-[36px]"
                       >
                         <span>{t.devices.approveNoOwnerGoKeysBtn}</span>
                       </Link>
@@ -2581,7 +2583,7 @@ export function DevicesPage() {
                     disabled={!selectedAuthorKeyId}
                     data-testid="pairing-approve-confirm-btn"
                     onClick={() => void handleApprovePairing()}
-                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-sky-300 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-sky-200 disabled:opacity-50 min-h-[44px] cursor-pointer"
+                    className="flex-1 ga-btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50 min-h-[44px] cursor-pointer"
                   >
                     <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                     <span>{t.devices.confirmApproveBtn}</span>
@@ -2594,7 +2596,7 @@ export function DevicesPage() {
                       setReqInspection(null);
                       setIncomingReqInput('');
                     }}
-                    className="inline-flex items-center justify-center rounded-lg border border-white/[0.16] bg-[#051224] px-4 py-2.5 text-sm font-medium text-slate-200 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
+                    className="ga-btn-secondary inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium min-h-[44px] cursor-pointer"
                   >
                     {t.devices.confirmCancelBtn}
                   </button>
@@ -2605,23 +2607,23 @@ export function DevicesPage() {
             {issuedApproval && (
               <div
                 data-testid="pairing-approval-qr-panel"
-                className="rounded-xl border border-emerald-400/40 bg-[#030b18]/85 p-4 space-y-3"
+                className="ga-card-solid rounded-xl border border-[var(--ga-success-border)] p-4 space-y-3"
               >
                 {inviteApprovalSent && (
                   <div
                     role="status"
                     data-testid="pairing-invite-sent-banner"
-                    className="rounded-lg border border-emerald-400/45 bg-emerald-500/15 p-3 text-xs font-medium text-emerald-100"
+                    className="ga-status-success rounded-xl border p-3 text-xs font-medium"
                   >
                     {t.devices.inviteApprovalSentMsg}
                   </div>
                 )}
 
                 <div className="space-y-1">
-                  <h3 className="text-base font-semibold text-emerald-200">
+                  <h3 className="text-base font-semibold text-[var(--ga-success-text)]">
                     {t.devices.approvalQrReadyTitle}
                   </h3>
-                  <p className="text-xs text-slate-300">{t.devices.approvalQrReadyDesc}</p>
+                  <p className="text-xs ga-text-secondary">{t.devices.approvalQrReadyDesc}</p>
                 </div>
 
                 <QrCodeDisplay
@@ -2630,17 +2632,17 @@ export function DevicesPage() {
                 />
 
                 {issuedApprovalConfirmCode && (
-                  <div className="rounded-lg border border-emerald-400/30 bg-[#020813] px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="ga-status-success rounded-xl border px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
                     <div>
-                      <span className="text-slate-400">{t.devices.sync.confirmationCodeLabel}: </span>
+                      <span className="ga-text-muted">{t.devices.sync.confirmationCodeLabel}: </span>
                       <span
                         data-testid="pairing-approval-confirm-code"
-                        className="font-mono font-bold tracking-wider text-emerald-200 text-sm"
+                        className="font-mono font-bold tracking-wider text-[var(--ga-success-text)] text-sm"
                       >
                         {issuedApprovalConfirmCode}
                       </span>
                     </div>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] ga-text-muted">
                       {t.devices.sync.confirmationCodeHint}
                     </span>
                   </div>
@@ -2652,7 +2654,7 @@ export function DevicesPage() {
                   value={issuedApproval.qrUrl}
                   data-testid="pairing-cert-url-output"
                   aria-label={t.devices.approvalQrReadyTitle}
-                  className="w-full rounded-lg border border-white/[0.12] bg-[#020813] px-3 py-2 text-xs font-mono text-slate-300"
+                  className="ga-input w-full rounded-xl px-3 py-2 text-xs font-mono ga-text-secondary"
                 />
 
                 <div className="flex flex-wrap gap-2">
@@ -2665,7 +2667,7 @@ export function DevicesPage() {
                         `chm-pair-approval-${issuedApproval.pairedDevice.deviceIdHex.slice(0, 8)}.png`,
                       )
                     }
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/35 bg-emerald-500/15 px-3 py-2 text-xs font-medium text-emerald-100 hover:bg-emerald-500/25 min-h-[44px] cursor-pointer"
+                    className="ga-status-success inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium hover:opacity-90 min-h-[44px] cursor-pointer"
                   >
                     <Download className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>{t.devices.downloadQrPngBtn}</span>
@@ -2674,10 +2676,10 @@ export function DevicesPage() {
                   <button
                     type="button"
                     onClick={() => void handleCopy('cert-url', issuedApproval.qrUrl)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#051224] px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
+                    className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium min-h-[44px] cursor-pointer"
                   >
                     {copiedKey === 'cert-url' ? (
-                      <Check className="h-3.5 w-3.5 text-emerald-300" />
+                      <Check className="h-3.5 w-3.5 text-[var(--ga-success-text)]" />
                     ) : (
                       <Copy className="h-3.5 w-3.5" />
                     )}
@@ -2694,7 +2696,7 @@ export function DevicesPage() {
                       setIncomingReqInput('');
                       setApproveError(null);
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#051224] px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] cursor-pointer"
+                    className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium min-h-[44px] cursor-pointer"
                   >
                     <span>{t.devices.approveNextDeviceBtn}</span>
                   </button>
@@ -2703,7 +2705,7 @@ export function DevicesPage() {
             )}
 
             {!reqInspection && !issuedApproval && (
-              <div className="rounded-xl border border-dashed border-white/[0.12] p-6 text-center text-xs text-slate-400">
+              <div className="ga-surface-subtle rounded-xl border border-dashed border-[var(--ga-border-strong)] p-6 text-center text-xs ga-text-muted">
                 {t.devices.approveDesc}
               </div>
             )}
@@ -2717,28 +2719,30 @@ export function DevicesPage() {
           <div
             role="note"
             data-testid="pairing-offline-warning"
-            className="rounded-xl border border-amber-400/35 bg-amber-500/10 px-4 py-3 flex items-start gap-2.5 text-xs text-amber-100 leading-relaxed"
+            className="ga-status-warning rounded-xl border px-4 py-3 flex items-start gap-2.5 text-xs leading-relaxed"
           >
-            <AlertTriangle className="h-4 w-4 text-amber-300 shrink-0 mt-0.5" aria-hidden="true" />
+            <AlertTriangle className="h-4 w-4 text-[var(--ga-warning-text)] shrink-0 mt-0.5" aria-hidden="true" />
             <span>{t.devices.offlineSyncWarning}</span>
           </div>
 
-          <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-4 min-w-0">
-            <h2 className="text-lg font-semibold text-white">{t.devices.registeredDevicesTitle}</h2>
+          <section className="ga-card rounded-2xl border p-4 sm:p-5 space-y-4 min-w-0">
+            <h2 className="text-lg font-semibold ga-text">{t.devices.registeredDevicesTitle}</h2>
 
             {removeError && (
-              <p role="alert" data-testid="device-list-error-msg" className="text-xs text-rose-300">
-                {removeError}
-              </p>
+              <FriendlyErrorAlert
+                error={removeError}
+                testId="device-list-error-msg"
+                onDismiss={() => setRemoveError(null)}
+              />
             )}
             {deviceListMsg && (
-              <p role="status" data-testid="device-list-status-msg" className="text-xs text-emerald-300">
+              <p role="status" data-testid="device-list-status-msg" className="text-xs text-[var(--ga-success-text)]">
                 {deviceListMsg}
               </p>
             )}
 
             {pairedDevices.length === 0 ? (
-              <p className="text-sm text-slate-400">{t.devices.noDevicesYet}</p>
+              <p className="text-sm ga-text-muted">{t.devices.noDevicesYet}</p>
             ) : (
               <div className="space-y-3">
                 {pairedDevices.map((d) => {
@@ -2758,13 +2762,13 @@ export function DevicesPage() {
                     <div
                       key={d.key}
                       data-testid="paired-device-card"
-                      className="rounded-xl border border-white/[0.08] bg-[#030b18]/70 p-4 space-y-3"
+                      className="ga-card-solid rounded-xl border p-4 space-y-3"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold text-white">{d.deviceName}</span>
+                          <span className="font-semibold ga-text">{d.deviceName}</span>
                           {isThisBrowserDevice && (
-                            <span className="rounded-full border border-cyan-400/35 bg-cyan-500/10 px-2 py-0.5 text-[11px] text-cyan-200">
+                            <span className="ga-status-info rounded-full border px-2 py-0.5 text-[11px] font-medium">
                               {t.devices.thisDeviceTitle}
                             </span>
                           )}
@@ -2772,10 +2776,10 @@ export function DevicesPage() {
                             data-testid="paired-device-status"
                             className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
                               d.localVerificationStatus === 'active-trusted'
-                                ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200'
+                                ? 'ga-status-success'
                                 : d.localVerificationStatus === 'active-unverified-owner'
-                                  ? 'border-amber-400/40 bg-amber-500/15 text-amber-200'
-                                  : 'border-rose-400/40 bg-rose-500/15 text-rose-200'
+                                  ? 'ga-status-warning'
+                                  : 'ga-status-error'
                             }`}
                           >
                             {d.localVerificationStatus === 'active-trusted'
@@ -2787,14 +2791,14 @@ export function DevicesPage() {
                                   : t.devices.statusRevoked}
                           </span>
                         </div>
-                        <span className="text-xs text-slate-300">
+                        <span className="text-xs ga-text-secondary">
                           {t.devices.confirmOwnerIdLabel}: {d.ownerDisplayName} (
                           {d.ownerFingerprintShort})
                         </span>
                       </div>
 
-                      <details className="text-[11px] text-slate-400">
-                        <summary className="cursor-pointer hover:text-slate-200">
+                      <details className="text-[11px] ga-text-muted">
+                        <summary className="cursor-pointer hover:text-[var(--ga-text)]">
                           {t.devices.technicalDetailsSummary}
                         </summary>
                         <div className="mt-1.5 space-y-1 font-mono break-all">
@@ -2817,13 +2821,13 @@ export function DevicesPage() {
                         </div>
                       </details>
 
-                      <div className="flex flex-wrap gap-2 pt-2 border-t border-white/[0.06]">
+                      <div className="flex flex-wrap gap-2 pt-2 border-t border-[var(--ga-border)]">
                         {d.localVerificationStatus === 'active-unverified-owner' && (
                           <button
                             type="button"
                             data-testid="confirm-paired-owner-btn"
                             onClick={() => void handleConfirmOwnerTrust(d.key)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-xs font-medium text-amber-100 hover:bg-amber-500/25 min-h-[44px] cursor-pointer"
+                            className="ga-status-warning inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium hover:opacity-90 min-h-[44px] cursor-pointer"
                           >
                             <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>{t.devices.confirmOwnerNowBtn}</span>
@@ -2840,7 +2844,7 @@ export function DevicesPage() {
                               setRevokeAndRemove(false);
                               setRevokeError(null);
                             }}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/35 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200 hover:bg-rose-500/20 min-h-[44px] cursor-pointer"
+                            className="ga-status-error inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium hover:opacity-90 min-h-[44px] cursor-pointer"
                           >
                             <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>{t.devices.revokeDeviceBtn}</span>
@@ -2856,7 +2860,7 @@ export function DevicesPage() {
                               setRevokingKey(null);
                               setRemoveError(null);
                             }}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-500/40 bg-slate-800/60 px-3 py-2 text-xs font-medium text-slate-200 hover:border-rose-400/50 hover:text-rose-200 min-h-[44px] cursor-pointer"
+                            className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium min-h-[44px] cursor-pointer"
                           >
                             <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>{isRevoked ? t.devices.removeDeviceBtn : t.devices.removeLocalOnlyBtn}</span>
@@ -2867,14 +2871,14 @@ export function DevicesPage() {
                       {removingKey === d.key && (
                         <div
                           data-testid="remove-device-confirm-panel"
-                          className="rounded-xl border border-amber-400/40 bg-amber-950/20 p-4 space-y-3 text-xs"
+                          className="ga-status-warning rounded-xl border p-4 space-y-3 text-xs"
                         >
-                          <div className="font-semibold text-sm text-amber-100">
+                          <div className="font-semibold text-sm text-[var(--ga-warning-text)]">
                             {isRevoked
                               ? t.devices.removeConfirmTitleRevoked
                               : t.devices.removeConfirmTitleLocalOnly}
                           </div>
-                          <p className="text-slate-300 leading-relaxed">
+                          <p className="ga-text-secondary leading-relaxed">
                             {isRevoked
                               ? t.devices.removeConfirmDescRevoked
                               : t.devices.removeConfirmDescLocalOnly}
@@ -2884,7 +2888,7 @@ export function DevicesPage() {
                               type="button"
                               data-testid="remove-device-confirm-btn"
                               onClick={() => void handleRemoveDeviceSubmit(d)}
-                              className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-400 min-h-[44px] cursor-pointer"
+                              className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold ga-text hover:bg-rose-400 min-h-[44px] cursor-pointer"
                             >
                               {t.devices.removeConfirmSubmitBtn}
                             </button>
@@ -2892,7 +2896,7 @@ export function DevicesPage() {
                               type="button"
                               data-testid="remove-device-cancel-btn"
                               onClick={() => setRemovingKey(null)}
-                              className="rounded-lg border border-white/[0.16] px-4 py-2 text-xs font-medium text-slate-200 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
+                              className="ga-btn-secondary rounded-xl px-4 py-2 text-xs font-medium min-h-[44px] cursor-pointer"
                             >
                               {t.devices.confirmCancelBtn}
                             </button>
@@ -2903,14 +2907,14 @@ export function DevicesPage() {
                       {revokingKey === d.key && (
                         <div
                           data-testid="revoke-confirm-panel"
-                          className="rounded-xl border border-rose-400/40 bg-rose-950/25 p-4 space-y-3 text-xs"
+                          className="ga-status-error rounded-xl border p-4 space-y-3 text-xs"
                         >
-                          <div className="font-semibold text-sm text-rose-100">
+                          <div className="font-semibold text-sm text-[var(--ga-error-text)]">
                             {t.devices.revokeConfirmTitle}
                           </div>
 
                           <div>
-                            <label className="block text-slate-300 mb-1">
+                            <label className="block ga-text-secondary mb-1">
                               {t.devices.revokeReasonLabel}
                             </label>
                             <select
@@ -2919,7 +2923,7 @@ export function DevicesPage() {
                                 setRevokeReason(e.target.value as DeviceRevocationReason)
                               }
                               data-testid="revoke-reason-select"
-                              className="w-full rounded-lg border border-white/[0.14] bg-[#030b18] px-3 py-2 text-xs text-white min-h-[44px]"
+                              className="ga-input w-full rounded-xl px-3 py-2 text-xs min-h-[44px]"
                             >
                               <option value="lost-device">
                                 {t.devices.revokeReasons['lost-device']}
@@ -2933,7 +2937,7 @@ export function DevicesPage() {
                           </div>
 
                           <div>
-                            <label className="block text-slate-300 mb-1">
+                            <label className="block ga-text-secondary mb-1">
                               {t.devices.revokeNoteLabel}
                             </label>
                             <input
@@ -2941,25 +2945,25 @@ export function DevicesPage() {
                               value={revokeNote}
                               onChange={(e) => setRevokeNote(e.target.value)}
                               placeholder={t.devices.revokeNotePlaceholder}
-                              className="w-full rounded-lg border border-white/[0.14] bg-[#030b18] px-3 py-2 text-xs text-white min-h-[44px]"
+                              className="ga-input w-full rounded-xl px-3 py-2 text-xs min-h-[44px]"
                             />
                           </div>
 
                           {ownerKeyForDevice?.storageMode === 'noble-encrypted-seed' && (
                             <div>
-                              <label className="block text-slate-300 mb-1">
+                              <label className="block ga-text-secondary mb-1">
                                 {t.devices.ownerPassphraseLabel}
                               </label>
                               <input
                                 type="password"
                                 value={revokePassphrase}
                                 onChange={(e) => setRevokePassphrase(e.target.value)}
-                                className="w-full rounded-lg border border-white/[0.14] bg-[#030b18] px-3 py-2 text-xs text-white min-h-[44px]"
+                                className="ga-input w-full rounded-xl px-3 py-2 text-xs min-h-[44px]"
                               />
                             </div>
                           )}
 
-                          <label className="flex items-start gap-2 text-slate-200 cursor-pointer pt-1">
+                          <label className="flex items-start gap-2 ga-text-secondary cursor-pointer pt-1">
                             <input
                               type="checkbox"
                               checked={revokeAndRemove}
@@ -2971,9 +2975,10 @@ export function DevicesPage() {
                           </label>
 
                           {revokeError && (
-                            <p role="alert" className="text-rose-300">
-                              {revokeError}
-                            </p>
+                            <FriendlyErrorAlert
+                              error={revokeError}
+                              onDismiss={() => setRevokeError(null)}
+                            />
                           )}
 
                           <div className="flex flex-wrap gap-2">
@@ -2981,14 +2986,14 @@ export function DevicesPage() {
                               type="button"
                               data-testid="revoke-confirm-submit-btn"
                               onClick={() => void handleRevokeSubmit(d)}
-                              className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-400 min-h-[44px] cursor-pointer"
+                              className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold ga-text hover:bg-rose-400 min-h-[44px] cursor-pointer"
                             >
                               {t.devices.revokeConfirmSubmitBtn}
                             </button>
                             <button
                               type="button"
                               onClick={() => setRevokingKey(null)}
-                              className="rounded-lg border border-white/[0.16] px-4 py-2 text-xs font-medium text-slate-200 hover:border-white/[0.3] min-h-[44px] cursor-pointer"
+                              className="ga-btn-secondary rounded-xl px-4 py-2 text-xs font-medium min-h-[44px] cursor-pointer"
                             >
                               {t.devices.confirmCancelBtn}
                             </button>
@@ -3004,13 +3009,13 @@ export function DevicesPage() {
             {generatedRevocation && (
               <div
                 data-testid="revocation-qr-panel"
-                className="rounded-xl border border-rose-400/40 bg-[#030b18]/85 p-4 space-y-3"
+                className="ga-card-solid rounded-xl border border-[var(--ga-error-border)] p-4 space-y-3"
               >
                 <div className="space-y-1">
-                  <h3 className="text-sm font-semibold text-rose-200">
+                  <h3 className="text-sm font-semibold text-[var(--ga-error-text)]">
                     {t.devices.revocationQrTitle}
                   </h3>
-                  <p className="text-xs text-slate-300">{t.devices.revocationQrDesc}</p>
+                  <p className="text-xs ga-text-secondary">{t.devices.revocationQrDesc}</p>
                 </div>
                 <QrCodeDisplay
                   value={generatedRevocation.qrUrl}
@@ -3021,7 +3026,7 @@ export function DevicesPage() {
                   readOnly
                   value={generatedRevocation.qrUrl}
                   data-testid="pairing-rev-url-output"
-                  className="w-full rounded-lg border border-white/[0.12] bg-[#020813] px-3 py-2 text-xs font-mono text-slate-300"
+                  className="ga-input w-full rounded-xl px-3 py-2 text-xs font-mono ga-text-secondary"
                 />
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -3033,7 +3038,7 @@ export function DevicesPage() {
                         `chm-device-revocation-${generatedRevocation.revocation.payload.deviceIdHex.slice(0, 8)}.png`,
                       )
                     }
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/35 bg-rose-500/15 px-3 py-2 text-xs font-medium text-rose-100 hover:bg-rose-500/25 min-h-[44px] cursor-pointer"
+                    className="ga-status-error inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium hover:opacity-90 min-h-[44px] cursor-pointer"
                   >
                     <Download className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>{t.devices.downloadQrPngBtn}</span>
@@ -3045,11 +3050,11 @@ export function DevicesPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
             {/* Import Revocation Notice */}
-            <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-3 min-w-0">
-              <h2 className="text-base font-semibold text-white">{t.devices.importRevocationTitle}</h2>
+            <section className="ga-card rounded-2xl border p-4 sm:p-5 space-y-3 min-w-0">
+              <h2 className="text-base font-semibold ga-text">{t.devices.importRevocationTitle}</h2>
 
               <div>
-                <label htmlFor={revUploadId} className="block text-xs text-slate-300 mb-1">
+                <label htmlFor={revUploadId} className="block text-xs ga-text-secondary mb-1">
                   {t.devices.uploadQrImageLabel}
                 </label>
                 <input
@@ -3062,7 +3067,7 @@ export function DevicesPage() {
                     e.currentTarget.value = '';
                     void handleImportRevocationQrFile(file);
                   }}
-                  className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border file:border-slate-700 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:font-medium file:text-slate-100"
+                  className="block w-full text-xs ga-text-secondary file:mr-3 file:rounded-lg file:border file:border-[var(--ga-border-strong)] file:bg-[var(--ga-surface-subtle)] file:px-3 file:py-2 file:text-xs file:font-medium file:text-[var(--ga-text)]"
                 />
               </div>
 
@@ -3072,16 +3077,18 @@ export function DevicesPage() {
                 onChange={(e) => setImportRevInput(e.target.value)}
                 placeholder="chm-pair-rev:... or /devices#pair-rev=..."
                 data-testid="pairing-rev-import-input"
-                className="w-full rounded-lg border border-white/[0.14] bg-[#020813] px-3 py-2 text-xs font-mono text-white"
+                className="ga-input w-full rounded-xl px-3 py-2 text-xs font-mono"
               />
 
               {importRevError && (
-                <p role="alert" data-testid="pairing-rev-import-error" className="text-xs text-rose-300">
-                  {importRevError}
-                </p>
+                <FriendlyErrorAlert
+                  error={importRevError}
+                  testId="pairing-rev-import-error"
+                  onDismiss={() => setImportRevError(null)}
+                />
               )}
               {importRevMsg && (
-                <p role="status" data-testid="pairing-rev-import-msg" className="text-xs text-emerald-300">
+                <p role="status" data-testid="pairing-rev-import-msg" className="text-xs text-[var(--ga-success-text)]">
                   {importRevMsg}
                 </p>
               )}
@@ -3090,7 +3097,7 @@ export function DevicesPage() {
                 type="button"
                 data-testid="pairing-rev-import-btn"
                 onClick={() => void handleImportRevocation(importRevInput)}
-                className="inline-flex items-center gap-2 rounded-lg border border-sky-400/40 bg-sky-500/15 px-4 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-500/25 min-h-[44px] cursor-pointer"
+                className="ga-status-info inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold hover:opacity-90 min-h-[44px] cursor-pointer"
               >
                 <Upload className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>{t.devices.importRevocationBtn}</span>
@@ -3098,9 +3105,9 @@ export function DevicesPage() {
             </section>
 
             {/* Signed Registry Backup Export & Import */}
-            <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-3 min-w-0">
-              <h2 className="text-base font-semibold text-white">{t.devices.backupExportTitle}</h2>
-              <p className="text-xs text-slate-300 leading-relaxed">{t.devices.backupExportDesc}</p>
+            <section className="ga-card rounded-2xl border p-4 sm:p-5 space-y-3 min-w-0">
+              <h2 className="text-base font-semibold ga-text">{t.devices.backupExportTitle}</h2>
+              <p className="text-xs ga-text-secondary leading-relaxed">{t.devices.backupExportDesc}</p>
 
               <div className="flex flex-wrap gap-2">
                 <button
@@ -3108,7 +3115,7 @@ export function DevicesPage() {
                   disabled={authorKeys.length === 0}
                   data-testid="export-registry-json-btn"
                   onClick={() => void handleExportRegistry('json')}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-500/15 px-3 py-2 text-xs font-medium text-sky-100 hover:bg-sky-500/25 disabled:opacity-50 min-h-[44px] cursor-pointer"
+                  className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium disabled:opacity-50 min-h-[44px] cursor-pointer"
                 >
                   <Download className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>{t.devices.exportRegistryJsonBtn}</span>
@@ -3119,15 +3126,15 @@ export function DevicesPage() {
                   disabled={authorKeys.length === 0}
                   data-testid="export-registry-cbor-btn"
                   onClick={() => void handleExportRegistry('cbor')}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.16] bg-[#030b18] px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 disabled:opacity-50 min-h-[44px] cursor-pointer"
+                  className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium disabled:opacity-50 min-h-[44px] cursor-pointer"
                 >
                   <Download className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>{t.devices.exportRegistryCborBtn}</span>
                 </button>
               </div>
 
-              <div className="pt-2 border-t border-white/[0.08] space-y-2">
-                <label htmlFor={regUploadId} className="block text-xs font-medium text-slate-300">
+              <div className="pt-2 border-t border-[var(--ga-border)] space-y-2">
+                <label htmlFor={regUploadId} className="block text-xs font-medium ga-text-secondary">
                   {t.devices.importRegistryFileLabel}
                 </label>
                 <input
@@ -3140,24 +3147,26 @@ export function DevicesPage() {
                     e.currentTarget.value = '';
                     void handleImportRegistryFile(file);
                   }}
-                  className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border file:border-slate-700 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:font-medium file:text-slate-100"
+                  className="block w-full text-xs ga-text-secondary file:mr-3 file:rounded-lg file:border file:border-[var(--ga-border-strong)] file:bg-[var(--ga-surface-subtle)] file:px-3 file:py-2 file:text-xs file:font-medium file:text-[var(--ga-text)]"
                 />
               </div>
 
               {registryActionError && (
-                <p role="alert" data-testid="registry-action-error" className="text-xs text-rose-300">
-                  {registryActionError}
-                </p>
+                <FriendlyErrorAlert
+                  error={registryActionError}
+                  testId="registry-action-error"
+                  onDismiss={() => setRegistryActionError(null)}
+                />
               )}
               {registryActionMsg && (
                 <div
                   role="status"
                   data-testid="registry-action-msg"
-                  className="rounded-lg border border-emerald-400/35 bg-emerald-500/10 p-3 space-y-1 text-xs text-emerald-100"
+                  className="ga-status-success rounded-xl border p-3 space-y-1 text-xs"
                 >
                   <p className="font-semibold">{registryActionMsg}</p>
                   {registryReconcileResult && (
-                    <p className="text-[11px] text-emerald-200/90">
+                    <p className="text-[11px] text-[var(--ga-success-text)]">
                       Preserved local revocations: {registryReconcileResult.preservedLocalRevocations} ·
                       Newly applied revocations: {registryReconcileResult.newlyAppliedRevocations}
                     </p>

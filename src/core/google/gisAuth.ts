@@ -1,6 +1,7 @@
 import {
   GIS_SCRIPT_URL,
   GOOGLE_DRIVE_API_BASE,
+  GOOGLE_DRIVE_APPDATA_SCOPE,
   GOOGLE_DRIVE_FILE_SCOPE,
   checkGoogleDriveEnvironmentSupport,
 } from './config';
@@ -47,6 +48,7 @@ export interface GoogleAuthSessionState {
   connected: boolean;
   tokenExpiresAtMs: number | null;
   grantedScopes: string[];
+  hasDriveAppDataScope: boolean;
   hasDriveFileScope: boolean;
   account: GoogleAccountProfile | null;
   gisScriptLoaded: boolean;
@@ -95,11 +97,14 @@ export class InMemoryGoogleAuthManager {
 
   getState(): GoogleAuthSessionState {
     const valid = this.hasValidAccessToken();
+    const hasAppData = valid && this.grantedScopes.includes(GOOGLE_DRIVE_APPDATA_SCOPE);
+    const hasLegacyFile = valid && this.grantedScopes.includes(GOOGLE_DRIVE_FILE_SCOPE);
     return {
       connected: valid && this.account !== null,
       tokenExpiresAtMs: valid ? this.tokenExpiresAtMs : null,
       grantedScopes: valid ? [...this.grantedScopes] : [],
-      hasDriveFileScope: valid && this.grantedScopes.includes(GOOGLE_DRIVE_FILE_SCOPE),
+      hasDriveAppDataScope: hasAppData,
+      hasDriveFileScope: hasAppData || hasLegacyFile,
       account: this.account,
       gisScriptLoaded: this.gisScriptLoaded,
       lastError: this.lastError,
@@ -220,7 +225,7 @@ export class InMemoryGoogleAuthManager {
     const permissionId = data.user?.permissionId?.trim();
     const emailAddress = data.user?.emailAddress?.trim();
     const displayName = data.user?.displayName?.trim();
-    const rawKey = permissionId || emailAddress;
+    const rawKey = permissionId || emailAddress || (displayName ? `name:${displayName}` : '');
     if (!rawKey) {
       throw new Error('Google Drive about.get returned no account identifier');
     }
@@ -234,7 +239,7 @@ export class InMemoryGoogleAuthManager {
 
   /**
    * Initiates OAuth 2.0 Token Model authorization strictly from an explicit user action.
-   * Rejects insufficient scope grants and isolates session state on account switches.
+   * Requests only minimal `drive.appdata` scope and isolates session state on account switches.
    */
   async connectInteractive(options?: {
     prompt?: 'consent' | 'select_account' | '';
@@ -256,13 +261,13 @@ export class InMemoryGoogleAuthManager {
     const tokenResp = await new Promise<GisTokenResponse>((resolve, reject) => {
       const client = gis.initTokenClient({
         client_id: env.clientId,
-        scope: GOOGLE_DRIVE_FILE_SCOPE,
+        scope: GOOGLE_DRIVE_APPDATA_SCOPE,
         include_granted_scopes: false,
         callback: (resp) => {
           if (resp.error) {
             const detail = resp.error_description || resp.error;
             if (resp.error === 'access_denied') {
-              reject(new Error('Google Drive permission request was denied.'));
+              reject(new Error('Google Drive appDataFolder permission request was denied.'));
             } else {
               reject(new Error(`Google OAuth error: ${detail}`));
             }
@@ -290,11 +295,11 @@ export class InMemoryGoogleAuthManager {
     }
     const hasScope =
       typeof gis.hasGrantedAllScopes === 'function'
-        ? gis.hasGrantedAllScopes(tokenResp, GOOGLE_DRIVE_FILE_SCOPE)
-        : (tokenResp.scope ?? '').split(/\s+/).includes(GOOGLE_DRIVE_FILE_SCOPE);
+        ? gis.hasGrantedAllScopes(tokenResp, GOOGLE_DRIVE_APPDATA_SCOPE)
+        : (tokenResp.scope ?? '').split(/\s+/).includes(GOOGLE_DRIVE_APPDATA_SCOPE);
     if (!hasScope) {
       throw new Error(
-        'Google Drive file permission (drive.file) was not granted. Please approve the requested permission to sync.',
+        'Google Drive appDataFolder permission (drive.appdata) was not granted. Please approve the requested permission to sync.',
       );
     }
 
@@ -305,7 +310,7 @@ export class InMemoryGoogleAuthManager {
 
     this.accessToken = tokenResp.access_token;
     this.tokenExpiresAtMs = Date.now() + Math.max(60, expiresInSec) * 1000;
-    this.grantedScopes = (tokenResp.scope ?? GOOGLE_DRIVE_FILE_SCOPE)
+    this.grantedScopes = (tokenResp.scope ?? GOOGLE_DRIVE_APPDATA_SCOPE)
       .split(/\s+/)
       .filter(Boolean);
     this.account = profile;
@@ -352,7 +357,7 @@ export class InMemoryGoogleAuthManager {
     this.accessToken = params.accessToken;
     this.tokenExpiresAtMs = Date.now() + params.expiresInSeconds * 1000;
     this.account = params.account;
-    this.grantedScopes = params.scopes ?? [GOOGLE_DRIVE_FILE_SCOPE];
+    this.grantedScopes = params.scopes ?? [GOOGLE_DRIVE_APPDATA_SCOPE];
     this.lastError = null;
     this.emit();
   }

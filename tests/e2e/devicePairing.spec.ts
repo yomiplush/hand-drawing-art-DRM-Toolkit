@@ -96,6 +96,7 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
       await pagePC.goto('/');
       await dismissCookieBannerIfVisible(pagePC);
       await pagePC.getByTestId('nav-menu-toggle').click();
+      await pagePC.getByTestId('nav-mode-toggle-advanced').click();
       await expect(pagePC.getByTestId('menu-devices-link')).toBeVisible();
       await pagePC.keyboard.press('Escape');
 
@@ -671,7 +672,6 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
       fs.writeFileSync(artPath, buildSampleArtworkPng());
       await pagePC.goto('/create');
       await pagePC.getByTestId('create-image-input').setInputFiles(artPath);
-      await pagePC.locator('[data-testid="create-identity-advanced"] > button').click();
       await pagePC.getByTestId('create-title-input').fill('Post-Pairing Artwork');
       const signedDlPromise = pagePC.waitForEvent('download');
       await pagePC.getByTestId('create-sign-button').click();

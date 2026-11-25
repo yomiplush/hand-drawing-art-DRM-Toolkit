@@ -19,7 +19,9 @@ import {
 } from 'lucide-react';
 import { QrMatrixSvg } from '../components/QrMatrixSvg';
 import { AdvancedSettings } from '../components/ui/AdvancedSettings';
+import { FriendlyErrorAlert } from '../components/ui/FriendlyErrorAlert';
 import { HelpIconButton } from '../components/ui/HelpIconButton';
+import { SimpleModeBanner } from '../components/ui/SimpleModeBanner';
 import {
   createKeyChallenge,
   signKeyChallenge,
@@ -419,12 +421,12 @@ export function KeysPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <header className="flex items-start justify-between gap-3 sm:gap-4 border-b border-white/[0.08] pb-4 min-w-0">
+      <header className="flex items-start justify-between gap-3 sm:gap-4 border-b ga-border pb-4 min-w-0">
         <div className="space-y-1 min-w-0 flex-1">
-          <h1 className="text-2xl sm:text-3xl font-semibold text-white break-words">
+          <h1 className="text-2xl sm:text-3xl font-semibold ga-text break-words">
             {t.keys.title}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 leading-relaxed break-words">
+          <p className="text-xs sm:text-sm ga-text-secondary leading-relaxed break-words">
             {t.keys.subtitle}
           </p>
         </div>
@@ -437,39 +439,41 @@ export function KeysPage() {
           panelTestId="keys-help-panel"
         >
           <div className="space-y-1.5">
-            <p className="font-semibold text-amber-200">{t.keys.storageWarningTitle}</p>
-            <p className="text-slate-200">{t.keys.storageWarningBody}</p>
+            <p className="font-semibold text-[var(--ga-warning-text)]">{t.keys.storageWarningTitle}</p>
+            <p className="ga-text-secondary">{t.keys.storageWarningBody}</p>
           </div>
           <div
             data-testid="keys-standalone-storage-note"
-            className="rounded-lg border border-sky-400/25 bg-sky-500/10 p-3 text-xs text-sky-100"
+            className="ga-status-info rounded-xl border p-3 text-xs"
           >
             {t.keys.standaloneStorageNote}
           </div>
         </HelpIconButton>
       </header>
 
+      <SimpleModeBanner testId="keys-simple-mode-banner" />
+
       {hasUnbackedKey && (
         <div
           role="note"
           data-testid="keys-unbacked-alert"
-          className="rounded-xl border border-amber-400/35 bg-amber-500/10 px-4 py-3 flex items-start sm:items-center gap-2.5 text-xs sm:text-sm text-amber-100 min-w-0"
+          className="ga-status-warning rounded-2xl border px-4 py-3 flex items-start sm:items-center gap-2.5 text-xs sm:text-sm min-w-0"
         >
-          <AlertTriangle className="h-4 w-4 text-amber-300 shrink-0 mt-0.5 sm:mt-0" aria-hidden="true" />
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 sm:mt-0" aria-hidden="true" />
           <span className="min-w-0 break-words">{t.minimal.keys.unbackedAlertShort}</span>
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 min-w-0">
-        <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-4 min-w-0">
-          <h2 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2 min-w-0">
-            <KeyRound className="h-5 w-5 text-sky-300 shrink-0" aria-hidden="true" />
+        <section className="ga-card rounded-2xl p-4 sm:p-5 space-y-4 min-w-0">
+          <h2 className="text-base sm:text-lg font-semibold ga-text flex items-center gap-2 min-w-0">
+            <KeyRound className="h-5 w-5 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
             <span className="min-w-0 break-words">{t.keys.generateTitle}</span>
           </h2>
 
           <form onSubmit={handleGenerate} className="space-y-3 min-w-0">
             <div className="min-w-0">
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-medium ga-text-secondary mb-1">
                 {t.keys.keyLabelInput}
               </label>
               <input
@@ -479,12 +483,12 @@ export function KeysPage() {
                 maxLength={64}
                 placeholder={t.keys.keyLabelPlaceholder}
                 data-testid="keygen-label"
-                className="w-full min-w-0 rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
+                className="ga-input w-full min-w-0 rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
               />
             </div>
 
             <div className="min-w-0">
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-medium ga-text-secondary mb-1">
                 {t.keys.backupPassInput}
               </label>
               <input
@@ -493,19 +497,19 @@ export function KeysPage() {
                 onChange={(e) => setNewPassphrase(e.target.value)}
                 placeholder={t.keys.backupPassPlaceholder}
                 data-testid="keygen-passphrase"
-                className="w-full min-w-0 rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
+                className="ga-input w-full min-w-0 rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
               />
               {newPassphrase.length > 0 && (
                 <div data-testid="keygen-passphrase-strength" className="mt-1.5 space-y-1 min-w-0">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                    <span className="text-slate-400">{t.hardening.passphraseStrength.label}</span>
+                    <span className="ga-text-muted">{t.hardening.passphraseStrength.label}</span>
                     <span
                       className={
                         passphraseStrength.score === 'strong'
-                          ? 'font-medium text-emerald-300'
+                          ? 'font-medium text-[var(--ga-success-text)]'
                           : passphraseStrength.score === 'fair'
-                            ? 'font-medium text-amber-200'
-                            : 'font-medium text-rose-300'
+                            ? 'font-medium text-[var(--ga-warning-text)]'
+                            : 'font-medium text-[var(--ga-error-text)]'
                       }
                     >
                       {passphraseStrength.score === 'strong'
@@ -515,7 +519,7 @@ export function KeysPage() {
                           : t.hardening.passphraseStrength.tooShort}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400 break-words">
+                  <p className="text-[11px] ga-text-muted break-words">
                     {t.hardening.passphraseStrength.guidance}
                   </p>
                 </div>
@@ -523,15 +527,16 @@ export function KeysPage() {
             </div>
 
             {genError && (
-              <p role="alert" className="text-xs text-rose-300 break-words">
-                {genError}
-              </p>
+              <FriendlyErrorAlert
+                error={genError}
+                onDismiss={() => setGenError(null)}
+              />
             )}
 
             <button
               type="submit"
               data-testid="keygen-submit"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-white transition-colors min-h-[44px] cursor-pointer text-center"
+              className="ga-btn-primary w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors min-h-[44px] cursor-pointer text-center"
             >
               <PlusCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{t.keys.generateBtn}</span>
@@ -539,18 +544,18 @@ export function KeysPage() {
           </form>
 
           {pendingBackup && (
-            <div className="rounded-xl border border-sky-400/40 bg-sky-500/10 p-4 space-y-2.5 min-w-0">
-              <h3 className="text-sm font-semibold text-sky-200 break-words">
+            <div className="ga-status-info rounded-xl border p-4 space-y-2.5 min-w-0">
+              <h3 className="text-sm font-semibold break-words">
                 {t.keys.backupReadyTitle}
               </h3>
-              <p className="text-xs text-slate-200 leading-relaxed break-words">
+              <p className="text-xs ga-text-secondary leading-relaxed break-words">
                 {t.keys.backupReadyBody}
               </p>
               <button
                 type="button"
                 data-testid="download-pending-backup"
                 onClick={() => handleDownloadBackup(pendingBackup.keyId, pendingBackup.backup)}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-sky-300 px-3.5 py-2 text-xs font-semibold text-slate-950 hover:bg-sky-200 min-h-[44px] cursor-pointer text-center"
+                className="ga-btn-primary w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold min-h-[44px] cursor-pointer text-center"
               >
                 <Download className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{t.keys.downloadBackupBtn}</span>
@@ -559,9 +564,9 @@ export function KeysPage() {
           )}
         </section>
 
-        <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-4 min-w-0">
-          <h2 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2 min-w-0">
-            <Upload className="h-5 w-5 text-sky-300 shrink-0" aria-hidden="true" />
+        <section className="ga-card rounded-2xl p-4 sm:p-5 space-y-4 min-w-0">
+          <h2 className="text-base sm:text-lg font-semibold ga-text flex items-center gap-2 min-w-0">
+            <Upload className="h-5 w-5 text-[var(--ga-accent)] shrink-0" aria-hidden="true" />
             <span className="min-w-0 break-words">{t.keys.restoreTitle}</span>
           </h2>
 
@@ -569,7 +574,7 @@ export function KeysPage() {
             <div className="min-w-0">
               <label
                 htmlFor={restoreFileInputId}
-                className="block text-xs font-medium text-slate-300 mb-1"
+                className="block text-xs font-medium ga-text-secondary mb-1"
               >
                 {t.keys.restoreFileLabel}
               </label>
@@ -579,12 +584,12 @@ export function KeysPage() {
                 accept=".json,.chkey.json,application/json"
                 data-testid="restore-file-input"
                 onChange={(e) => setRestoreFile(e.target.files?.[0] ?? null)}
-                className="block w-full min-w-0 max-w-full overflow-hidden text-xs text-slate-300 file:mr-3 file:rounded-lg file:border file:border-slate-700 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:font-medium file:text-slate-100 hover:file:bg-slate-700"
+                className="block w-full min-w-0 max-w-full overflow-hidden text-xs ga-text-secondary file:mr-3 file:rounded-xl file:border file:border-[var(--ga-border-strong)] file:bg-[var(--ga-surface-subtle)] file:px-3 file:py-2 file:text-xs file:font-medium file:text-[var(--ga-text)] hover:file:opacity-90"
               />
             </div>
 
             <div className="min-w-0">
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-medium ga-text-secondary mb-1">
                 {t.keys.restorePassLabel}
               </label>
               <input
@@ -592,17 +597,18 @@ export function KeysPage() {
                 value={restorePass}
                 onChange={(e) => setRestorePass(e.target.value)}
                 data-testid="restore-passphrase"
-                className="w-full min-w-0 rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white min-h-[44px]"
+                className="ga-input w-full min-w-0 rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
               />
             </div>
 
             {restoreError && (
-              <p role="alert" className="text-xs text-rose-300 break-words">
-                {restoreError}
-              </p>
+              <FriendlyErrorAlert
+                error={restoreError}
+                onDismiss={() => setRestoreError(null)}
+              />
             )}
             {restoreStatus && (
-              <p role="status" data-testid="restore-status-msg" className="text-xs text-sky-300 break-words">
+              <p role="status" data-testid="restore-status-msg" className="text-xs text-[var(--ga-accent)] break-words">
                 {restoreStatus}
               </p>
             )}
@@ -611,7 +617,7 @@ export function KeysPage() {
               <button
                 type="submit"
                 data-testid="restore-submit"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-semibold text-sky-100 hover:bg-sky-500/25 transition-colors min-h-[44px] cursor-pointer text-center"
+                className="ga-btn-primary w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors min-h-[44px] cursor-pointer text-center"
               >
                 <Upload className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{t.keys.restoreBtn}</span>
@@ -621,9 +627,9 @@ export function KeysPage() {
                 type="button"
                 data-testid="verify-backup-btn"
                 onClick={() => void handleVerifyBackupOnly()}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg border border-white/[0.16] bg-[#030b18]/75 px-4 py-2.5 text-sm font-medium text-slate-200 hover:border-white/[0.3] transition-colors min-h-[44px] cursor-pointer text-center"
+                className="ga-btn-secondary w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors min-h-[44px] cursor-pointer text-center"
               >
-                <CheckCircle2 className="h-4 w-4 text-emerald-300 shrink-0" aria-hidden="true" />
+                <CheckCircle2 className="h-4 w-4 text-[var(--ga-success-text)] shrink-0" aria-hidden="true" />
                 <span>{t.keys.verifyBackupBtn}</span>
               </button>
             </div>
@@ -631,20 +637,20 @@ export function KeysPage() {
         </section>
       </div>
 
-      <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-4 min-w-0">
+      <section className="ga-card rounded-2xl p-4 sm:p-5 space-y-4 min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
-          <h2 className="text-base sm:text-lg font-semibold text-white">{t.keys.myKeysTitle}</h2>
+          <h2 className="text-base sm:text-lg font-semibold ga-text">{t.keys.myKeysTitle}</h2>
           <Link
             to="/devices"
             data-testid="keys-manage-devices-link"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg border border-cyan-400/35 bg-cyan-500/10 px-3.5 py-2 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20 min-h-[44px] shrink-0 text-center"
+            className="ga-btn-secondary w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-medium min-h-[44px] shrink-0 text-center"
           >
-            <Smartphone className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <Smartphone className="h-3.5 w-3.5 shrink-0 text-[var(--ga-accent)]" aria-hidden="true" />
             <span>{t.devices.keysPageManageDevicesBtn}</span>
           </Link>
         </div>
         {authorKeys.length === 0 ? (
-          <p className="text-sm text-slate-400">{t.keys.noMyKeys}</p>
+          <p className="text-sm ga-text-muted">{t.keys.noMyKeys}</p>
         ) : (
           <div className="space-y-3 min-w-0">
             {authorKeys.map((k) => {
@@ -656,12 +662,12 @@ export function KeysPage() {
                 <div
                   key={k.id}
                   data-testid="author-key-card"
-                  className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-4 space-y-3.5 min-w-0"
+                  className="ga-surface-subtle rounded-xl p-4 space-y-3.5 min-w-0"
                 >
                   <div className="space-y-1.5 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
-                      <span className="font-semibold text-white break-words">{k.label}</span>
-                      <span className="rounded-full border border-sky-400/30 bg-sky-500/10 px-2.5 py-0.5 text-[11px] font-medium text-sky-200 max-w-full break-words">
+                      <span className="font-semibold ga-text break-words">{k.label}</span>
+                      <span className="ga-status-info rounded-full border px-2.5 py-0.5 text-[11px] font-medium max-w-full break-words">
                         {k.storageMode === 'webcrypto-non-extractable'
                           ? t.keys.modeNonExtractable
                           : t.keys.modeEncryptedFallback}
@@ -669,7 +675,7 @@ export function KeysPage() {
                       {!k.hasBackupDownloaded && (
                         <span
                           data-testid="key-unbacked-badge"
-                          className="rounded-full border border-amber-400/40 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-medium text-amber-200"
+                          className="ga-status-warning rounded-full border px-2.5 py-0.5 text-[11px] font-medium"
                         >
                           {t.keys.unbackedBadge}
                         </span>
@@ -679,8 +685,8 @@ export function KeysPage() {
                           key={n.id}
                           className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
                             n.noticeType === 'revocation'
-                              ? 'border-rose-400/40 bg-rose-500/15 text-rose-200'
-                              : 'border-amber-400/40 bg-amber-500/15 text-amber-200'
+                              ? 'ga-status-error'
+                              : 'ga-status-warning'
                           }`}
                         >
                           {n.noticeType === 'revocation'
@@ -689,34 +695,34 @@ export function KeysPage() {
                         </span>
                       ))}
                     </div>
-                    <div className="text-xs font-mono text-sky-300 break-all [overflow-wrap:anywhere]">
+                    <div className="text-xs font-mono text-[var(--ga-accent)] break-all [overflow-wrap:anywhere]">
                       {t.hardening.fingerprint.shortLabel}: {k.fingerprintShort}
                     </div>
                     <div
                       data-testid={`author-key-fp-${k.id}`}
-                      className="text-[11px] font-mono text-slate-300 break-all [overflow-wrap:anywhere]"
+                      className="text-[11px] font-mono ga-text-secondary break-all [overflow-wrap:anywhere]"
                     >
                       {t.hardening.fingerprint.fullHexLabel}: {k.fingerprintHex}
                     </div>
-                    <div className="text-[11px] font-mono text-slate-400 break-all [overflow-wrap:anywhere]">
+                    <div className="text-[11px] font-mono ga-text-muted break-all [overflow-wrap:anywhere]">
                       Ed25519 PK: {k.publicKeyBase64Url}
                     </div>
                     {!k.encryptedBackup && (
-                      <div className="text-[11px] text-amber-200/85 break-words">
+                      <div className="text-[11px] text-[var(--ga-warning-text)] break-words">
                         {t.keys.noBackupExportNotice}
                       </div>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2 pt-3 border-t border-white/[0.07] min-w-0">
+                  <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2 pt-3 border-t ga-border min-w-0">
                     <button
                       type="button"
                       data-testid={`copy-fp-btn-${k.id}`}
                       onClick={() => handleCopyText(`fp-${k.id}`, k.fingerprintHex)}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#051224] px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] max-w-full whitespace-normal text-center cursor-pointer"
+                      className="ga-btn-secondary inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium min-h-[44px] max-w-full whitespace-normal text-center cursor-pointer"
                     >
                       {copiedId === `fp-${k.id}` ? (
-                        <Check className="h-3.5 w-3.5 text-emerald-300 shrink-0" />
+                        <Check className="h-3.5 w-3.5 text-[var(--ga-success-text)] shrink-0" />
                       ) : (
                         <Copy className="h-3.5 w-3.5 shrink-0" />
                       )}
@@ -732,9 +738,9 @@ export function KeysPage() {
                       data-testid={`toggle-fp-qr-${k.id}`}
                       aria-expanded={qrExpanded}
                       onClick={() => setExpandedQrKeyId(qrExpanded ? null : k.id)}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#051224] px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] max-w-full whitespace-normal text-center cursor-pointer"
+                      className="ga-btn-secondary inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium min-h-[44px] max-w-full whitespace-normal text-center cursor-pointer"
                     >
-                      <QrCode className="h-3.5 w-3.5 text-sky-300 shrink-0" />
+                      <QrCode className="h-3.5 w-3.5 text-[var(--ga-accent)] shrink-0" />
                       <span>
                         {qrExpanded
                           ? t.hardening.fingerprint.hideQrBtn
@@ -745,10 +751,10 @@ export function KeysPage() {
                     <button
                       type="button"
                       onClick={() => handleCopyText(k.id, k.publicKeyBase64Url)}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#051224] px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] max-w-full whitespace-normal text-center cursor-pointer"
+                      className="ga-btn-secondary inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium min-h-[44px] max-w-full whitespace-normal text-center cursor-pointer"
                     >
                       {copiedId === k.id ? (
-                        <Check className="h-3.5 w-3.5 text-sky-300 shrink-0" />
+                        <Check className="h-3.5 w-3.5 text-[var(--ga-accent)] shrink-0" />
                       ) : (
                         <Copy className="h-3.5 w-3.5 shrink-0" />
                       )}
@@ -763,7 +769,7 @@ export function KeysPage() {
                           `chm-public-${k.fingerprintHex.slice(0, 8)}.json`,
                         )
                       }
-                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#051224] px-3 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] max-w-full whitespace-normal text-center cursor-pointer"
+                      className="ga-btn-secondary inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium min-h-[44px] max-w-full whitespace-normal text-center cursor-pointer"
                     >
                       <Download className="h-3.5 w-3.5 shrink-0" />
                       <span>{t.keys.exportPublicBtn}</span>
@@ -772,7 +778,7 @@ export function KeysPage() {
                     <Link
                       to={`/exchange?identity=${encodeURIComponent(k.id)}`}
                       data-testid="keys-share-exchange-link"
-                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 hover:bg-sky-500/20 min-h-[44px] max-w-full whitespace-normal text-center"
+                      className="ga-status-info inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium min-h-[44px] max-w-full whitespace-normal text-center hover:opacity-90"
                     >
                       <Share2 className="h-3.5 w-3.5 shrink-0" />
                       <span>{t.keys.shareViaExchangeBtn}</span>
@@ -782,7 +788,7 @@ export function KeysPage() {
                       <button
                         type="button"
                         onClick={() => handleDownloadBackup(k.id, k.encryptedBackup!)}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 hover:bg-sky-500/20 min-h-[44px] max-w-full whitespace-normal text-center cursor-pointer"
+                        className="ga-status-info inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium min-h-[44px] max-w-full whitespace-normal text-center cursor-pointer hover:opacity-90"
                       >
                         <Download className="h-3.5 w-3.5 shrink-0" />
                         <span>{t.keys.downloadBackupBtn}</span>
@@ -792,7 +798,7 @@ export function KeysPage() {
                     <button
                       type="button"
                       onClick={() => handleDeleteAuthorKey(k.id)}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-500/35 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200 hover:bg-rose-500/20 min-h-[44px] max-w-full whitespace-normal text-center cursor-pointer"
+                      className="ga-status-error inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium min-h-[44px] max-w-full whitespace-normal text-center cursor-pointer hover:opacity-90"
                     >
                       <Trash2 className="h-3.5 w-3.5 shrink-0" />
                       <span>{t.keys.deleteKeyBtn}</span>
@@ -802,20 +808,20 @@ export function KeysPage() {
                   {qrExpanded && (
                     <div
                       data-testid={`fp-qr-panel-${k.id}`}
-                      className="rounded-lg border border-sky-400/25 bg-[#051224]/90 p-3 flex flex-col sm:flex-row items-center sm:items-center gap-4 min-w-0"
+                      className="ga-card-solid rounded-xl p-3 flex flex-col sm:flex-row items-center sm:items-center gap-4 min-w-0"
                     >
                       <QrMatrixSvg
                         value={`chm-fp:${k.fingerprintHex}`}
                         testId={`fp-qr-svg-${k.id}`}
                         label={`${k.label} ${t.hardening.fingerprint.showQrBtn}`}
-                        className="w-32 h-32 max-w-full rounded-lg bg-white p-1 shrink-0"
+                        className="w-32 h-32 max-w-full rounded-lg bg-white p-1 shrink-0 border ga-border"
                       />
-                      <div className="space-y-1 text-xs text-slate-300 min-w-0 w-full text-center sm:text-start">
-                        <p className="font-medium text-sky-200">{t.hardening.fingerprint.label}</p>
-                        <p className="font-mono text-[11px] break-all [overflow-wrap:anywhere] text-slate-200">
+                      <div className="space-y-1 text-xs ga-text-secondary min-w-0 w-full text-center sm:text-start">
+                        <p className="font-medium text-[var(--ga-accent)]">{t.hardening.fingerprint.label}</p>
+                        <p className="font-mono text-[11px] break-all [overflow-wrap:anywhere] ga-text">
                           {k.fingerprintHex}
                         </p>
-                        <p className="text-[11px] text-slate-400 break-words">
+                        <p className="text-[11px] ga-text-muted break-words">
                           {t.hardening.fingerprint.qrCaption}
                         </p>
                       </div>
@@ -828,28 +834,28 @@ export function KeysPage() {
         )}
       </section>
 
-      <section className="rounded-xl border border-white/[0.1] bg-[#051224]/70 backdrop-blur-md p-4 sm:p-5 space-y-5 min-w-0">
+      <section className="ga-card rounded-2xl p-4 sm:p-5 space-y-5 min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
           <div className="space-y-1 min-w-0">
-            <h2 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2 min-w-0">
-              <ShieldCheck className="h-5 w-5 text-emerald-400 shrink-0" aria-hidden="true" />
+            <h2 className="text-base sm:text-lg font-semibold ga-text flex items-center gap-2 min-w-0">
+              <ShieldCheck className="h-5 w-5 text-[var(--ga-success-text)] shrink-0" aria-hidden="true" />
               <span className="min-w-0 break-words">{t.keys.trustedTitle}</span>
             </h2>
-            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed break-words">
+            <p className="text-xs sm:text-sm ga-text-secondary leading-relaxed break-words">
               {t.keys.trustedSubtitle}
             </p>
           </div>
           <Link
             to="/exchange?tab=trusted"
             data-testid="keys-open-exchange-link"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-500/10 px-3.5 py-2 text-xs font-medium text-sky-200 hover:bg-sky-500/20 self-start sm:self-center shrink-0 min-h-[44px] text-center"
+            className="ga-btn-secondary w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-medium self-start sm:self-center shrink-0 min-h-[44px] text-center"
           >
-            <Share2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <Share2 className="h-3.5 w-3.5 shrink-0 text-[var(--ga-accent)]" aria-hidden="true" />
             <span>{t.keys.openExchangeTrustedBtn}</span>
           </Link>
         </div>
 
-        <p className="rounded-lg border border-sky-400/20 bg-sky-500/5 px-3 py-2 text-xs text-slate-300 leading-relaxed break-words">
+        <p className="ga-status-info rounded-xl border px-3 py-2 text-xs leading-relaxed break-words">
           {t.hardening.trust.outOfBandNote}
         </p>
 
@@ -869,7 +875,7 @@ export function KeysPage() {
               onChange={(e) => setTrustPubInput(e.target.value)}
               placeholder={t.keys.addTrustedPubInput}
               data-testid="trusted-pub-input"
-              className="w-full min-w-0 rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
+              className="ga-input w-full min-w-0 rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
             />
             <input
               type="text"
@@ -879,7 +885,7 @@ export function KeysPage() {
               maxLength={64}
               placeholder={t.keys.addTrustedLabelInput}
               data-testid="trusted-label-input"
-              className="w-full min-w-0 rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
+              className="ga-input w-full min-w-0 rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
             />
             <input
               type="text"
@@ -887,18 +893,18 @@ export function KeysPage() {
               onChange={(e) => setTrustNote(e.target.value)}
               maxLength={200}
               placeholder={t.keys.addTrustedNoteInput}
-              className="w-full min-w-0 rounded-lg border border-white/[0.14] bg-[#030b18]/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 min-h-[44px]"
+              className="ga-input w-full min-w-0 rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
             />
           </div>
 
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 min-w-0">
-            <label className="flex items-start gap-2.5 text-xs text-slate-200 cursor-pointer min-h-[44px] min-w-0 py-1">
+            <label className="flex items-start gap-2.5 text-xs ga-text-secondary cursor-pointer min-h-[44px] min-w-0 py-1">
               <input
                 type="checkbox"
                 checked={trustOutOfBandConfirmed}
                 onChange={(e) => setTrustOutOfBandConfirmed(e.target.checked)}
                 data-testid="trusted-confirm-checkbox"
-                className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/25 bg-[#030b18] accent-emerald-400"
+                className="mt-0.5 h-4 w-4 shrink-0 rounded accent-[var(--ga-primary-bg)]"
               />
               <span className="leading-relaxed min-w-0 break-words">
                 {t.hardening.trust.confirmCheckbox}
@@ -911,7 +917,7 @@ export function KeysPage() {
                 data-testid="trusted-save-unconfirmed-btn"
                 disabled={!trustPubInput.trim() || !trustLabel.trim()}
                 onClick={() => void handleSaveTrusted('unconfirmed')}
-                className="w-full sm:w-auto inline-flex items-center justify-center rounded-lg border border-amber-400/35 bg-amber-500/10 px-3.5 py-2 text-xs font-medium text-amber-100 hover:bg-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed min-h-[44px] cursor-pointer text-center"
+                className="ga-status-warning w-full sm:w-auto inline-flex items-center justify-center rounded-xl border px-3.5 py-2 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed min-h-[44px] cursor-pointer text-center"
               >
                 {t.hardening.trust.saveUnconfirmedBtn}
               </button>
@@ -919,7 +925,7 @@ export function KeysPage() {
                 type="submit"
                 data-testid="trusted-add-btn"
                 disabled={!trustOutOfBandConfirmed}
-                className="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-4 py-2.5 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 min-h-[44px] cursor-pointer text-center"
+                className="ga-status-success w-full sm:w-auto inline-flex items-center justify-center rounded-xl border px-4 py-2.5 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed shrink-0 min-h-[44px] cursor-pointer text-center"
               >
                 {t.keys.addTrustedBtn}
               </button>
@@ -928,13 +934,14 @@ export function KeysPage() {
         </form>
 
         {trustError && (
-          <p role="alert" className="text-xs text-rose-300 break-words">
-            {trustError}
-          </p>
+          <FriendlyErrorAlert
+            error={trustError}
+            onDismiss={() => setTrustError(null)}
+          />
         )}
 
         {trustedKeys.length === 0 ? (
-          <p className="text-sm text-slate-400">{t.keys.noTrustedKeys}</p>
+          <p className="text-sm ga-text-muted">{t.keys.noTrustedKeys}</p>
         ) : (
           <div className="space-y-2.5 min-w-0">
             {trustedKeys.map((tk) => {
@@ -946,19 +953,19 @@ export function KeysPage() {
                 <div
                   key={tk.publicKeyBase64Url}
                   data-testid="trusted-key-card"
-                  className="rounded-xl border border-white/[0.08] bg-[#030b18]/65 p-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-3 min-w-0"
+                  className="ga-surface-subtle rounded-xl p-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-3 min-w-0"
                 >
                   <div className="space-y-1 min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
                       <span
                         className={`font-semibold text-sm break-words ${
-                          isUnconfirmed ? 'text-amber-200' : 'text-emerald-200'
+                          isUnconfirmed ? 'text-[var(--ga-warning-text)]' : 'text-[var(--ga-success-text)]'
                         }`}
                       >
                         {tk.label}
                       </span>
                       {isUnconfirmed && (
-                        <span className="rounded-full border border-amber-400/40 bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-200">
+                        <span className="ga-status-warning rounded-full border px-2 py-0.5 text-[11px] font-medium">
                           {t.hardening.trust.unconfirmedBadge}
                         </span>
                       )}
@@ -967,8 +974,8 @@ export function KeysPage() {
                           key={n.id}
                           className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
                             n.noticeType === 'revocation'
-                              ? 'border-rose-400/40 bg-rose-500/15 text-rose-200'
-                              : 'border-amber-400/40 bg-amber-500/15 text-amber-200'
+                              ? 'ga-status-error'
+                              : 'ga-status-warning'
                           }`}
                         >
                           {n.noticeType === 'revocation'
@@ -977,19 +984,19 @@ export function KeysPage() {
                         </span>
                       ))}
                     </div>
-                    <div className="text-xs font-mono text-slate-300 break-all [overflow-wrap:anywhere]">
+                    <div className="text-xs font-mono ga-text-secondary break-all [overflow-wrap:anywhere]">
                       {tk.fingerprintShort} · {tk.fingerprintHex}
                     </div>
-                    <div className="text-[11px] font-mono text-slate-500 break-all [overflow-wrap:anywhere]">
+                    <div className="text-[11px] font-mono ga-text-muted break-all [overflow-wrap:anywhere]">
                       {tk.publicKeyBase64Url}
                     </div>
                     {isUnconfirmed && (
-                      <div className="text-[11px] text-amber-200/80 break-words">
+                      <div className="text-[11px] text-[var(--ga-warning-text)] break-words">
                         {t.hardening.trust.unconfirmedHelp}
                       </div>
                     )}
                     {tk.note && (
-                      <div className="text-xs text-slate-400 break-words [overflow-wrap:anywhere]">
+                      <div className="text-xs ga-text-muted break-words [overflow-wrap:anywhere]">
                         {tk.note}
                       </div>
                     )}
@@ -1003,7 +1010,7 @@ export function KeysPage() {
                           await confirmTrustedKey(tk.publicKeyBase64Url);
                           await refreshAll();
                         }}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-3 py-2 text-xs font-medium text-emerald-200 hover:bg-emerald-500/25 min-h-[44px] cursor-pointer text-center"
+                        className="ga-status-success inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium min-h-[44px] cursor-pointer text-center"
                       >
                         <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
                         <span>{t.hardening.trust.confirmNowBtn}</span>
@@ -1015,7 +1022,7 @@ export function KeysPage() {
                         await removeTrustedKey(tk.publicKeyBase64Url);
                         await refreshAll();
                       }}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.14] px-3 py-2 text-xs text-slate-300 hover:border-rose-400/50 hover:text-rose-200 min-h-[44px] cursor-pointer text-center"
+                      className="ga-btn-secondary inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs hover:text-[var(--ga-error-text)] min-h-[44px] cursor-pointer text-center"
                     >
                       <Trash2 className="h-3.5 w-3.5 shrink-0" />
                       <span>{t.keys.removeBtn}</span>
@@ -1033,31 +1040,31 @@ export function KeysPage() {
         summary={`${keyNotices.length}`}
         testId="keys-notices-panel"
       >
-        <p className="text-xs text-slate-300 leading-relaxed break-words">
+        <p className="text-xs ga-text-secondary leading-relaxed break-words">
           {t.hardening.notices.sectionSubtitle}
         </p>
 
-        <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 flex items-start gap-2.5 text-xs text-amber-100 leading-relaxed min-w-0">
-          <ShieldAlert className="h-4 w-4 text-amber-300 shrink-0 mt-0.5" aria-hidden="true" />
+        <div className="ga-status-warning rounded-xl border p-3 flex items-start gap-2.5 text-xs leading-relaxed min-w-0">
+          <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
           <span className="min-w-0 break-words">{t.hardening.notices.compromiseWarning}</span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 min-w-0">
           <form
             onSubmit={handleCreateNotice}
-            className="space-y-3 rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3.5 sm:p-4 min-w-0"
+            className="ga-surface-subtle space-y-3 rounded-xl p-3.5 sm:p-4 min-w-0"
           >
-            <h3 className="text-sm font-semibold text-white">{t.hardening.notices.createTitle}</h3>
+            <h3 className="text-sm font-semibold ga-text">{t.hardening.notices.createTitle}</h3>
 
             <div className="min-w-0">
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-medium ga-text-secondary mb-1">
                 {t.hardening.notices.subjectKeyLabel}
               </label>
               <select
                 value={noticeSubjectKeyId}
                 onChange={(e) => setNoticeSubjectKeyId(e.target.value)}
                 data-testid="notice-subject-select"
-                className="w-full min-w-0 max-w-full rounded-lg border border-white/[0.14] bg-[#020813] px-3 py-2 text-sm text-white min-h-[44px]"
+                className="ga-input w-full min-w-0 max-w-full rounded-xl px-3 py-2 text-sm min-h-[44px]"
               >
                 {authorKeys.map((k) => (
                   <option key={k.id} value={k.id}>
@@ -1069,21 +1076,21 @@ export function KeysPage() {
 
             {selectedNoticeSubject?.storageMode === 'noble-encrypted-seed' && (
               <div className="min-w-0">
-                <label className="block text-xs font-medium text-amber-200 mb-1 break-words">
+                <label className="block text-xs font-medium text-[var(--ga-warning-text)] mb-1 break-words">
                   {t.hardening.notices.passLabel} ({selectedNoticeSubject.label})
                 </label>
                 <input
                   type="password"
                   value={noticeSubjectPass}
                   onChange={(e) => setNoticeSubjectPass(e.target.value)}
-                  className="w-full min-w-0 rounded-lg border border-white/[0.14] bg-[#020813] px-3 py-2 text-sm text-white min-h-[44px]"
+                  className="ga-input w-full min-w-0 rounded-xl px-3 py-2 text-sm min-h-[44px]"
                 />
               </div>
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
               <div className="min-w-0">
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="block text-xs font-medium ga-text-secondary mb-1">
                   {t.hardening.notices.typeLabel}
                 </label>
                 <select
@@ -1094,7 +1101,7 @@ export function KeysPage() {
                     setNoticeReason(nextType === 'rotation' ? 'key-superseded' : 'retired');
                   }}
                   data-testid="notice-type-select"
-                  className="w-full min-w-0 max-w-full rounded-lg border border-white/[0.14] bg-[#020813] px-3 py-2 text-sm text-white min-h-[44px]"
+                  className="ga-input w-full min-w-0 max-w-full rounded-xl px-3 py-2 text-sm min-h-[44px]"
                 >
                   <option value="revocation">{t.hardening.notices.typeRevocation}</option>
                   <option value="rotation">{t.hardening.notices.typeRotation}</option>
@@ -1102,14 +1109,14 @@ export function KeysPage() {
               </div>
 
               <div className="min-w-0">
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="block text-xs font-medium ga-text-secondary mb-1">
                   {t.hardening.notices.reasonLabel}
                 </label>
                 <select
                   value={noticeReason}
                   onChange={(e) => setNoticeReason(e.target.value as KeyNoticeReason)}
                   data-testid="notice-reason-select"
-                  className="w-full min-w-0 max-w-full rounded-lg border border-white/[0.14] bg-[#020813] px-3 py-2 text-sm text-white min-h-[44px]"
+                  className="ga-input w-full min-w-0 max-w-full rounded-xl px-3 py-2 text-sm min-h-[44px]"
                 >
                   {(['key-compromise', 'key-superseded', 'retired', 'other'] as const).map(
                     (reason) => (
@@ -1125,14 +1132,14 @@ export function KeysPage() {
             {noticeType === 'rotation' && (
               <>
                 <div className="min-w-0">
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                  <label className="block text-xs font-medium ga-text-secondary mb-1">
                     {t.hardening.notices.replacementKeyLabel}
                   </label>
                   <select
                     value={noticeReplacementKeyId}
                     onChange={(e) => setNoticeReplacementKeyId(e.target.value)}
                     data-testid="notice-replacement-select"
-                    className="w-full min-w-0 max-w-full rounded-lg border border-white/[0.14] bg-[#020813] px-3 py-2 text-sm text-white min-h-[44px]"
+                    className="ga-input w-full min-w-0 max-w-full rounded-xl px-3 py-2 text-sm min-h-[44px]"
                   >
                     {authorKeys.map((k) => (
                       <option key={k.id} value={k.id}>
@@ -1144,14 +1151,14 @@ export function KeysPage() {
 
                 {selectedNoticeReplacement?.storageMode === 'noble-encrypted-seed' && (
                   <div className="min-w-0">
-                    <label className="block text-xs font-medium text-amber-200 mb-1 break-words">
+                    <label className="block text-xs font-medium text-[var(--ga-warning-text)] mb-1 break-words">
                       {t.hardening.notices.passLabel} ({selectedNoticeReplacement.label})
                     </label>
                     <input
                       type="password"
                       value={noticeReplacementPass}
                       onChange={(e) => setNoticeReplacementPass(e.target.value)}
-                      className="w-full min-w-0 rounded-lg border border-white/[0.14] bg-[#020813] px-3 py-2 text-sm text-white min-h-[44px]"
+                      className="ga-input w-full min-w-0 rounded-xl px-3 py-2 text-sm min-h-[44px]"
                     />
                   </div>
                 )}
@@ -1159,7 +1166,7 @@ export function KeysPage() {
             )}
 
             <div className="min-w-0">
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-medium ga-text-secondary mb-1">
                 {t.hardening.notices.noteLabel}
               </label>
               <input
@@ -1167,29 +1174,30 @@ export function KeysPage() {
                 value={noticeNote}
                 onChange={(e) => setNoticeNote(e.target.value)}
                 maxLength={160}
-                className="w-full min-w-0 rounded-lg border border-white/[0.14] bg-[#020813] px-3 py-2 text-sm text-white min-h-[44px]"
+                className="ga-input w-full min-w-0 rounded-xl px-3 py-2 text-sm min-h-[44px]"
               />
             </div>
 
             {noticeGenError && (
-              <p role="alert" className="text-xs text-rose-300 break-words">
-                {noticeGenError}
-              </p>
+              <FriendlyErrorAlert
+                error={noticeGenError}
+                onDismiss={() => setNoticeGenError(null)}
+              />
             )}
 
             <button
               type="submit"
               data-testid="notice-create-btn"
               disabled={authorKeys.length === 0}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-sky-300 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-sky-200 disabled:opacity-40 min-h-[44px] cursor-pointer text-center"
+              className="ga-btn-primary w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold disabled:opacity-40 min-h-[44px] cursor-pointer text-center"
             >
               <PlusCircle className="h-4 w-4 shrink-0" />
               <span>{t.hardening.notices.createBtn}</span>
             </button>
 
             {noticeGenResult && (
-              <div className="rounded-lg border border-sky-400/30 bg-sky-500/10 p-3 space-y-2 min-w-0">
-                <div className="text-[11px] font-mono text-sky-200 break-all [overflow-wrap:anywhere]">
+              <div className="ga-status-info rounded-xl border p-3 space-y-2 min-w-0">
+                <div className="text-[11px] font-mono break-all [overflow-wrap:anywhere]">
                   {noticeGenResult.token}
                 </div>
                 <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
@@ -1201,7 +1209,7 @@ export function KeysPage() {
                         `chm-notice-${noticeGenResult.bundle.subjectFingerprint.slice(0, 8)}.chnotice.json`,
                       )
                     }
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-400/40 bg-[#051224] px-3 py-1.5 text-xs text-sky-200 hover:bg-sky-500/20 min-h-[44px] cursor-pointer text-center"
+                    className="ga-btn-secondary w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs min-h-[44px] cursor-pointer text-center"
                   >
                     <Download className="h-3.5 w-3.5 shrink-0" />
                     <span>{t.hardening.notices.downloadBtn}</span>
@@ -1209,7 +1217,7 @@ export function KeysPage() {
                   <button
                     type="button"
                     onClick={() => void handleCopyText('notice-tok', noticeGenResult.token)}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#051224] px-3 py-1.5 text-xs text-slate-200 min-h-[44px] cursor-pointer text-center"
+                    className="ga-btn-secondary w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs min-h-[44px] cursor-pointer text-center"
                   >
                     <Copy className="h-3.5 w-3.5 shrink-0" />
                     <span>{t.hardening.notices.copyBtn}</span>
@@ -1219,8 +1227,8 @@ export function KeysPage() {
             )}
           </form>
 
-          <div className="space-y-3 rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3.5 sm:p-4 min-w-0">
-            <h3 className="text-sm font-semibold text-white">{t.hardening.notices.importTitle}</h3>
+          <div className="ga-surface-subtle space-y-3 rounded-xl p-3.5 sm:p-4 min-w-0">
+            <h3 className="text-sm font-semibold ga-text">{t.hardening.notices.importTitle}</h3>
 
             <textarea
               rows={3}
@@ -1228,7 +1236,7 @@ export function KeysPage() {
               onChange={(e) => setNoticeImportInput(e.target.value)}
               placeholder={t.hardening.notices.importPlaceholder}
               data-testid="notice-import-input"
-              className="w-full min-w-0 rounded-lg border border-white/[0.14] bg-[#020813] p-2.5 text-xs font-mono text-white placeholder:text-slate-500"
+              className="ga-input w-full min-w-0 rounded-xl p-2.5 text-xs font-mono"
             />
 
             <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
@@ -1237,7 +1245,7 @@ export function KeysPage() {
                 data-testid="notice-import-btn"
                 disabled={!noticeImportInput.trim()}
                 onClick={() => void handleImportNotice(noticeImportInput)}
-                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-400/40 bg-sky-500/15 px-3.5 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-500/25 disabled:opacity-40 min-h-[44px] cursor-pointer text-center"
+                className="ga-btn-primary inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold disabled:opacity-40 min-h-[44px] cursor-pointer text-center"
               >
                 <Upload className="h-3.5 w-3.5 shrink-0" />
                 <span>{t.hardening.notices.importBtn}</span>
@@ -1245,7 +1253,7 @@ export function KeysPage() {
 
               <label
                 htmlFor={noticeImportFileId}
-                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.14] bg-[#051224] px-3.5 py-2 text-xs font-medium text-slate-200 hover:border-sky-400/40 min-h-[44px] cursor-pointer text-center"
+                className="ga-btn-secondary inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-medium min-h-[44px] cursor-pointer text-center"
               >
                 <Upload className="h-3.5 w-3.5 shrink-0" />
                 <span>{t.hardening.notices.importFileBtn}</span>
@@ -1266,59 +1274,60 @@ export function KeysPage() {
             </div>
 
             {noticeImportError && (
-              <p role="alert" className="text-xs text-rose-300 break-words">
-                {noticeImportError}
-              </p>
+              <FriendlyErrorAlert
+                error={noticeImportError}
+                onDismiss={() => setNoticeImportError(null)}
+              />
             )}
             {noticeImportMsg && (
-              <p role="status" className="text-xs text-emerald-300 break-words">
+              <p role="status" className="text-xs text-[var(--ga-success-text)] break-words">
                 {noticeImportMsg}
               </p>
             )}
 
             <div className="pt-2 space-y-2 min-w-0">
-              <h4 className="text-xs font-semibold text-slate-300">
+              <h4 className="text-xs font-semibold ga-text-secondary">
                 {t.hardening.notices.listTitle}
               </h4>
               {keyNotices.length === 0 ? (
-                <p className="text-xs text-slate-500">{t.hardening.notices.noNotices}</p>
+                <p className="text-xs ga-text-muted">{t.hardening.notices.noNotices}</p>
               ) : (
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1 min-w-0">
                   {keyNotices.map((n) => (
                     <div
                       key={n.id}
                       data-testid="stored-notice-item"
-                      className="rounded-lg border border-white/[0.08] bg-[#020813]/80 p-2.5 flex items-start justify-between gap-2 text-xs min-w-0"
+                      className="ga-card-solid rounded-xl p-2.5 flex items-start justify-between gap-2 text-xs min-w-0"
                     >
                       <div className="space-y-0.5 min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                           <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
                               n.noticeType === 'revocation'
-                                ? 'bg-rose-500/20 text-rose-200'
-                                : 'bg-amber-500/20 text-amber-200'
+                                ? 'ga-status-error'
+                                : 'ga-status-warning'
                             }`}
                           >
                             {n.noticeType === 'revocation'
                               ? t.hardening.notices.revokeBadge
                               : t.hardening.notices.rotateBadge}
                           </span>
-                          <span className="text-slate-300 break-words">
+                          <span className="ga-text-secondary break-words">
                             {t.hardening.notices.reasons[n.reason]}
                           </span>
                         </div>
-                        <div className="font-mono text-[11px] text-slate-200 break-all [overflow-wrap:anywhere]">
+                        <div className="font-mono text-[11px] ga-text break-all [overflow-wrap:anywhere]">
                           {n.subjectFingerprintShort}
                           {n.replacementFingerprintShort
                             ? ` → ${n.replacementFingerprintShort}`
                             : ''}
                         </div>
-                        <div className="text-[11px] text-slate-400 break-all">
+                        <div className="text-[11px] ga-text-muted break-all">
                           {t.hardening.notices.issuedAtLabel}:{' '}
                           {new Date(n.noticeIssuedAt * 1000).toISOString()}
                         </div>
                         {n.note && (
-                          <div className="text-[11px] text-slate-400 break-words [overflow-wrap:anywhere]">
+                          <div className="text-[11px] ga-text-muted break-words [overflow-wrap:anywhere]">
                             {n.note}
                           </div>
                         )}
@@ -1330,7 +1339,7 @@ export function KeysPage() {
                           await refreshAll();
                         }}
                         aria-label={t.keys.removeBtn}
-                        className="inline-flex items-center justify-center rounded-md border border-white/[0.1] p-2 text-slate-400 hover:text-rose-200 min-h-[44px] min-w-[44px] shrink-0 cursor-pointer"
+                        className="ga-btn-secondary inline-flex items-center justify-center rounded-lg p-2 hover:text-[var(--ga-error-text)] min-h-[44px] min-w-[44px] shrink-0 cursor-pointer"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -1347,20 +1356,20 @@ export function KeysPage() {
         label={t.hardening.challenge.sectionTitle}
         testId="keys-challenge-panel"
       >
-        <p className="text-xs text-slate-300 leading-relaxed break-words">
+        <p className="text-xs ga-text-secondary leading-relaxed break-words">
           {t.hardening.challenge.sectionSubtitle}
         </p>
 
-        <div className="rounded-lg border border-sky-400/25 bg-sky-500/10 p-3 text-xs text-sky-100 leading-relaxed break-words">
+        <div className="ga-status-info rounded-xl border p-3 text-xs leading-relaxed break-words">
           {t.hardening.challenge.scopeDisclaimer}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 min-w-0">
           <form
             onSubmit={handleCreateChallenge}
-            className="space-y-2.5 rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3.5 min-w-0"
+            className="ga-surface-subtle space-y-2.5 rounded-xl p-3.5 min-w-0"
           >
-            <h3 className="text-xs font-semibold text-white">{t.hardening.challenge.createTitle}</h3>
+            <h3 className="text-xs font-semibold ga-text">{t.hardening.challenge.createTitle}</h3>
             <input
               type="text"
               required
@@ -1368,7 +1377,7 @@ export function KeysPage() {
               onChange={(e) => setChallengeTargetPub(e.target.value)}
               placeholder={t.hardening.challenge.targetPubLabel}
               data-testid="challenge-target-input"
-              className="w-full min-w-0 rounded-lg border border-white/[0.14] bg-[#020813] px-2.5 py-2 text-xs font-mono text-white min-h-[44px]"
+              className="ga-input w-full min-w-0 rounded-xl px-2.5 py-2 text-xs font-mono min-h-[44px]"
             />
             <input
               type="text"
@@ -1376,21 +1385,21 @@ export function KeysPage() {
               onChange={(e) => setChallengeNote(e.target.value)}
               maxLength={96}
               placeholder={t.hardening.challenge.notePlaceholder}
-              className="w-full min-w-0 rounded-lg border border-white/[0.14] bg-[#020813] px-2.5 py-2 text-xs text-white min-h-[44px]"
+              className="ga-input w-full min-w-0 rounded-xl px-2.5 py-2 text-xs min-h-[44px]"
             />
             {challengeGenError && (
-              <p className="text-xs text-rose-300 break-words">{challengeGenError}</p>
+              <p className="text-xs text-[var(--ga-error-text)] break-words">{challengeGenError}</p>
             )}
             <button
               type="submit"
               data-testid="challenge-create-btn"
-              className="w-full rounded-lg border border-sky-400/40 bg-sky-500/15 px-3 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-500/25 min-h-[44px] cursor-pointer"
+              className="ga-btn-secondary w-full rounded-xl px-3 py-2 text-xs font-semibold min-h-[44px] cursor-pointer"
             >
               {t.hardening.challenge.createBtn}
             </button>
             {generatedChallengeToken && (
               <div className="space-y-1 min-w-0">
-                <div className="text-[10px] text-slate-400">
+                <div className="text-[10px] ga-text-muted">
                   {t.hardening.challenge.challengeTokenLabel}
                 </div>
                 <textarea
@@ -1398,7 +1407,7 @@ export function KeysPage() {
                   rows={2}
                   value={generatedChallengeToken}
                   data-testid="challenge-token-output"
-                  className="w-full min-w-0 rounded border border-white/[0.1] bg-[#020813] p-1.5 text-[10px] font-mono text-sky-200 break-all"
+                  className="ga-input w-full min-w-0 rounded-lg p-1.5 text-[10px] font-mono text-[var(--ga-accent)] break-all"
                 />
               </div>
             )}
@@ -1406,9 +1415,9 @@ export function KeysPage() {
 
           <form
             onSubmit={handleSignChallenge}
-            className="space-y-2.5 rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3.5 min-w-0"
+            className="ga-surface-subtle space-y-2.5 rounded-xl p-3.5 min-w-0"
           >
-            <h3 className="text-xs font-semibold text-white">{t.hardening.challenge.signTitle}</h3>
+            <h3 className="text-xs font-semibold ga-text">{t.hardening.challenge.signTitle}</h3>
             <textarea
               required
               rows={2}
@@ -1416,13 +1425,13 @@ export function KeysPage() {
               onChange={(e) => setSignChallengeInput(e.target.value)}
               placeholder={t.hardening.challenge.challengeInputLabel}
               data-testid="challenge-sign-input"
-              className="w-full min-w-0 rounded-lg border border-white/[0.14] bg-[#020813] p-2 text-xs font-mono text-white"
+              className="ga-input w-full min-w-0 rounded-xl p-2 text-xs font-mono"
             />
             <select
               value={signChallengeKeyId}
               onChange={(e) => setSignChallengeKeyId(e.target.value)}
               data-testid="challenge-sign-key-select"
-              className="w-full min-w-0 max-w-full rounded-lg border border-white/[0.14] bg-[#020813] px-2.5 py-2 text-xs text-white min-h-[44px]"
+              className="ga-input w-full min-w-0 max-w-full rounded-xl px-2.5 py-2 text-xs min-h-[44px]"
             >
               {authorKeys.map((k) => (
                 <option key={k.id} value={k.id}>
@@ -1436,23 +1445,23 @@ export function KeysPage() {
                 value={signChallengePass}
                 onChange={(e) => setSignChallengePass(e.target.value)}
                 placeholder={t.hardening.challenge.signPassLabel}
-                className="w-full min-w-0 rounded-lg border border-white/[0.14] bg-[#020813] px-2.5 py-2 text-xs text-white min-h-[44px]"
+                className="ga-input w-full min-w-0 rounded-xl px-2.5 py-2 text-xs min-h-[44px]"
               />
             )}
             {signChallengeError && (
-              <p className="text-xs text-rose-300 break-words">{signChallengeError}</p>
+              <p className="text-xs text-[var(--ga-error-text)] break-words">{signChallengeError}</p>
             )}
             <button
               type="submit"
               data-testid="challenge-sign-btn"
               disabled={authorKeys.length === 0}
-              className="w-full rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-950 hover:bg-white disabled:opacity-40 min-h-[44px] cursor-pointer"
+              className="ga-btn-primary w-full rounded-xl px-3 py-2 text-xs font-semibold disabled:opacity-40 min-h-[44px] cursor-pointer"
             >
               {t.hardening.challenge.signBtn}
             </button>
             {generatedResponseToken && (
               <div className="space-y-1 min-w-0">
-                <div className="text-[10px] text-slate-400">
+                <div className="text-[10px] ga-text-muted">
                   {t.hardening.challenge.responseTokenLabel}
                 </div>
                 <textarea
@@ -1460,7 +1469,7 @@ export function KeysPage() {
                   rows={2}
                   value={generatedResponseToken}
                   data-testid="challenge-response-output"
-                  className="w-full min-w-0 rounded border border-white/[0.1] bg-[#020813] p-1.5 text-[10px] font-mono text-emerald-200 break-all"
+                  className="ga-input w-full min-w-0 rounded-lg p-1.5 text-[10px] font-mono text-[var(--ga-success-text)] break-all"
                 />
               </div>
             )}
@@ -1468,9 +1477,9 @@ export function KeysPage() {
 
           <form
             onSubmit={handleVerifyChallenge}
-            className="space-y-2.5 rounded-lg border border-white/[0.08] bg-[#030b18]/65 p-3.5 min-w-0 md:col-span-2 xl:col-span-1"
+            className="ga-surface-subtle space-y-2.5 rounded-xl p-3.5 min-w-0 md:col-span-2 xl:col-span-1"
           >
-            <h3 className="text-xs font-semibold text-white">{t.hardening.challenge.verifyTitle}</h3>
+            <h3 className="text-xs font-semibold ga-text">{t.hardening.challenge.verifyTitle}</h3>
             <textarea
               required
               rows={2}
@@ -1478,7 +1487,7 @@ export function KeysPage() {
               onChange={(e) => setVerifyChallengeText(e.target.value)}
               placeholder={t.hardening.challenge.challengeInputLabel}
               data-testid="challenge-verify-challenge-input"
-              className="w-full min-w-0 rounded-lg border border-white/[0.14] bg-[#020813] p-2 text-xs font-mono text-white"
+              className="ga-input w-full min-w-0 rounded-xl p-2 text-xs font-mono"
             />
             <textarea
               required
@@ -1487,25 +1496,25 @@ export function KeysPage() {
               onChange={(e) => setVerifyResponseText(e.target.value)}
               placeholder={t.hardening.challenge.responseInputLabel}
               data-testid="challenge-verify-response-input"
-              className="w-full min-w-0 rounded-lg border border-white/[0.14] bg-[#020813] p-2 text-xs font-mono text-white"
+              className="ga-input w-full min-w-0 rounded-xl p-2 text-xs font-mono"
             />
             {verifyChallengeError && (
-              <p className="text-xs text-rose-300 break-words">{verifyChallengeError}</p>
+              <p className="text-xs text-[var(--ga-error-text)] break-words">{verifyChallengeError}</p>
             )}
             <button
               type="submit"
               data-testid="challenge-verify-btn"
-              className="w-full rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/25 min-h-[44px] cursor-pointer"
+              className="ga-status-success w-full rounded-xl border px-3 py-2 text-xs font-semibold min-h-[44px] cursor-pointer"
             >
               {t.hardening.challenge.verifyBtn}
             </button>
             {verifyChallengeResult && (
               <div
                 data-testid="challenge-verify-result"
-                className={`rounded-lg border p-2.5 text-xs break-words ${
+                className={`rounded-xl border p-2.5 text-xs break-words ${
                   verifyChallengeResult.valid
-                    ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-100'
-                    : 'border-rose-400/40 bg-rose-500/15 text-rose-100'
+                    ? 'ga-status-success'
+                    : 'ga-status-error'
                 }`}
               >
                 {verifyChallengeResult.valid

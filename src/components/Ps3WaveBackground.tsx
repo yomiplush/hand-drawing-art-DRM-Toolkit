@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useAppPreferences } from './PreferencesContext';
 
 interface RibbonConfig {
   yRatio: number;
@@ -8,78 +9,41 @@ interface RibbonConfig {
   phase: number;
   crestAlpha: number;
   fillTopAlpha: number;
-  fillBottomAlpha: number;
 }
 
 const RIBBONS: RibbonConfig[] = [
   {
     yRatio: 0.48,
-    amplitude: 52,
-    frequency: 0.0021,
-    speed: 0.22,
-    phase: 0.0,
-    crestAlpha: 0.2,
-    fillTopAlpha: 0.12,
-    fillBottomAlpha: 0.0,
-  },
-  {
-    yRatio: 0.54,
-    amplitude: 64,
-    frequency: 0.0017,
-    speed: -0.16,
-    phase: 1.7,
-    crestAlpha: 0.26,
-    fillTopAlpha: 0.15,
-    fillBottomAlpha: 0.0,
-  },
-  {
-    yRatio: 0.61,
     amplitude: 44,
-    frequency: 0.0026,
-    speed: 0.13,
-    phase: 3.4,
+    frequency: 0.0019,
+    speed: 0.14,
+    phase: 0.0,
     crestAlpha: 0.16,
     fillTopAlpha: 0.09,
-    fillBottomAlpha: 0.0,
   },
   {
-    yRatio: 0.69,
-    amplitude: 38,
-    frequency: 0.0019,
+    yRatio: 0.56,
+    amplitude: 52,
+    frequency: 0.0015,
     speed: -0.1,
-    phase: 5.1,
-    crestAlpha: 0.12,
+    phase: 1.7,
+    crestAlpha: 0.2,
+    fillTopAlpha: 0.11,
+  },
+  {
+    yRatio: 0.65,
+    amplitude: 36,
+    frequency: 0.0022,
+    speed: 0.09,
+    phase: 3.4,
+    crestAlpha: 0.13,
     fillTopAlpha: 0.07,
-    fillBottomAlpha: 0.0,
   },
 ];
 
-interface DustMote {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  r: number;
-  phase: number;
-}
-
-function createMotes(count: number, width: number, height: number): DustMote[] {
-  const motes: DustMote[] = [];
-  for (let i = 0; i < count; i++) {
-    motes.push({
-      x: Math.random() * width,
-      y: height * (0.25 + Math.random() * 0.65),
-      vx: (Math.random() - 0.5) * 0.12,
-      vy: -0.04 - Math.random() * 0.09,
-      r: 0.8 + Math.random() * 1.4,
-      phase: Math.random() * Math.PI * 2,
-    });
-  }
-  return motes;
-}
-
 export function Ps3WaveBackground() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const { resolvedTheme } = useAppPreferences();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -96,10 +60,10 @@ export function Ps3WaveBackground() {
     let width = window.innerWidth;
     let height = window.innerHeight;
     let dpr = Math.min(window.devicePixelRatio || 1, 2);
-    let motes = createMotes(26, width, height);
     let rafId = 0;
     let startTime = performance.now();
     let hidden = typeof document !== 'undefined' && document.hidden;
+    const isDark = resolvedTheme === 'dark';
 
     const resize = () => {
       width = window.innerWidth;
@@ -110,35 +74,48 @@ export function Ps3WaveBackground() {
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      motes = createMotes(26, width, height);
     };
 
     const drawFrame = (elapsedSec: number) => {
-      // Deep nocturnal XMB gradient backdrop
       const bg = ctx.createLinearGradient(0, 0, 0, height);
-      bg.addColorStop(0, '#020813');
-      bg.addColorStop(0.45, '#041226');
-      bg.addColorStop(0.82, '#061d38');
-      bg.addColorStop(1, '#030c1a');
+      if (isDark) {
+        // Gentle Azure Night Canvas (#0C1424 -> #142744)
+        bg.addColorStop(0, '#0C1424');
+        bg.addColorStop(0.5, '#101D34');
+        bg.addColorStop(0.85, '#142744');
+        bg.addColorStop(1, '#0C1424');
+      } else {
+        // Gentle Azure Morning Stationery (#FFFFFF / #F5F8FD -> #DCE9FA wash)
+        bg.addColorStop(0, '#FFFFFF');
+        bg.addColorStop(0.45, '#F5F8FD');
+        bg.addColorStop(0.88, '#E7F0FC');
+        bg.addColorStop(1, '#DCE9FA');
+      }
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, width, height);
 
-      // Subtle atmospheric glow behind wave horizon
+      // Soft watercolor atmospheric glow
       const glow = ctx.createRadialGradient(
-        width * 0.52,
-        height * 0.56,
-        20,
-        width * 0.52,
-        height * 0.56,
+        width * 0.5,
+        height * 0.36,
+        24,
+        width * 0.5,
+        height * 0.42,
         Math.max(width, height) * 0.65,
       );
-      glow.addColorStop(0, 'rgba(56, 165, 232, 0.16)');
-      glow.addColorStop(0.5, 'rgba(14, 78, 138, 0.07)');
-      glow.addColorStop(1, 'rgba(2, 8, 19, 0)');
+      if (isDark) {
+        glow.addColorStop(0, 'rgba(61, 115, 197, 0.16)');
+        glow.addColorStop(0.55, 'rgba(40, 89, 182, 0.08)');
+        glow.addColorStop(1, 'rgba(12, 20, 36, 0)');
+      } else {
+        glow.addColorStop(0, 'rgba(130, 184, 255, 0.22)');
+        glow.addColorStop(0.55, 'rgba(220, 233, 250, 0.28)');
+        glow.addColorStop(1, 'rgba(245, 248, 253, 0)');
+      }
       ctx.fillStyle = glow;
       ctx.fillRect(0, 0, width, height);
 
-      const step = Math.max(12, Math.floor(width / 72));
+      const step = Math.max(16, Math.floor(width / 64));
 
       for (const r of RIBBONS) {
         const baseY = height * r.yRatio;
@@ -148,12 +125,10 @@ export function Ps3WaveBackground() {
           const t = elapsedSec * r.speed + r.phase;
           const wave1 = Math.sin(x * r.frequency + t) * r.amplitude;
           const wave2 =
-            Math.sin(x * r.frequency * 1.85 - t * 0.72 + 1.1) * (r.amplitude * 0.42);
-          const wave3 = Math.cos(x * r.frequency * 0.62 + t * 0.38) * (r.amplitude * 0.28);
-          points.push([x, baseY + wave1 + wave2 + wave3]);
+            Math.sin(x * r.frequency * 1.65 - t * 0.65 + 1.1) * (r.amplitude * 0.36);
+          points.push([x, baseY + wave1 + wave2]);
         }
 
-        // Translucent silk ribbon fill
         ctx.beginPath();
         ctx.moveTo(points[0][0], points[0][1]);
         for (let i = 1; i < points.length - 1; i++) {
@@ -168,13 +143,18 @@ export function Ps3WaveBackground() {
         ctx.closePath();
 
         const ribbonGrad = ctx.createLinearGradient(0, baseY - r.amplitude, 0, height);
-        ribbonGrad.addColorStop(0, `rgba(147, 217, 253, ${r.fillTopAlpha})`);
-        ribbonGrad.addColorStop(0.32, `rgba(14, 116, 184, ${r.fillTopAlpha * 0.45})`);
-        ribbonGrad.addColorStop(1, `rgba(3, 12, 26, ${r.fillBottomAlpha})`);
+        if (isDark) {
+          ribbonGrad.addColorStop(0, `rgba(130, 184, 255, ${r.fillTopAlpha})`);
+          ribbonGrad.addColorStop(0.4, `rgba(61, 115, 197, ${r.fillTopAlpha * 0.5})`);
+          ribbonGrad.addColorStop(1, 'rgba(12, 20, 36, 0)');
+        } else {
+          ribbonGrad.addColorStop(0, `rgba(61, 115, 197, ${r.fillTopAlpha * 0.85})`);
+          ribbonGrad.addColorStop(0.42, `rgba(130, 184, 255, ${r.fillTopAlpha * 0.55})`);
+          ribbonGrad.addColorStop(1, 'rgba(245, 248, 253, 0)');
+        }
         ctx.fillStyle = ribbonGrad;
         ctx.fill();
 
-        // Delicate luminous silk crest
         ctx.beginPath();
         ctx.moveTo(points[0][0], points[0][1]);
         for (let i = 1; i < points.length - 1; i++) {
@@ -183,25 +163,11 @@ export function Ps3WaveBackground() {
           ctx.quadraticCurveTo(points[i][0], points[i][1], xc, yc);
         }
         ctx.lineTo(last[0], last[1]);
-        ctx.strokeStyle = `rgba(219, 240, 255, ${r.crestAlpha})`;
-        ctx.lineWidth = 1.15;
+        ctx.strokeStyle = isDark
+          ? `rgba(130, 184, 255, ${r.crestAlpha})`
+          : `rgba(40, 89, 182, ${r.crestAlpha * 0.65})`;
+        ctx.lineWidth = 1;
         ctx.stroke();
-      }
-
-      // Quiet floating XMB dust motes
-      for (const m of motes) {
-        if (!reducedMotion) {
-          m.x += m.vx;
-          m.y += m.vy;
-          if (m.y < height * 0.15) m.y = height * 0.92;
-          if (m.x < -10) m.x = width + 10;
-          if (m.x > width + 10) m.x = -10;
-        }
-        const pulse = 0.16 + 0.16 * Math.sin(elapsedSec * 0.9 + m.phase);
-        ctx.beginPath();
-        ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(224, 242, 254, ${pulse.toFixed(3)})`;
-        ctx.fill();
       }
     };
 
@@ -252,7 +218,7 @@ export function Ps3WaveBackground() {
       document.removeEventListener('visibilitychange', onVisibility);
       motionQuery?.removeEventListener?.('change', onMotionChange);
     };
-  }, []);
+  }, [resolvedTheme]);
 
   return (
     <canvas

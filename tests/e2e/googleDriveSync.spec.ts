@@ -53,6 +53,7 @@ function createSharedMockGoogleEnvironment() {
   let nextId = 1;
   let gisScriptRequests = 0;
   const revokedTokens: string[] = [];
+  const driveListSpaces: string[] = [];
   let activeAccount: 'acct1' | 'acct2' = 'acct1';
 
   const accountProfiles = {
@@ -86,7 +87,7 @@ function createSharedMockGoogleEnvironment() {
                   cfg.callback({
                     access_token: token,
                     expires_in: 3600,
-                    scope: 'https://www.googleapis.com/auth/drive.file',
+                    scope: 'https://www.googleapis.com/auth/drive.appdata',
                     token_type: 'Bearer'
                   });
                 }, 10);
@@ -151,7 +152,7 @@ function createSharedMockGoogleEnvironment() {
           id: fileId,
           name: meta.name,
           mimeType: meta.mimeType ?? 'application/json',
-          parents: meta.parents ?? existing?.parents ?? ['root'],
+          parents: meta.parents ?? existing?.parents ?? ['appDataFolder'],
           appProperties: meta.appProperties ?? existing?.appProperties ?? {},
           modifiedTime: new Date().toISOString(),
           content: payloadText,
@@ -169,6 +170,7 @@ function createSharedMockGoogleEnvironment() {
         const body = JSON.parse(req.postData() ?? '{}') as {
           name: string;
           mimeType: string;
+          parents?: string[];
           appProperties?: Record<string, string>;
         };
         const id = `drive-folder-${nextId++}`;
@@ -176,7 +178,7 @@ function createSharedMockGoogleEnvironment() {
           id,
           name: body.name,
           mimeType: body.mimeType,
-          parents: ['root'],
+          parents: body.parents ?? ['appDataFolder'],
           appProperties: body.appProperties ?? {},
           modifiedTime: new Date().toISOString(),
         };
@@ -190,6 +192,7 @@ function createSharedMockGoogleEnvironment() {
       }
 
       if (url.pathname === '/drive/v3/files' && method === 'GET') {
+        driveListSpaces.push(url.searchParams.get('spaces') ?? '');
         const q = url.searchParams.get('q') ?? '';
         const list = Array.from(files.values()).filter((f) => {
           if (q.includes('application/vnd.google-apps.folder') && f.mimeType !== 'application/vnd.google-apps.folder') {
@@ -249,6 +252,7 @@ function createSharedMockGoogleEnvironment() {
     files,
     getGisScriptRequests: () => gisScriptRequests,
     getRevokedTokens: () => revokedTokens,
+    getDriveListSpaces: () => driveListSpaces,
     setActiveAccount: (a: 'acct1' | 'acct2') => {
       activeAccount = a;
     },
@@ -257,7 +261,7 @@ function createSharedMockGoogleEnvironment() {
 }
 
 test.describe('Personal Google Drive Encrypted Vault Sync E2E', () => {
-  test('lazy-loads GIS only on click, encrypts all Drive uploads client-side, restores on Device 2 with passphrase, isolates account switches, and preserves local data on disconnect/revoke', async ({
+  test('lazy-loads GIS only on click with drive.appdata scope, encrypts all Drive uploads client-side, restores on Device 2 with passphrase, isolates account switches, and preserves local data on disconnect/revoke', async ({
     browser,
   }, testInfo) => {
     test.setTimeout(90_000);
@@ -302,6 +306,7 @@ test.describe('Personal Google Drive Encrypted Vault Sync E2E', () => {
       await page1.getByTestId('drive-connect-btn').click();
       await expect(page1.getByTestId('drive-account-label')).toContainText('Yomi Artist');
       await expect(page1.getByTestId('drive-scope-badge')).toBeVisible();
+      await expect(page1.getByTestId('drive-scope-badge')).toContainText('drive.appdata');
       expect(mockGoogle.getGisScriptRequests()).toBe(1);
 
       const webStorageText = await page1.evaluate(() =>
@@ -309,7 +314,7 @@ test.describe('Personal Google Drive Encrypted Vault Sync E2E', () => {
       );
       expect(webStorageText).not.toContain('mock-oauth-token');
 
-      // 3. Unlock / Initialize encrypted Vault & create a signed artwork on Device 1 via SPA navigation (preserving RAM-only session)
+      // 3. Unlock / Initialize encrypted Vault & create a signed artwork on Device 1 in Simple Mode (preserving RAM-only session)
       await page1.getByTestId('drive-passphrase-input').fill('vault-passphrase-2026');
       await page1.getByTestId('drive-unlock-btn').click();
       await expect(page1.getByTestId('drive-unlocked-panel')).toBeVisible();
@@ -317,10 +322,7 @@ test.describe('Personal Google Drive Encrypted Vault Sync E2E', () => {
       await navigateSpaToCreate(page1);
       const artPath = testInfo.outputPath('drive-sync-art.png');
       fs.writeFileSync(artPath, buildSamplePng());
-      await page1.getByTestId('create-quick-keygen').click();
-      await expect(page1.getByTestId('create-key-select')).toBeVisible();
       await page1.getByTestId('create-image-input').setInputFiles(artPath);
-      await page1.locator('[data-testid="create-identity-advanced"] > button').click();
       await page1.getByTestId('create-author-input').fill('DriveSecretArtist');
       await page1.getByTestId('create-title-input').fill('DriveSecretMasterpiece');
       const dlPromise = page1.waitForEvent('download');
@@ -328,15 +330,21 @@ test.describe('Personal Google Drive Encrypted Vault Sync E2E', () => {
       await dlPromise;
       await expect(page1.getByTestId('create-result-section')).toBeVisible();
 
-      // Return to /storage via SPA link & sync to Personal Google Drive
+      // Return to /storage via SPA link & sync to Personal Google Drive (appDataFolder)
       await navigateSpaToStorage(page1);
+      await expect(page1.getByTestId('drive-cross-device-counts')).toContainText('Author IDs: 1');
       await expect(page1.getByTestId('drive-sync-now-btn')).toBeVisible();
       await page1.getByTestId('drive-sync-now-btn').click();
       await expect(page1.getByTestId('drive-status-msg')).toBeVisible();
 
+      // Verify all Drive queries used spaces=appDataFolder and never touched root Drive
+      expect(mockGoogle.getDriveListSpaces().length).toBeGreaterThan(0);
+      expect(mockGoogle.getDriveListSpaces().every((s) => s.includes('appDataFolder'))).toBe(true);
+
       // Inspect every stored file on Google Drive: opaque names & ciphertext-only JSON (NO plaintext titles/names/tokens/pixels)
       expect(mockGoogle.files.size).toBeGreaterThanOrEqual(4);
       for (const file of mockGoogle.files.values()) {
+        expect(file.parents).not.toContain('root');
         if (file.mimeType === 'application/vnd.google-apps.folder') continue;
         expect(file.name).not.toContain('DriveSecretMasterpiece');
         expect(file.name).not.toContain('DriveSecretArtist');
@@ -365,6 +373,8 @@ test.describe('Personal Google Drive Encrypted Vault Sync E2E', () => {
       await expect(page2.getByTestId('drive-unlocked-panel')).toBeVisible();
       await page2.getByTestId('drive-sync-now-btn').click();
       await expect(page2.getByTestId('drive-status-msg')).toBeVisible();
+      await expect(page2.getByTestId('drive-cross-device-counts')).toContainText('Trusted: 1');
+      await expect(page2.getByTestId('drive-cross-device-counts')).toContainText('Author IDs: 0');
       await expect(page2.getByTestId('vault-total-count')).toHaveText('1');
       await expect(page2.getByTestId('vault-proof-item').first()).toContainText(
         'DriveSecretMasterpiece',

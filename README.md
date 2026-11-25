@@ -20,7 +20,7 @@ Certified Handmade is a **¥0 / $0 forever**, open-source, local-first, offline-
 - **Local First & Offline First** (IndexedDB + Portable `.chmvault.json` + PWA + Portable Standalone Binaries + Independent CLIs; optional Personal Google Drive & Nostr are strictly additive extensions)
 - **Strict Responsibility Isolation & Graceful Degradation:**
   - Ed25519 signing, verification, and local Proof Vault work **100%** without Google Drive or Nostr.
-  - **Google OAuth 2.0 (GIS Token Model, `drive.file` scope)** authorizes storage in the *user's own* Google Drive only—it never acts as a CHM Ed25519 identity and **cannot decrypt** the Vault without the Vault passphrase (or cross-device key share).
+  - **Google OAuth 2.0 (GIS Token Model, `drive.appdata` (`appDataFolder`) scope)** authorizes storage in the *user's own* Google Drive only—it never acts as a CHM Ed25519 identity and **cannot decrypt** the Vault without the Vault passphrase (or cross-device key share).
   - **Nostr (`CHM-SYNC-v1`)** is strictly limited to **device registration, authorization, revocation, identity transport binding, and signed checkpoints**—never proof vaults, artwork details, author profiles, SNS links, policy presets, settings, or public proof broadcasts.
 
 All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding/decoding, QR burning, QR scanning, streaming local evidence hashing, AES-256-GCM Vault encryption, visual similarity checks, notice verification, challenge-response checks, and NIP-44/NIP-59 gift-wrap encryption run **100% locally on your device**.
@@ -60,7 +60,7 @@ All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding
    - **Three Built-In Pluggable `StorageProvider` Backends (`src/core/storage/providers/`):**
      1. **`IndexedDbStorageProvider` (`certified-handmade-store` v7):** Zero-pixel local browser Vault (`proofVault`, `creatorProfiles`, `policyPresets`, `storageState`, `vaultTombstones`), scaled and indexed for 10,000+ proofs.
      2. **`PortableFileStorageProvider` (`.chmvault.json`):** Plain or passphrase-encrypted (`PBKDF2-SHA256 600,000` + `AES-256-GCM`) portable vault archives for offline OS/origin transfer.
-     3. **`GoogleDriveStorageProvider` (Optional Opt-In Personal Google Drive):** Uses **Google Identity Services OAuth 2.0 Token Model** (`https://accounts.google.com/gsi/client`, narrow `https://www.googleapis.com/auth/drive.file` scope) to store **strictly client-side AES-256-GCM encrypted** Vault artifacts inside the user's own `My Drive / Certified Handmade` folder (`appProperties` discovery & folder deletion recovery).
+     3. **`GoogleDriveStorageProvider` (Optional Opt-In Personal Google Drive):** Uses **Google Identity Services OAuth 2.0 Token Model** (`https://accounts.google.com/gsi/client`, narrow `https://www.googleapis.com/auth/drive.appdata` scope) to store **strictly client-side AES-256-GCM encrypted** Vault artifacts inside the user's hidden Google Drive `appDataFolder` (`spaces=appDataFolder`, leaving ordinary `My Drive` files untouched and recovering automatically via `appProperties`).
    - **Vault Encryption & Sync Guarantees:**
      - **RAM-only OAuth tokens:** Access tokens never touch `localStorage`, `sessionStorage`, `IndexedDB`, URLs, or logs; GIS script loads only on explicit connect click.
      - **Independent Vault Master Key (`VMK`):** 256-bit random key wrapped via `PBKDF2-SHA256` (`chm-vault-keyring-v1`) and expanded via `HKDF-SHA256` into purpose-isolated subkeys (`manifest`, `proofs`, `profiles`, `policies`, `settings`, `snapshots`) with AAD-bound `AES-256-GCM` envelopes (`chm-vault-aead-v1`). Connecting Google alone **cannot decrypt** the Vault.
@@ -76,7 +76,7 @@ All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding
    - **Strict Auth-Only Nostr Sync (`CHM-SYNC-v1`):** Disabled at rest (`0` background relay traffic). Strictly restricted to device registration, authorization, revocation (`Priority 0`, bypassing budget deferral), identity transport binding, and signed checkpoints over NIP-44 v2 + NIP-59 Gift Wrap (`kind 1059`) with zero-cost NIP-11 relay filtering. Proof vaults, artwork details, author profiles, SNS links, policy presets, settings, and Public Proof Index broadcasts (`NOSTR_PUBLIC_PROOF_PUBLISHING_DISABLED`) are **never** published to Nostr relays.
    - Google Drive connection and Nostr device sync operate **100% independently**.
 
-6. **13-Language UI & Touch-First Accessibility** across desktop and mobile viewports.
+6. **Gentle Azure Light/Dark Theme, Simple/Advanced Mode & 13-Language Touch-First UI:** Opens in calm **Simple Mode** by default with 3-step certification & verification flows while preserving full technical controls inside **Advanced Mode** without losing unsaved edits.
 
 ---
 
@@ -104,7 +104,7 @@ go run . --notice /path/to/notice.chnotice.json
 - **Cryptographic Provenance, Not Copy-Protection DRM:** Certified Handmade creates tamper-evident signatures and machine-readable rights declarations; it does **not** encrypt artwork pixels, block screenshots, or technically enforce `aiTraining: disallow`.
 - **Signature ≠ Proof of Hand-Drawing or Legal Copyright:** A valid Ed25519 signature (or evidence hash match / offline key-possession challenge) proves only that the holder of that private key signed the data and (when checked) that pixels or local evidence files match their signed SHA-256 hashes. It cannot prove by math alone that no AI tools were used, verify external social account ownership, or prove legal copyright ownership.
 - **Self-Declared Timestamps & Decentralized Notices:** Without a central server or TSA, `issuedAt`, `noticeIssuedAt`, and `.chmevidence` `createdAt` are self-declared, and offline verifiers only see `.chnotice.json` notices imported locally.
-- **Google Account ≠ CHM Identity & Zero Remote Wipe:** Connecting Google Drive only authorizes storage on the user's Drive (`drive.file`). It does not authenticate CHM authorship or unlock Vault data without the passphrase. Revoking a device rotates future Vault epochs (`rotationReason: 'device-revoked'`) cleanly, but cannot remotely erase data or keys already copied before revocation.
+- **Google Account ≠ CHM Identity & Zero Remote Wipe:** Connecting Google Drive only authorizes storage on the user's Drive (`drive.appdata` (`appDataFolder`)). It does not authenticate CHM authorship or unlock Vault data without the passphrase. Revoking a device rotates future Vault epochs (`rotationReason: 'device-revoked'`) cleanly, but cannot remotely erase data or keys already copied before revocation.
 - **Public Relay Availability & Retention:** Free community Nostr relays have zero uptime SLA or permanent retention guarantee. Encrypted NIP-59 envelopes only carry device authentication/revocation state; local IndexedDB, `.chkey.json`, `.chmvault.json`, and your Personal Google Drive Vault hold your backups.
 - **Browser Storage Volatility:** IndexedDB stores (`certified-handmade-store` v7) can be cleared by browser eviction. Always export and verify encrypted `.chkey.json` and `.chmvault.json` backups (or sync to Personal Google Drive).
 
@@ -177,7 +177,7 @@ See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for:
 - [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md) — Open-source dependencies and licenses.
 
 ### Architecture, Storage Providers, Protocol v3 & Sync Guides (`docs/`)
-- [`docs/GOOGLE-DRIVE-SETUP.md`](./docs/GOOGLE-DRIVE-SETUP.md) — Google OAuth 2.0 GIS setup, `drive.file` personal folder structure (`appProperties`, recovery), multi-device passphrase/key-share unlock, account switching, and disconnect vs. revoke guide.
+- [`docs/GOOGLE-DRIVE-SETUP.md`](./docs/GOOGLE-DRIVE-SETUP.md) — Google OAuth 2.0 GIS setup, `drive.appdata` (`appDataFolder`) personal folder structure (`appProperties`, recovery), multi-device passphrase/key-share unlock, account switching, and disconnect vs. revoke guide.
 - [`docs/STORAGE-PROVIDERS.md`](./docs/STORAGE-PROVIDERS.md) — Pluggable `StorageProvider` architecture (`IndexedDbStorageProvider`, `PortableFileStorageProvider`, `GoogleDriveStorageProvider`), Vault encryption epochs, 3-way conflict resolution, tombstones, and extension points (IPFS/WebDAV/P2P).
 - [`docs/CHM-COMPACT-PROOF-V3.md`](./docs/CHM-COMPACT-PROOF-V3.md) — Protocol `v3` (`CHM3\0`) self-contained compact QR specification, CBOR keys `1..17`, 12-bit policy flags, 15-code URL dictionary, raw DEFLATE framing & measured QR size benchmarks.
 - [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — Clean layered architecture across CHM Crypto Core, Device Identity, Pluggable Storage & Auth-Only Sync, and UI.

@@ -13,7 +13,10 @@ export type VaultCryptoPurpose =
   | 'profiles'
   | 'policies'
   | 'settings'
-  | 'snapshots';
+  | 'snapshots'
+  | 'identities'
+  | 'devices'
+  | 'recovery';
 
 export interface VaultKeyEpoch {
   epoch: number;
@@ -187,7 +190,7 @@ async function derivePassphraseWrappingKey(
 
 /**
  * HKDF-SHA256 subkey derivation enforcing cryptographic separation between
- * manifest, proofs, profiles, policy presets, settings, and snapshots.
+ * manifest, proofs, profiles, policy presets, settings, snapshots, identities, devices, and recovery.
  */
 async function derivePurposeSubkey(params: {
   vmkBytes: Uint8Array;

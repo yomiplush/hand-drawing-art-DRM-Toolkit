@@ -112,7 +112,6 @@ test.describe('Zero-Cost Decentralized Device Auth Sync & Strict Nostr Isolation
       const pngPath = testInfo.outputPath('sample-art.png');
       fs.writeFileSync(pngPath, buildSampleArtworkPng(160, 120));
       await page1.getByTestId('create-image-input').setInputFiles(pngPath);
-      await page1.locator('[data-testid="create-identity-advanced"] > button').click();
       await page1.getByTestId('create-title-input').fill('Vault E2E Piece');
       const dlPromise = page1.waitForEvent('download');
       await page1.getByTestId('create-sign-button').click();

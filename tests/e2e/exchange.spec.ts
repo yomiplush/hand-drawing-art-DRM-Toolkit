@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, test } from '@playwright/test';
+import { type Page, expect, test } from '@playwright/test';
 import { encode as encodePng } from 'fast-png';
 
 function buildSampleArtworkPng(width = 160, height = 120): Buffer {
@@ -15,6 +15,12 @@ function buildSampleArtworkPng(width = 160, height = 120): Buffer {
     }
   }
   return Buffer.from(encodePng({ width, height, data, depth: 8, channels: 4 }));
+}
+
+async function enableAdvancedMode(page: Page): Promise<void> {
+  await page.getByTestId('nav-menu-toggle').click();
+  await page.getByTestId('nav-mode-toggle-advanced').click();
+  await page.keyboard.press('Escape');
 }
 
 test.describe('CHM-Exchange Critical End-to-End Integration', () => {
@@ -54,8 +60,9 @@ test.describe('CHM-Exchange Critical End-to-End Integration', () => {
       await pageA.goto('/');
       await pageA.getByTestId('cookie-reject-btn').click();
 
-      // Check Exchange entry in compact navigation menu
+      // Switch to Advanced Mode & check Exchange entry in navigation menu
       await pageA.getByTestId('nav-menu-toggle').click();
+      await pageA.getByTestId('nav-mode-toggle-advanced').click();
       await expect(pageA.getByTestId('menu-exchange-link')).toBeVisible();
       await pageA.keyboard.press('Escape');
 
@@ -151,7 +158,8 @@ test.describe('CHM-Exchange Critical End-to-End Integration', () => {
         'Trusted (Artist A (Confirmed))',
       );
 
-      // Verify shortcut from /verify -> /exchange?inspect=...
+      // Verify shortcut from /verify -> /exchange?inspect=... (in Advanced Mode)
+      await enableAdvancedMode(pageB);
       await pageB.getByTestId('verify-inspect-exchange-link').click();
       await expect(pageB).toHaveURL(/\/exchange\?inspect=/);
       await expect(pageB.getByTestId('chmx-receive-trust-status')).toContainText(

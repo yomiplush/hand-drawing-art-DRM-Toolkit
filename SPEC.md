@@ -456,7 +456,7 @@ Permitted Nostr sync payloads are restricted exclusively to:
 
 1. **`IndexedDbStorageProvider` (`certified-handmade-store` v7):** Stores compact signed proof records (`< 1.2 KiB` each, `id = SHA-256(proofBytes)`), author profiles, policy presets, sync/drive state, and tombstones with **zero** raw artwork pixels or plaintext private keys.
 2. **`PortableFileStorageProvider` (`.chmvault.json`):** Plain (`certified-handmade-vault-backup` v1, `containsPrivateKeys: false`) or passphrase-encrypted (`certified-handmade-vault-encrypted-backup` v1, `PBKDF2-SHA256 600,000` + `AES-256-GCM`) portable archives. Restored proofs re-verify Ed25519 signatures before entering IndexedDB.
-3. **`GoogleDriveStorageProvider` (`src/core/google/`, `src/core/vault/`):** Optional personal Google Drive Encrypted Vault using GIS OAuth 2.0 Token Model (`drive.file` scope, RAM-only access token, `drive.about.get` account binding, `appProperties` folder/file discovery).
+3. **`GoogleDriveStorageProvider` (`src/core/google/`, `src/core/vault/`):** Optional personal Google Drive Encrypted Vault using GIS OAuth 2.0 Token Model (`drive.appdata` `appDataFolder` scope, RAM-only access token, `drive.about.get` account binding, `appProperties` folder/file discovery).
 
 ### 16.2 Encrypted Drive Vault Cryptography (`src/core/vault/vaultCrypto.ts`)
 

@@ -122,7 +122,7 @@ export function StatusDimensionsGrid({
         icon={<IntIcon className="h-5 w-5" />}
         extra={
           matchedMode ? (
-            <span className="rounded bg-black/25 border border-white/15 px-2 py-0.5 text-[11px] font-mono opacity-90">
+            <span className="rounded-md ga-surface-subtle px-2 py-0.5 text-[11px] font-mono ga-text-secondary">
               {matchedMode}
             </span>
           ) : undefined
@@ -141,7 +141,7 @@ export function StatusDimensionsGrid({
         icon={<IdIcon className="h-5 w-5" />}
         extra={
           trustedKeyUnconfirmed && identityStatus === 'unknown' ? (
-            <span className="rounded bg-amber-500/20 border border-amber-400/35 px-2 py-0.5 text-[11px] text-amber-100">
+            <span className="rounded-md ga-status-warning border px-2 py-0.5 text-[11px]">
               {t.hardening.trust.unconfirmedBadge}
             </span>
           ) : undefined

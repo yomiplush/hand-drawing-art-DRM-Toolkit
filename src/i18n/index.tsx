@@ -13,6 +13,7 @@ import type { Translations } from './en';
 import { GOOGLE_COMPLIANCE_I18N } from './googleCompliance';
 import { HARDENING_I18N } from './hardening';
 import { HOWTO_I18N } from './howto';
+import { HUMAN_UX_I18N } from './humanUx';
 import { ja } from './ja';
 import { LICENSE_I18N } from './licenses';
 import { ko, zhCN, zhTW } from './locales/eastAsia';
@@ -113,6 +114,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     vault: VAULT_I18N[locale] ?? VAULT_I18N.en,
     nextGen: NEXT_GEN_I18N[locale] ?? NEXT_GEN_I18N.en,
     googleCompliance: GOOGLE_COMPLIANCE_I18N[locale] ?? GOOGLE_COMPLIANCE_I18N.en,
+    humanUx: HUMAN_UX_I18N[locale] ?? HUMAN_UX_I18N.en,
   };
 
   return (
