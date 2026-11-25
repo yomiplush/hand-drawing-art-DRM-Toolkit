@@ -46,45 +46,45 @@ export function PrivacyPolicyPage({
   ];
 
   return (
-    <div className="space-y-8" data-testid="privacy-policy-page">
-      <header className="space-y-2.5 border-b ga-border pb-6">
+    <div className="space-y-8 min-w-0 w-full" data-testid="privacy-policy-page">
+      <header className="space-y-2.5 border-b ga-border pb-6 min-w-0">
         <p className="inline-flex items-center gap-2 text-xs font-mono ga-text-accent">
-          <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span>{t.privacyPolicy.lastUpdated}</span>
         </p>
-        <h1 className="text-2xl sm:text-3xl font-semibold ga-text">{t.privacyPolicy.title}</h1>
-        <p className="text-sm sm:text-base ga-text-secondary leading-relaxed max-w-3xl">
+        <h1 className="text-2xl sm:text-3xl font-semibold ga-text break-words">{t.privacyPolicy.title}</h1>
+        <p className="text-sm sm:text-base ga-text-secondary leading-relaxed max-w-3xl break-words">
           {t.privacyPolicy.subtitle}
         </p>
-        <div className="text-xs ga-text-muted flex flex-wrap items-center gap-2">
+        <div className="text-xs ga-text-muted flex flex-wrap items-center gap-2 min-w-0">
           <span>{t.privacyPolicy.gdprRefLabel}</span>
           <a
             href={t.privacyPolicy.gdprRefUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 ga-text-accent underline underline-offset-4"
+            className="inline-flex items-center gap-1 ga-text-accent underline underline-offset-4 break-all"
           >
             <span>{t.privacyPolicy.gdprRefUrl}</span>
-            <ExternalLink className="h-3 w-3" aria-hidden="true" />
+            <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
           </a>
         </div>
       </header>
 
-      <section className="ga-card rounded-2xl p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <h2 className="text-base sm:text-lg font-medium ga-text flex items-center gap-2">
-            <Cookie className="h-5 w-5 ga-text-accent" aria-hidden="true" />
-            <span>{t.privacyPolicy.controlsTitle}</span>
+      <section className="ga-card rounded-2xl p-4 sm:p-5 space-y-4 min-w-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
+          <h2 className="text-base sm:text-lg font-medium ga-text flex items-center gap-2 min-w-0">
+            <Cookie className="h-5 w-5 ga-text-accent shrink-0" aria-hidden="true" />
+            <span className="min-w-0 break-words">{t.privacyPolicy.controlsTitle}</span>
           </h2>
           <span
             data-testid="policy-consent-status"
-            className={`inline-flex items-center rounded-lg border px-3 py-1 text-xs font-medium ${statusBadgeTone}`}
+            className={`inline-flex items-center rounded-lg border px-3 py-1 text-xs font-medium self-start sm:self-auto ${statusBadgeTone}`}
           >
             {t.consent.statusLabel}: {statusText}
           </span>
         </div>
 
-        <p className="text-xs sm:text-sm ga-text-secondary leading-relaxed">
+        <p className="text-xs sm:text-sm ga-text-secondary leading-relaxed break-words">
           {t.privacyPolicy.controlsDesc}
         </p>
 
@@ -95,7 +95,7 @@ export function PrivacyPolicyPage({
             data-testid="policy-accept-btn"
             className="ga-btn-primary inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold min-h-[42px] cursor-pointer"
           >
-            <Check className="h-4 w-4" aria-hidden="true" />
+            <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{t.consent.acceptBtn}</span>
           </button>
 
@@ -105,7 +105,7 @@ export function PrivacyPolicyPage({
             data-testid="policy-reject-btn"
             className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs sm:text-sm font-medium min-h-[42px] cursor-pointer"
           >
-            <X className="h-4 w-4" aria-hidden="true" />
+            <X className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{t.consent.rejectBtn}</span>
           </button>
 
@@ -114,7 +114,7 @@ export function PrivacyPolicyPage({
             onClick={onOpenBanner}
             className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs sm:text-sm font-medium min-h-[42px] cursor-pointer"
           >
-            <Cookie className="h-4 w-4 ga-text-accent" aria-hidden="true" />
+            <Cookie className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
             <span>{t.privacyPolicy.reopenBannerBtn}</span>
           </button>
 
@@ -124,7 +124,7 @@ export function PrivacyPolicyPage({
             data-testid="policy-reset-btn"
             className="ga-status-error inline-flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs sm:text-sm font-medium min-h-[42px] cursor-pointer"
           >
-            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            <Trash2 className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{t.privacyPolicy.resetConsentBtn}</span>
           </button>
 
@@ -132,22 +132,22 @@ export function PrivacyPolicyPage({
             to="/keys"
             className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs sm:text-sm font-medium min-h-[42px]"
           >
-            <KeyRound className="h-4 w-4 ga-text-accent" aria-hidden="true" />
+            <KeyRound className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
             <span>{t.privacyPolicy.manageKeysBtn}</span>
           </Link>
         </div>
       </section>
 
-      <div className="space-y-4">
+      <div className="space-y-4 min-w-0">
         {t.privacyPolicy.sections.map((sec, idx) => (
-          <section key={sec.title} className="ga-card rounded-2xl p-5 space-y-3">
-            <h2 className="text-base sm:text-lg font-medium ga-text">{sec.title}</h2>
-            <p className="text-sm ga-text-secondary leading-relaxed whitespace-pre-line">
+          <section key={sec.title} className="ga-card rounded-2xl p-4 sm:p-5 space-y-3 min-w-0">
+            <h2 className="text-base sm:text-lg font-medium ga-text break-words">{sec.title}</h2>
+            <p className="text-sm ga-text-secondary leading-relaxed whitespace-pre-line break-words">
               {sec.body}
             </p>
 
             {idx === 3 && (
-              <div className="overflow-x-auto pt-2">
+              <div className="overflow-x-auto pt-2 max-w-full">
                 <table className="w-full text-left border-collapse text-xs sm:text-sm">
                   <thead>
                     <tr className="border-b ga-border-strong ga-text">
@@ -164,7 +164,7 @@ export function PrivacyPolicyPage({
                   <tbody className="divide-y divide-[var(--ga-border)] ga-text-secondary">
                     {inventoryRows.map((row) => (
                       <tr key={row.name}>
-                        <td className="py-2.5 pr-4 font-mono text-xs ga-text-accent align-top">
+                        <td className="py-2.5 pr-4 font-mono text-xs ga-text-accent align-top break-all">
                           {row.name}
                         </td>
                         <td className="py-2.5 pr-4 align-top">{row.category}</td>
@@ -181,12 +181,12 @@ export function PrivacyPolicyPage({
 
         <section
           data-testid="privacy-google-drive-section"
-          className="ga-card-solid rounded-2xl border ga-border-strong p-5 space-y-3"
+          className="ga-card-solid rounded-2xl border ga-border-strong p-4 sm:p-5 space-y-3 min-w-0"
         >
-          <h2 className="text-base sm:text-lg font-medium ga-text">
+          <h2 className="text-base sm:text-lg font-medium ga-text break-words">
             {googlePolicy.sectionTitle}
           </h2>
-          <p className="text-sm ga-text-secondary leading-relaxed whitespace-pre-line">
+          <p className="text-sm ga-text-secondary leading-relaxed whitespace-pre-line break-words">
             {googlePolicy.sectionBody}
           </p>
         </section>

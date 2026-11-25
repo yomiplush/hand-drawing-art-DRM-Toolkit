@@ -491,45 +491,89 @@ export function CreateCertificatePage() {
   );
 
   const qrSizing = useMemo(() => {
-    return measureUnsignedQrSizing({
-      manifestWithoutCrypto: {
-        authorName: authorName.trim() || undefined,
-        artworkTitle: artworkTitle.trim() || undefined,
-        description: cleanDescription,
-        website: cleanWebsite,
-        snsLinks: sanitizedSnsLinks.length > 0 ? sanitizedSnsLinks : undefined,
-        portfolioLinks: sanitizedPortfolioLinks.length > 0 ? sanitizedPortfolioLinks : undefined,
-        creationMethod: detailsDraft.creationMethod || undefined,
-        creationEnvironment: sanitizedCreationEnv,
-        evidenceHashes: evidenceHashes.length > 0 ? evidenceHashes : undefined,
-        policyNote: policyNote.trim() || undefined,
-        license: {
-          licenseId,
-          attributionName: attributionName.trim() || undefined,
-          commercialUse,
-          redistribution,
-          aiTraining,
-          allowsDerivatives,
-          allowsModifications,
-          requiresAttribution,
-        },
-        qrMask:
-          qrMode === 'in-image' && clampedStudioOptions
-            ? [
-                clampedStudioOptions.x,
-                clampedStudioOptions.y,
-                clampedStudioOptions.boxSize,
-                clampedStudioOptions.boxSize,
-              ]
-            : undefined,
+    const regionW = artworkRaster ? artworkRaster.width : 1200;
+    const regionH = artworkRaster ? artworkRaster.height : 1200;
+    const effectiveRegion: ArtworkRegion = [0, 0, regionW, regionH];
+    const validQrMask: ArtworkRegion | undefined =
+      qrMode === 'in-image' &&
+      artworkRaster &&
+      clampedStudioOptions &&
+      clampedStudioOptions.x >= 0 &&
+      clampedStudioOptions.y >= 0 &&
+      clampedStudioOptions.boxSize >= 21 &&
+      clampedStudioOptions.x + clampedStudioOptions.boxSize <= regionW &&
+      clampedStudioOptions.y + clampedStudioOptions.boxSize <= regionH
+        ? [
+            clampedStudioOptions.x,
+            clampedStudioOptions.y,
+            clampedStudioOptions.boxSize,
+            clampedStudioOptions.boxSize,
+          ]
+        : undefined;
+
+    const baseManifest = {
+      authorName: authorName.trim() || undefined,
+      artworkTitle: artworkTitle.trim() || undefined,
+      description: cleanDescription,
+      website: cleanWebsite,
+      snsLinks: sanitizedSnsLinks.length > 0 ? sanitizedSnsLinks : undefined,
+      portfolioLinks: sanitizedPortfolioLinks.length > 0 ? sanitizedPortfolioLinks : undefined,
+      creationMethod: detailsDraft.creationMethod || undefined,
+      creationEnvironment: sanitizedCreationEnv,
+      evidenceHashes: evidenceHashes.length > 0 ? evidenceHashes : undefined,
+      policyNote: policyNote.trim() || undefined,
+      region: effectiveRegion,
+      license: {
+        licenseId,
+        attributionName: attributionName.trim() || undefined,
+        commercialUse,
+        redistribution,
+        aiTraining,
+        allowsDerivatives,
+        allowsModifications,
+        requiresAttribution,
       },
-      verifyBaseUrl,
-      eccLevel: qrMode === 'in-image' ? eccLevel : 'M',
-    });
+    };
+    const activeEcc = qrMode === 'in-image' ? eccLevel : 'M';
+
+    try {
+      return measureUnsignedQrSizing({
+        manifestWithoutCrypto: {
+          ...baseManifest,
+          qrMask: validQrMask,
+        },
+        verifyBaseUrl,
+        eccLevel: activeEcc,
+      });
+    } catch {
+      try {
+        return measureUnsignedQrSizing({
+          manifestWithoutCrypto: baseManifest,
+          verifyBaseUrl,
+          eccLevel: activeEcc,
+        });
+      } catch {
+        return {
+          uncompressedPayloadBytes: 0,
+          compressedPayloadBytes: 0,
+          usedDeflate: false,
+          proofBytesLength: 0,
+          proofUrlChars: 0,
+          qrVersion: null,
+          qrModules: null,
+          eccLevel: activeEcc,
+          tier: 'capacity-exceeded' as const,
+          savingsBytes: 0,
+          savingsPct: 0,
+          previewUrl: null,
+        };
+      }
+    }
   }, [
     aiTraining,
     allowsDerivatives,
     allowsModifications,
+    artworkRaster,
     artworkTitle,
     attributionName,
     authorName,
@@ -1127,17 +1171,17 @@ export function CreateCertificatePage() {
     : '';
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b ga-border pb-4">
-        <div className="space-y-1.5">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight ga-text">
+    <div className="space-y-6 max-w-3xl mx-auto w-full min-w-0">
+      <header className="flex flex-wrap items-start justify-between gap-3 sm:gap-4 border-b ga-border pb-4 min-w-0">
+        <div className="space-y-1.5 min-w-0 flex-1 max-w-full">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight ga-text break-words">
             {!isAdvanced ? t.simple.create.pageTitle : t.home.ctaCreate}
           </h1>
-          <p className="text-xs sm:text-sm ga-text-secondary">
+          <p className="text-xs sm:text-sm ga-text-secondary break-words">
             {!isAdvanced ? t.simple.create.pageSubtitle : t.humanUx.createUx.step1Subtitle}
           </p>
-          <div className="inline-flex items-center gap-1.5 rounded-full border ga-border ga-surface-subtle px-3 py-1 text-[11px] font-medium ga-text-secondary">
-            <span>{t.simple.create.localTrustNote}</span>
+          <div className="inline-flex flex-wrap items-center gap-1.5 rounded-full border ga-border ga-surface-subtle px-3 py-1 text-[11px] font-medium ga-text-secondary max-w-full min-w-0">
+            <span className="min-w-0 break-words">{t.simple.create.localTrustNote}</span>
             <HelpTip
               label={t.simple.home.localOnlyTipLabel}
               text={t.simple.home.localOnlyTipText}
@@ -1170,7 +1214,7 @@ export function CreateCertificatePage() {
 
       <form onSubmit={handleSignAndBurn} className="space-y-6">
         {/* Step 1 — Choose Artwork */}
-        <section className="ga-card rounded-2xl p-5 space-y-4">
+        <section className="ga-card rounded-2xl p-4 sm:p-5 space-y-4 min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base sm:text-lg font-semibold ga-text">
               {t.minimal.create.step1Title}
@@ -1244,7 +1288,7 @@ export function CreateCertificatePage() {
         </section>
 
         {/* Step 2 — Review Proof Content & Sign */}
-        <section className="ga-card rounded-2xl p-5 space-y-5">
+        <section className="ga-card rounded-2xl p-4 sm:p-5 space-y-5 min-w-0">
           <div className="space-y-1">
             <h2 className="text-base sm:text-lg font-semibold ga-text">
               {t.minimal.create.step2Title}
@@ -1633,12 +1677,12 @@ export function CreateCertificatePage() {
               {artworkRaster && qrMode === 'outer-frame' && (
                 <div
                   data-testid="create-outer-live-preview"
-                  className={`rounded-xl border p-3 flex flex-col items-center gap-2.5 ${outerFrameColors}`}
+                  className={`rounded-xl border p-3 flex flex-col items-center gap-2.5 min-w-0 max-w-full ${outerFrameColors}`}
                 >
                   <SafeArtworkImage
                     raster={artworkRaster}
                     alt={artworkTitle || sourceFileName}
-                    className="max-h-48 object-contain rounded border ga-border"
+                    className="max-h-48 max-w-full w-auto object-contain rounded border ga-border"
                   />
                   <div className="w-full flex items-center justify-end gap-2 text-[11px] font-mono opacity-85">
                     {showLabel && <span>CHM v3 · {licenseId}</span>}
@@ -1650,13 +1694,13 @@ export function CreateCertificatePage() {
               {artworkRaster && qrMode === 'in-image' && (
                 <div
                   data-testid="create-inside-live-preview"
-                  className="relative rounded-xl border ga-border ga-surface-subtle p-3 flex justify-center"
+                  className="relative rounded-xl border ga-border ga-surface-subtle p-3 flex justify-center min-w-0 max-w-full"
                 >
-                  <div className="relative inline-block">
+                  <div className="relative inline-block max-w-full">
                     <SafeArtworkImage
                       raster={artworkRaster}
                       alt={artworkTitle || sourceFileName}
-                      className="max-h-48 object-contain rounded border ga-border"
+                      className="max-h-48 max-w-full w-auto object-contain rounded border ga-border"
                     />
                     <div
                       aria-hidden="true"
@@ -2154,7 +2198,7 @@ export function CreateCertificatePage() {
                     onChange={(e) => setNewPresetName(e.target.value)}
                     placeholder={t.nextGen.create.savePresetPlaceholder}
                     data-testid="create-save-preset-name"
-                    className="ga-input flex-1 min-w-[200px] rounded-xl px-3 py-2 text-xs min-h-[40px]"
+                    className="ga-input w-full sm:w-auto sm:flex-1 min-w-0 rounded-xl px-3 py-2 text-xs min-h-[40px]"
                   />
                   <button
                     type="button"
@@ -2323,7 +2367,7 @@ export function CreateCertificatePage() {
                     <SafeArtworkImage
                       raster={artworkRaster}
                       alt={artworkTitle || sourceFileName}
-                      className="max-h-52 object-contain rounded border ga-border"
+                      className="max-h-52 max-w-full w-auto object-contain rounded border ga-border"
                     />
 
                     {placement !== 'top-right' && (
@@ -2585,7 +2629,7 @@ export function CreateCertificatePage() {
                 raster={signedResult.raster}
                 alt="Signed artwork with QR code"
                 testId="create-signed-preview"
-                className="max-h-[380px] object-contain rounded"
+                className="max-h-[380px] max-w-full w-auto object-contain rounded"
               />
             </StampCeremony>
           </div>

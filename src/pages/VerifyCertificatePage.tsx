@@ -1164,7 +1164,7 @@ export function VerifyCertificatePage() {
                 fallbackDataUrl={attachedFallbackDataUrl}
                 alt={attachedFileName ?? 'Artwork preview'}
                 testId="verify-attached-preview"
-                className="max-h-56 object-contain rounded-lg border ga-border"
+                className="max-h-56 max-w-full w-auto object-contain rounded-lg border ga-border"
               />
               {attachedFileName && (
                 <span className="text-[11px] font-mono ga-text-muted truncate max-w-full">
@@ -1324,7 +1324,7 @@ export function VerifyCertificatePage() {
         <section
           data-testid="verify-simple-verdict"
           data-verdict={simpleVerdictKind}
-          className={`relative overflow-hidden rounded-2xl border p-5 space-y-3 ${
+          className={`relative rounded-2xl border p-4 sm:p-5 space-y-3 min-w-0 ${
             simpleVerdictKind === 'pass'
               ? 'chm-verdict-pop ga-status-success shadow-sm'
               : simpleVerdictKind === 'sns-pass'
@@ -1333,10 +1333,12 @@ export function VerifyCertificatePage() {
           }`}
         >
           {simpleVerdictKind === 'pass' && (
-            <SparkleBurst active={!reducedMotion} testId="verify-verdict-sparkles" />
+            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+              <SparkleBurst active={!reducedMotion} testId="verify-verdict-sparkles" />
+            </div>
           )}
-          <div className="relative z-10 flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-1">
+          <div className="relative z-10 flex items-start justify-between gap-3 min-w-0">
+            <div className="space-y-1 min-w-0 flex-1">
               <div className="flex items-center gap-2 text-base sm:text-lg font-bold">
                 {simpleVerdictKind === 'warn' ? (
                   <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden="true" />
@@ -2434,13 +2436,13 @@ export function VerifyCertificatePage() {
   ) : null;
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <header className="flex items-start justify-between gap-4 border-b ga-border pb-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight ga-text">
+    <div className="space-y-6 max-w-3xl mx-auto w-full min-w-0">
+      <header className="flex items-start justify-between gap-3 sm:gap-4 border-b ga-border pb-4 min-w-0">
+        <div className="space-y-1 min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight ga-text break-words">
             {!isAdvanced ? t.simple.verify.pageTitle : t.home.ctaVerify}
           </h1>
-          <p className="text-xs sm:text-sm ga-text-secondary">
+          <p className="text-xs sm:text-sm ga-text-secondary break-words">
             {!isAdvanced ? t.simple.verify.pageSubtitle : t.minimal.verify.dropHint}
           </p>
         </div>

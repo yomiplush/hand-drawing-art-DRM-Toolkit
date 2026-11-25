@@ -76,10 +76,10 @@ export function ExchangePage() {
   const exchangeTheme = resolvedTheme === 'dark' ? DARK_EXCHANGE_THEME : LIGHT_EXCHANGE_THEME;
 
   return (
-    <div data-testid="exchange-page" className="space-y-6">
-      <header className="flex items-center justify-between gap-4 border-b ga-border pb-4">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl sm:text-3xl font-semibold ga-text">
+    <div data-testid="exchange-page" className="space-y-6 min-w-0 w-full">
+      <header className="flex items-start sm:items-center justify-between gap-3 sm:gap-4 border-b ga-border pb-4 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+          <h1 className="text-xl sm:text-3xl font-semibold ga-text min-w-0 break-words">
             {t.minimal.nav.keyExchangeItem}
           </h1>
           <HelpTip
@@ -102,10 +102,10 @@ export function ExchangePage() {
 
       <SimpleModeBanner testId="exchange-simple-mode-banner" />
 
-      <div className="ga-status-info rounded-2xl border px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-        <div className="flex items-start gap-2.5 leading-relaxed">
+      <div className="ga-status-info rounded-2xl border px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs min-w-0">
+        <div className="flex items-start gap-2.5 leading-relaxed min-w-0">
           <ShieldCheck className="h-4 w-4 text-[var(--ga-accent)] shrink-0 mt-0.5" aria-hidden="true" />
-          <span className="ga-text-secondary">{t.hardening.trust.outOfBandNote}</span>
+          <span className="ga-text-secondary min-w-0 break-words">{t.hardening.trust.outOfBandNote}</span>
         </div>
         <div className="flex flex-wrap items-center gap-3 shrink-0">
           <Link
@@ -129,7 +129,7 @@ export function ExchangePage() {
         <div
           role="note"
           data-testid="exchange-notices-alert"
-          className="ga-status-warning rounded-2xl border px-4 py-3 flex items-start gap-2.5 text-xs"
+          className="ga-status-warning rounded-2xl border px-4 py-3 flex items-start gap-2.5 text-xs min-w-0"
         >
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
           <div className="space-y-1 min-w-0">

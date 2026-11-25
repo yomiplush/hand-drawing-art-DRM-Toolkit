@@ -241,4 +241,95 @@ test.describe('Dual-Mode UX Overhaul, Progressive HelpTips & Tactile Flows', () 
 
     await ipadContext.close();
   });
+
+  test('large (>1200px) canvas clicking 作品の内側 / 絵の中にQR never throws qrMask bounds error and signs cleanly', async ({
+    browser,
+  }, testInfo) => {
+    const jaContext = await browser.newContext({
+      locale: 'ja-JP',
+      viewport: { width: 820, height: 1180 },
+      hasTouch: true,
+    });
+    const page = await jaContext.newPage();
+
+    await page.goto('/create');
+    await page.getByTestId('cookie-reject-btn').click();
+
+    const largeArtPath = testInfo.outputPath('large-canvas-1600x1400.png');
+    fs.writeFileSync(largeArtPath, buildTestPng(1600, 1400));
+    await page.getByTestId('create-image-input').setInputFiles(largeArtPath);
+    await page.getByTestId('create-author-input').fill('ミキ');
+    await page.getByTestId('create-title-input').fill('大型キャンバス作品');
+
+    // Simple Mode -> click 絵の中にQR (previously crashed RouteErrorBoundary on >1200px canvases)
+    await page.getByTestId('create-simple-style-inside').click();
+    await expect(page).toHaveURL(/\/create$/);
+    await expect(page.getByTestId('create-inside-live-preview')).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('qrMask must fit inside artwork region bounds');
+
+    // Advanced Mode -> click 作品の内側 -> must render In-Image QR Studio cleanly without throwing
+    await page.getByTestId('header-mode-toggle-advanced').click();
+    await page.getByTestId('create-mode-studio').click();
+    await expect(page.getByTestId('create-mode-studio')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('qrstudio-preview-canvas')).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('qrMask must fit inside artwork region bounds');
+
+    // Sign large canvas with bottom-right (>1200px) qrMask and confirm valid download
+    const dlPromise = page.waitForEvent('download');
+    await page.getByTestId('create-sign-button').click();
+    const dl = await dlPromise;
+    expect(dl.suggestedFilename()).toContain('.in-image-qr.certified-handmade.png');
+    await expect(page.getByTestId('create-result-section')).toBeVisible();
+
+    await jaContext.close();
+  });
+
+  test('single-line responsive footer and zero document horizontal overflow across routes on mobile (360px) and desktop', async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      locale: 'ja-JP',
+      viewport: { width: 360, height: 800 },
+    });
+    const page = await context.newPage();
+
+    await page.goto('/');
+    await page.getByTestId('cookie-reject-btn').click();
+
+    const routes = ['/', '/create', '/verify', '/keys', '/exchange', '/storage', '/vault', '/devices', '/privacypolicy'];
+
+    for (const mode of ['simple', 'advanced'] as const) {
+      await page.getByTestId(`header-mode-toggle-${mode}`).click();
+      for (const route of routes) {
+        await page.goto(route);
+        await expect(page.locator('footer')).toBeVisible();
+
+        const metrics = await page.evaluate(() => {
+          const docOverflow =
+            document.documentElement.scrollWidth - document.documentElement.clientWidth;
+          const footerEl = document.querySelector('footer');
+          const rowEl = document.querySelector('[data-testid="footer-single-row"]');
+          const rowItems = rowEl
+            ? Array.from(rowEl.querySelectorAll('p, a, button')).map((el) => {
+                const r = el.getBoundingClientRect();
+                return { top: r.top, height: r.height };
+              })
+            : [];
+          const tops = rowItems.filter((i) => i.height > 0).map((i) => i.top);
+          const maxRowSpread = tops.length > 0 ? Math.max(...tops) - Math.min(...tops) : 0;
+          return {
+            docOverflow,
+            footerHeight: footerEl ? footerEl.getBoundingClientRect().height : 999,
+            maxRowSpread,
+          };
+        });
+
+        expect(metrics.docOverflow, `${mode} ${route} docOverflow`).toBeLessThanOrEqual(1);
+        expect(metrics.footerHeight, `${mode} ${route} footerHeight`).toBeLessThanOrEqual(64);
+        expect(metrics.maxRowSpread, `${mode} ${route} single-line footer spread`).toBeLessThanOrEqual(14);
+      }
+    }
+
+    await context.close();
+  });
 });

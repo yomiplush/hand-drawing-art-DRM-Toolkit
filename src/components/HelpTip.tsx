@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { HelpCircle, X } from 'lucide-react';
 
 export interface HelpTipProps {
@@ -9,6 +9,12 @@ export interface HelpTipProps {
   className?: string;
 }
 
+interface FloatingCoords {
+  top: number;
+  left: number;
+  width: number;
+}
+
 export function HelpTip({
   text,
   label = 'Help',
@@ -17,9 +23,32 @@ export function HelpTip({
   className = '',
 }: HelpTipProps) {
   const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<FloatingCoords | null>(null);
   const panelId = useId();
   const containerRef = useRef<HTMLSpanElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const updateCoords = useCallback(() => {
+    if (typeof window === 'undefined' || !triggerRef.current) return;
+    const vw = window.innerWidth || 360;
+    const vh = window.innerHeight || 640;
+    const margin = 12;
+    const width = Math.max(200, Math.min(336, vw - margin * 2));
+    const rect = triggerRef.current.getBoundingClientRect();
+    const left = Math.max(margin, Math.min(vw - width - margin, rect.left));
+    const top = Math.max(margin, Math.min(vh - 156, rect.bottom + 8));
+    setCoords({ top, left, width });
+  }, []);
+
+  const handleToggle = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        updateCoords();
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -38,23 +67,31 @@ export function HelpTip({
       }
     };
 
+    const handleReposition = () => {
+      updateCoords();
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('resize', handleReposition);
+    window.addEventListener('scroll', handleReposition, { passive: true });
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('resize', handleReposition);
+      window.removeEventListener('scroll', handleReposition);
     };
-  }, [open]);
+  }, [open, updateCoords]);
 
   return (
     <span
       ref={containerRef}
-      className={`inline-flex flex-col items-start max-w-full align-middle ${className}`}
+      className={`relative inline-flex items-center align-middle shrink-0 ${className}`}
     >
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={handleToggle}
         aria-expanded={open}
         aria-controls={panelId}
         aria-label={label}
@@ -71,13 +108,29 @@ export function HelpTip({
         aria-hidden={!open}
         data-testid={panelTestId}
         data-open={open ? 'true' : 'false'}
-        className={`overflow-hidden transition-all duration-200 ease-out w-[min(21rem,calc(100vw-3rem))] max-w-full ${
+        style={
+          open && coords
+            ? {
+                position: 'fixed',
+                top: `${coords.top}px`,
+                left: `${coords.left}px`,
+                width: `${coords.width}px`,
+              }
+            : {
+                position: 'fixed',
+                top: '0px',
+                left: '0px',
+                width: '0px',
+                height: '0px',
+              }
+        }
+        className={`z-50 overflow-hidden transition-all duration-200 ease-out ${
           open
-            ? 'mt-2 max-h-48 opacity-100 translate-y-0 visible'
-            : 'mt-0 max-h-0 opacity-0 -translate-y-1 invisible pointer-events-none'
+            ? 'max-h-60 opacity-100 translate-y-0 visible'
+            : 'max-h-0 opacity-0 -translate-y-1 invisible pointer-events-none'
         }`}
       >
-        <div className="rounded-xl border ga-border-strong ga-popover px-3.5 py-2.5 text-xs leading-relaxed ga-text-secondary flex items-start justify-between gap-2 text-start">
+        <div className="rounded-xl border ga-border-strong ga-popover px-3.5 py-2.5 text-xs leading-relaxed ga-text-secondary flex items-start justify-between gap-2 text-start shadow-lg">
           <p className="min-w-0 break-words">{text}</p>
           <button
             type="button"

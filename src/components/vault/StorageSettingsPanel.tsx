@@ -450,23 +450,23 @@ export function StorageSettingsPanel({ onVaultChanged }: StorageSettingsPanelPro
   return (
     <section
       data-testid="storage-settings-panel"
-      className="ga-card rounded-2xl p-4 sm:p-6 space-y-5"
+      className="ga-card rounded-2xl p-4 sm:p-6 space-y-5 min-w-0"
     >
-      <div className="flex flex-wrap items-start justify-between gap-2 border-b ga-border pb-4">
-        <div className="space-y-1">
-          <h2 className="text-lg sm:text-xl font-semibold ga-text">{s.pageTitle}</h2>
-          <p className="text-xs sm:text-sm ga-text-secondary leading-relaxed">{s.pageSubtitle}</p>
+      <div className="flex flex-wrap items-start justify-between gap-2 border-b ga-border pb-4 min-w-0">
+        <div className="space-y-1 min-w-0 flex-1">
+          <h2 className="text-lg sm:text-xl font-semibold ga-text break-words">{s.pageTitle}</h2>
+          <p className="text-xs sm:text-sm ga-text-secondary leading-relaxed break-words">{s.pageSubtitle}</p>
         </div>
         <span className="ga-status-info rounded-full border px-3 py-1 text-xs font-medium shrink-0">
           {s.sectionBadge}
         </span>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-w-0">
         {/* 1. IndexedDB Primary Store */}
         <div
           data-testid="storage-provider-indexeddb"
-          className="ga-surface-subtle rounded-2xl border ga-border p-4 space-y-2"
+          className="ga-surface-subtle rounded-2xl border ga-border p-4 space-y-2 min-w-0"
         >
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold ga-text flex items-center gap-2">
@@ -486,7 +486,7 @@ export function StorageSettingsPanel({ onVaultChanged }: StorageSettingsPanelPro
         {/* 2. Portable Encrypted File Provider (.chmvault.json) */}
         <div
           data-testid="storage-provider-portable"
-          className="ga-surface-subtle rounded-2xl border ga-border p-4 space-y-3"
+          className="ga-surface-subtle rounded-2xl border ga-border p-4 space-y-3 min-w-0"
         >
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold ga-text flex items-center gap-2">
@@ -566,20 +566,20 @@ export function StorageSettingsPanel({ onVaultChanged }: StorageSettingsPanelPro
       {/* 3. Google Drive Encrypted Vault Sync (appDataFolder) */}
       <div
         data-testid="storage-provider-google-drive"
-        className="ga-card-solid rounded-2xl border ga-border-strong p-4 sm:p-5 space-y-4"
+        className="ga-card-solid rounded-2xl border ga-border-strong p-4 sm:p-5 space-y-4 min-w-0"
       >
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="space-y-1">
-            <h3 className="text-base font-semibold ga-text flex items-center gap-2">
+        <div className="flex flex-wrap items-start justify-between gap-2 min-w-0">
+          <div className="space-y-1 min-w-0 flex-1">
+            <h3 className="text-base font-semibold ga-text flex flex-wrap items-center gap-2 min-w-0">
               <Cloud className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
-              <span>{s.driveTitle}</span>
+              <span className="min-w-0 break-words">{s.driveTitle}</span>
               <HelpTip
                 label={t.simple.advancedTips.driveVaultLabel}
                 text={t.simple.advancedTips.driveVaultText}
                 testId="storage-drive-tip-btn"
               />
             </h3>
-            <p className="text-xs ga-text-secondary leading-relaxed">{s.driveDesc}</p>
+            <p className="text-xs ga-text-secondary leading-relaxed break-words">{s.driveDesc}</p>
           </div>
           {authState.connected && (
             <span
@@ -712,7 +712,7 @@ export function StorageSettingsPanel({ onVaultChanged }: StorageSettingsPanelPro
                     onChange={(e) => setDrivePass(e.target.value)}
                     placeholder={s.drivePassphrasePlaceholder}
                     data-testid="drive-passphrase-input"
-                    className="ga-input flex-1 min-w-[220px] rounded-xl px-3 py-2 text-xs min-h-[42px]"
+                    className="ga-input w-full sm:w-auto sm:flex-1 min-w-0 rounded-xl px-3 py-2 text-xs min-h-[42px]"
                   />
                   <button
                     type="submit"

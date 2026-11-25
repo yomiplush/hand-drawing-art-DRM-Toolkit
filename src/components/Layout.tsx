@@ -76,7 +76,7 @@ export function Layout({
   }, [isAdvanced, location.pathname, refreshKeysStatus]);
 
   const cockpitLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-medium transition-colors min-h-[38px] ${
+    `inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-colors min-h-[36px] shrink-0 ${
       isActive
         ? 'bg-[var(--ga-accent-soft)] text-[var(--ga-accent)] border ga-border-strong'
         : 'ga-text-secondary hover:bg-[var(--ga-accent-soft)] hover:text-[var(--ga-text)] border border-transparent'
@@ -102,11 +102,11 @@ export function Layout({
       <header className="sticky top-0 z-40 ga-header">
         <div className="mx-auto max-w-5xl px-3 sm:px-6">
           {/* Primary Header Bar: max 3 visual groups in Simple Mode (Brand, Mode Pill, Language) */}
-          <div className="flex h-16 items-center justify-between gap-2">
+          <div className="flex h-14 sm:h-16 items-center justify-between gap-2 min-w-0">
             <Link
               to="/"
               data-testid="header-brand-link"
-              className="flex items-center gap-2.5 ga-text font-semibold tracking-tight min-w-0 min-h-[44px] py-1"
+              className="flex items-center gap-2 sm:gap-2.5 ga-text font-semibold tracking-tight min-w-0 min-h-[40px] py-1 shrink-0"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -147,12 +147,12 @@ export function Layout({
               </span>
             </Link>
 
-            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 min-w-0">
               {!isOnline && (
                 <span
                   role="status"
                   title={t.pwa.offlineBadge}
-                  className="inline-flex items-center gap-1.5 rounded-full border ga-status-warning px-2.5 py-1 text-xs font-medium min-h-[34px]"
+                  className="inline-flex items-center gap-1.5 rounded-full border ga-status-warning px-2 sm:px-2.5 py-1 text-xs font-medium min-h-[34px]"
                 >
                   <WifiOff className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="hidden md:inline">{t.pwa.offlineBadge}</span>
@@ -161,7 +161,7 @@ export function Layout({
 
               <ModeToggle compact testId="header-mode-toggle" />
 
-              <div className="relative inline-flex items-center">
+              <div className="relative inline-flex items-center shrink-0">
                 <Globe
                   className="h-3.5 w-3.5 ga-text-muted pointer-events-none absolute start-2.5"
                   aria-hidden="true"
@@ -171,7 +171,7 @@ export function Layout({
                   value={locale}
                   onChange={(e) => setLocale(e.target.value as Locale)}
                   data-testid="lang-select"
-                  className="appearance-none rounded-full ga-btn-secondary max-w-[82px] sm:max-w-[144px] md:max-w-none truncate ps-7 pe-5 py-1.5 text-xs sm:text-sm font-medium transition-colors min-h-[40px] cursor-pointer"
+                  className="appearance-none rounded-full ga-btn-secondary max-w-[78px] sm:max-w-[144px] md:max-w-none truncate ps-7 pe-5 py-1.5 text-xs sm:text-sm font-medium transition-colors min-h-[38px] sm:min-h-[40px] cursor-pointer"
                 >
                   {LOCALE_OPTIONS.map((opt) => (
                     <option
@@ -200,11 +200,11 @@ export function Layout({
             data-testid="advanced-cockpit-bar"
             className="border-t ga-border bg-[var(--ga-surface-subtle)]"
           >
-            <div className="mx-auto max-w-5xl px-3 sm:px-6 py-2 space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="mx-auto max-w-5xl px-3 sm:px-6 py-1.5 sm:py-2 space-y-1.5">
+              <div className="flex items-center justify-between gap-2 overflow-x-auto chm-no-scrollbar min-w-0 py-0.5">
                 <nav
                   aria-label="Advanced workspace navigation"
-                  className="flex flex-wrap items-center gap-1"
+                  className="flex flex-nowrap md:flex-wrap items-center gap-1 min-w-0 shrink-0 md:shrink"
                 >
                   {cockpitNavItems.map((item) => {
                     const Icon = item.icon;
@@ -222,13 +222,13 @@ export function Layout({
                   })}
                 </nav>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                   <a
                     href={GITHUB_REPO_URL}
                     target="_blank"
                     rel="noopener noreferrer"
                     data-testid="header-github-link"
-                    className="inline-flex items-center justify-center rounded-lg ga-btn-secondary px-2.5 py-1.5 text-xs font-medium min-h-[34px]"
+                    className="inline-flex items-center justify-center rounded-lg ga-btn-secondary px-2.5 py-1.5 text-xs font-medium min-h-[34px] shrink-0 whitespace-nowrap"
                   >
                     GitHub
                   </a>
@@ -237,7 +237,7 @@ export function Layout({
                     target="_blank"
                     rel="noopener noreferrer"
                     data-testid="header-sponsor-link"
-                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-400/35 bg-rose-500/10 px-2.5 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-200 hover:bg-rose-500/20 min-h-[34px]"
+                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-400/35 bg-rose-500/10 px-2.5 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-200 hover:bg-rose-500/20 min-h-[34px] shrink-0 whitespace-nowrap"
                   >
                     <Heart className="h-3 w-3 fill-rose-400/30" aria-hidden="true" />
                     <span>Sponsor</span>
@@ -247,10 +247,10 @@ export function Layout({
 
               <div
                 data-testid="advanced-status-ribbon"
-                className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t ga-border text-[11px] font-mono ga-text-muted"
+                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 pt-1.5 border-t ga-border text-[11px] font-mono ga-text-muted min-w-0"
               >
-                <div className="flex flex-wrap items-center gap-3 min-w-0">
-                  <span data-testid="ribbon-active-key" className="truncate">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 min-w-0">
+                  <span data-testid="ribbon-active-key" className="truncate max-w-full">
                     {t.simple.header.activeKeyLabel}:{' '}
                     <strong className="ga-text font-semibold">
                       {primaryKey
@@ -258,11 +258,11 @@ export function Layout({
                         : t.simple.header.noKeyYet}
                     </strong>
                   </span>
-                  <span data-testid="ribbon-key-count">
+                  <span data-testid="ribbon-key-count" className="whitespace-nowrap">
                     {authorKeys.length} {t.simple.header.storedKeysCount}
                   </span>
                 </div>
-                <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <span
                     className={`h-1.5 w-1.5 rounded-full ${
                       isOnline ? 'bg-emerald-500' : 'bg-amber-500'
@@ -297,32 +297,38 @@ export function Layout({
         )}
       </header>
 
-      <main className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 py-8 sm:py-10 min-w-0">
+      <main className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 py-6 sm:py-10 min-w-0">
         <Outlet />
       </main>
 
-      <footer className="border-t ga-border ga-header py-5 text-xs ga-text-muted">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <p className="ga-text-secondary font-medium">
-            {t.appName} · {t.pwa.localOnlyPill} · MIT
+      <footer className="border-t ga-border ga-header py-1.5 sm:py-2 text-[11px] sm:text-xs ga-text-muted">
+        <div
+          data-testid="footer-single-row"
+          className="mx-auto max-w-5xl px-3 sm:px-6 flex items-center justify-between gap-3 sm:gap-4 whitespace-nowrap overflow-x-auto chm-no-scrollbar"
+        >
+          <p className="ga-text-secondary font-medium shrink-0">
+            {t.appName} · MIT
           </p>
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-            <ThemeToggle />
-            <Link to="/tutorial" className="hover:text-[var(--ga-text)] transition-colors py-1">
+          <nav
+            aria-label="Footer navigation"
+            className="flex items-center gap-3 sm:gap-4 shrink-0"
+          >
+            <ThemeToggle compact />
+            <Link to="/tutorial" className="hover:text-[var(--ga-text)] transition-colors py-1 shrink-0">
               {t.tutorial.navLabel}
             </Link>
-            <Link to="/storage" className="hover:text-[var(--ga-text)] transition-colors py-1">
+            <Link to="/storage" className="hover:text-[var(--ga-text)] transition-colors py-1 shrink-0">
               {t.nextGen.navStorage}
             </Link>
             {isAdvanced && (
-              <Link to="/docs" className="hover:text-[var(--ga-text)] transition-colors py-1">
+              <Link to="/docs" className="hover:text-[var(--ga-text)] transition-colors py-1 shrink-0">
                 {t.nav.docs}
               </Link>
             )}
             <Link
               to="/privacypolicy"
               data-testid="footer-privacy-link"
-              className="hover:text-[var(--ga-text)] transition-colors py-1"
+              className="hover:text-[var(--ga-text)] transition-colors py-1 shrink-0"
             >
               {t.nav.privacy}
             </Link>
@@ -330,7 +336,7 @@ export function Layout({
               type="button"
               onClick={onOpenCookieSettings}
               data-testid="footer-cookie-settings"
-              className="hover:text-[var(--ga-text)] transition-colors cursor-pointer py-1"
+              className="hover:text-[var(--ga-text)] transition-colors cursor-pointer py-1 shrink-0"
             >
               {t.nav.cookieSettings}
             </button>
@@ -338,7 +344,7 @@ export function Layout({
               href={GITHUB_REPO_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-[var(--ga-text)] transition-colors py-1"
+              className="hover:text-[var(--ga-text)] transition-colors py-1 shrink-0"
             >
               GitHub
             </a>
@@ -347,12 +353,12 @@ export function Layout({
               target="_blank"
               rel="noopener noreferrer"
               data-testid="footer-sponsor-link"
-              className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-300 hover:underline transition-colors py-1"
+              className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-300 hover:underline transition-colors py-1 shrink-0"
             >
               <Heart className="h-3.5 w-3.5 fill-rose-400/30" aria-hidden="true" />
               <span>Sponsor</span>
             </a>
-          </div>
+          </nav>
         </div>
       </footer>
     </div>

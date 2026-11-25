@@ -19,10 +19,10 @@ export function DocsPage() {
   const recovery = t.humanUx.keyRecoveryGuide;
 
   return (
-    <div className="space-y-8">
-      <header className="space-y-2 border-b ga-border pb-5">
-        <h1 className="text-2xl sm:text-3xl font-semibold ga-text">{t.docs.title}</h1>
-        <p className="text-sm sm:text-base ga-text-secondary">{t.docs.subtitle}</p>
+    <div className="space-y-8 min-w-0">
+      <header className="space-y-2 border-b ga-border pb-5 min-w-0">
+        <h1 className="text-2xl sm:text-3xl font-semibold ga-text break-words">{t.docs.title}</h1>
+        <p className="text-sm sm:text-base ga-text-secondary break-words">{t.docs.subtitle}</p>
       </header>
 
       <section className="ga-card rounded-2xl p-5 space-y-4">

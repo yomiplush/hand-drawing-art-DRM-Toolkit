@@ -231,18 +231,18 @@ export function VaultPage({ focusStorage = false }: { focusStorage?: boolean }) 
   );
 
   return (
-    <div data-testid="vault-page" className="space-y-6 max-w-4xl mx-auto">
-      <header className="space-y-2 border-b ga-border pb-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-2xl sm:text-3xl font-semibold ga-text flex items-center gap-2.5">
+    <div data-testid="vault-page" className="space-y-6 max-w-4xl mx-auto w-full min-w-0">
+      <header className="space-y-2 border-b ga-border pb-4 min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-semibold ga-text flex items-center gap-2.5 min-w-0">
             <Archive className="h-6 w-6 ga-text-accent shrink-0" aria-hidden="true" />
-            <span>{focusStorage ? t.nextGen.storage.pageTitle : v.title}</span>
+            <span className="min-w-0 break-words">{focusStorage ? t.nextGen.storage.pageTitle : v.title}</span>
           </h1>
-          <span className="ga-status-success rounded-full border px-3 py-1 text-xs font-medium">
+          <span className="ga-status-success rounded-full border px-3 py-1 text-xs font-medium shrink-0">
             {v.zeroCostNote}
           </span>
         </div>
-        <p className="text-xs sm:text-sm ga-text-secondary leading-relaxed">
+        <p className="text-xs sm:text-sm ga-text-secondary leading-relaxed break-words">
           {focusStorage ? t.nextGen.storage.pageSubtitle : v.subtitle}
         </p>
       </header>
@@ -264,7 +264,7 @@ export function VaultPage({ focusStorage = false }: { focusStorage?: boolean }) 
       {/* Search & List */}
       <section className="ga-card rounded-2xl p-4 sm:p-5 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[220px]">
+          <div className="relative w-full sm:w-auto sm:flex-1 min-w-0">
             <Search
               className="h-4 w-4 ga-text-muted absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none"
               aria-hidden="true"

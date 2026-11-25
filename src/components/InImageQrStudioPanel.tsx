@@ -69,10 +69,17 @@ export function InImageQrStudioPanel({
   const tokenLen = Math.max(260, Math.min(2800, Math.round(estimatedProofTokenChars)));
   const samplePreviewText = `${cleanBase}#proof=${'A'.repeat(tokenLen)}`;
 
-  const previewQrMatrix = useMemo(
-    () => generateQrMatrix(samplePreviewText, eccLevel),
-    [samplePreviewText, eccLevel],
-  );
+  const previewQrMatrix = useMemo(() => {
+    try {
+      return generateQrMatrix(samplePreviewText, eccLevel);
+    } catch {
+      try {
+        return generateQrMatrix(`${cleanBase}#proof=${'A'.repeat(260)}`, eccLevel);
+      } catch {
+        return generateQrMatrix('https://certified-handmade.com/verify', 'M');
+      }
+    }
+  }, [cleanBase, samplePreviewText, eccLevel]);
 
   const coverageStats = useMemo(
     () =>
@@ -322,7 +329,7 @@ export function InImageQrStudioPanel({
   return (
     <div
       data-testid="qrstudio-panel"
-      className="ga-card rounded-2xl p-4 space-y-4"
+      className="ga-card rounded-2xl p-3 sm:p-4 space-y-4 min-w-0"
     >
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex items-center gap-2 text-xs sm:text-sm font-medium ga-text">

@@ -48,39 +48,39 @@ export function HomePage() {
     return (
       <div
         data-testid="home-minimal-page"
-        className="relative flex flex-col items-center justify-center min-h-[calc(100vh-14rem)] py-4 sm:py-10 space-y-8"
+        className="relative flex flex-col items-center justify-center min-h-[calc(100vh-14rem)] py-4 sm:py-10 space-y-8 min-w-0 w-full"
       >
-        <section className="mx-auto w-full max-w-2xl text-center space-y-6">
+        <section className="mx-auto w-full max-w-2xl text-center space-y-6 min-w-0">
           <div className="flex justify-center">
             <MagicSealBadge testId="home-magic-seal" />
           </div>
 
-          <div className="space-y-3">
-            <h1 className="text-3xl sm:text-5xl font-bold tracking-tight ga-text">
+          <div className="space-y-3 min-w-0">
+            <h1 className="text-3xl sm:text-5xl font-bold tracking-tight ga-text break-words">
               {t.appName}
             </h1>
             <p
               data-testid="home-tagline"
-              className="text-xl sm:text-2xl font-semibold ga-text-accent tracking-tight"
+              className="text-xl sm:text-2xl font-semibold ga-text-accent tracking-tight break-words"
             >
               {t.simple.home.headline}
             </p>
             <p
               data-testid="home-subtitle"
-              className="text-sm sm:text-base ga-text-secondary"
+              className="text-sm sm:text-base ga-text-secondary break-words"
             >
               {t.simple.home.subline}
             </p>
           </div>
 
           {/* Mandatory HelpTip #1: Local-only trust badge */}
-          <div className="flex flex-wrap items-center justify-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2 max-w-full">
             <span
               data-testid="home-local-trust-badge"
-              className="inline-flex items-center gap-2 rounded-full border ga-border-strong ga-surface-subtle px-4 py-1.5 text-xs sm:text-sm font-medium ga-text shadow-xs"
+              className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 rounded-2xl sm:rounded-full border ga-border-strong ga-surface-subtle px-3.5 sm:px-4 py-1.5 text-xs sm:text-sm font-medium ga-text shadow-xs max-w-full min-w-0 text-center"
             >
               <ShieldCheck className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
-              <span>{t.simple.home.localOnlyBadge}</span>
+              <span className="min-w-0 break-words">{t.simple.home.localOnlyBadge}</span>
               <HelpTip
                 label={t.simple.home.localOnlyTipLabel}
                 text={t.simple.home.localOnlyTipText}
@@ -146,10 +146,10 @@ export function HomePage() {
             <Link
               to="/verify?demo=sample"
               data-testid="home-sample-demo-link"
-              className="chm-spring-btn inline-flex items-center justify-center gap-2 rounded-full ga-btn-secondary px-5 py-2.5 text-xs sm:text-sm font-medium min-h-[44px]"
+              className="chm-spring-btn inline-flex items-center justify-center gap-2 rounded-full ga-btn-secondary px-5 py-2.5 text-xs sm:text-sm font-medium min-h-[44px] max-w-full"
             >
               <Sparkles className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
-              <span>{t.simple.home.sampleDemoLink}</span>
+              <span className="min-w-0 break-words">{t.simple.home.sampleDemoLink}</span>
             </Link>
           </div>
         </section>
@@ -157,7 +157,7 @@ export function HomePage() {
         {/* Quiet secondary navigation strip */}
         <nav
           aria-label="Secondary links"
-          className="mx-auto flex flex-wrap items-center justify-center gap-2.5 text-xs pt-2"
+          className="mx-auto flex flex-wrap items-center justify-center gap-2.5 text-xs pt-2 max-w-full"
         >
           <Link
             to="/exchange"
@@ -203,21 +203,21 @@ export function HomePage() {
   const primaryKey = authorKeys[0] ?? null;
 
   return (
-    <div data-testid="home-advanced-page" className="space-y-6">
-      <section className="ga-card rounded-2xl p-6 space-y-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1.5 max-w-2xl">
+    <div data-testid="home-advanced-page" className="space-y-6 min-w-0 w-full">
+      <section className="ga-card rounded-2xl p-5 sm:p-6 space-y-5 min-w-0">
+        <div className="flex flex-wrap items-start justify-between gap-4 min-w-0">
+          <div className="space-y-1.5 max-w-2xl min-w-0 flex-1">
             <div className="inline-flex items-center gap-2 rounded-full border ga-border-strong ga-surface-subtle px-3 py-1 text-xs font-medium ga-text-accent">
               <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
               <span>{t.simple.mode.advancedLabel}</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight ga-text">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight ga-text break-words">
               {t.appName}
             </h1>
-            <p data-testid="home-tagline" className="text-base sm:text-lg font-medium ga-text-accent">
+            <p data-testid="home-tagline" className="text-base sm:text-lg font-medium ga-text-accent break-words">
               {t.simple.home.headline}
             </p>
-            <p data-testid="home-subtitle" className="text-xs sm:text-sm ga-text-secondary">
+            <p data-testid="home-subtitle" className="text-xs sm:text-sm ga-text-secondary break-words">
               {t.simple.home.subline}
             </p>
           </div>
@@ -243,10 +243,10 @@ export function HomePage() {
         </div>
 
         {/* Live local key status bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-          <div className="ga-surface-subtle rounded-xl border ga-border p-3.5 space-y-1">
-            <div className="flex items-center gap-1.5 text-xs ga-text-muted">
-              <span>{t.keys.myKeysTitle}</span>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 min-w-0">
+          <div className="ga-surface-subtle rounded-xl border ga-border p-3.5 space-y-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5 text-xs ga-text-muted min-w-0">
+              <span className="min-w-0 break-words">{t.keys.myKeysTitle}</span>
               <HelpTip
                 label={t.simple.advancedTips.ed25519Label}
                 text={t.simple.advancedTips.ed25519Text}
@@ -262,17 +262,17 @@ export function HomePage() {
             </div>
           </div>
 
-          <div className="ga-surface-subtle rounded-xl border ga-border p-3.5 space-y-1">
+          <div className="ga-surface-subtle rounded-xl border ga-border p-3.5 space-y-1 min-w-0">
             <div className="text-xs ga-text-muted">{t.keys.trustedTitle}</div>
             <div className="font-mono text-sm font-semibold ga-text">
               {trustedKeys.length}
             </div>
-            <div className="text-[11px] ga-text-secondary">{t.pwa.localOnlyPill}</div>
+            <div className="text-[11px] ga-text-secondary break-words">{t.pwa.localOnlyPill}</div>
           </div>
 
-          <div className="ga-surface-subtle rounded-xl border ga-border p-3.5 space-y-1">
-            <div className="flex items-center gap-1.5 text-xs ga-text-muted">
-              <span>In-Image QR Studio</span>
+          <div className="ga-surface-subtle rounded-xl border ga-border p-3.5 space-y-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5 text-xs ga-text-muted min-w-0">
+              <span className="min-w-0 break-words">In-Image QR Studio</span>
               <HelpTip
                 label={t.simple.advancedTips.protocolModesLabel}
                 text={t.simple.advancedTips.protocolModesText}
@@ -280,7 +280,7 @@ export function HomePage() {
             </div>
             <Link
               to="/create?mode=studio"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold ga-text-accent hover:underline pt-0.5"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold ga-text-accent hover:underline pt-0.5 break-all"
             >
               <QrCode className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>/create?mode=studio</span>
@@ -290,77 +290,77 @@ export function HomePage() {
       </section>
 
       {/* Unfolded Tool Grid */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 min-w-0">
         <Link
           to="/keys"
           data-testid="home-keys-link"
-          className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5 hover:border-[var(--ga-accent)] transition-colors"
+          className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5 hover:border-[var(--ga-accent)] transition-colors min-w-0"
         >
           <div className="flex items-center gap-2 font-semibold text-sm ga-text">
             <KeyRound className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
-            <span>{t.minimal.nav.myKeysItem}</span>
+            <span className="min-w-0 break-words">{t.minimal.nav.myKeysItem}</span>
           </div>
-          <p className="text-xs ga-text-secondary">{t.keys.subtitle}</p>
+          <p className="text-xs ga-text-secondary break-words">{t.keys.subtitle}</p>
         </Link>
 
         <Link
           to="/exchange"
           data-testid="home-exchange-link"
-          className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5 hover:border-[var(--ga-accent)] transition-colors"
+          className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5 hover:border-[var(--ga-accent)] transition-colors min-w-0"
         >
           <div className="flex items-center gap-2 font-semibold text-sm ga-text">
             <Share2 className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
-            <span>{t.minimal.nav.keyExchangeItem}</span>
+            <span className="min-w-0 break-words">{t.minimal.nav.keyExchangeItem}</span>
           </div>
-          <p className="text-xs ga-text-secondary">{t.simple.advancedTips.exchangeText}</p>
+          <p className="text-xs ga-text-secondary break-words">{t.simple.advancedTips.exchangeText}</p>
         </Link>
 
         <Link
           to="/storage"
           data-testid="home-storage-link"
-          className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5 hover:border-[var(--ga-accent)] transition-colors"
+          className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5 hover:border-[var(--ga-accent)] transition-colors min-w-0"
         >
           <div className="flex items-center gap-2 font-semibold text-sm ga-text">
             <Cloud className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
-            <span>{t.googleCompliance.homeOverview.storageLinkLabel}</span>
+            <span className="min-w-0 break-words">{t.googleCompliance.homeOverview.storageLinkLabel}</span>
           </div>
-          <p className="text-xs ga-text-secondary">{t.simple.advancedTips.driveVaultText}</p>
+          <p className="text-xs ga-text-secondary break-words">{t.simple.advancedTips.driveVaultText}</p>
         </Link>
 
         <Link
           to="/vault"
           data-testid="home-vault-link"
-          className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5 hover:border-[var(--ga-accent)] transition-colors"
+          className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5 hover:border-[var(--ga-accent)] transition-colors min-w-0"
         >
           <div className="flex items-center gap-2 font-semibold text-sm ga-text">
             <Archive className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
-            <span>{t.vault.navItem}</span>
+            <span className="min-w-0 break-words">{t.vault.navItem}</span>
           </div>
-          <p className="text-xs ga-text-secondary">{t.vault.subtitle}</p>
+          <p className="text-xs ga-text-secondary break-words">{t.vault.subtitle}</p>
         </Link>
 
         <Link
           to="/devices"
           data-testid="home-devices-link"
-          className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5 hover:border-[var(--ga-accent)] transition-colors"
+          className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5 hover:border-[var(--ga-accent)] transition-colors min-w-0"
         >
           <div className="flex items-center gap-2 font-semibold text-sm ga-text">
             <Smartphone className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
-            <span>{t.devices.navItem}</span>
+            <span className="min-w-0 break-words">{t.devices.navItem}</span>
           </div>
-          <p className="text-xs ga-text-secondary">{t.devices.subtitle}</p>
+          <p className="text-xs ga-text-secondary break-words">{t.devices.subtitle}</p>
         </Link>
 
         <Link
           to="/spec"
           data-testid="home-docs-link"
-          className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5 hover:border-[var(--ga-accent)] transition-colors"
+          className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5 hover:border-[var(--ga-accent)] transition-colors min-w-0"
         >
           <div className="flex items-center gap-2 font-semibold text-sm ga-text">
             <BookOpen className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
-            <span>{t.googleCompliance.homeOverview.docsLinkLabel}</span>
+            <span className="min-w-0 break-words">{t.googleCompliance.homeOverview.docsLinkLabel}</span>
           </div>
-          <p className="text-xs ga-text-secondary">{t.docs.subtitle}</p>
+          <p className="text-xs ga-text-secondary break-words">{t.docs.subtitle}</p>
         </Link>
       </section>
 
