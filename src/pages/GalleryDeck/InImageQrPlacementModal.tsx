@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { Check, Move, QrCode, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, FileSignature, Move, QrCode, X } from 'lucide-react';
+import { LICENSE_DEFINITIONS } from '../../core/manifest/types';
+import type { LicenseId } from '../../core/manifest/types';
 import { useI18n } from '../../i18n/context';
 import type { GalleryArtworkItem } from '../../types/gallerydeck';
 
@@ -11,14 +13,24 @@ export interface InImageQrPlacementSelection {
   opacity: number;
 }
 
+export interface CertifyModalSubmission {
+  authorName: string;
+  artworkTitle: string;
+  licenseId: LicenseId;
+  qrMode: 'in-image' | 'outer-border';
+  inImagePlacement?: InImageQrPlacementSelection;
+}
+
 type PresetPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center' | 'custom';
 
 interface InImageQrPlacementModalProps {
   open: boolean;
   item: GalleryArtworkItem | null;
+  initialLicenseId: LicenseId;
+  initialQrMode: 'in-image' | 'outer-border';
   busy: boolean;
   onCancel: () => void;
-  onConfirm: (placement: InImageQrPlacementSelection) => Promise<void>;
+  onConfirm: (submission: CertifyModalSubmission) => Promise<void>;
 }
 
 function computePresetCoords(
@@ -56,12 +68,20 @@ export function InImageQrPlacementModal(props: InImageQrPlacementModalProps) {
 
 function InImageQrPlacementModalBody({
   item,
+  initialLicenseId,
+  initialQrMode,
   busy,
   onCancel,
   onConfirm,
 }: Omit<InImageQrPlacementModalProps, 'item'> & { item: GalleryArtworkItem }) {
-  const { locale } = useI18n();
+  const { t, locale } = useI18n();
   const isJa = locale === 'ja';
+
+  const [step, setStep] = useState<'info' | 'placement'>('info');
+  const [authorName, setAuthorName] = useState<string>(item.authorName ?? '');
+  const [artworkTitle, setArtworkTitle] = useState<string>(item.title ?? '');
+  const [licenseId, setLicenseId] = useState<LicenseId>(initialLicenseId);
+  const [qrMode, setQrMode] = useState<'in-image' | 'outer-border'>(initialQrMode);
 
   const artWidth = Math.max(120, item.width || 1024);
   const artHeight = Math.max(120, item.height || 1024);
@@ -159,7 +179,7 @@ function InImageQrPlacementModalBody({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={isJa ? 'QRコードの位置をプレビュー調整' : 'Adjust In-Image QR Placement'}
+      aria-label={isJa ? '作品情報の入力と証明作成' : 'Artwork Info & Certification'}
       data-testid="gallerydeck-qr-placement-modal"
       className="fixed inset-0 z-[70] flex items-center justify-center bg-[#041226]/82 backdrop-blur-md p-3 sm:p-5"
       onClick={onCancel}
@@ -170,166 +190,330 @@ function InImageQrPlacementModalBody({
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-base sm:text-lg font-semibold ga-text flex items-center gap-2">
-              <QrCode className="h-4 w-4 text-[var(--ga-accent)] shrink-0" />
-              <span>{isJa ? '絵の中のQRコード位置を調整' : 'Adjust In-Image QR Placement'}</span>
+            <h2 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
+              {step === 'info' ? (
+                <FileSignature className="h-4 w-4 text-sky-400 shrink-0" />
+              ) : (
+                <QrCode className="h-4 w-4 text-sky-400 shrink-0" />
+              )}
+              <span>
+                {step === 'info'
+                  ? isJa
+                    ? '作品情報を入力して証明を作成'
+                    : 'Enter Artwork Info to Certify'
+                  : isJa
+                    ? '絵の中のQRコード位置を調整'
+                    : 'Adjust In-Image QR Placement'}
+              </span>
             </h2>
-            <p className="text-xs ga-text-secondary mt-0.5">
-              {isJa
-                ? 'プリセットを選ぶか、プレビュー上のQR枠をドラッグして自由に配置できます。'
-                : 'Pick a preset or drag the QR overlay directly on the preview.'}
+            <p className="text-xs text-sky-200/75 mt-0.5">
+              {step === 'info'
+                ? isJa
+                  ? '作家名・タイトル・ライセンス・QR配置を確認して証明を付与します。'
+                  : 'Confirm artist name, title, license, and QR placement before signing.'
+                : isJa
+                  ? 'プリセットを選ぶか、プレビュー上のQR枠をドラッグして自由に配置できます。'
+                  : 'Pick a preset or drag the QR overlay directly on the preview.'}
             </p>
           </div>
           <button
             type="button"
             onClick={onCancel}
             aria-label={isJa ? '閉じる' : 'Close'}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full ga-btn-secondary cursor-pointer shrink-0"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sky-900/60 hover:bg-sky-800/80 text-sky-100 cursor-pointer shrink-0"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Preset Buttons */}
-        <div className="flex flex-wrap gap-2">
-          {presetButtons.map((btn) => {
-            const active = preset === btn.id;
-            return (
-              <button
-                key={btn.id}
-                type="button"
-                data-testid={`qr-preset-${btn.id}`}
-                onClick={() => {
-                  if (btn.id === 'custom') {
-                    setPreset('custom');
-                  } else {
-                    applyPreset(btn.id);
-                  }
-                }}
-                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
-                  active
-                    ? 'border-[var(--ga-accent)] bg-[var(--ga-accent-soft)] text-[var(--ga-accent)] font-semibold'
-                    : 'ga-border ga-surface-subtle ga-text-secondary hover:ga-text'
-                }`}
+        {step === 'info' ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="space-y-1.5 block">
+                <span className="text-xs font-medium text-sky-200">
+                  {t.simple.create.artistNameLabel}
+                </span>
+                <input
+                  type="text"
+                  value={authorName}
+                  onChange={(e) => setAuthorName(e.target.value)}
+                  placeholder={t.simple.create.artistNamePlaceholder}
+                  data-testid="certify-modal-author-input"
+                  className="w-full rounded-xl border border-sky-400/30 bg-[#04142b]/90 px-3 py-2.5 text-sm text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
+                />
+              </label>
+
+              <label className="space-y-1.5 block">
+                <span className="text-xs font-medium text-sky-200">
+                  {t.simple.create.titleLabel}
+                </span>
+                <input
+                  type="text"
+                  value={artworkTitle}
+                  onChange={(e) => setArtworkTitle(e.target.value)}
+                  placeholder={t.simple.create.titlePlaceholder}
+                  data-testid="certify-modal-title-input"
+                  className="w-full rounded-xl border border-sky-400/30 bg-[#04142b]/90 px-3 py-2.5 text-sm text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
+                />
+              </label>
+            </div>
+
+            <label className="space-y-1.5 block">
+              <span className="text-xs font-medium text-sky-200">
+                {t.simple.create.licenseLabel}
+              </span>
+              <select
+                value={licenseId}
+                onChange={(e) => setLicenseId(e.target.value as LicenseId)}
+                data-testid="certify-modal-license-select"
+                className="w-full rounded-xl border border-sky-400/30 bg-[#04142b]/90 px-3 py-2.5 text-sm text-white focus:border-sky-400 focus:outline-none"
               >
-                {btn.id === 'custom' && <Move className="h-3.5 w-3.5" />}
-                <span>{btn.label}</span>
+                {LICENSE_DEFINITIONS.map((lic) => (
+                  <option key={lic.id} value={lic.id}>
+                    {lic.id} — {lic.shortLabel}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="space-y-1.5">
+              <span className="text-xs font-medium text-sky-200 block">
+                {t.simple.create.qrStyleLabel}
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5" role="radiogroup">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={qrMode === 'in-image'}
+                  onClick={() => setQrMode('in-image')}
+                  data-testid="certify-modal-qrmode-in-image"
+                  className={`rounded-xl border p-3 text-left transition-colors cursor-pointer ${
+                    qrMode === 'in-image'
+                      ? 'border-sky-400 bg-sky-500/20 text-white'
+                      : 'border-sky-400/20 bg-[#04142b]/60 text-sky-200/80 hover:border-sky-400/40'
+                  }`}
+                >
+                  <div className="text-xs font-semibold">{t.simple.create.styleInsideTitle}</div>
+                  <div className="text-[11px] opacity-80 mt-0.5">{t.simple.create.styleInsideDesc}</div>
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={qrMode === 'outer-border'}
+                  onClick={() => setQrMode('outer-border')}
+                  data-testid="certify-modal-qrmode-outer-border"
+                  className={`rounded-xl border p-3 text-left transition-colors cursor-pointer ${
+                    qrMode === 'outer-border'
+                      ? 'border-sky-400 bg-sky-500/20 text-white'
+                      : 'border-sky-400/20 bg-[#04142b]/60 text-sky-200/80 hover:border-sky-400/40'
+                  }`}
+                >
+                  <div className="text-xs font-semibold">{t.simple.create.styleOuterTitle}</div>
+                  <div className="text-[11px] opacity-80 mt-0.5">{t.simple.create.styleOuterDesc}</div>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-sky-400/20">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={onCancel}
+                className="rounded-xl border border-sky-400/30 bg-sky-950/60 hover:bg-sky-900/70 px-4 py-2 text-xs sm:text-sm font-medium text-sky-100 cursor-pointer"
+              >
+                {isJa ? 'キャンセル' : 'Cancel'}
               </button>
-            );
-          })}
-        </div>
-
-        {/* Live Interactive Preview */}
-        <div className="flex justify-center rounded-2xl border ga-border bg-black/35 p-3 sm:p-4">
-          <div
-            ref={stageRef}
-            className="relative inline-block max-w-full max-h-[48vh] select-none overflow-hidden rounded-lg"
-            style={{ aspectRatio: `${artWidth} / ${artHeight}` }}
-          >
-            <img
-              src={item.thumbnailDataUrl}
-              alt={item.title}
-              draggable={false}
-              className="block h-full w-full object-contain pointer-events-none"
-            />
-            <div
-              role="presentation"
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              data-testid="qr-placement-overlay"
-              style={{
-                left: `${leftPct}%`,
-                top: `${topPct}%`,
-                width: `${widthPct}%`,
-                height: `${heightPct}%`,
-                opacity: opacityPct / 100,
-              }}
-              className={`absolute flex flex-col items-center justify-center rounded-md border-2 border-cyan-300 bg-white/90 text-slate-900 shadow-lg touch-none ${
-                dragging ? 'cursor-grabbing ring-2 ring-cyan-400' : 'cursor-grab'
-              }`}
-            >
-              <QrCode className="h-1/2 w-1/2 text-slate-900" />
-              <span className="text-[9px] font-mono font-bold tracking-tight text-slate-800 leading-none">
-                QR
-              </span>
+              {qrMode === 'in-image' ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  data-testid="certify-modal-next-placement-btn"
+                  onClick={() => setStep('placement')}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 px-4 py-2 text-xs sm:text-sm font-semibold text-slate-950 cursor-pointer"
+                >
+                  <span>{isJa ? 'QR位置をプレビュー調整' : 'Adjust QR Position'}</span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={busy}
+                  data-testid="certify-modal-confirm-outer-btn"
+                  onClick={() =>
+                    void onConfirm({
+                      authorName: authorName.trim(),
+                      artworkTitle: artworkTitle.trim(),
+                      licenseId,
+                      qrMode: 'outer-border',
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-50 px-4 py-2 text-xs sm:text-sm font-semibold text-slate-950 cursor-pointer"
+                >
+                  <Check className="h-4 w-4" />
+                  <span>
+                    {busy
+                      ? isJa
+                        ? '証明を作成中…'
+                        : 'Certifying…'
+                      : isJa
+                        ? 'この内容で証明する'
+                        : 'Certify Artwork'}
+                  </span>
+                </button>
+              )}
             </div>
           </div>
-        </div>
-
-        {/* Size & Opacity Sliders */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <label className="space-y-1.5 text-xs ga-text-secondary">
-            <div className="flex items-center justify-between">
-              <span>{isJa ? 'QRサイズ' : 'QR Size'}</span>
-              <span className="font-mono ga-text">{boxSize}px</span>
+        ) : (
+          <>
+            {/* Preset Buttons */}
+            <div className="flex flex-wrap gap-2">
+              {presetButtons.map((btn) => {
+                const active = preset === btn.id;
+                return (
+                  <button
+                    key={btn.id}
+                    type="button"
+                    data-testid={`qr-preset-${btn.id}`}
+                    onClick={() => {
+                      if (btn.id === 'custom') {
+                        setPreset('custom');
+                      } else {
+                        applyPreset(btn.id);
+                      }
+                    }}
+                    className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
+                      active
+                        ? 'border-sky-400 bg-sky-500/25 text-white font-semibold'
+                        : 'border-sky-400/20 bg-[#04142b]/60 text-sky-200/80 hover:text-white'
+                    }`}
+                  >
+                    {btn.id === 'custom' && <Move className="h-3.5 w-3.5" />}
+                    <span>{btn.label}</span>
+                  </button>
+                );
+              })}
             </div>
-            <input
-              type="range"
-              min={minBoxSize}
-              max={maxBoxSize}
-              value={boxSize}
-              onChange={(e) => handleBoxSizeChange(Number(e.target.value))}
-              className="w-full accent-[var(--ga-accent)] cursor-pointer"
-            />
-          </label>
 
-          <label className="space-y-1.5 text-xs ga-text-secondary">
-            <div className="flex items-center justify-between">
-              <span>{isJa ? '不透明度' : 'Opacity'}</span>
-              <span className="font-mono ga-text">{opacityPct}%</span>
+            {/* Live Interactive Preview */}
+            <div className="flex justify-center rounded-2xl border border-sky-400/25 bg-black/40 p-3 sm:p-4">
+              <div
+                ref={stageRef}
+                className="relative inline-block max-w-full max-h-[46vh] select-none overflow-hidden rounded-lg"
+                style={{ aspectRatio: `${artWidth} / ${artHeight}` }}
+              >
+                <img
+                  src={item.thumbnailDataUrl}
+                  alt={artworkTitle || item.title}
+                  draggable={false}
+                  className="block h-full w-full object-contain pointer-events-none"
+                />
+                <div
+                  role="presentation"
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  data-testid="qr-placement-overlay"
+                  style={{
+                    left: `${leftPct}%`,
+                    top: `${topPct}%`,
+                    width: `${widthPct}%`,
+                    height: `${heightPct}%`,
+                    opacity: opacityPct / 100,
+                  }}
+                  className={`absolute flex flex-col items-center justify-center rounded-md border-2 border-cyan-300 bg-white/90 text-slate-900 shadow-lg touch-none ${
+                    dragging ? 'cursor-grabbing ring-2 ring-cyan-400' : 'cursor-grab'
+                  }`}
+                >
+                  <QrCode className="h-1/2 w-1/2 text-slate-900" />
+                  <span className="text-[9px] font-mono font-bold tracking-tight text-slate-800 leading-none">
+                    QR
+                  </span>
+                </div>
+              </div>
             </div>
-            <input
-              type="range"
-              min={45}
-              max={100}
-              value={opacityPct}
-              onChange={(e) => setOpacityPct(Number(e.target.value))}
-              className="w-full accent-[var(--ga-accent)] cursor-pointer"
-            />
-          </label>
-        </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t ga-border">
-          <span className="font-mono text-[11px] ga-text-muted">
-            X: {coords.x}px / Y: {coords.y}px ({artWidth}×{artHeight})
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={onCancel}
-              className="ga-btn-secondary rounded-xl px-4 py-2 text-xs sm:text-sm font-medium cursor-pointer"
-            >
-              {isJa ? 'キャンセル' : 'Cancel'}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              data-testid="qr-placement-confirm-btn"
-              onClick={() =>
-                void onConfirm({
-                  x: coords.x,
-                  y: coords.y,
-                  boxSize,
-                  opacity: opacityPct / 100,
-                })
-              }
-              className="ga-btn-primary inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold cursor-pointer disabled:opacity-50"
-            >
-              <Check className="h-4 w-4" />
-              <span>
-                {busy
-                  ? isJa
-                    ? '証明を作成中…'
-                    : 'Certifying…'
-                  : isJa
-                    ? 'この位置で証明する'
-                    : 'Certify at This Position'}
-              </span>
-            </button>
-          </div>
-        </div>
+            {/* Size & Opacity Sliders */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="space-y-1.5 text-xs text-sky-200/85">
+                <div className="flex items-center justify-between">
+                  <span>{isJa ? 'QRサイズ' : 'QR Size'}</span>
+                  <span className="font-mono text-white">{boxSize}px</span>
+                </div>
+                <input
+                  type="range"
+                  min={minBoxSize}
+                  max={maxBoxSize}
+                  value={boxSize}
+                  onChange={(e) => handleBoxSizeChange(Number(e.target.value))}
+                  className="w-full accent-sky-400 cursor-pointer"
+                />
+              </label>
+
+              <label className="space-y-1.5 text-xs text-sky-200/85">
+                <div className="flex items-center justify-between">
+                  <span>{isJa ? '不透明度' : 'Opacity'}</span>
+                  <span className="font-mono text-white">{opacityPct}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={45}
+                  max={100}
+                  value={opacityPct}
+                  onChange={(e) => setOpacityPct(Number(e.target.value))}
+                  className="w-full accent-sky-400 cursor-pointer"
+                />
+              </label>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-sky-400/20">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setStep('info')}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-sky-400/30 bg-sky-950/60 hover:bg-sky-900/70 px-3.5 py-2 text-xs font-medium text-sky-100 cursor-pointer"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>{isJa ? '作品情報に戻る' : 'Back to Info'}</span>
+              </button>
+              <div className="flex items-center gap-2">
+                <span className="hidden sm:inline font-mono text-[11px] text-sky-300/70">
+                  X: {coords.x}px / Y: {coords.y}px
+                </span>
+                <button
+                  type="button"
+                  disabled={busy}
+                  data-testid="qr-placement-confirm-btn"
+                  onClick={() =>
+                    void onConfirm({
+                      authorName: authorName.trim(),
+                      artworkTitle: artworkTitle.trim(),
+                      licenseId,
+                      qrMode: 'in-image',
+                      inImagePlacement: {
+                        x: coords.x,
+                        y: coords.y,
+                        boxSize,
+                        opacity: opacityPct / 100,
+                      },
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-50 px-4 py-2 text-xs sm:text-sm font-semibold text-slate-950 cursor-pointer"
+                >
+                  <Check className="h-4 w-4" />
+                  <span>
+                    {busy
+                      ? isJa
+                        ? '証明を作成中…'
+                        : 'Certifying…'
+                      : isJa
+                        ? 'この位置で証明する'
+                        : 'Certify at This Position'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -45,7 +45,7 @@ import type {
 } from '../../types/gallerydeck';
 import { ArtworkDetailDrawer } from './ArtworkDetailDrawer';
 import { InImageQrPlacementModal } from './InImageQrPlacementModal';
-import type { InImageQrPlacementSelection } from './InImageQrPlacementModal';
+import type { CertifyModalSubmission } from './InImageQrPlacementModal';
 import {
   certifyArtworkInDeck,
   importArtworkFileToDeck,
@@ -82,6 +82,7 @@ export function GalleryDeckPage() {
   const [pendingQrPlacement, setPendingQrPlacement] = useState<{
     item: GalleryArtworkItem;
     licenseId: LicenseId;
+    qrMode: 'in-image' | 'outer-border';
   } | null>(null);
   const [vaultModalOpen, setVaultModalOpen] = useState(false);
   const [driveRiskModalOpen, setDriveRiskModalOpen] = useState(false);
@@ -263,18 +264,18 @@ export function GalleryDeckPage() {
 
   const executeCertify = async (
     item: GalleryArtworkItem,
-    licenseId: LicenseId,
-    qrMode: 'in-image' | 'outer-border',
-    inImagePlacement?: InImageQrPlacementSelection,
+    submission: CertifyModalSubmission,
   ) => {
     setBusyAction('certify');
     try {
       const updated = await certifyArtworkInDeck({
         item,
         idbAdapter: idbAdapterRef.current,
-        licenseId,
-        qrMode,
-        inImagePlacement,
+        licenseId: submission.licenseId,
+        authorName: submission.authorName || undefined,
+        artworkTitle: submission.artworkTitle || undefined,
+        qrMode: submission.qrMode,
+        inImagePlacement: submission.inImagePlacement,
       });
       const nextCatalog: GalleryDeckCatalog = {
         ...catalog,
@@ -296,11 +297,7 @@ export function GalleryDeckPage() {
     licenseId: LicenseId,
     qrMode: 'in-image' | 'outer-border' = 'in-image',
   ) => {
-    if (qrMode === 'in-image') {
-      setPendingQrPlacement({ item, licenseId });
-      return;
-    }
-    await executeCertify(item, licenseId, 'outer-border');
+    setPendingQrPlacement({ item, licenseId, qrMode });
   };
 
   const handleVerify = async (item: GalleryArtworkItem) => {
@@ -1069,20 +1066,17 @@ export function GalleryDeckPage() {
         onConfirmConsent={handleConfirmDriveRiskConsent}
       />
 
-      {/* Separate-Layer Interactive In-Image QR Placement Preview Modal */}
+      {/* Separate-Layer Artwork Info + Interactive In-Image QR Placement Modal */}
       <InImageQrPlacementModal
         open={pendingQrPlacement !== null}
         item={pendingQrPlacement?.item ?? null}
+        initialLicenseId={pendingQrPlacement?.licenseId ?? 'ARR'}
+        initialQrMode={pendingQrPlacement?.qrMode ?? 'in-image'}
         busy={busyAction === 'certify'}
         onCancel={() => setPendingQrPlacement(null)}
-        onConfirm={async (placement) => {
+        onConfirm={async (submission) => {
           if (!pendingQrPlacement) return;
-          await executeCertify(
-            pendingQrPlacement.item,
-            pendingQrPlacement.licenseId,
-            'in-image',
-            placement,
-          );
+          await executeCertify(pendingQrPlacement.item, submission);
         }}
       />
     </section>

@@ -145,6 +145,7 @@ export async function certifyArtworkInDeck(params: {
   idbAdapter: IndexedDbGalleryAdapter;
   licenseId?: LicenseId;
   authorName?: string;
+  artworkTitle?: string;
   qrMode?: 'in-image' | 'outer-border';
   inImagePlacement?: {
     x: number;
@@ -158,6 +159,7 @@ export async function certifyArtworkInDeck(params: {
     idbAdapter,
     licenseId = 'ARR',
     authorName,
+    artworkTitle,
     qrMode = 'in-image',
     inImagePlacement,
   } = params;
@@ -179,6 +181,8 @@ export async function certifyArtworkInDeck(params: {
   });
   const { raster } = await decodeImageFileToCanonicalRgba8(file);
 
+  const resolvedTitle = artworkTitle || item.title || undefined;
+
   const signed =
     qrMode === 'outer-border'
       ? await createSignedArtworkPng({
@@ -186,7 +190,7 @@ export async function certifyArtworkInDeck(params: {
           authorKey,
           license: buildLicenseDeclaration(licenseId),
           authorName: authorName || item.authorName || authorKey.label,
-          artworkTitle: item.title || undefined,
+          artworkTitle: resolvedTitle,
           burnOptions: {
             placement: 'bottom-right',
             marginPx: 16,
@@ -199,7 +203,7 @@ export async function certifyArtworkInDeck(params: {
           authorKey,
           license: buildLicenseDeclaration(licenseId),
           authorName: authorName || item.authorName || authorKey.label,
-          artworkTitle: item.title || undefined,
+          artworkTitle: resolvedTitle,
           qrOptions: (() => {
             const defaultBoxSize = Math.max(
               96,
@@ -229,6 +233,7 @@ export async function certifyArtworkInDeck(params: {
 
   return {
     ...item,
+    title: resolvedTitle ?? item.title,
     authorName: authorName || item.authorName || authorKey.label,
     updatedAt: now,
     width: signed.raster.width,
