@@ -3,13 +3,16 @@ import {
   Cloud,
   Database,
   Download,
+  FileCode2,
   FolderSync,
   HardDrive,
+  Lock,
   RefreshCw,
   Upload,
   X,
 } from 'lucide-react';
 import { useI18n } from '../../i18n/context';
+import { downloadOfflineViewerHtml } from '../../services/galleryCrypto';
 import { isFileSystemAccessSupported } from '../../services/galleryStorage';
 import type { SyncTierStatus } from '../../types/gallerydeck';
 
@@ -26,6 +29,7 @@ interface SyncPanelModalProps {
   onSyncNow: () => Promise<void>;
   onExportArchive: () => Promise<void>;
   onImportArchive: (file: File) => Promise<void>;
+  onOpenVault?: () => void;
 }
 
 export function SyncPanelModal({
@@ -41,6 +45,7 @@ export function SyncPanelModal({
   onSyncNow,
   onExportArchive,
   onImportArchive,
+  onOpenVault,
 }: SyncPanelModalProps) {
   const { t } = useI18n();
   const gd = t.galleryDeck;
@@ -185,6 +190,26 @@ export function SyncPanelModal({
                   }
                 }}
               />
+              {onOpenVault && (
+                <button
+                  type="button"
+                  onClick={onOpenVault}
+                  data-testid="sync-modal-open-vault-btn"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/40 px-3 py-2 text-xs font-medium text-emerald-200 cursor-pointer"
+                >
+                  <Lock className="h-3.5 w-3.5" />
+                  {gd.vaultButton}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => downloadOfflineViewerHtml()}
+                data-testid="sync-modal-download-offline-html-btn"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 px-3 py-2 text-xs font-medium text-slate-100 cursor-pointer"
+              >
+                <FileCode2 className="h-3.5 w-3.5 text-emerald-400" />
+                {gd.vaultDownloadOfflineViewer}
+              </button>
             </div>
           </div>
         </div>

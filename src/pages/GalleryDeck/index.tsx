@@ -5,6 +5,7 @@ import {
   Gamepad2,
   HardDrive,
   ImagePlus,
+  Lock,
   QrCode,
   Search,
   ShieldAlert,
@@ -34,12 +35,14 @@ import type {
   SyncTierStatus,
 } from '../../types/gallerydeck';
 import { ArtworkDetailDrawer } from './ArtworkDetailDrawer';
+import { EncryptedVaultModal } from './EncryptedVaultModal';
 import {
   certifyArtworkInDeck,
   importArtworkFileToDeck,
   relinkCatalogFromLocalFolder,
   verifyArtworkInDeck,
 } from './galleryDeckHelpers';
+import { GoogleDriveRiskConsentModal } from './GoogleDriveRiskConsentModal';
 import { SyncPanelModal } from './SyncPanelModal';
 
 const FILTER_TABS: GalleryFilterTab[] = ['all', 'recent', 'verified', 'unverified', 'collections'];
@@ -64,6 +67,9 @@ export function GalleryDeckPage() {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [vaultModalOpen, setVaultModalOpen] = useState(false);
+  const [driveRiskModalOpen, setDriveRiskModalOpen] = useState(false);
+  const [driveRiskConsentAccepted, setDriveRiskConsentAccepted] = useState(false);
   const [busyAction, setBusyAction] = useState<'certify' | 'verify' | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [statusToast, setStatusToast] = useState<string | null>(null);
@@ -119,15 +125,20 @@ export function GalleryDeckPage() {
     });
   }, []);
 
-  const persistCatalog = useCallback(async (nextCatalog: GalleryDeckCatalog) => {
-    setCatalog(nextCatalog);
-    const adapters = [
-      idbAdapterRef.current,
-      ...(fsAdapterRef.current.isLinked() ? [fsAdapterRef.current] : []),
-      ...(gdriveAdapterRef.current.isAvailable() ? [gdriveAdapterRef.current] : []),
-    ];
-    await syncGalleryAdapters(nextCatalog, adapters);
-  }, []);
+  const persistCatalog = useCallback(
+    async (nextCatalog: GalleryDeckCatalog) => {
+      setCatalog(nextCatalog);
+      const adapters = [
+        idbAdapterRef.current,
+        ...(fsAdapterRef.current.isLinked() ? [fsAdapterRef.current] : []),
+        ...(driveRiskConsentAccepted && gdriveAdapterRef.current.isAvailable()
+          ? [gdriveAdapterRef.current]
+          : []),
+      ];
+      await syncGalleryAdapters(nextCatalog, adapters);
+    },
+    [driveRiskConsentAccepted],
+  );
 
   // Filter visible items
   const visibleItems = useMemo(() => {
@@ -193,7 +204,11 @@ export function GalleryDeckPage() {
       if (focusedItem) setSelectedItemId(focusedItem.id);
     },
     onBack: () => {
-      if (selectedItemId) {
+      if (driveRiskModalOpen) {
+        setDriveRiskModalOpen(false);
+      } else if (vaultModalOpen) {
+        setVaultModalOpen(false);
+      } else if (selectedItemId) {
         setSelectedItemId(null);
       } else if (syncModalOpen) {
         setSyncModalOpen(false);
@@ -202,7 +217,7 @@ export function GalleryDeckPage() {
     onNextTab: handleNextTab,
     onPrevTab: handlePrevTab,
     onOpenSearch: () => searchInputRef.current?.focus(),
-    disabled: Boolean(selectedItemId || syncModalOpen),
+    disabled: Boolean(selectedItemId || syncModalOpen || vaultModalOpen || driveRiskModalOpen),
   });
 
   const handleImportFiles = async (files: FileList | null) => {
@@ -301,13 +316,15 @@ export function GalleryDeckPage() {
     showToast(gd.toastDeleted);
   };
 
-  const handleSyncAll = async () => {
+  const handleSyncAll = async (allowDriveOverride = false) => {
     setSyncing(true);
     try {
+      const canUseDrive =
+        (driveRiskConsentAccepted || allowDriveOverride) && gdriveAdapterRef.current.isAvailable();
       const adapters = [
         idbAdapterRef.current,
         ...(fsAdapterRef.current.isLinked() ? [fsAdapterRef.current] : []),
-        ...(gdriveAdapterRef.current.isAvailable() ? [gdriveAdapterRef.current] : []),
+        ...(canUseDrive ? [gdriveAdapterRef.current] : []),
       ];
       const result = await syncGalleryAdapters(catalog, adapters);
       setCatalog(result.catalog);
@@ -363,7 +380,7 @@ export function GalleryDeckPage() {
     }
   };
 
-  const handleConnectDrive = async () => {
+  const executeConnectDrive = async () => {
     const auth = googleAuthManager;
     if (!auth.getState().connected) {
       try {
@@ -373,7 +390,21 @@ export function GalleryDeckPage() {
         return;
       }
     }
-    await handleSyncAll();
+    await handleSyncAll(true);
+  };
+
+  const handleConnectDrive = async () => {
+    if (!driveRiskConsentAccepted) {
+      setDriveRiskModalOpen(true);
+      return;
+    }
+    await executeConnectDrive();
+  };
+
+  const handleConfirmDriveRiskConsent = () => {
+    setDriveRiskConsentAccepted(true);
+    setDriveRiskModalOpen(false);
+    void executeConnectDrive();
   };
 
   const handleExportArchive = async () => {
@@ -489,6 +520,16 @@ export function GalleryDeckPage() {
             >
               <FolderOpen className="h-3.5 w-3.5 text-indigo-400" />
               <span className="hidden sm:inline">{linkedDirName ? gd.changeFolder : gd.linkFolder}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setVaultModalOpen(true)}
+              data-testid="gallerydeck-open-vault-btn"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 px-3 py-2 text-xs font-medium text-slate-200 cursor-pointer"
+            >
+              <Lock className="h-3.5 w-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">{gd.vaultButton}</span>
             </button>
 
             <button
@@ -836,9 +877,29 @@ export function GalleryDeckPage() {
         onClose={() => setSyncModalOpen(false)}
         onLinkDirectory={handleLinkDirectory}
         onConnectDrive={handleConnectDrive}
-        onSyncNow={handleSyncAll}
+        onSyncNow={() => handleSyncAll()}
         onExportArchive={handleExportArchive}
         onImportArchive={handleImportArchive}
+        onOpenVault={() => {
+          setSyncModalOpen(false);
+          setVaultModalOpen(true);
+        }}
+      />
+
+      {/* Zero-Knowledge Encrypted Vault & Offline Viewer Modal */}
+      <EncryptedVaultModal
+        open={vaultModalOpen}
+        items={catalog.items}
+        idbAdapter={idbAdapterRef.current}
+        onClose={() => setVaultModalOpen(false)}
+        onToast={showToast}
+      />
+
+      {/* Mandatory Google Drive Risk Consent Gate Modal */}
+      <GoogleDriveRiskConsentModal
+        open={driveRiskModalOpen}
+        onCancel={() => setDriveRiskModalOpen(false)}
+        onConfirmConsent={handleConfirmDriveRiskConsent}
       />
     </section>
   );

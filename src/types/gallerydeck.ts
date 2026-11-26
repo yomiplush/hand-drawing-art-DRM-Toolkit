@@ -3,6 +3,9 @@ import type { LicenseId } from '../core/manifest/types';
 export const GALLERY_DECK_CATALOG_VERSION = 1 as const;
 export const GALLERY_DECK_CATALOG_FILENAME = 'gallerydeck-catalog.json' as const;
 export const GALLERY_DECK_ARCHIVE_EXTENSION = '.chdeck' as const;
+export const GALLERY_DECK_VAULT_EXTENSION = '.gdvault' as const;
+export const GALLERY_DECK_MANIFEST_ENC_FILENAME = 'manifest.enc' as const;
+export const GALLERY_DECK_OFFLINE_VIEWER_FILENAME = 'gallerydeck-offline-viewer.html' as const;
 
 export type GalleryProvenanceStatus = 'unverified' | 'signed' | 'invalid';
 export type GalleryQrMode = 'none' | 'outer-border' | 'in-image-mask';
@@ -83,4 +86,42 @@ export function createEmptyCatalog(deviceId = 'local-deck'): GalleryDeckCatalog 
     collections: ['Favorites', 'Portfolio', 'Commissions'],
     items: [],
   };
+}
+
+export interface EncryptedVaultManifestEntry {
+  id: string;
+  title: string;
+  folder: string;
+  authorName?: string;
+  width: number;
+  height: number;
+  mimeType: string;
+  fileSizeBytes: number;
+  createdAt: number;
+  updatedAt: number;
+  tags: string[];
+  collections: string[];
+  thumbFile: string;
+  imgFile: string;
+  provenanceStatus?: GalleryProvenanceStatus;
+  licenseId?: LicenseId;
+  publicKeyFingerprint?: string;
+}
+
+export interface EncryptedVaultManifest {
+  version: 1;
+  createdAt: number;
+  vaultName: string;
+  folders: string[];
+  items: EncryptedVaultManifestEntry[];
+}
+
+export interface DecryptedVaultSession {
+  manifest: EncryptedVaultManifest;
+  /** On-demand full-resolution decryptor; caller MUST revoke the returned ObjectURL on close. */
+  decryptFullImage: (itemId: string) => Promise<{ blobUrl: string; mimeType: string }>;
+  /** Revokes all thumbnail ObjectURLs held by this session. */
+  dispose: () => void;
+  /** Map of itemId -> thumbnail ObjectURL (or data URL). */
+  thumbnailUrls: Record<string, string>;
 }

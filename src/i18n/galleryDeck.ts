@@ -76,6 +76,39 @@ export interface GalleryDeckTranslations {
   toastExported: string;
   toastRestored: string;
   toastRestoreFailed: string;
+  // Google Drive Risk Consent Gate
+  driveRiskModalTitle: string;
+  driveRiskWarning1: string;
+  driveRiskWarning2: string;
+  driveRiskWarning3: string;
+  driveRiskCheckboxLabel: string;
+  driveRiskConfirmButton: string;
+  // Zero-Knowledge Encrypted Vault & Offline Viewer
+  vaultButton: string;
+  vaultModalTitle: string;
+  vaultModalSubtitle: string;
+  vaultTabExport: string;
+  vaultTabDecrypt: string;
+  vaultDownloadOfflineViewer: string;
+  vaultOfflineViewerDownloaded: string;
+  vaultZeroKnowledgeNote: string;
+  vaultNameLabel: string;
+  vaultPassphraseLabel: string;
+  vaultPassphraseConfirmLabel: string;
+  vaultPassphraseMismatch: string;
+  vaultExportSingleFile: string;
+  vaultExportChunkedFolder: string;
+  vaultEncrypting: string;
+  vaultExportedSuccess: string;
+  vaultExportFailed: string;
+  vaultNoLocalImages: string;
+  vaultPickFolder: string;
+  vaultPickFiles: string;
+  vaultPickHint: string;
+  vaultUnlockButton: string;
+  vaultDecrypting: string;
+  vaultDecryptFailed: string;
+  vaultLockAndClear: string;
 }
 
 const en: GalleryDeckTranslations = {
@@ -154,6 +187,40 @@ const en: GalleryDeckTranslations = {
   toastExported: 'Exported .chdeck archive',
   toastRestored: 'Catalog restored from archive',
   toastRestoreFailed: 'Failed to restore archive',
+  driveRiskModalTitle: 'Google Drive Integration Risk Warning',
+  driveRiskWarning1:
+    'Even when data is encrypted before storage, there is a non-zero risk of account suspension (BAN) or sharing restrictions due to Google Drive Terms of Service, program policies, or automated detection systems.',
+  driveRiskWarning2:
+    'If your account is suspended, you may lose access to your entire Google account, including Gmail and other Google services.',
+  driveRiskWarning3:
+    'Use of this feature is entirely at your own risk. This service assumes no responsibility for account suspension, data loss, or any resulting damages.',
+  driveRiskCheckboxLabel: 'I understand the risks above and accept full responsibility.',
+  driveRiskConfirmButton: 'I understand the risks and agree to connect',
+  vaultButton: 'Encrypted Vault',
+  vaultModalTitle: 'Zero-Knowledge Encrypted Vault',
+  vaultModalSubtitle: 'PBKDF2 (SHA-256) + AES-GCM 256-bit client-side encryption for PC, iOS Safari & Android.',
+  vaultTabExport: 'Encrypt & Export',
+  vaultTabDecrypt: 'Decrypt & View',
+  vaultDownloadOfflineViewer: 'Offline Viewer HTML',
+  vaultOfflineViewerDownloaded: 'Downloaded gallerydeck-offline-viewer.html',
+  vaultZeroKnowledgeNote: 'All encryption & key derivation run 100% in your browser via Web Crypto API. Passphrases never leave your device.',
+  vaultNameLabel: 'Vault Name',
+  vaultPassphraseLabel: 'Passphrase',
+  vaultPassphraseConfirmLabel: 'Confirm Passphrase',
+  vaultPassphraseMismatch: 'Passphrases do not match.',
+  vaultExportSingleFile: 'Export .gdvault (iOS / Android / PC)',
+  vaultExportChunkedFolder: 'Export Split Folder (.enc)',
+  vaultEncrypting: 'Encrypting…',
+  vaultExportedSuccess: 'Encrypted vault exported!',
+  vaultExportFailed: 'Failed to export encrypted vault',
+  vaultNoLocalImages: 'No local artwork images cached to encrypt.',
+  vaultPickFolder: 'Select Encrypted Folder (PC)',
+  vaultPickFiles: 'Select .gdvault or .enc Files',
+  vaultPickHint: 'On iOS Safari / Android, select a .gdvault file or multiple .enc files from Files (Google Drive / iCloud / Local).',
+  vaultUnlockButton: 'Decrypt & Open',
+  vaultDecrypting: 'Decrypting…',
+  vaultDecryptFailed: 'Decryption failed. Check your passphrase or files.',
+  vaultLockAndClear: 'Lock & Clear Memory',
 };
 
 const ja: GalleryDeckTranslations = {
@@ -223,6 +290,40 @@ const ja: GalleryDeckTranslations = {
   toastSynced: '同期が完了しました',
   toastExported: '.chdeck アーカイブを書き出しました',
   toastRestored: 'アーカイブからカタログを復元しました',
+  driveRiskModalTitle: 'Google Drive 連携に関する重要なリスク警告',
+  driveRiskWarning1:
+    'たとえデータを暗号化して保存した場合であっても、Google Driveの利用規約・プログラムポリシーや自動検知システムにより、アカウント停止（BAN）や共有制限を受けるリスクが少なからず存在します。',
+  driveRiskWarning2:
+    '万が一アカウントが停止された場合、Gmailや他のGoogleサービスを含むアカウント全体にアクセスできなくなる可能性があります。',
+  driveRiskWarning3:
+    '本機能の利用はすべて自己責任となり、当サービスはアカウント停止やデータ消失等について一切の責任を負いません。',
+  driveRiskCheckboxLabel: '上記のリスクおよび自己責任での利用を理解しました。',
+  driveRiskConfirmButton: 'リスクを理解した上で同意して連携する',
+  vaultButton: '暗号化ボールト',
+  vaultModalTitle: 'ゼロ知識 暗号化ボールト',
+  vaultModalSubtitle: 'Web Crypto API（PBKDF2 + AES-GCM 256bit）で端末内完結。PC・iOS Safari・Android対応。',
+  vaultTabExport: '暗号化して書き出し',
+  vaultTabDecrypt: '復号して閲覧',
+  vaultDownloadOfflineViewer: 'オフラインHTML出力',
+  vaultOfflineViewerDownloaded: 'gallerydeck-offline-viewer.html をダウンロードしました',
+  vaultZeroKnowledgeNote: '暗号化・鍵導出・復号はすべてブラウザ標準の Web Crypto API で完結し、パスワードや画像が外部送信されることは一切ありません。',
+  vaultNameLabel: 'ボールト名',
+  vaultPassphraseLabel: 'パスワード',
+  vaultPassphraseConfirmLabel: 'パスワード（確認）',
+  vaultPassphraseMismatch: 'パスワードが一致しません。',
+  vaultExportSingleFile: '.gdvault 出力（iOS / Android / PC）',
+  vaultExportChunkedFolder: '分割フォルダ出力（.enc）',
+  vaultEncrypting: '暗号化中…',
+  vaultExportedSuccess: '暗号化ボールトを書き出しました',
+  vaultExportFailed: '暗号化ボールトの書き出しに失敗しました',
+  vaultNoLocalImages: '暗号化できるローカル画像がありません。',
+  vaultPickFolder: '暗号化フォルダを選択（PC）',
+  vaultPickFiles: '.gdvault / .enc ファイルを選択',
+  vaultPickHint: 'iOS Safari / Android では「ファイル」アプリ経由（Google Drive / iCloud 等）で .gdvault または複数 .enc ファイルを選択できます。',
+  vaultUnlockButton: '復号して開く',
+  vaultDecrypting: '復号中…',
+  vaultDecryptFailed: '復号に失敗しました。パスワードまたはファイルを確認してください。',
+  vaultLockAndClear: 'ロックしてメモリ解放',
 };
 
 export const GALLERY_DECK_I18N: Record<Locale, GalleryDeckTranslations> = {
