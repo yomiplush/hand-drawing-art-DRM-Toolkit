@@ -62,6 +62,10 @@ export function SyncPanelModal({
   const [drivePassphrase, setDrivePassphrase] = useState('');
   const [driveCryptoBusy, setDriveCryptoBusy] = useState<'upload' | 'restore' | null>(null);
   const [driveCryptoError, setDriveCryptoError] = useState<string | null>(null);
+  const [customRelaysInput, setCustomRelaysInput] = useState<string>(() =>
+    getCustomNostrProofRelays().join('\n'),
+  );
+  const [customRelaysSaved, setCustomRelaysSaved] = useState(false);
 
   if (!open) return null;
 
@@ -344,6 +348,54 @@ export function SyncPanelModal({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Optional Custom / Paid Nostr Relays for Ultra-Compact QR */}
+          <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 space-y-2.5">
+            <div>
+              <p className="text-sm font-semibold text-white">
+                {isJa
+                  ? 'カスタム Nostr リレー（任意・有料リレー対応）'
+                  : 'Custom Nostr Relays (Optional / Paid Relay Support)'}
+              </p>
+              <p className="text-xs text-slate-400">
+                {isJa
+                  ? '有料 Nostr リレーや自前リレーをお持ちの場合、wss:// URL を入力すると無料リレーより優先して超小型 QR の保存・取得に使います。'
+                  : 'Add your paid or self-hosted wss:// Nostr relay URLs (one per line) to prioritize them alongside free public relays.'}
+              </p>
+            </div>
+            <textarea
+              rows={2}
+              value={customRelaysInput}
+              onChange={(e) => {
+                setCustomRelaysInput(e.target.value);
+                setCustomRelaysSaved(false);
+              }}
+              placeholder="wss://your-paid-relay.example.com"
+              data-testid="gallerydeck-custom-nostr-relays-input"
+              className="w-full rounded-lg border border-slate-700 bg-slate-900/90 px-3 py-2 font-mono text-xs text-white placeholder:text-slate-500 focus:border-sky-400 focus:outline-none"
+            />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] text-emerald-300">
+                {customRelaysSaved ? (isJa ? '✓ 保存しました' : '✓ Saved') : ''}
+              </span>
+              <button
+                type="button"
+                data-testid="gallerydeck-save-nostr-relays-btn"
+                onClick={() => {
+                  const urls = customRelaysInput
+                    .split(/[\n,]+/)
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                  const saved = setCustomNostrProofRelays(urls);
+                  setCustomRelaysInput(saved.join('\n'));
+                  setCustomRelaysSaved(true);
+                }}
+                className="rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-100 cursor-pointer"
+              >
+                {isJa ? 'リレー設定を保存' : 'Save Relays'}
+              </button>
+            </div>
           </div>
 
           {/* Portable .chdeck Archive Fallback (Advanced Mode only) */}
