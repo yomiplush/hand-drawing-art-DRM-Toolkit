@@ -218,8 +218,8 @@ export async function certifyArtworkInDeck(params: {
           snsLinks,
           qrOptions: (() => {
             const defaultBoxSize = Math.max(
-              240,
-              Math.min(420, Math.round(Math.min(raster.width, raster.height) * 0.28)),
+              280,
+              Math.min(480, Math.round(Math.min(raster.width, raster.height) * 0.34)),
             );
             const boxSize = inImagePlacement?.boxSize ?? defaultBoxSize;
             return {

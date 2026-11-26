@@ -1592,6 +1592,65 @@ export function VerifyCertificatePage() {
                 {new Date(result.manifest.issuedAt * 1000).toLocaleString()}
               </div>
             </div>
+
+            {result.manifest.description && (
+              <div
+                data-testid="verify-v3-description"
+                className="sm:col-span-2 ga-surface-subtle rounded-xl border ga-border px-3.5 py-2.5 space-y-1"
+              >
+                <div className="text-[11px] ga-text-muted">{t.artworkDetails.descriptionLabel}</div>
+                <p className="text-xs sm:text-sm ga-text whitespace-pre-wrap break-words leading-relaxed">
+                  {result.manifest.description}
+                </p>
+              </div>
+            )}
+
+            {safeV3Website && (
+              <div className="sm:col-span-2 ga-surface-subtle rounded-xl border ga-border px-3.5 py-2.5 space-y-1">
+                <div className="text-[11px] ga-text-muted">
+                  {locale === 'ja' ? 'ホームページ / Webサイト' : 'Website'}
+                </div>
+                <a
+                  href={safeV3Website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="verify-v3-website"
+                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm ga-text-accent underline underline-offset-4 break-all"
+                >
+                  <span>{safeV3Website}</span>
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                </a>
+              </div>
+            )}
+
+            {safeV3SnsLinks.length > 0 && (
+              <div
+                data-testid="verify-v3-creator-links"
+                className="sm:col-span-2 ga-surface-subtle rounded-xl border ga-border px-3.5 py-2.5 space-y-1.5"
+              >
+                <div className="text-[11px] ga-text-muted">
+                  {t.nextGen.verify.v3SnsLinksLabel}
+                </div>
+                <ul className="flex flex-wrap gap-2">
+                  {safeV3SnsLinks.map((link, idx) => (
+                    <li key={idx}>
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ga-card-solid inline-flex items-center gap-1.5 rounded-lg border ga-border px-3 py-1.5 text-xs ga-text-accent hover:border-[var(--ga-border-strong)] break-all"
+                      >
+                        <span>
+                          {link.platformLabel ? `[${link.platformLabel}] ` : ''}
+                          {link.label ? `${link.label}: ${link.url}` : link.url}
+                        </span>
+                        <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
 
           <p className="text-[11px] ga-text-muted flex items-start gap-1.5 leading-relaxed">
