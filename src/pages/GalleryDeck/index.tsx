@@ -79,6 +79,8 @@ export function GalleryDeckPage() {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const [fullscreenVisible, setFullscreenVisible] = useState(false);
   const [pendingQrPlacement, setPendingQrPlacement] = useState<{
     item: GalleryArtworkItem;
     licenseId: LicenseId;
@@ -257,6 +259,13 @@ export function GalleryDeckPage() {
       await persistCatalog(nextCatalog);
       setFocusedIndex(0);
       showToast(`${imported.length} ${gd.toastImported}`);
+      if (imported[0]) {
+        setPendingQrPlacement({
+          item: imported[0],
+          licenseId: imported[0].licenseId ?? 'ARR',
+          qrMode: 'in-image',
+        });
+      }
     } catch (err) {
       showToast(err instanceof Error ? err.message : gd.toastImportFailed);
     }
@@ -274,6 +283,9 @@ export function GalleryDeckPage() {
         licenseId: submission.licenseId,
         authorName: submission.authorName || undefined,
         artworkTitle: submission.artworkTitle || undefined,
+        description: submission.description,
+        website: submission.website,
+        snsLinks: submission.snsLinks,
         qrMode: submission.qrMode,
         inImagePlacement: submission.inImagePlacement,
       });
@@ -290,6 +302,20 @@ export function GalleryDeckPage() {
     } finally {
       setBusyAction(null);
     }
+  };
+
+  const openFullscreen = () => {
+    setFullscreenOpen(true);
+    window.requestAnimationFrame(() => {
+      setFullscreenVisible(true);
+    });
+  };
+
+  const closeFullscreen = () => {
+    setFullscreenVisible(false);
+    window.setTimeout(() => {
+      setFullscreenOpen(false);
+    }, 280);
   };
 
   const handleCertify = async (
@@ -836,12 +862,29 @@ export function GalleryDeckPage() {
               >
                 <div className="lg:col-span-7">
                   <div className="rounded-2xl border ga-border ga-surface-subtle p-3 sm:p-4">
-                    <div className="aspect-[16/10] w-full overflow-hidden rounded-xl bg-[var(--ga-bg-tint)] flex items-center justify-center">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        if (focusedItem.thumbnailDataUrl) openFullscreen();
+                      }}
+                      onKeyDown={(e) => {
+                        if ((e.key === 'Enter' || e.key === ' ') && focusedItem.thumbnailDataUrl) {
+                          e.preventDefault();
+                          openFullscreen();
+                        }
+                      }}
+                      title={isJa ? 'クリックで全画面表示' : 'Click for fullscreen'}
+                      data-testid="gallerydeck-spotlight-thumbnail-btn"
+                      className="aspect-[16/10] w-full overflow-hidden rounded-xl bg-[var(--ga-bg-tint)] flex items-center justify-center cursor-zoom-in transition-opacity duration-300 hover:opacity-95"
+                    >
                       {focusedItem.thumbnailDataUrl ? (
                         <img
                           src={focusedItem.thumbnailDataUrl}
                           alt={focusedItem.title}
-                          className="h-full w-full object-contain"
+                          className={`h-full w-full object-contain transition-opacity duration-300 ${
+                            fullscreenVisible ? 'opacity-0' : 'opacity-100'
+                          }`}
                         />
                       ) : (
                         <div className="ga-text-muted text-xs">{gd.noPreview}</div>
@@ -1079,6 +1122,27 @@ export function GalleryDeckPage() {
           await executeCertify(pendingQrPlacement.item, submission);
         }}
       />
+      {/* Fullscreen Fade-In / Fade-Out Lightbox */}
+      {fullscreenOpen && focusedItem?.thumbnailDataUrl && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={focusedItem.title}
+          data-testid="gallerydeck-fullscreen-lightbox"
+          onClick={closeFullscreen}
+          className={`fixed inset-0 z-[80] flex items-center justify-center bg-[#030e1f]/92 backdrop-blur-md p-4 sm:p-8 cursor-zoom-out transition-opacity duration-300 ease-out ${
+            fullscreenVisible ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          <img
+            src={focusedItem.thumbnailDataUrl}
+            alt={focusedItem.title}
+            className={`max-h-[92vh] max-w-[94vw] object-contain rounded-xl shadow-[0_24px_80px_rgba(0,0,0,0.75)] transition-all duration-300 ease-out ${
+              fullscreenVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+            }`}
+          />
+        </div>
+      )}
     </section>
   );
 }

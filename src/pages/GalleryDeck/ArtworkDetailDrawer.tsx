@@ -3,7 +3,6 @@ import {
   CheckCircle2,
   Copy,
   Download,
-  ExternalLink,
   FileSignature,
   QrCode,
   ShieldAlert,
@@ -11,7 +10,6 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { HelpTip } from '../../components/HelpTip';
 import { LICENSE_DEFINITIONS } from '../../core/manifest/types';
 import type { LicenseId } from '../../core/manifest/types';
@@ -307,14 +305,6 @@ export function ArtworkDetailDrawer({
                     )}
                   </button>
                 )}
-
-                <Link
-                  to="/create"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 px-3 py-2 text-xs font-medium text-slate-200"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  {gd.openInCreateStudio}
-                </Link>
 
                 <button
                   type="button"

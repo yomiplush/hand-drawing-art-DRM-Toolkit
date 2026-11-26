@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { ArrowLeft, ArrowRight, Check, FileSignature, Move, QrCode, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, FileSignature, Globe, Move, QrCode, Share2, X } from 'lucide-react';
 import { LICENSE_DEFINITIONS } from '../../core/manifest/types';
-import type { LicenseId } from '../../core/manifest/types';
+import type { CompactSnsLink, LicenseId } from '../../core/manifest/types';
 import { useI18n } from '../../i18n/context';
 import type { GalleryArtworkItem } from '../../types/gallerydeck';
 
@@ -18,6 +18,9 @@ export interface CertifyModalSubmission {
   artworkTitle: string;
   licenseId: LicenseId;
   qrMode: 'in-image' | 'outer-border';
+  description?: string;
+  website?: string;
+  snsLinks?: CompactSnsLink[];
   inImagePlacement?: InImageQrPlacementSelection;
 }
 
@@ -80,8 +83,46 @@ function InImageQrPlacementModalBody({
   const [step, setStep] = useState<'info' | 'placement'>('info');
   const [authorName, setAuthorName] = useState<string>(item.authorName ?? '');
   const [artworkTitle, setArtworkTitle] = useState<string>(item.title ?? '');
+  const [description, setDescription] = useState<string>('');
+  const [website, setWebsite] = useState<string>('');
+  const [snsLinksText, setSnsLinksText] = useState<string>('');
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [licenseId, setLicenseId] = useState<LicenseId>(initialLicenseId);
   const [qrMode, setQrMode] = useState<'in-image' | 'outer-border'>(initialQrMode);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.location.hash !== '#create') {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#create`);
+    }
+    return () => {
+      if (window.location.hash === '#create') {
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+      }
+    };
+  }, []);
+
+  const parseSnsLinks = (raw: string): CompactSnsLink[] | undefined => {
+    const urls = raw
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (urls.length === 0) return undefined;
+    return urls.map((url) => ({ url }));
+  };
+
+  const validateRequiredInfo = (): boolean => {
+    if (!authorName.trim() || !artworkTitle.trim()) {
+      setValidationError(
+        isJa
+          ? '作家名と作品タイトルは必須です。入力してください。'
+          : 'Artist name and artwork title are required.',
+      );
+      return false;
+    }
+    setValidationError(null);
+    return true;
+  };
 
   const artWidth = Math.max(120, item.width || 1024);
   const artHeight = Math.max(120, item.height || 1024);
@@ -231,12 +272,16 @@ function InImageQrPlacementModalBody({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label className="space-y-1.5 block">
                 <span className="text-xs font-medium text-sky-200">
-                  {t.simple.create.artistNameLabel}
+                  {t.simple.create.artistNameLabel} <span className="text-rose-400">*</span>
                 </span>
                 <input
                   type="text"
+                  required
                   value={authorName}
-                  onChange={(e) => setAuthorName(e.target.value)}
+                  onChange={(e) => {
+                    setAuthorName(e.target.value);
+                    setValidationError(null);
+                  }}
                   placeholder={t.simple.create.artistNamePlaceholder}
                   data-testid="certify-modal-author-input"
                   className="w-full rounded-xl border border-sky-400/30 bg-[#04142b]/90 px-3 py-2.5 text-sm text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
@@ -245,18 +290,82 @@ function InImageQrPlacementModalBody({
 
               <label className="space-y-1.5 block">
                 <span className="text-xs font-medium text-sky-200">
-                  {t.simple.create.titleLabel}
+                  {isJa ? '作品タイトル' : 'Artwork Title'} <span className="text-rose-400">*</span>
                 </span>
                 <input
                   type="text"
+                  required
                   value={artworkTitle}
-                  onChange={(e) => setArtworkTitle(e.target.value)}
+                  onChange={(e) => {
+                    setArtworkTitle(e.target.value);
+                    setValidationError(null);
+                  }}
                   placeholder={t.simple.create.titlePlaceholder}
                   data-testid="certify-modal-title-input"
                   className="w-full rounded-xl border border-sky-400/30 bg-[#04142b]/90 px-3 py-2.5 text-sm text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
                 />
               </label>
             </div>
+
+            {/* Optional QR-embedded Artwork Details (Protocol v3) */}
+            <div className="space-y-3 rounded-xl border border-sky-400/20 bg-sky-950/25 p-3.5">
+              <p className="text-[11px] font-medium text-sky-300/90">
+                {isJa
+                  ? 'QRコード内に埋め込む追加情報（任意・検証時に表示）'
+                  : 'Optional metadata embedded inside the QR code'}
+              </p>
+              <label className="space-y-1 block">
+                <span className="text-xs text-sky-200/90">
+                  {isJa ? '作品の内容・コメント' : 'Artwork Description'}
+                </span>
+                <textarea
+                  rows={2}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={isJa ? '制作コンセプトや使用画材など…' : 'Concept, medium, or notes…'}
+                  data-testid="certify-modal-description-input"
+                  className="w-full rounded-xl border border-sky-400/25 bg-[#04142b]/90 px-3 py-2 text-xs text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
+                />
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="space-y-1 block">
+                  <span className="inline-flex items-center gap-1 text-xs text-sky-200/90">
+                    <Globe className="h-3.5 w-3.5 text-sky-400" />
+                    {isJa ? 'Webサイト / ポートフォリオ URL' : 'Website / Portfolio URL'}
+                  </span>
+                  <input
+                    type="url"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                    placeholder="https://example.com"
+                    data-testid="certify-modal-website-input"
+                    className="w-full rounded-xl border border-sky-400/25 bg-[#04142b]/90 px-3 py-2 text-xs text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
+                  />
+                </label>
+
+                <label className="space-y-1 block">
+                  <span className="inline-flex items-center gap-1 text-xs text-sky-200/90">
+                    <Share2 className="h-3.5 w-3.5 text-sky-400" />
+                    {isJa ? 'SNSリンク（カンマまたは改行区切り）' : 'SNS Links (comma or newline separated)'}
+                  </span>
+                  <input
+                    type="text"
+                    value={snsLinksText}
+                    onChange={(e) => setSnsLinksText(e.target.value)}
+                    placeholder="https://x.com/yourhandle, https://pixiv.net/..."
+                    data-testid="certify-modal-sns-input"
+                    className="w-full rounded-xl border border-sky-400/25 bg-[#04142b]/90 px-3 py-2 text-xs text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {validationError && (
+              <p role="alert" className="text-xs font-medium text-rose-300">
+                {validationError}
+              </p>
+            )}
 
             <label className="space-y-1.5 block">
               <span className="text-xs font-medium text-sky-200">
@@ -328,7 +437,11 @@ function InImageQrPlacementModalBody({
                   type="button"
                   disabled={busy}
                   data-testid="certify-modal-next-placement-btn"
-                  onClick={() => setStep('placement')}
+                  onClick={() => {
+                    if (validateRequiredInfo()) {
+                      setStep('placement');
+                    }
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 px-4 py-2 text-xs sm:text-sm font-semibold text-slate-950 cursor-pointer"
                 >
                   <span>{isJa ? 'QR位置をプレビュー調整' : 'Adjust QR Position'}</span>
@@ -339,14 +452,18 @@ function InImageQrPlacementModalBody({
                   type="button"
                   disabled={busy}
                   data-testid="certify-modal-confirm-outer-btn"
-                  onClick={() =>
+                  onClick={() => {
+                    if (!validateRequiredInfo()) return;
                     void onConfirm({
                       authorName: authorName.trim(),
                       artworkTitle: artworkTitle.trim(),
                       licenseId,
                       qrMode: 'outer-border',
-                    })
-                  }
+                      description: description.trim() || undefined,
+                      website: website.trim() || undefined,
+                      snsLinks: parseSnsLinks(snsLinksText),
+                    });
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-50 px-4 py-2 text-xs sm:text-sm font-semibold text-slate-950 cursor-pointer"
                 >
                   <Check className="h-4 w-4" />
@@ -489,6 +606,9 @@ function InImageQrPlacementModalBody({
                       artworkTitle: artworkTitle.trim(),
                       licenseId,
                       qrMode: 'in-image',
+                      description: description.trim() || undefined,
+                      website: website.trim() || undefined,
+                      snsLinks: parseSnsLinks(snsLinksText),
                       inImagePlacement: {
                         x: coords.x,
                         y: coords.y,
