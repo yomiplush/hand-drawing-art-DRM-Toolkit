@@ -1690,6 +1690,99 @@ export function VerifyCertificatePage() {
             )}
           </div>
 
+          {result.manifest.description && (
+            <div
+              data-testid="verify-v3-description"
+              className="ga-surface-subtle rounded-xl border ga-border p-4 space-y-1.5"
+            >
+              <div className="text-[11px] ga-text-muted">{t.artworkDetails.descriptionLabel}</div>
+              <p className="text-xs sm:text-sm ga-text whitespace-pre-wrap break-words leading-relaxed">
+                {result.manifest.description}
+              </p>
+            </div>
+          )}
+
+          {(safeV3Website || safeV3SnsLinks.length > 0 || safeV3PortfolioLinks.length > 0) && (
+            <div
+              data-testid="verify-v3-creator-links"
+              className="ga-surface-subtle rounded-xl border ga-border p-4 space-y-3"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="flex items-center gap-2 text-xs font-semibold ga-text-accent">
+                  <User className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span>{t.artworkDetails.groupCreator}</span>
+                </span>
+                <span className="ga-card-solid rounded-full border ga-border px-2.5 py-0.5 text-[10px] ga-text-secondary">
+                  {t.artworkDetails.verifyProfileSelfDeclared}
+                </span>
+              </div>
+
+              {safeV3Website && (
+                <div>
+                  <a
+                    href={safeV3Website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="verify-v3-website"
+                    className="inline-flex items-center gap-1.5 text-xs sm:text-sm ga-text-accent underline underline-offset-4 break-all"
+                  >
+                    <span>{safeV3Website}</span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  </a>
+                </div>
+              )}
+
+              {safeV3SnsLinks.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-[11px] ga-text-muted">
+                    {t.nextGen.verify.v3SnsLinksLabel}
+                  </div>
+                  <ul className="flex flex-wrap gap-2">
+                    {safeV3SnsLinks.map((link, idx) => (
+                      <li key={idx}>
+                        <a
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ga-card-solid inline-flex items-center gap-1.5 rounded-lg border ga-border px-3 py-1.5 text-xs ga-text-accent hover:border-[var(--ga-border-strong)] break-all"
+                        >
+                          <span>
+                            {link.platformLabel ? `[${link.platformLabel}] ` : ''}
+                            {link.label ? `${link.label}: ${link.url}` : link.url}
+                          </span>
+                          <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {safeV3PortfolioLinks.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-[11px] ga-text-muted">
+                    {t.nextGen.verify.v3PortfolioLinksLabel}
+                  </div>
+                  <ul className="flex flex-wrap gap-2">
+                    {safeV3PortfolioLinks.map((link, idx) => (
+                      <li key={idx}>
+                        <a
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ga-card-solid inline-flex items-center gap-1.5 rounded-lg border ga-border px-3 py-1.5 text-xs ga-text-accent hover:border-[var(--ga-border-strong)] break-all"
+                        >
+                          <span>{link.label ? `${link.label}: ${link.url}` : link.url}</span>
+                          <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
           {result.signatureStatus === 'valid' &&
             result.identityStatus === 'unknown' &&
             result.trustedKeyUnconfirmed && (
@@ -1821,7 +1914,7 @@ export function VerifyCertificatePage() {
         </section>
       )}
 
-      {hasV3SelfContainedMetadata && result.manifest && (
+      {hasV3SelfContainedMetadata && result.manifest && Boolean(0) && (
         <section
           data-testid="verify-v3-metadata-card"
           className="ga-card rounded-2xl p-5 space-y-4"
