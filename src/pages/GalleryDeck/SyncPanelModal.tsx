@@ -5,8 +5,11 @@ import {
   Database,
   Download,
   HardDrive,
+  KeyRound,
+  Lock,
   RefreshCw,
   Trash2,
+  Unlock,
   Upload,
   X,
 } from 'lucide-react';
@@ -21,6 +24,8 @@ interface SyncPanelModalProps {
   syncing: boolean;
   onClose: () => void;
   onConnectDrive: () => Promise<void>;
+  onUploadEncryptedDrive: (passphrase: string) => Promise<void>;
+  onRestoreEncryptedDrive: (passphrase: string) => Promise<void>;
   onResetDriveSync: () => Promise<void>;
   onSyncNow: () => Promise<void>;
   onExportArchive: () => Promise<void>;
@@ -35,6 +40,8 @@ export function SyncPanelModal({
   syncing,
   onClose,
   onConnectDrive,
+  onUploadEncryptedDrive,
+  onRestoreEncryptedDrive,
   onResetDriveSync,
   onSyncNow,
   onExportArchive,
@@ -46,6 +53,9 @@ export function SyncPanelModal({
   const archiveInputRef = useRef<HTMLInputElement | null>(null);
   const [driveResetStep, setDriveResetStep] = useState<0 | 1 | 2>(0);
   const [resettingDrive, setResettingDrive] = useState(false);
+  const [drivePassphrase, setDrivePassphrase] = useState('');
+  const [driveCryptoBusy, setDriveCryptoBusy] = useState<'upload' | 'restore' | null>(null);
+  const [driveCryptoError, setDriveCryptoError] = useState<string | null>(null);
 
   if (!open) return null;
 
@@ -110,32 +120,38 @@ export function SyncPanelModal({
             </span>
           </div>
 
-          {/* Tier 2: Google Drive */}
-          <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 space-y-3">
+          {/* Tier 2: Google Drive Encrypted Full Sync */}
+          <div className="rounded-xl border border-sky-500/30 bg-slate-950/70 p-3.5 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <Cloud className="h-5 w-5 text-sky-400 shrink-0" />
                 <div>
-                  <p className="text-sm font-semibold text-white">{gd.tierGoogleDrive}</p>
+                  <p className="text-sm font-semibold text-white">
+                    {isJa ? 'Google Drive 暗号化フル同期（イラスト＋証明一括）' : 'Google Drive Encrypted Full Sync'}
+                  </p>
                   <p className="text-xs text-slate-400">
-                    {driveConnected ? gd.driveConnectedDesc : gd.driveDisconnectedDesc}
+                    {isJa
+                      ? 'イラストデータ・サムネイル・来歴証明をすべて端末内で AES-256-GCM 暗号化して保存します。復号すれば Web 版・スタンドアロン版どちらでも利用できます。'
+                      : 'Encrypts all artwork images, thumbnails, and provenance metadata locally with AES-256-GCM before saving to Google Drive. Decrypt in Web or Standalone Edition.'}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  disabled={syncing || resettingDrive}
-                  onClick={() => void onConnectDrive()}
-                  data-testid="gallerydeck-connect-drive-btn"
-                  className="rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-100 cursor-pointer"
-                >
-                  {driveConnected ? gd.syncNow : gd.connectDrive}
-                </button>
+                {!driveConnected && (
+                  <button
+                    type="button"
+                    disabled={syncing || resettingDrive || driveCryptoBusy !== null}
+                    onClick={() => void onConnectDrive()}
+                    data-testid="gallerydeck-connect-drive-btn"
+                    className="rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-40 px-3 py-1.5 text-xs font-semibold text-slate-950 cursor-pointer"
+                  >
+                    {gd.connectDrive}
+                  </button>
+                )}
                 {driveConnected && driveResetStep === 0 && (
                   <button
                     type="button"
-                    disabled={syncing || resettingDrive}
+                    disabled={syncing || resettingDrive || driveCryptoBusy !== null}
                     onClick={() => setDriveResetStep(1)}
                     data-testid="gallerydeck-reset-drive-btn"
                     className="inline-flex items-center gap-1 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 disabled:opacity-40 border border-rose-400/40 px-2.5 py-1.5 text-xs font-medium text-rose-200 cursor-pointer"
@@ -146,6 +162,108 @@ export function SyncPanelModal({
                 )}
               </div>
             </div>
+
+            {driveConnected && (
+              <div className="rounded-xl border border-sky-400/20 bg-sky-950/25 p-3 space-y-2.5">
+                <label className="block space-y-1">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-sky-200">
+                    <KeyRound className="h-3.5 w-3.5 text-sky-400" />
+                    {isJa ? '暗号化 / 復号パスフレーズ（8文字以上）' : 'Encryption / Decryption Passphrase (8+ chars)'}
+                  </span>
+                  <input
+                    type="password"
+                    value={drivePassphrase}
+                    onChange={(e) => {
+                      setDrivePassphrase(e.target.value);
+                      setDriveCryptoError(null);
+                    }}
+                    placeholder={isJa ? 'パスフレーズを入力…' : 'Enter passphrase…'}
+                    data-testid="gallerydeck-drive-passphrase-input"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900/90 px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:border-sky-400 focus:outline-none"
+                  />
+                </label>
+
+                {driveCryptoError && (
+                  <p className="text-xs text-rose-300">{driveCryptoError}</p>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={syncing || resettingDrive || driveCryptoBusy !== null}
+                    data-testid="gallerydeck-drive-encrypt-upload-btn"
+                    onClick={async () => {
+                      if (drivePassphrase.trim().length < 8) {
+                        setDriveCryptoError(
+                          isJa
+                            ? 'パスフレーズは8文字以上で入力してください。'
+                            : 'Passphrase must be at least 8 characters.',
+                        );
+                        return;
+                      }
+                      setDriveCryptoError(null);
+                      setDriveCryptoBusy('upload');
+                      try {
+                        await onUploadEncryptedDrive(drivePassphrase);
+                      } catch (err) {
+                        setDriveCryptoError(err instanceof Error ? err.message : String(err));
+                      } finally {
+                        setDriveCryptoBusy(null);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-slate-950 cursor-pointer"
+                  >
+                    <Lock className="h-3.5 w-3.5" />
+                    <span>
+                      {driveCryptoBusy === 'upload'
+                        ? isJa
+                          ? '暗号化して保存中…'
+                          : 'Encrypting & Uploading…'
+                        : isJa
+                          ? 'すべて暗号化して Drive に保存'
+                          : 'Encrypt All & Save to Drive'}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={syncing || resettingDrive || driveCryptoBusy !== null}
+                    data-testid="gallerydeck-drive-decrypt-restore-btn"
+                    onClick={async () => {
+                      if (drivePassphrase.trim().length < 8) {
+                        setDriveCryptoError(
+                          isJa
+                            ? '復号パスフレーズ（8文字以上）を入力してください。'
+                            : 'Enter your passphrase (8+ chars) to decrypt.',
+                        );
+                        return;
+                      }
+                      setDriveCryptoError(null);
+                      setDriveCryptoBusy('restore');
+                      try {
+                        await onRestoreEncryptedDrive(drivePassphrase);
+                      } catch (err) {
+                        setDriveCryptoError(err instanceof Error ? err.message : String(err));
+                      } finally {
+                        setDriveCryptoBusy(null);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 border border-sky-400/40 px-3 py-2 text-xs font-medium text-sky-100 cursor-pointer"
+                  >
+                    <Unlock className="h-3.5 w-3.5 text-sky-400" />
+                    <span>
+                      {driveCryptoBusy === 'restore'
+                        ? isJa
+                          ? '復号して復元中…'
+                          : 'Decrypting & Restoring…'
+                        : isJa
+                          ? 'Drive から復号して復元'
+                          : 'Decrypt & Restore from Drive'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {driveResetStep === 1 && (
               <div

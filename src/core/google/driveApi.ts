@@ -252,6 +252,67 @@ export class GoogleDriveClient {
     return (await res.json()) as T;
   }
 
+  async downloadBinaryFile(params: {
+    accessToken: string;
+    fileId: string;
+  }): Promise<Blob> {
+    const url = `${GOOGLE_DRIVE_API_BASE}/files/${encodeURIComponent(params.fileId)}?alt=media`;
+    const res = await this.requestWithRetry(url, { method: 'GET' }, params.accessToken);
+    return await res.blob();
+  }
+
+  async upsertBinaryFile(params: {
+    accessToken: string;
+    folderId: string;
+    existingFileId?: string;
+    opaqueFileName: string;
+    mimeType?: string;
+    appProperties: Record<string, string>;
+    binaryPayload: Blob;
+  }): Promise<DriveFileMetadata> {
+    const mimeType = params.mimeType ?? 'application/octet-stream';
+    const metadata: Record<string, unknown> = {
+      name: params.opaqueFileName,
+      mimeType,
+      appProperties: {
+        ...params.appProperties,
+        chmApp: CHM_APP_PROPERTY_VALUE,
+      },
+    };
+    if (!params.existingFileId) {
+      metadata.parents = [params.folderId || DRIVE_APPDATA_SPACE];
+    }
+
+    const boundaryBytes = new Uint8Array(8);
+    globalThis.crypto.getRandomValues(boundaryBytes);
+    const boundary = `chm_${Array.from(boundaryBytes, (b) => b.toString(16).padStart(2, '0')).join('')}`;
+    const preamble =
+      `--${boundary}\r\n` +
+      `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+      `${JSON.stringify(metadata)}\r\n` +
+      `--${boundary}\r\n` +
+      `Content-Type: ${mimeType}\r\n\r\n`;
+    const epilogue = `\r\n--${boundary}--`;
+    const multipartBody = new Blob([preamble, params.binaryPayload, epilogue]);
+
+    const targetUrl = params.existingFileId
+      ? `${GOOGLE_DRIVE_UPLOAD_BASE}/files/${encodeURIComponent(params.existingFileId)}?uploadType=multipart&fields=${encodeURIComponent('id,name,mimeType,parents,appProperties,modifiedTime,size')}`
+      : `${GOOGLE_DRIVE_UPLOAD_BASE}/files?uploadType=multipart&fields=${encodeURIComponent('id,name,mimeType,parents,appProperties,modifiedTime,size')}`;
+
+    const res = await this.requestWithRetry(
+      targetUrl,
+      {
+        method: params.existingFileId ? 'PATCH' : 'POST',
+        headers: {
+          'Content-Type': `multipart/related; boundary=${boundary}`,
+        },
+        body: multipartBody,
+      },
+      params.accessToken,
+    );
+    return (await res.json()) as DriveFileMetadata;
+  }
+
   async upsertJsonFile(params: {
     accessToken: string;
     folderId: string;

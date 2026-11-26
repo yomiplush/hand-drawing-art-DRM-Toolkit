@@ -19,6 +19,12 @@ import type { LicenseId } from '../../core/manifest/types';
 import { useDeckNavigation } from '../../hooks/useDeckNavigation';
 import { useI18n } from '../../i18n/context';
 import {
+  buildEncryptedVaultChunks,
+  openEncryptedVaultSession,
+  packChunksToVaultBlob,
+} from '../../services/galleryCrypto';
+import type { VaultBuildInputItem } from '../../services/galleryCrypto';
+import {
   FileSystemGalleryAdapter,
   GoogleDriveGalleryAdapter,
   IndexedDbGalleryAdapter,
@@ -426,6 +432,130 @@ export function GalleryDeckPage() {
       gdrive: { tier: 'gdrive', state: 'disconnected', lastSyncedAt: null },
     }));
     showToast(isJa ? 'Google Drive の同期設定を削除しました' : 'Google Drive sync settings removed');
+  };
+
+  const handleUploadEncryptedDrive = async (passphrase: string) => {
+    const active = catalog.items.filter((i) => !i.deleted);
+    const inputs: VaultBuildInputItem[] = [];
+    for (const item of active) {
+      if (!item.blobRef) continue;
+      const stored = await idbAdapterRef.current.loadBlob(item.blobRef);
+      if (!stored) continue;
+      inputs.push({
+        item,
+        fullBytes: stored.bytes,
+        fullMimeType: stored.mimeType || item.mimeType || 'image/png',
+      });
+    }
+    if (inputs.length === 0) {
+      throw new Error(
+        isJa
+          ? '暗号化して保存できるイラスト画像がローカルにありません。'
+          : 'No local artwork images found to encrypt and upload.',
+      );
+    }
+    const built = await buildEncryptedVaultChunks({
+      vaultName: 'GalleryDeck Drive Sync',
+      items: inputs,
+      passphrase,
+    });
+    const bundleBlob = packChunksToVaultBlob(built.chunks);
+    await gdriveAdapterRef.current.saveEncryptedBundle(bundleBlob);
+    setTierStatuses((prev) => ({
+      ...prev,
+      gdrive: { tier: 'gdrive', state: 'synced', lastSyncedAt: Date.now() },
+    }));
+    showToast(
+      isJa
+        ? `${inputs.length}件の作品を暗号化して Google Drive に保存しました`
+        : `Encrypted and saved ${inputs.length} artwork(s) to Google Drive`,
+    );
+  };
+
+  const handleRestoreEncryptedDrive = async (passphrase: string) => {
+    const bundleBlob = await gdriveAdapterRef.current.loadEncryptedBundle();
+    if (!bundleBlob) {
+      throw new Error(
+        isJa
+          ? 'Google Drive に暗号化データが見つかりませんでした。先に暗号化して保存してください。'
+          : 'No encrypted bundle found on Google Drive. Encrypt and save first.',
+      );
+    }
+    const bundleFile = new File([bundleBlob], 'gallerydeck-encrypted-bundle.gdvault', {
+      type: 'application/octet-stream',
+    });
+    const session = await openEncryptedVaultSession({
+      files: [bundleFile],
+      passphrase,
+    });
+    try {
+      const restoredItems: GalleryArtworkItem[] = [];
+      for (const entry of session.manifest.items) {
+        const full = await session.decryptFullImage(entry.id);
+        const fullRes = await fetch(full.blobUrl);
+        const fullBytes = new Uint8Array(await fullRes.arrayBuffer());
+        const blobRef = `blob:${entry.id}`;
+        await idbAdapterRef.current.saveBlob(blobRef, fullBytes, full.mimeType);
+        const thumbUrl = session.thumbnailUrls[entry.id] ?? '';
+        let thumbDataUrl = '';
+        if (thumbUrl) {
+          const thumbRes = await fetch(thumbUrl);
+          const thumbBlob = await thumbRes.blob();
+          thumbDataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+            reader.onerror = () => resolve('');
+            reader.readAsDataURL(thumbBlob);
+          });
+        }
+        const existing = catalog.items.find((i) => i.id === entry.id);
+        restoredItems.push({
+          id: entry.id,
+          title: entry.title,
+          authorName: entry.authorName,
+          createdAt: entry.createdAt,
+          importedAt: existing?.importedAt ?? entry.createdAt,
+          updatedAt: Date.now(),
+          width: entry.width,
+          height: entry.height,
+          mimeType: full.mimeType,
+          fileSizeBytes: fullBytes.byteLength,
+          thumbnailDataUrl: thumbDataUrl,
+          blobRef,
+          provenanceStatus: entry.provenanceStatus ?? existing?.provenanceStatus ?? 'unverified',
+          qrMode: existing?.qrMode ?? 'none',
+          publicKeyFingerprint: entry.publicKeyFingerprint ?? existing?.publicKeyFingerprint,
+          artworkSha256Hex: existing?.artworkSha256Hex,
+          licenseId: entry.licenseId ?? existing?.licenseId,
+          tags: entry.tags,
+          collections: entry.collections,
+          proofToken: existing?.proofToken,
+          proofUrl: existing?.proofUrl,
+        });
+      }
+      const byId = new Map(catalog.items.map((item) => [item.id, item]));
+      for (const item of restoredItems) {
+        byId.set(item.id, item);
+      }
+      const nextCatalog: GalleryDeckCatalog = {
+        ...catalog,
+        updatedAt: Date.now(),
+        items: Array.from(byId.values()).sort((a, b) => b.importedAt - a.importedAt),
+      };
+      await persistCatalog(nextCatalog);
+      setFocusedIndex(0);
+      setTierStatuses((prev) => ({
+        ...prev,
+        gdrive: { tier: 'gdrive', state: 'synced', lastSyncedAt: Date.now() },
+      }));
+      showToast(
+        isJa
+          ? `Google Drive から ${restoredItems.length}件の作品を復号して復元しました`
+          : `Decrypted and restored ${restoredItems.length} artwork(s) from Google Drive`,
+      );
+    } finally {
+      session.dispose();
+    }
   };
 
   const handleExportArchive = async () => {
@@ -924,6 +1054,8 @@ export function GalleryDeckPage() {
         syncing={syncing}
         onClose={() => setSyncModalOpen(false)}
         onConnectDrive={handleConnectDrive}
+        onUploadEncryptedDrive={handleUploadEncryptedDrive}
+        onRestoreEncryptedDrive={handleRestoreEncryptedDrive}
         onResetDriveSync={handleResetDriveSync}
         onSyncNow={() => handleSyncAll()}
         onExportArchive={handleExportArchive}
