@@ -19,7 +19,9 @@ import {
   Upload,
 } from 'lucide-react';
 import { HelpTip } from '../components/HelpTip';
+import { useAppPreferences } from '../components/PreferencesContext';
 import { QrMatrixSvg } from '../components/QrMatrixSvg';
+import { SimpleKeysCard } from '../components/SimpleKeysCard';
 import { AdvancedSettings } from '../components/ui/AdvancedSettings';
 import { FriendlyErrorAlert } from '../components/ui/FriendlyErrorAlert';
 import { HelpIconButton } from '../components/ui/HelpIconButton';
@@ -76,6 +78,18 @@ function downloadJsonFile(data: unknown, filename: string) {
 }
 
 export function KeysPage() {
+  const { isAdvanced } = useAppPreferences();
+  if (!isAdvanced) {
+    return (
+      <div className="py-6 sm:py-10">
+        <SimpleKeysCard showContinueToDeck />
+      </div>
+    );
+  }
+  return <AdvancedKeysPage />;
+}
+
+function AdvancedKeysPage() {
   const { t } = useI18n();
   const restoreFileInputId = useId();
   const noticeImportFileId = useId();

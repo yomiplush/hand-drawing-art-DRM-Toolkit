@@ -16,6 +16,7 @@ export type GallerySyncState = 'idle' | 'syncing' | 'synced' | 'error' | 'discon
 export interface GalleryArtworkItem {
   id: string;
   title: string;
+  description?: string;
   authorName?: string;
   createdAt: number;
   importedAt: number;

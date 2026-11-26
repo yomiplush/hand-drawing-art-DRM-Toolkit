@@ -926,6 +926,11 @@ export function GalleryDeckPage() {
                           {focusedItem.title}
                         </h2>
                       )}
+                      {focusedItem.description && (
+                        <p className="text-xs ga-text-secondary mt-1 line-clamp-2 leading-relaxed">
+                          {focusedItem.description}
+                        </p>
+                      )}
                       <p className="text-xs ga-text-muted mt-1 font-mono">
                         {focusedItem.width} × {focusedItem.height} px · {focusedItem.licenseId ?? '—'}
                       </p>

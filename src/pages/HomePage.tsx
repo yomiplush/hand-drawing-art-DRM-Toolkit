@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { HelpTip } from '../components/HelpTip';
 import { useAppPreferences } from '../components/PreferencesContext';
+import { SimpleKeysCard } from '../components/SimpleKeysCard';
 import { listAuthorKeys, listTrustedKeys } from '../core/storage/keyStore';
 import type { AuthorKeyRecord, TrustedKeyRecord } from '../core/storage/keyStore';
 import { useI18n } from '../i18n/context';
@@ -25,24 +26,37 @@ export function HomePage() {
   const { t } = useI18n();
   const { isAdvanced } = useAppPreferences();
   const [authorKeys, setAuthorKeys] = useState<AuthorKeyRecord[]>([]);
+  const [keysLoaded, setKeysLoaded] = useState(false);
   const [trustedKeys, setTrustedKeys] = useState<TrustedKeyRecord[]>([]);
 
   useEffect(() => {
-    if (!isAdvanced) return;
     let active = true;
     void Promise.all([listAuthorKeys(), listTrustedKeys()])
       .then(([ak, tk]) => {
         if (!active) return;
         setAuthorKeys(ak);
         setTrustedKeys(tk);
+        setKeysLoaded(true);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (active) setKeysLoaded(true);
+      });
     return () => {
       active = false;
     };
   }, [isAdvanced]);
 
   if (!isAdvanced) {
+    if (keysLoaded && authorKeys.length === 0) {
+      return (
+        <div data-testid="home-first-key-onboarding" className="min-w-0 w-full py-6 sm:py-10">
+          <SimpleKeysCard
+            showContinueToDeck={false}
+            onKeyReady={(record) => setAuthorKeys([record])}
+          />
+        </div>
+      );
+    }
     return (
       <div data-testid="home-minimal-page" className="min-w-0 w-full">
         <GalleryDeckPage />

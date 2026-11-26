@@ -218,18 +218,18 @@ export async function certifyArtworkInDeck(params: {
           snsLinks,
           qrOptions: (() => {
             const defaultBoxSize = Math.max(
-              96,
-              Math.min(200, Math.round(Math.min(raster.width, raster.height) * 0.16)),
+              240,
+              Math.min(420, Math.round(Math.min(raster.width, raster.height) * 0.28)),
             );
             const boxSize = inImagePlacement?.boxSize ?? defaultBoxSize;
             return {
               x: inImagePlacement?.x ?? Math.max(12, raster.width - boxSize - 16),
               y: inImagePlacement?.y ?? Math.max(12, raster.height - boxSize - 16),
               boxSize,
-              opacity: inImagePlacement?.opacity ?? 0.85,
+              opacity: inImagePlacement?.opacity ?? 1,
               style: 'frosted-light' as const,
-              eccLevel: 'M' as const,
-              quietZoneModules: 2,
+              eccLevel: 'L' as const,
+              quietZoneModules: 4,
             };
           })(),
         });
@@ -246,6 +246,7 @@ export async function certifyArtworkInDeck(params: {
   return {
     ...item,
     title: resolvedTitle ?? item.title,
+    description: description ?? item.description,
     authorName: authorName || item.authorName || authorKey.label,
     updatedAt: now,
     width: signed.raster.width,

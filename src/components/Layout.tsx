@@ -85,10 +85,10 @@ export function Layout({
     }`;
 
   const cockpitNavItems = [
+    { to: '/keys', label: t.minimal.nav.myKeysItem, icon: KeyRound, testId: 'cockpit-keys-link' },
+    { to: '/gallerydeck', label: t.galleryDeck.navItem, icon: Gamepad2, testId: 'cockpit-gallerydeck-link' },
     { to: '/create', label: t.minimal.nav.createShort, icon: FileSignature, testId: 'cockpit-create-link' },
     { to: '/verify', label: t.minimal.nav.verifyShort, icon: ShieldCheck, testId: 'cockpit-verify-link' },
-    { to: '/gallerydeck', label: t.galleryDeck.navItem, icon: Gamepad2, testId: 'cockpit-gallerydeck-link' },
-    { to: '/keys', label: t.minimal.nav.myKeysItem, icon: KeyRound, testId: 'cockpit-keys-link' },
     { to: '/exchange', label: t.minimal.nav.keyExchangeItem, icon: Share2, testId: 'cockpit-exchange-link' },
     { to: '/storage', label: t.nextGen.navStorage, icon: Cloud, testId: 'cockpit-storage-link' },
     { to: '/vault', label: t.vault.navItem, icon: Archive, testId: 'cockpit-vault-link' },
