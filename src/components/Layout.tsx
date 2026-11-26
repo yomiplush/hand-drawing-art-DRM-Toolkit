@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Smartphone,
   WifiOff,
+  X,
 } from 'lucide-react';
 import { listAuthorKeys } from '../core/storage/keyStore';
 import type { AuthorKeyRecord } from '../core/storage/keyStore';
@@ -49,6 +50,7 @@ export function Layout({
     typeof navigator !== 'undefined' ? navigator.onLine : true,
   );
   const [authorKeys, setAuthorKeys] = useState<AuthorKeyRecord[]>([]);
+  const [changelogOpen, setChangelogOpen] = useState(false);
 
   const refreshKeysStatus = useCallback(() => {
     void listAuthorKeys()
@@ -343,6 +345,14 @@ export function Layout({
             >
               {t.nav.cookieSettings}
             </button>
+            <button
+              type="button"
+              onClick={() => setChangelogOpen(true)}
+              data-testid="footer-changelog-btn"
+              className="hover:text-[var(--ga-text)] transition-colors cursor-pointer py-1 shrink-0"
+            >
+              {locale === 'ja' ? '更新履歴' : 'Changelog'}
+            </button>
             <a
               href={GITHUB_REPO_URL}
               target="_blank"
@@ -364,6 +374,97 @@ export function Layout({
           </nav>
         </div>
       </footer>
+
+      {changelogOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={locale === 'ja' ? '更新履歴' : 'Changelog'}
+          data-testid="changelog-modal"
+          onClick={() => setChangelogOpen(false)}
+          className="fixed inset-0 z-[75] flex items-center justify-center bg-[#041226]/82 backdrop-blur-md p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg max-h-[82vh] overflow-y-auto rounded-2xl border border-sky-400/35 bg-gradient-to-b from-[#071c38]/95 to-[#041328]/98 text-sky-50 shadow-[0_24px_80px_rgba(3,18,42,0.75)] p-5 sm:p-6 space-y-4"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-base font-bold text-white">
+                {locale === 'ja' ? '更新履歴' : 'Changelog'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setChangelogOpen(false)}
+                aria-label={locale === 'ja' ? '閉じる' : 'Close'}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-900/60 hover:bg-sky-800/80 text-sky-100 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs leading-relaxed">
+              <div className="rounded-xl border border-sky-400/25 bg-sky-950/30 p-3.5 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-semibold text-sky-300">v1.2.0</span>
+                  <span className="text-[11px] text-sky-200/60">2026-11-26</span>
+                </div>
+                <ul className="list-disc pl-4 space-y-1 text-sky-100/90">
+                  {locale === 'ja' ? (
+                    <>
+                      <li>シンプル版マイ鍵管理（初回起動時のマイ鍵ファースト導線）を追加</li>
+                      <li>GalleryDeck に作品情報入力＋QR位置プレビュー調整の別レイヤーポップアップ（#create）を追加</li>
+                      <li>スマホカメラで確実に読めるよう QR 焼き込み品質（不透明度100%・4モジュール余白・高視認サイズ）を改善</li>
+                      <li>GalleryDeck サムネイルクリックでフェード全画面表示＆タイトル下に作品説明を表示</li>
+                      <li>Google Drive へ全イラスト＋証明を一括 AES-256-GCM 暗号化保存・復号復元機能を追加</li>
+                      <li>ナビゲーションに「オフライン版 (/offline)」ページを追加</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>Added ultra-minimal Simple Mode key creation & first-run onboarding</li>
+                      <li>Added separate-layer #create modal with artwork metadata & interactive QR placement preview</li>
+                      <li>Improved burned QR readability for smartphone cameras (100% opacity, 4-module quiet zone, larger size)</li>
+                      <li>Added fade-in/out fullscreen lightbox & artwork description display in GalleryDeck</li>
+                      <li>Added end-to-end AES-256-GCM encrypted full backup & restore with Google Drive</li>
+                      <li>Added dedicated Offline Edition (/offline) download page</li>
+                    </>
+                  )}
+                </ul>
+              </div>
+
+              <div className="rounded-xl border border-sky-400/15 bg-sky-950/20 p-3.5 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-semibold text-sky-300/80">v1.1.0</span>
+                  <span className="text-[11px] text-sky-200/50">2026-11</span>
+                </div>
+                <ul className="list-disc pl-4 space-y-1 text-sky-100/80">
+                  {locale === 'ja' ? (
+                    <>
+                      <li>GalleryDeck 導入・アジュールウェーブテーマ実装</li>
+                      <li>Protocol v3 コンパクト QR 証明＆オフラインスタンドアロン版リリース</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>Introduced GalleryDeck & Azure Wave theme</li>
+                      <li>Released Protocol v3 compact QR proofs & Standalone Offline Edition</li>
+                    </>
+                  )}
+                </ul>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-sky-400/20 flex justify-end">
+              <a
+                href={`${GITHUB_REPO_URL}/releases`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-sky-300 hover:text-sky-200 hover:underline"
+              >
+                {locale === 'ja' ? 'GitHub Releases で全履歴を見る →' : 'View all releases on GitHub →'}
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
