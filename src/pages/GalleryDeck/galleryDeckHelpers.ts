@@ -146,8 +146,21 @@ export async function certifyArtworkInDeck(params: {
   licenseId?: LicenseId;
   authorName?: string;
   qrMode?: 'in-image' | 'outer-border';
+  inImagePlacement?: {
+    x: number;
+    y: number;
+    boxSize: number;
+    opacity: number;
+  };
 }): Promise<GalleryArtworkItem> {
-  const { item, idbAdapter, licenseId = 'ARR', authorName, qrMode = 'in-image' } = params;
+  const {
+    item,
+    idbAdapter,
+    licenseId = 'ARR',
+    authorName,
+    qrMode = 'in-image',
+    inImagePlacement,
+  } = params;
   const blobKey = item.blobRef ?? `blob:${item.id}`;
   const storedBlob = await idbAdapter.loadBlob(blobKey);
   if (!storedBlob) {
@@ -188,15 +201,16 @@ export async function certifyArtworkInDeck(params: {
           authorName: authorName || item.authorName || authorKey.label,
           artworkTitle: item.title || undefined,
           qrOptions: (() => {
-            const boxSize = Math.max(
+            const defaultBoxSize = Math.max(
               96,
               Math.min(200, Math.round(Math.min(raster.width, raster.height) * 0.16)),
             );
+            const boxSize = inImagePlacement?.boxSize ?? defaultBoxSize;
             return {
-              x: Math.max(12, raster.width - boxSize - 16),
-              y: Math.max(12, raster.height - boxSize - 16),
+              x: inImagePlacement?.x ?? Math.max(12, raster.width - boxSize - 16),
+              y: inImagePlacement?.y ?? Math.max(12, raster.height - boxSize - 16),
               boxSize,
-              opacity: 0.85,
+              opacity: inImagePlacement?.opacity ?? 0.85,
               style: 'frosted-light' as const,
               eccLevel: 'M' as const,
               quietZoneModules: 2,

@@ -38,6 +38,8 @@ import type {
   SyncTierStatus,
 } from '../../types/gallerydeck';
 import { ArtworkDetailDrawer } from './ArtworkDetailDrawer';
+import { InImageQrPlacementModal } from './InImageQrPlacementModal';
+import type { InImageQrPlacementSelection } from './InImageQrPlacementModal';
 import {
   certifyArtworkInDeck,
   importArtworkFileToDeck,
@@ -71,6 +73,10 @@ export function GalleryDeckPage() {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [pendingQrPlacement, setPendingQrPlacement] = useState<{
+    item: GalleryArtworkItem;
+    licenseId: LicenseId;
+  } | null>(null);
   const [vaultModalOpen, setVaultModalOpen] = useState(false);
   const [driveRiskModalOpen, setDriveRiskModalOpen] = useState(false);
   const [driveRiskConsentAccepted, setDriveRiskConsentAccepted] = useState(false);
@@ -249,10 +255,11 @@ export function GalleryDeckPage() {
     }
   };
 
-  const handleCertify = async (
+  const executeCertify = async (
     item: GalleryArtworkItem,
     licenseId: LicenseId,
-    qrMode: 'in-image' | 'outer-border' = 'in-image',
+    qrMode: 'in-image' | 'outer-border',
+    inImagePlacement?: InImageQrPlacementSelection,
   ) => {
     setBusyAction('certify');
     try {
@@ -261,6 +268,7 @@ export function GalleryDeckPage() {
         idbAdapter: idbAdapterRef.current,
         licenseId,
         qrMode,
+        inImagePlacement,
       });
       const nextCatalog: GalleryDeckCatalog = {
         ...catalog,
@@ -268,12 +276,25 @@ export function GalleryDeckPage() {
         items: catalog.items.map((i) => (i.id === updated.id ? updated : i)),
       };
       await persistCatalog(nextCatalog);
+      setPendingQrPlacement(null);
       showToast(gd.toastCertified);
     } catch (err) {
       showToast(err instanceof Error ? err.message : gd.toastCertifyFailed);
     } finally {
       setBusyAction(null);
     }
+  };
+
+  const handleCertify = async (
+    item: GalleryArtworkItem,
+    licenseId: LicenseId,
+    qrMode: 'in-image' | 'outer-border' = 'in-image',
+  ) => {
+    if (qrMode === 'in-image') {
+      setPendingQrPlacement({ item, licenseId });
+      return;
+    }
+    await executeCertify(item, licenseId, 'outer-border');
   };
 
   const handleVerify = async (item: GalleryArtworkItem) => {
@@ -914,6 +935,23 @@ export function GalleryDeckPage() {
         open={driveRiskModalOpen}
         onCancel={() => setDriveRiskModalOpen(false)}
         onConfirmConsent={handleConfirmDriveRiskConsent}
+      />
+
+      {/* Separate-Layer Interactive In-Image QR Placement Preview Modal */}
+      <InImageQrPlacementModal
+        open={pendingQrPlacement !== null}
+        item={pendingQrPlacement?.item ?? null}
+        busy={busyAction === 'certify'}
+        onCancel={() => setPendingQrPlacement(null)}
+        onConfirm={async (placement) => {
+          if (!pendingQrPlacement) return;
+          await executeCertify(
+            pendingQrPlacement.item,
+            pendingQrPlacement.licenseId,
+            'in-image',
+            placement,
+          );
+        }}
       />
     </section>
   );
