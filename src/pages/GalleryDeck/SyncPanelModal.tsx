@@ -13,6 +13,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
+import { useAppPreferences } from '../../components/PreferencesContext';
 import { useI18n } from '../../i18n/context';
 import type { SyncTierStatus } from '../../types/gallerydeck';
 
@@ -48,6 +49,7 @@ export function SyncPanelModal({
   onImportArchive,
 }: SyncPanelModalProps) {
   const { t, locale } = useI18n();
+  const { isAdvanced } = useAppPreferences();
   const gd = t.galleryDeck;
   const isJa = locale === 'ja';
   const archiveInputRef = useRef<HTMLInputElement | null>(null);
@@ -340,50 +342,52 @@ export function SyncPanelModal({
             )}
           </div>
 
-          {/* Portable .chdeck Archive Fallback */}
-          <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 space-y-3">
-            <div className="flex items-center gap-3">
-              <HardDrive className="h-5 w-5 text-amber-400 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-white">{gd.archiveTitle}</p>
-                <p className="text-xs text-slate-400">{gd.archiveDesc}</p>
+          {/* Portable .chdeck Archive Fallback (Advanced Mode only) */}
+          {isAdvanced && (
+            <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 space-y-3">
+              <div className="flex items-center gap-3">
+                <HardDrive className="h-5 w-5 text-amber-400 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-white">{gd.archiveTitle}</p>
+                  <p className="text-xs text-slate-400">{gd.archiveDesc}</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void onExportArchive()}
+                  data-testid="gallerydeck-export-archive-btn"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 px-3 py-2 text-xs font-medium text-cyan-200 cursor-pointer"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {gd.exportArchive}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => archiveInputRef.current?.click()}
+                  data-testid="gallerydeck-import-archive-btn"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 px-3 py-2 text-xs font-medium text-slate-100 cursor-pointer"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  {gd.importArchive}
+                </button>
+                <input
+                  ref={archiveInputRef}
+                  type="file"
+                  accept=".chdeck,.json,application/json"
+                  data-testid="gallerydeck-archive-file-input"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      void onImportArchive(file);
+                      e.target.value = '';
+                    }
+                  }}
+                />
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void onExportArchive()}
-                data-testid="gallerydeck-export-archive-btn"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 px-3 py-2 text-xs font-medium text-cyan-200 cursor-pointer"
-              >
-                <Download className="h-3.5 w-3.5" />
-                {gd.exportArchive}
-              </button>
-              <button
-                type="button"
-                onClick={() => archiveInputRef.current?.click()}
-                data-testid="gallerydeck-import-archive-btn"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 px-3 py-2 text-xs font-medium text-slate-100 cursor-pointer"
-              >
-                <Upload className="h-3.5 w-3.5" />
-                {gd.importArchive}
-              </button>
-              <input
-                ref={archiveInputRef}
-                type="file"
-                accept=".chdeck,.json,application/json"
-                data-testid="gallerydeck-archive-file-input"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    void onImportArchive(file);
-                    e.target.value = '';
-                  }
-                }}
-              />
-            </div>
-          </div>
+          )}
         </div>
 
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
