@@ -109,6 +109,11 @@ export interface GalleryDeckTranslations {
   vaultDecrypting: string;
   vaultDecryptFailed: string;
   vaultLockAndClear: string;
+  vaultSaveLocalBrowser: string;
+  vaultSavedLocallySuccess: string;
+  vaultSavedListTitle: string;
+  vaultSavedEmpty: string;
+  vaultLoadFromLocal: string;
 }
 
 const en: GalleryDeckTranslations = {
@@ -221,6 +226,11 @@ const en: GalleryDeckTranslations = {
   vaultDecrypting: 'Decrypting…',
   vaultDecryptFailed: 'Decryption failed. Check your passphrase or files.',
   vaultLockAndClear: 'Lock & Clear Memory',
+  vaultSaveLocalBrowser: 'Save Encrypted Locally (Device)',
+  vaultSavedLocallySuccess: 'Encrypted vault saved locally on this device!',
+  vaultSavedListTitle: 'Saved Encrypted Vaults on This Device',
+  vaultSavedEmpty: 'No encrypted vaults saved on this device yet.',
+  vaultLoadFromLocal: 'Select',
 };
 
 const ja: GalleryDeckTranslations = {
@@ -324,6 +334,11 @@ const ja: GalleryDeckTranslations = {
   vaultDecrypting: '復号中…',
   vaultDecryptFailed: '復号に失敗しました。パスワードまたはファイルを確認してください。',
   vaultLockAndClear: 'ロックしてメモリ解放',
+  vaultSaveLocalBrowser: '端末内に暗号化保存（ローカル）',
+  vaultSavedLocallySuccess: '暗号化ボールトを端末内にローカル保存しました',
+  vaultSavedListTitle: '端末内に保存済みの暗号化ボールト',
+  vaultSavedEmpty: '端末内に保存された暗号化ボールトはまだありません。',
+  vaultLoadFromLocal: '選択',
 };
 
 export const GALLERY_DECK_I18N: Record<Locale, GalleryDeckTranslations> = {

@@ -115,34 +115,28 @@ export function Layout({
                 viewBox="0 0 64 64"
                 fill="none"
                 aria-hidden="true"
-                className="h-7 w-7 rounded-lg opacity-95 shrink-0"
+                className="h-7 w-7 rounded-md shrink-0"
               >
-                <defs>
-                  <linearGradient id="chm-hdr-bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor="#0b1f3a" />
-                    <stop offset="100%" stopColor="#06111e" />
-                  </linearGradient>
-                  <linearGradient id="chm-hdr-cyan" x1="12" y1="8" x2="52" y2="56" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor="#38bdf8" />
-                    <stop offset="100%" stopColor="#06b6d4" />
-                  </linearGradient>
-                </defs>
-                <rect width="64" height="64" rx="14" fill="url(#chm-hdr-bg)" />
-                <path
-                  d="M32 9L50 16.5V30.5C50 42.4 42.3 52 32 55.5C21.7 52 14 42.4 14 30.5V16.5L32 9Z"
-                  stroke="url(#chm-hdr-cyan)"
-                  strokeWidth="3"
-                  fill="#0d2847"
+                <rect x="4" y="4" width="56" height="56" rx="10" fill="var(--ga-accent)" />
+                <rect
+                  x="10"
+                  y="10"
+                  width="44"
+                  height="44"
+                  rx="6"
+                  stroke="#FAF9F6"
+                  strokeWidth="2.5"
+                  strokeOpacity="0.85"
                 />
                 <path
-                  d="M24 38L27.2 26.5L38.5 18.5L43.5 23.5L35.5 34.8L24 38Z"
-                  stroke="#e0f2fe"
-                  strokeWidth="2.4"
+                  d="M21 41L25.5 27.5L39 18L44.5 23.5L35 37L21 41Z"
+                  stroke="#FAF9F6"
+                  strokeWidth="2.8"
                   strokeLinejoin="round"
-                  fill="#0ea5e9"
-                  fillOpacity="0.25"
+                  fill="#FAF9F6"
+                  fillOpacity="0.18"
                 />
-                <circle cx="34.5" cy="27.5" r="2.2" fill="#38bdf8" />
+                <circle cx="34.5" cy="27.5" r="2.2" fill="#FAF9F6" />
               </svg>
               <span className="hidden sm:inline text-base ga-text tracking-tight truncate">
                 {t.appName}

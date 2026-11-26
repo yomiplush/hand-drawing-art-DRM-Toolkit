@@ -29,3 +29,13 @@ export {
   downloadOfflineViewerHtml,
   generateOfflineViewerHtml,
 } from './offlineViewerGenerator';
+export {
+  deleteLocalEncryptedVault,
+  listLocalEncryptedVaults,
+  loadLocalEncryptedVaultFile,
+  saveLocalEncryptedVault,
+} from './localVaultStore';
+export type {
+  LocalEncryptedVaultMeta,
+  LocalEncryptedVaultRecord,
+} from './localVaultStore';

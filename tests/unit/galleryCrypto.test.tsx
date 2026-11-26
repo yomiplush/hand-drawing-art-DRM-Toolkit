@@ -7,11 +7,15 @@ import {
   OFFLINE_VIEWER_CSP,
   buildEncryptedVaultChunks,
   decryptBytes,
+  deleteLocalEncryptedVault,
   encryptBytes,
   generateOfflineViewerHtml,
+  listLocalEncryptedVaults,
+  loadLocalEncryptedVaultFile,
   openEncryptedVaultSession,
   packChunksToVaultBlob,
   readVaultContainerIndex,
+  saveLocalEncryptedVault,
 } from '../../src/services/galleryCrypto';
 import type { GalleryArtworkItem } from '../../src/types/gallerydeck';
 
@@ -124,6 +128,36 @@ describe('Zero-Knowledge GalleryCrypto Engine', () => {
     expect(html).toContain('URL.revokeObjectURL');
     expect(html).toContain('crypto.subtle.deriveKey');
     expect(html).not.toMatch(/https?:\/\//i);
+  });
+
+  it('saves, lists, loads, and deletes encrypted vaults locally without plaintext', async () => {
+    const item = makeSampleItem('local-001');
+    const fullBytes = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
+    const { chunks } = await buildEncryptedVaultChunks({
+      vaultName: 'My Local Vault',
+      items: [{ item, fullBytes, fullMimeType: 'image/png' }],
+      passphrase: 'local-secret-password',
+      iterations: MIN_PBKDF2_ITERATIONS,
+    });
+    const vaultBlob = packChunksToVaultBlob(chunks);
+
+    const meta = await saveLocalEncryptedVault({
+      vaultName: 'My Local Vault',
+      itemCount: 1,
+      vaultBlob,
+    });
+    expect(meta.vaultName).toBe('My Local Vault');
+
+    const listed = await listLocalEncryptedVaults();
+    expect(listed.some((v) => v.id === meta.id)).toBe(true);
+
+    const loadedFile = await loadLocalEncryptedVaultFile(meta.id);
+    expect(loadedFile).not.toBeNull();
+    expect(loadedFile!.name).toBe('My-Local-Vault.gdvault');
+
+    await deleteLocalEncryptedVault(meta.id);
+    const afterDelete = await loadLocalEncryptedVaultFile(meta.id);
+    expect(afterDelete).toBeNull();
   });
 });
 

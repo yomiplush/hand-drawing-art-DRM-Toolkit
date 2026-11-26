@@ -3,8 +3,10 @@ import {
   Download,
   FileCode2,
   FolderOpen,
+  HardDrive,
   Lock,
   ShieldCheck,
+  Trash2,
   Unlock,
   Upload,
   X,
@@ -12,16 +14,24 @@ import {
 import { useI18n } from '../../i18n/context';
 import {
   buildEncryptedVaultChunks,
+  deleteLocalEncryptedVault,
   downloadOfflineViewerHtml,
+  generateOfflineViewerHtml,
+  listLocalEncryptedVaults,
+  loadLocalEncryptedVaultFile,
   openEncryptedVaultSession,
   packChunksToVaultBlob,
+  saveLocalEncryptedVault,
 } from '../../services/galleryCrypto';
-import type { VaultBuildInputItem } from '../../services/galleryCrypto';
+import type { LocalEncryptedVaultMeta, VaultBuildInputItem } from '../../services/galleryCrypto';
 import { isFileSystemAccessSupported } from '../../services/galleryStorage';
 import type { IndexedDbGalleryAdapter } from '../../services/galleryStorage';
 import type { DirectoryPickerWindow } from '../../services/galleryStorage/fileSystemAdapter';
 import type { DecryptedVaultSession, GalleryArtworkItem } from '../../types/gallerydeck';
-import { GALLERY_DECK_VAULT_EXTENSION } from '../../types/gallerydeck';
+import {
+  GALLERY_DECK_OFFLINE_VIEWER_FILENAME,
+  GALLERY_DECK_VAULT_EXTENSION,
+} from '../../types/gallerydeck';
 
 interface EncryptedVaultModalProps {
   open: boolean;
@@ -62,8 +72,18 @@ export function EncryptedVaultModal({
   const [viewingTitle, setViewingTitle] = useState<string>('');
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
   const [viewingLoading, setViewingLoading] = useState(false);
+  const [savedLocalVaults, setSavedLocalVaults] = useState<LocalEncryptedVaultMeta[]>([]);
 
   const multiFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const refreshSavedVaults = async () => {
+    try {
+      const list = await listLocalEncryptedVaults();
+      setSavedLocalVaults(list);
+    } catch {
+      // ignore storage read error
+    }
+  };
 
   const releaseViewingImage = () => {
     if (viewingUrl) {
@@ -85,9 +105,11 @@ export function EncryptedVaultModal({
     setDecryptError(null);
   };
 
-  // Cleanup ObjectURLs on unmount or modal close
+  // Cleanup ObjectURLs on unmount or modal close, and load saved local vaults when opened
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      void refreshSavedVaults();
+    } else {
       releaseViewingImage();
       if (session) {
         session.dispose();
@@ -149,6 +171,64 @@ export function EncryptedVaultModal({
     }
   };
 
+  const handleSaveLocalBrowserVault = async () => {
+    if (!exportPassphrase || exportPassphrase !== exportConfirm) return;
+    setExportBusy(true);
+    setExportProgress('0%');
+    try {
+      const inputs = await collectVaultInputs();
+      if (inputs.length === 0) {
+        onToast(gd.vaultNoLocalImages);
+        return;
+      }
+      const { chunks } = await buildEncryptedVaultChunks({
+        vaultName,
+        items: inputs,
+        passphrase: exportPassphrase,
+        onProgress: (done, total) => setExportProgress(`${Math.round((done / total) * 100)}%`),
+      });
+      const blob = packChunksToVaultBlob(chunks);
+      await saveLocalEncryptedVault({
+        vaultName,
+        itemCount: inputs.length,
+        vaultBlob: blob,
+      });
+      await refreshSavedVaults();
+      onToast(gd.vaultSavedLocallySuccess);
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : gd.vaultExportFailed);
+    } finally {
+      setExportBusy(false);
+      setExportProgress(null);
+    }
+  };
+
+  const handleSelectSavedVault = async (id: string) => {
+    setDecryptError(null);
+    const file = await loadLocalEncryptedVaultFile(id);
+    if (!file) {
+      setDecryptError(gd.vaultDecryptFailed);
+      return;
+    }
+    setSelectedFiles([file]);
+  };
+
+  const handleDownloadSavedVault = async (id: string) => {
+    const file = await loadLocalEncryptedVaultFile(id);
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const handleDeleteSavedVault = async (id: string) => {
+    await deleteLocalEncryptedVault(id);
+    await refreshSavedVaults();
+  };
+
   const handleExportChunkedFolder = async () => {
     if (!fsSupported || !exportPassphrase || exportPassphrase !== exportConfirm) return;
     setExportBusy(true);
@@ -173,6 +253,13 @@ export function EncryptedVaultModal({
         await writable.write(chunk.data.slice());
         await writable.close();
       }
+      // Also write the self-contained offline viewer HTML into the local folder
+      const htmlHandle = await dirHandle.getFileHandle(GALLERY_DECK_OFFLINE_VIEWER_FILENAME, {
+        create: true,
+      });
+      const htmlWritable = await htmlHandle.createWritable();
+      await htmlWritable.write(generateOfflineViewerHtml());
+      await htmlWritable.close();
       onToast(gd.vaultExportedSuccess);
     } catch (err) {
       if (!(err instanceof DOMException && err.name === 'AbortError')) {
@@ -380,6 +467,17 @@ export function EncryptedVaultModal({
                   {exportProgress ? `${gd.vaultEncrypting} (${exportProgress})` : gd.vaultExportSingleFile}
                 </button>
 
+                <button
+                  type="button"
+                  disabled={!canExport}
+                  onClick={() => void handleSaveLocalBrowserVault()}
+                  data-testid="vault-save-local-btn"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 disabled:opacity-40 border border-emerald-400/40 px-4 py-2 text-xs font-semibold text-emerald-200 cursor-pointer"
+                >
+                  <HardDrive className="h-3.5 w-3.5" />
+                  {gd.vaultSaveLocalBrowser}
+                </button>
+
                 {fsSupported && (
                   <button
                     type="button"
@@ -463,6 +561,58 @@ export function EncryptedVaultModal({
                 </div>
 
                 {decryptError && <p className="text-xs text-rose-400">{decryptError}</p>}
+
+                {/* Locally Saved Encrypted Vaults (IndexedDB) */}
+                <div className="pt-3 border-t border-slate-800 space-y-2">
+                  <p className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                    <HardDrive className="h-3.5 w-3.5 text-emerald-400" />
+                    {gd.vaultSavedListTitle}
+                  </p>
+                  {savedLocalVaults.length === 0 ? (
+                    <p className="text-xs text-slate-500">{gd.vaultSavedEmpty}</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {savedLocalVaults.map((v) => (
+                        <div
+                          key={v.id}
+                          className="flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2 text-xs"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-medium text-white truncate">{v.vaultName}</p>
+                            <p className="text-[11px] text-slate-400 font-mono">
+                              {v.itemCount} items · {(v.byteLength / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => void handleSelectSavedVault(v.id)}
+                              className="rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 px-2.5 py-1 text-xs font-medium text-cyan-200 cursor-pointer"
+                            >
+                              {gd.vaultLoadFromLocal}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleDownloadSavedVault(v.id)}
+                              aria-label={gd.vaultExportSingleFile}
+                              className="rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 p-1.5 text-slate-200 cursor-pointer"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteSavedVault(v.id)}
+                              aria-label={gd.actionDelete}
+                              className="rounded-lg bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/60 p-1.5 text-rose-300 cursor-pointer"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="space-y-3">

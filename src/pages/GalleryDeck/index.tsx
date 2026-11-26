@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Cloud,
   FolderOpen,
@@ -10,7 +11,9 @@ import {
   Search,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
+import { HelpTip } from '../../components/HelpTip';
 import { googleAuthManager } from '../../core/google/gisAuth';
 import type { LicenseId } from '../../core/manifest/types';
 import { useDeckNavigation } from '../../hooks/useDeckNavigation';
@@ -467,45 +470,40 @@ export function GalleryDeckPage() {
   return (
     <section
       data-testid="gallerydeck-page"
-      className="relative -mx-3 sm:-mx-6 -my-6 min-h-[calc(100vh-4rem)] overflow-hidden bg-slate-950 text-slate-100 flex flex-col justify-between"
+      onDragOver={(e) => {
+        e.preventDefault();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        if (e.dataTransfer?.files?.length) {
+          void handleImportFiles(e.dataTransfer.files);
+        }
+      }}
+      className="relative -mx-4 sm:-mx-6 -my-6 sm:-my-10 min-h-[calc(100vh-6rem)] overflow-hidden bg-[var(--ga-bg)] ga-text flex flex-col justify-between"
     >
-      {/* Original Atelier Ambient Backdrop */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 transition-all duration-700"
-        style={{
-          backgroundImage: focusedItem?.thumbnailDataUrl
-            ? `url(${focusedItem.thumbnailDataUrl})`
-            : 'radial-gradient(circle at 20% 20%, rgba(14,165,233,0.18), transparent 52%), radial-gradient(circle at 82% 78%, rgba(16,185,129,0.14), transparent 48%)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          filter: focusedItem?.thumbnailDataUrl ? 'blur(64px) saturate(1.2)' : undefined,
-          transform: 'scale(1.15)',
-          opacity: focusedItem?.thumbnailDataUrl ? 0.22 : 1,
-        }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#070d18]/90 via-[#0a1220]/75 to-[#060b14]/95"
-      />
-
-      {/* Minimal Header */}
-      <div className="relative z-10 mx-auto w-full max-w-6xl px-4 sm:px-6 pt-4 pb-2 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white">
+      {/* Minimal Gallery Header */}
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-4 sm:px-6 pt-5 pb-3 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight ga-text">
               {gd.title}
             </h1>
+            <HelpTip
+              label={t.simple.home.localOnlyTipLabel}
+              text={t.simple.home.localOnlyTipText}
+              testId="gallerydeck-help-tip-btn"
+              panelTestId="gallerydeck-help-tip-panel"
+            />
             {linkedDirName && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-800/90 border border-slate-700 px-2.5 py-0.5 text-[11px] font-mono text-cyan-300">
-                <FolderOpen className="h-3 w-3" />
+              <span className="inline-flex items-center gap-1 rounded-full border ga-border-strong ga-surface-subtle px-2.5 py-0.5 text-[11px] font-mono ga-text-secondary">
+                <FolderOpen className="h-3 w-3 ga-text-accent" />
                 {linkedDirName}
               </span>
             )}
             {gamepadConnected && (
               <span
                 title={gamepadName ?? undefined}
-                className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 border border-indigo-400/40 px-2 py-0.5 text-[11px] text-indigo-200"
+                className="inline-flex items-center gap-1 rounded-full border ga-border-strong ga-surface-subtle px-2 py-0.5 text-[11px] ga-text-secondary"
               >
                 <Gamepad2 className="h-3 w-3" />
               </span>
@@ -513,35 +511,49 @@ export function GalleryDeckPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void handleLinkDirectory()}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 px-3 py-2 text-xs font-medium text-slate-200 cursor-pointer"
-            >
-              <FolderOpen className="h-3.5 w-3.5 text-indigo-400" />
-              <span className="hidden sm:inline">{linkedDirName ? gd.changeFolder : gd.linkFolder}</span>
-            </button>
+            <div className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => void handleLinkDirectory()}
+                className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium cursor-pointer"
+              >
+                <FolderOpen className="h-3.5 w-3.5 ga-text-muted" />
+                <span className="hidden sm:inline">{linkedDirName ? gd.changeFolder : gd.linkFolder}</span>
+              </button>
+              <HelpTip
+                label={gd.tierLocalDirectory}
+                text={gd.tierLocalDirectoryDesc}
+                testId="gallerydeck-folder-tip-btn"
+              />
+            </div>
 
-            <button
-              type="button"
-              onClick={() => setVaultModalOpen(true)}
-              data-testid="gallerydeck-open-vault-btn"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 px-3 py-2 text-xs font-medium text-slate-200 cursor-pointer"
-            >
-              <Lock className="h-3.5 w-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">{gd.vaultButton}</span>
-            </button>
+            <div className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setVaultModalOpen(true)}
+                data-testid="gallerydeck-open-vault-btn"
+                className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium cursor-pointer"
+              >
+                <Lock className="h-3.5 w-3.5 ga-text-muted" />
+                <span className="hidden sm:inline">{gd.vaultButton}</span>
+              </button>
+              <HelpTip
+                label={gd.vaultModalTitle}
+                text={gd.vaultZeroKnowledgeNote}
+                testId="gallerydeck-vault-tip-btn"
+              />
+            </div>
 
             <button
               type="button"
               onClick={() => setSyncModalOpen(true)}
               data-testid="gallerydeck-open-sync-btn"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 px-3 py-2 text-xs font-medium text-slate-200 cursor-pointer"
+              className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium cursor-pointer"
             >
               {driveConnected ? (
-                <Cloud className="h-3.5 w-3.5 text-sky-400" />
+                <Cloud className="h-3.5 w-3.5 ga-text-accent" />
               ) : (
-                <HardDrive className="h-3.5 w-3.5 text-cyan-400" />
+                <HardDrive className="h-3.5 w-3.5 ga-text-muted" />
               )}
               <span className="hidden sm:inline">{gd.storageSyncButton}</span>
             </button>
@@ -550,7 +562,7 @@ export function GalleryDeckPage() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               data-testid="gallerydeck-import-btn"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 px-3.5 py-2 text-xs font-semibold text-slate-950 transition-colors cursor-pointer"
+              className="ga-btn-primary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer"
             >
               <ImagePlus className="h-4 w-4" />
               {gd.importArtwork}
@@ -570,98 +582,115 @@ export function GalleryDeckPage() {
           </div>
         </div>
 
-        {/* Filter Tabs + Quick Search */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div role="tablist" aria-label={gd.filterTabsAria} className="flex items-center gap-1.5 overflow-x-auto pb-1">
-            {FILTER_TABS.map((tab) => {
-              const active = activeTab === tab;
-              return (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  data-testid={`gallerydeck-tab-${tab}`}
-                  onClick={() => {
-                    setActiveTab(tab);
-                    setFocusedIndex(0);
-                  }}
-                  className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                    active
-                      ? 'bg-white text-slate-950 shadow-sm'
-                      : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700/80'
-                  }`}
-                >
-                  {tabLabel(tab)}
-                </button>
-              );
-            })}
-          </div>
+        {/* Filter Tabs + Quick Search (only shown when items exist or searching) */}
+        {(visibleItems.length > 0 || searchQuery.length > 0 || activeTab !== 'all') && (
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <div role="tablist" aria-label={gd.filterTabsAria} className="flex items-center gap-1.5 overflow-x-auto pb-1 chm-no-scrollbar">
+              {FILTER_TABS.map((tab) => {
+                const active = activeTab === tab;
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    data-testid={`gallerydeck-tab-${tab}`}
+                    onClick={() => {
+                      setActiveTab(tab);
+                      setFocusedIndex(0);
+                    }}
+                    className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                      active
+                        ? 'bg-[var(--ga-primary-bg)] text-[var(--ga-primary-text)]'
+                        : 'ga-surface-subtle ga-text-secondary hover:text-[var(--ga-text)] border ga-border'
+                    }`}
+                  >
+                    {tabLabel(tab)}
+                  </button>
+                );
+              })}
+            </div>
 
-          <div className="relative w-full sm:w-64">
-            <Search className="h-3.5 w-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              ref={searchInputRef}
-              type="search"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setFocusedIndex(0);
-              }}
-              placeholder={gd.searchPlaceholder}
-              data-testid="gallerydeck-search-input"
-              className="w-full rounded-full bg-slate-900/90 border border-slate-700/80 pl-8 pr-3 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400"
-            />
+            <div className="relative w-full sm:w-60">
+              <Search className="h-3.5 w-3.5 ga-text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                ref={searchInputRef}
+                type="search"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setFocusedIndex(0);
+                }}
+                placeholder={gd.searchPlaceholder}
+                data-testid="gallerydeck-search-input"
+                className="w-full rounded-full ga-surface-solid border ga-border pl-8 pr-3 py-1.5 text-xs ga-text placeholder:text-[var(--ga-text-muted)] focus:outline-none focus:border-[var(--ga-accent)]"
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Main Original Atelier Spotlight Stage + Filmstrip Gallery Rail */}
-      <div className="relative z-10 flex-1 flex flex-col justify-center py-4 sm:py-6">
+      {/* Main Gallery Light-Table Stage */}
+      <div className="relative z-10 flex-1 flex flex-col justify-center py-6 sm:py-8">
         {visibleItems.length === 0 ? (
           <div
             data-testid="gallerydeck-empty-state"
-            className="mx-auto max-w-md text-center px-6 py-10 rounded-3xl border border-slate-800/90 bg-slate-900/70 backdrop-blur-md space-y-5 shadow-xl"
+            className="mx-auto w-full max-w-md px-4 text-center space-y-5"
           >
-            <h2 className="text-base font-semibold text-white">{gd.emptyTitle}</h2>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5">
+            <div className="rounded-3xl border border-dashed ga-border-strong ga-surface-solid p-8 sm:p-10 space-y-5 shadow-[var(--ga-shadow)]">
               <button
                 type="button"
-                onClick={() => void handleLinkDirectory()}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-4 py-2.5 text-xs font-semibold text-slate-100 cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full group flex flex-col items-center justify-center gap-3 py-4 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--ga-focus)] rounded-2xl"
               >
-                <FolderOpen className="h-4 w-4 text-indigo-400" />
-                1. {gd.linkFolder}
+                <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--ga-accent-soft)] text-[var(--ga-accent)] transition-transform group-hover:scale-105">
+                  <ImagePlus className="h-7 w-7" />
+                </span>
+                <span className="text-base sm:text-lg font-bold tracking-tight ga-text">
+                  {gd.importArtwork}
+                </span>
               </button>
-              <button
-                type="button"
-                onClick={() => setSyncModalOpen(true)}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-4 py-2.5 text-xs font-semibold text-slate-100 cursor-pointer"
-              >
-                <Cloud className="h-4 w-4 text-sky-400" />
-                2. {gd.storageSyncButton}
-              </button>
+
+              <div className="flex items-center justify-center gap-1.5 text-xs ga-text-muted">
+                <span>{t.simple.home.localOnlyBadge}</span>
+                <HelpTip
+                  label={t.simple.home.localOnlyTipLabel}
+                  text={t.simple.home.localOnlyTipText}
+                  testId="gallerydeck-empty-local-tip"
+                />
+              </div>
+
+              <div className="pt-2 border-t ga-border flex flex-wrap items-center justify-center gap-2">
+                <Link
+                  to="/verify?demo=sample"
+                  data-testid="home-sample-demo-link"
+                  className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold ga-text-accent"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>{t.discordUx.homeUx.demoCalloutBtn}</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void handleLinkDirectory()}
+                  className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-medium cursor-pointer"
+                >
+                  <FolderOpen className="h-3.5 w-3.5 ga-text-muted" />
+                  <span>{gd.linkFolder}</span>
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950 cursor-pointer"
-            >
-              <ImagePlus className="h-4 w-4" />
-              {gd.importArtwork}
-            </button>
           </div>
         ) : (
           <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 space-y-6">
-            {/* Atelier Spotlight Framed Stage */}
+            {/* Gallery Framed Spotlight Stage */}
             {focusedItem && (
               <div
                 data-testid="gallerydeck-spotlight-stage"
-                className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center rounded-3xl border border-slate-800/90 bg-slate-900/65 backdrop-blur-md p-4 sm:p-6 shadow-2xl"
+                className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center rounded-3xl border ga-border ga-surface-solid p-4 sm:p-6 shadow-[var(--ga-shadow)]"
               >
                 <div className="lg:col-span-7">
-                  <div className="rounded-2xl border border-slate-700/70 bg-slate-950/90 p-2.5 sm:p-3.5 shadow-inner">
-                    <div className="aspect-[16/10] w-full overflow-hidden rounded-xl bg-slate-950 flex items-center justify-center">
+                  <div className="rounded-2xl border ga-border ga-surface-subtle p-3 sm:p-4">
+                    <div className="aspect-[16/10] w-full overflow-hidden rounded-xl bg-[var(--ga-bg-tint)] flex items-center justify-center">
                       {focusedItem.thumbnailDataUrl ? (
                         <img
                           src={focusedItem.thumbnailDataUrl}
@@ -669,34 +698,34 @@ export function GalleryDeckPage() {
                           className="h-full w-full object-contain"
                         />
                       ) : (
-                        <div className="text-slate-600 text-xs">{gd.noPreview}</div>
+                        <div className="ga-text-muted text-xs">{gd.noPreview}</div>
                       )}
                     </div>
                   </div>
                 </div>
 
-                <div className="lg:col-span-5 flex flex-col justify-between gap-4">
+                <div className="lg:col-span-5 flex flex-col justify-between gap-5">
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
                       {focusedItem.provenanceStatus === 'signed' ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-400/40 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
+                        <span className="inline-flex items-center gap-1 rounded-full border ga-status-success px-2.5 py-0.5 text-xs font-semibold">
                           <ShieldCheck className="h-3.5 w-3.5" />
                           {gd.badgeVerified}
                         </span>
                       ) : focusedItem.provenanceStatus === 'invalid' ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 border border-rose-400/40 px-2.5 py-0.5 text-xs font-medium text-rose-300">
+                        <span className="inline-flex items-center gap-1 rounded-full border ga-status-error px-2.5 py-0.5 text-xs font-semibold">
                           <ShieldAlert className="h-3.5 w-3.5" />
                           {gd.badgeInvalid}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-400/40 px-2.5 py-0.5 text-xs font-medium text-amber-300">
+                        <span className="inline-flex items-center gap-1 rounded-full border ga-status-warning px-2.5 py-0.5 text-xs font-semibold">
                           <ShieldAlert className="h-3.5 w-3.5" />
                           {gd.badgeUnverified}
                         </span>
                       )}
                       {focusedItem.qrMode !== 'none' && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 border border-cyan-400/40 px-2.5 py-0.5 text-xs font-medium text-cyan-300">
-                          <QrCode className="h-3.5 w-3.5" />
+                        <span className="inline-flex items-center gap-1 rounded-full border ga-border-strong ga-surface-subtle px-2.5 py-0.5 text-xs font-medium ga-text-secondary">
+                          <QrCode className="h-3.5 w-3.5 ga-text-accent" />
                           {gd.badgeQrBurned}
                         </span>
                       )}
@@ -704,27 +733,27 @@ export function GalleryDeckPage() {
 
                     <div>
                       {focusedItem.title && (
-                        <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight truncate">
+                        <h2 className="text-xl sm:text-2xl font-bold ga-text tracking-tight truncate">
                           {focusedItem.title}
                         </h2>
                       )}
-                      <p className="text-xs text-slate-400 mt-1 font-mono">
+                      <p className="text-xs ga-text-muted mt-1 font-mono">
                         {focusedItem.width} × {focusedItem.height} px · {focusedItem.licenseId ?? '—'}
                       </p>
                     </div>
 
                     {focusedItem.publicKeyFingerprint && (
-                      <p className="text-xs font-mono text-cyan-300/90 bg-slate-950/70 border border-slate-800 rounded-xl px-3 py-2 truncate">
-                        {gd.metaFingerprint}: {focusedItem.publicKeyFingerprint}
+                      <p className="text-xs font-mono ga-text-secondary ga-surface-subtle border ga-border rounded-xl px-3 py-2 truncate">
+                        {focusedItem.publicKeyFingerprint}
                       </p>
                     )}
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setSelectedItemId(focusedItem.id)}
-                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 transition-colors cursor-pointer"
+                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--ga-accent)] hover:bg-[var(--ga-accent-hover)] px-4 py-2.5 text-sm font-semibold text-[#FAF9F6] transition-colors cursor-pointer"
                     >
                       {focusedItem.provenanceStatus === 'signed' ? gd.actionVerify : gd.actionCertifyNow}
                     </button>
@@ -733,12 +762,12 @@ export function GalleryDeckPage() {
               </div>
             )}
 
-            {/* Compact Atelier Filmstrip Rail */}
+            {/* Compact Gallery Filmstrip Rail */}
             <div
               role="listbox"
               aria-label={gd.carouselAria}
               data-testid="gallerydeck-carousel"
-              className="flex items-stretch gap-3.5 overflow-x-auto pb-3 pt-1 px-1 snap-x snap-mandatory"
+              className="flex items-stretch gap-3.5 overflow-x-auto pb-3 pt-1 px-1 snap-x snap-mandatory chm-no-scrollbar"
             >
               {visibleItems.map((item, idx) => {
                 const isFocused = idx === safeFocusedIndex;
@@ -759,13 +788,13 @@ export function GalleryDeckPage() {
                       setFocusedIndex(idx);
                       setSelectedItemId(item.id);
                     }}
-                    className={`group relative shrink-0 w-44 sm:w-52 rounded-2xl overflow-hidden text-left transition-all duration-200 snap-center cursor-pointer focus:outline-none ${
+                    className={`group relative shrink-0 w-44 sm:w-52 rounded-2xl overflow-hidden text-left transition-all duration-150 snap-center cursor-pointer focus:outline-none ${
                       isFocused
-                        ? 'ring-2 ring-cyan-400 bg-slate-900 shadow-[0_0_24px_rgba(34,211,238,0.22)]'
-                        : 'opacity-75 hover:opacity-100 bg-slate-900/70 border border-slate-800/90'
+                        ? 'ring-2 ring-[var(--ga-accent)] ga-surface-solid shadow-[var(--ga-shadow)]'
+                        : 'opacity-80 hover:opacity-100 ga-surface-solid border ga-border'
                     }`}
                   >
-                    <div className="aspect-[4/3] w-full bg-slate-950 overflow-hidden relative">
+                    <div className="aspect-[4/3] w-full bg-[var(--ga-bg-tint)] overflow-hidden relative">
                       {item.thumbnailDataUrl ? (
                         <img
                           src={item.thumbnailDataUrl}
@@ -773,20 +802,19 @@ export function GalleryDeckPage() {
                           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                         />
                       ) : (
-                        <div className="h-full w-full flex items-center justify-center text-slate-600 text-xs">
+                        <div className="h-full w-full flex items-center justify-center ga-text-muted text-xs">
                           {gd.noPreview}
                         </div>
                       )}
 
                       <div className="absolute top-2 left-2 flex gap-1">
                         {item.provenanceStatus === 'signed' ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-950/90 border border-emerald-400/50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--ga-accent)] px-2 py-0.5 text-[10px] font-bold text-[#FAF9F6]">
                             <ShieldCheck className="h-2.5 w-2.5" />
                             OK
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-950/90 border border-amber-400/50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
-                            <ShieldAlert className="h-2.5 w-2.5" />
+                          <span className="inline-flex items-center gap-1 rounded-full ga-surface-solid border ga-border px-1.5 py-0.5 text-[10px] font-semibold ga-text-muted">
                             —
                           </span>
                         )}
@@ -795,9 +823,9 @@ export function GalleryDeckPage() {
 
                     <div className="p-2.5">
                       {item.title && (
-                        <p className="font-medium text-xs text-white truncate">{item.title}</p>
+                        <p className="font-medium text-xs ga-text truncate">{item.title}</p>
                       )}
-                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                      <p className="text-[10px] ga-text-muted font-mono mt-0.5">
                         {item.width}×{item.height} · {item.licenseId ?? '—'}
                       </p>
                     </div>
@@ -809,16 +837,16 @@ export function GalleryDeckPage() {
         )}
       </div>
 
-      {/* Console Metadata & Control Hints Footer */}
-      <footer className="relative z-10 border-t border-slate-800/80 bg-slate-950/85 backdrop-blur-md">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+      {/* Quiet Status Strip */}
+      <footer className="relative z-10 border-t ga-border ga-surface-subtle">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs ga-text-muted">
           <div className="flex items-center gap-3 min-w-0">
             {focusedItem ? (
               <>
                 {focusedItem.title && (
-                  <span className="font-semibold text-slate-200 truncate">{focusedItem.title}</span>
+                  <span className="font-semibold ga-text truncate">{focusedItem.title}</span>
                 )}
-                <span className="hidden sm:inline font-mono text-[11px] text-slate-500">
+                <span className="hidden sm:inline font-mono text-[11px] ga-text-muted">
                   {focusedItem.publicKeyFingerprint ?? gd.badgeUnverified}
                 </span>
               </>
@@ -827,17 +855,17 @@ export function GalleryDeckPage() {
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-[11px]">
+          <div className="hidden sm:flex items-center gap-3 text-[11px]">
             <span>
-              <kbd className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-slate-200">←/→</kbd>{' '}
+              <kbd className="rounded border ga-border ga-surface-solid px-1.5 py-0.5 font-mono ga-text-secondary">←/→</kbd>{' '}
               {gd.hintBrowse}
             </span>
             <span>
-              <kbd className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-slate-200">Enter</kbd>{' '}
+              <kbd className="rounded border ga-border ga-surface-solid px-1.5 py-0.5 font-mono ga-text-secondary">Enter</kbd>{' '}
               {gd.hintSelect}
             </span>
             <span>
-              <kbd className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-slate-200">Esc</kbd>{' '}
+              <kbd className="rounded border ga-border ga-surface-solid px-1.5 py-0.5 font-mono ga-text-secondary">Esc</kbd>{' '}
               {gd.hintBack}
             </span>
           </div>
@@ -849,7 +877,7 @@ export function GalleryDeckPage() {
         <div
           role="status"
           data-testid="gallerydeck-toast"
-          className="fixed bottom-16 right-5 z-50 rounded-xl bg-slate-800 border border-cyan-400/50 px-4 py-2.5 text-xs font-medium text-cyan-100 shadow-lg"
+          className="fixed bottom-16 right-5 z-50 rounded-xl ga-surface-solid border ga-border-strong px-4 py-2.5 text-xs font-medium ga-text shadow-[var(--ga-shadow-lg)]"
         >
           {statusToast}
         </div>

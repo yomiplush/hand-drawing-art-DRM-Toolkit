@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { HelpCircle, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 export interface HelpTipProps {
   text: string;
@@ -96,9 +96,13 @@ export function HelpTip({
         aria-controls={panelId}
         aria-label={label}
         data-testid={testId}
-        className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ga-border-strong ga-surface-solid text-[var(--ga-accent)] hover:bg-[var(--ga-accent-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ga-focus)] transition-colors cursor-pointer before:absolute before:-inset-2.5 before:content-['']"
+        className={`relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold leading-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ga-focus)] transition-colors cursor-pointer before:absolute before:-inset-2.5 before:content-[''] ${
+          open
+            ? 'border-[var(--ga-accent)] bg-[var(--ga-accent)] text-[#FAF9F6]'
+            : 'ga-border-strong ga-surface-solid ga-text-muted hover:border-[var(--ga-accent)] hover:text-[var(--ga-accent)]'
+        }`}
       >
-        <HelpCircle className="h-3.5 w-3.5" aria-hidden="true" />
+        <span aria-hidden="true">?</span>
       </button>
 
       <div
