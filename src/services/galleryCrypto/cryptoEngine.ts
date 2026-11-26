@@ -426,6 +426,7 @@ export async function openEncryptedVaultSession(params: {
 
   const manifest = await decryptJson<EncryptedVaultManifest>(manifestEnc, params.passphrase);
   const thumbnailUrls: Record<string, string> = {};
+  const thumbnailBlobs: Record<string, Blob> = {};
   const createdUrls: string[] = [];
 
   // Decrypt lightweight thumbnails only (never full images upfront)
@@ -437,13 +438,16 @@ export async function openEncryptedVaultSession(params: {
       const blob = new Blob([thumbPlain.slice()], { type: 'image/jpeg' });
       const url = URL.createObjectURL(blob);
       thumbnailUrls[entry.id] = url;
+      thumbnailBlobs[entry.id] = blob;
       createdUrls.push(url);
     } catch {
       // Skip individual corrupted thumbnail
     }
   }
 
-  const decryptFullImage = async (itemId: string): Promise<{ blobUrl: string; mimeType: string }> => {
+  const decryptFullImage = async (
+    itemId: string,
+  ): Promise<{ blobUrl: string; mimeType: string; bytes: Uint8Array }> => {
     const entry = manifest.items.find((i) => i.id === itemId);
     if (!entry) {
       throw new Error('Artwork entry not found in manifest.');
@@ -455,7 +459,7 @@ export async function openEncryptedVaultSession(params: {
     const plain = await decryptBytes(imgEnc, params.passphrase);
     const mimeType = entry.mimeType || 'image/png';
     const blobUrl = URL.createObjectURL(new Blob([plain.slice()], { type: mimeType }));
-    return { blobUrl, mimeType };
+    return { blobUrl, mimeType, bytes: plain };
   };
 
   const dispose = () => {
@@ -470,5 +474,6 @@ export async function openEncryptedVaultSession(params: {
     decryptFullImage,
     dispose,
     thumbnailUrls,
+    thumbnailBlobs,
   };
 }

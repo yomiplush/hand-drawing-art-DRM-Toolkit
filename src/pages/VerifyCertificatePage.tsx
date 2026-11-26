@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { fetchProofFromNostrRelays } from '../core/nostr/proofRelay';
+import {
+  fetchArtworkLikeCount,
+  fetchProofFromNostrRelays,
+  hasLikedArtworkLocally,
+  publishArtworkLike,
+} from '../core/nostr/proofRelay';
 import {
   AlertTriangle,
   Camera,
@@ -13,6 +18,7 @@ import {
   Eye,
   FileCheck2,
   FileImage,
+  Heart,
   HelpCircle,
   History,
   Info,
@@ -1583,9 +1589,16 @@ export function VerifyCertificatePage() {
             <h2 className="text-sm sm:text-base font-semibold ga-text">
               {t.minimal.verify.declaredSummaryTitle}
             </h2>
-            <span className="ga-surface-subtle rounded-lg border ga-border px-2.5 py-1 text-xs font-mono ga-text-accent">
-              v{result.manifest.version} · {result.publicKeyFingerprintShort ?? ''}
-            </span>
+            <div className="flex items-center gap-2">
+              <ArtworkLikeButton
+                key={result.manifest.artworkIdHex}
+                artworkIdHex={result.manifest.artworkIdHex}
+                locale={locale}
+              />
+              <span className="ga-surface-subtle rounded-lg border ga-border px-2.5 py-1 text-xs font-mono ga-text-accent">
+                v{result.manifest.version} · {result.publicKeyFingerprintShort ?? ''}
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm">
@@ -2701,6 +2714,69 @@ export function VerifyCertificatePage() {
         </>
       )}
     </div>
+  );
+}
+
+function ArtworkLikeButton({ artworkIdHex, locale }: { artworkIdHex: string; locale: string }) {
+  const isJa = locale === 'ja';
+  const [liked, setLiked] = useState<boolean>(() => hasLikedArtworkLocally(artworkIdHex));
+  const [count, setCount] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchArtworkLikeCount(artworkIdHex).then((n) => {
+      if (!cancelled) {
+        setCount(hasLikedArtworkLocally(artworkIdHex) ? Math.max(n, 1) : n);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [artworkIdHex]);
+
+  const handleLike = async () => {
+    if (liked || sending) return;
+    setLiked(true);
+    setCount((prev) => (prev ?? 0) + 1);
+    setSending(true);
+    try {
+      await publishArtworkLike(artworkIdHex);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={() => void handleLike()}
+      disabled={liked || sending}
+      data-testid="verify-artwork-like-btn"
+      aria-label={isJa ? 'この作品にいいねする（1回限り）' : 'Like this artwork (once)'}
+      title={
+        liked
+          ? isJa
+            ? 'いいね済み（Nostrリレーに記録）'
+            : 'Liked (recorded on Nostr relays)'
+          : isJa
+            ? 'いいねを送る（Nostr無料リレー・1回限り）'
+            : 'Send a heart (via free Nostr relays, once)'
+      }
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
+        liked
+          ? 'border-rose-400/50 bg-rose-500/15 text-rose-500 cursor-default'
+          : 'ga-border ga-surface-subtle ga-text hover:border-rose-400/60 hover:text-rose-500 active:scale-95 cursor-pointer'
+      }`}
+    >
+      <Heart
+        className={`h-3.5 w-3.5 transition-transform ${
+          liked ? 'fill-rose-500 text-rose-500 scale-110' : ''
+        }`}
+        aria-hidden="true"
+      />
+      <span>{count !== null ? count : '…'}</span>
+    </button>
   );
 }
 

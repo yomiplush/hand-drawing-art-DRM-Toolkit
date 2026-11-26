@@ -120,9 +120,11 @@ export interface EncryptedVaultManifest {
 export interface DecryptedVaultSession {
   manifest: EncryptedVaultManifest;
   /** On-demand full-resolution decryptor; caller MUST revoke the returned ObjectURL on close. */
-  decryptFullImage: (itemId: string) => Promise<{ blobUrl: string; mimeType: string }>;
+  decryptFullImage: (itemId: string) => Promise<{ blobUrl: string; mimeType: string; bytes: Uint8Array }>;
   /** Revokes all thumbnail ObjectURLs held by this session. */
   dispose: () => void;
   /** Map of itemId -> thumbnail ObjectURL (or data URL). */
   thumbnailUrls: Record<string, string>;
+  /** Map of itemId -> raw decrypted thumbnail Blob (avoids fetch(blobUrl) CSP issues). */
+  thumbnailBlobs?: Record<string, Blob>;
 }

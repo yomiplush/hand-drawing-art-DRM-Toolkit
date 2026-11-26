@@ -265,15 +265,19 @@ export function validateTrustedSnsUrl(raw: string): UrlValidationResult {
   }
 
   const host = normalizeHostname(base.url.hostname);
+  const parts = host.split('.');
+  const tld = parts[parts.length - 1] ?? '';
+  const isFediverseProfilePath = /^\/(@[^/]+|users\/[^/]+)(\/.*)?$/i.test(base.url.pathname);
   const isAllowed =
     TRUSTED_SNS_EXACT_HOSTS.has(host) ||
-    TRUSTED_SNS_SUFFIXES.some((suffix) => host.endsWith(suffix));
+    TRUSTED_SNS_SUFFIXES.some((suffix) => host.endsWith(suffix)) ||
+    (SAFE_WEBSITE_TLDS.has(tld) && isFediverseProfilePath);
 
   if (!isAllowed) {
     return {
       ok: false,
-      reasonJa: `SNSリンクは信頼済みプラットフォーム（X / Bluesky / Misskey / Pixiv / Skeb / Booth / Instagram / YouTube 等）のみ登録できます: ${host}`,
-      reasonEn: `SNS links must be on a trusted creator platform (X, Bluesky, Misskey, Pixiv, Skeb, Booth, Instagram, YouTube, etc.): ${host}`,
+      reasonJa: `SNSリンクは信頼済みプラットフォーム（X / Bluesky / Misskey / Mastodon 等の自鯖 /@ユーザー名 / Pixiv / Skeb / Booth / Instagram / YouTube 等）のみ登録できます: ${host}`,
+      reasonEn: `SNS links must be on a trusted creator platform or a Fediverse profile (/@username) on a standard HTTPS domain: ${host}`,
     };
   }
 

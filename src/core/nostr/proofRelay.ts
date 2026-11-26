@@ -321,3 +321,172 @@ export async function fetchProofFromNostrRelays(
   }
   return bytes;
 }
+
+const LIKED_ARTWORKS_STORAGE_KEY = 'chm_liked_artworks_v1';
+const NOSTR_REACTION_KIND = 7;
+
+function readLikedArtworkSet(): Set<string> {
+  if (typeof window === 'undefined' || !window.localStorage) return new Set();
+  try {
+    const raw = window.localStorage.getItem(LIKED_ARTWORKS_STORAGE_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((v): v is string => typeof v === 'string'));
+  } catch {
+    return new Set();
+  }
+}
+
+function markArtworkLikedLocally(artworkIdHex: string): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const set = readLikedArtworkSet();
+    set.add(artworkIdHex.trim().toLowerCase());
+    window.localStorage.setItem(LIKED_ARTWORKS_STORAGE_KEY, JSON.stringify(Array.from(set)));
+  } catch {
+    // ignore storage quota errors
+  }
+}
+
+export function hasLikedArtworkLocally(artworkIdHex: string): boolean {
+  return readLikedArtworkSet().has(artworkIdHex.trim().toLowerCase());
+}
+
+function fetchLikePubkeysFromSingleRelay(relayUrl: string, tagValue: string): Promise<string[]> {
+  return new Promise((resolve) => {
+    if (typeof WebSocket === 'undefined') {
+      resolve([]);
+      return;
+    }
+    let settled = false;
+    const pubkeys = new Set<string>();
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      try {
+        ws.close();
+      } catch {
+        // ignore
+      }
+      resolve(Array.from(pubkeys));
+    };
+
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(relayUrl);
+    } catch {
+      resolve([]);
+      return;
+    }
+
+    const timer = window.setTimeout(finish, RELAY_TIMEOUT_MS);
+    const subId = `chmlike_${Math.random().toString(36).slice(2, 10)}`;
+
+    ws.onopen = () => {
+      try {
+        ws.send(
+          JSON.stringify([
+            'REQ',
+            subId,
+            { kinds: [NOSTR_REACTION_KIND], '#t': [tagValue], limit: 500 },
+          ]),
+        );
+      } catch {
+        finish();
+      }
+    };
+
+    ws.onmessage = (msg) => {
+      try {
+        const parsed = JSON.parse(String(msg.data)) as unknown[];
+        if (!Array.isArray(parsed)) return;
+        if (parsed[0] === 'EVENT' && parsed[1] === subId && parsed[2]) {
+          const candidate = parsed[2] as NostrEvent;
+          if (
+            candidate.kind === NOSTR_REACTION_KIND &&
+            typeof candidate.pubkey === 'string' &&
+            verifyNostrEvent(candidate)
+          ) {
+            pubkeys.add(candidate.pubkey);
+          }
+        } else if (parsed[0] === 'EOSE' && parsed[1] === subId) {
+          finish();
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    ws.onerror = finish;
+    ws.onclose = finish;
+  });
+}
+
+/**
+ * Fetches the deduplicated NIP-25 heart-like count for an artwork from free Nostr relays.
+ */
+export async function fetchArtworkLikeCount(
+  artworkIdHex: string,
+  relays: readonly string[] = NOSTR_PROOF_RELAYS,
+): Promise<number> {
+  const cleanId = artworkIdHex.trim().toLowerCase();
+  if (!cleanId || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+    return 0;
+  }
+  const tagValue = `chm-like:${cleanId}`;
+  const activeRelays = getActiveFreeRelays(relays);
+  const results = await Promise.all(
+    activeRelays.map((url) => fetchLikePubkeysFromSingleRelay(url, tagValue)),
+  );
+  const uniquePubkeys = new Set<string>();
+  for (const list of results) {
+    for (const pk of list) {
+      uniquePubkeys.add(pk);
+    }
+  }
+  return uniquePubkeys.size;
+}
+
+/**
+ * Publishes a one-time NIP-25 heart reaction (kind: 7, content: "+") for an artwork
+ * to free public Nostr relays using an ephemeral keypair (no login required).
+ */
+export async function publishArtworkLike(
+  artworkIdHex: string,
+  relays: readonly string[] = NOSTR_PROOF_RELAYS,
+): Promise<boolean> {
+  const cleanId = artworkIdHex.trim().toLowerCase();
+  if (!cleanId || hasLikedArtworkLocally(cleanId)) {
+    return false;
+  }
+  markArtworkLikedLocally(cleanId);
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return false;
+  }
+
+  const keypair = generateNostrKeypair();
+  let event: NostrEvent;
+  try {
+    event = createSignedNostrEvent(
+      {
+        kind: NOSTR_REACTION_KIND,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['t', `chm-like:${cleanId}`],
+          ['t', 'certified-handmade'],
+        ],
+        content: '+',
+      },
+      keypair.secretKey,
+    );
+  } finally {
+    wipeBytes(keypair.secretKey);
+  }
+
+  const activeRelays = getActiveFreeRelays(relays);
+  const results = await Promise.all(activeRelays.map((url) => publishToSingleRelay(url, event)));
+  return results.some(Boolean);
+}

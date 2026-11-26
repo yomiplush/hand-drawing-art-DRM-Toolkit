@@ -520,15 +520,13 @@ export function GalleryDeckPage() {
       const restoredItems: GalleryArtworkItem[] = [];
       for (const entry of session.manifest.items) {
         const full = await session.decryptFullImage(entry.id);
-        const fullRes = await fetch(full.blobUrl);
-        const fullBytes = new Uint8Array(await fullRes.arrayBuffer());
+        URL.revokeObjectURL(full.blobUrl);
+        const fullBytes = full.bytes;
         const blobRef = `blob:${entry.id}`;
         await idbAdapterRef.current.saveBlob(blobRef, fullBytes, full.mimeType);
-        const thumbUrl = session.thumbnailUrls[entry.id] ?? '';
+        const thumbBlob = session.thumbnailBlobs?.[entry.id];
         let thumbDataUrl = '';
-        if (thumbUrl) {
-          const thumbRes = await fetch(thumbUrl);
-          const thumbBlob = await thumbRes.blob();
+        if (thumbBlob) {
           thumbDataUrl = await new Promise<string>((resolve) => {
             const reader = new FileReader();
             reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
