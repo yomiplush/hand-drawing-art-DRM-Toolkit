@@ -229,7 +229,7 @@ export async function certifyArtworkInDeck(params: {
               opacity: inImagePlacement?.opacity ?? 1,
               style: 'frosted-light' as const,
               eccLevel: 'L' as const,
-              quietZoneModules: 4,
+              quietZoneModules: 1,
             };
           })(),
         });

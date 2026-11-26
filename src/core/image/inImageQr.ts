@@ -174,17 +174,17 @@ export function overlayQrIntoArtwork(
 
   const { x: boxX, y: boxY, boxSize, opacity, style, quietZoneModules } = clamped;
   const totalModules = qr.size + quietZoneModules * 2;
-  const integerModulePx = Math.floor(boxSize / totalModules);
 
-  const usedSize = integerModulePx >= 1 ? totalModules * integerModulePx : boxSize;
-  const originX = boxX + Math.floor((boxSize - usedSize) / 2);
-  const originY = boxY + Math.floor((boxSize - usedSize) / 2);
+  // Fill the entire qrMask box edge-to-edge so there is never an oversized wasted white margin
+  const usedSize = boxSize;
+  const originX = boxX;
+  const originY = boxY;
 
-  // Subtle translucent backdrop inside the entire qrMask box for frosted styles
+  // Crisp pure white backdrop when opacity is 1.0; subtle translucent backdrop otherwise
   const hasBackdrop = style === 'frosted-light' || style === 'frosted-dark';
   const backdropColor = style === 'frosted-dark' ? ([10, 18, 34] as const) : ([255, 255, 255] as const);
-  const backdropAlpha = Math.min(1, opacity * 0.88);
-  const moduleAlpha = hasBackdrop ? Math.min(1, opacity * 0.96 + 0.04) : opacity;
+  const backdropAlpha = opacity >= 0.99 ? 1 : Math.min(1, opacity * 0.88);
+  const moduleAlpha = opacity >= 0.99 ? 1 : hasBackdrop ? Math.min(1, opacity * 0.96 + 0.04) : opacity;
 
   const stride = artwork.width * 4;
 
@@ -198,14 +198,8 @@ export function overlayQrIntoArtwork(
 
       let isDarkModule = false;
       if (relX >= 0 && relX < usedSize && relY >= 0 && relY < usedSize) {
-        const modTotalX =
-          integerModulePx >= 1
-            ? Math.floor(relX / integerModulePx)
-            : Math.min(totalModules - 1, Math.floor((relX * totalModules) / usedSize));
-        const modTotalY =
-          integerModulePx >= 1
-            ? Math.floor(relY / integerModulePx)
-            : Math.min(totalModules - 1, Math.floor((relY * totalModules) / usedSize));
+        const modTotalX = Math.min(totalModules - 1, Math.floor((relX * totalModules) / usedSize));
+        const modTotalY = Math.min(totalModules - 1, Math.floor((relY * totalModules) / usedSize));
 
         const mx = modTotalX - quietZoneModules;
         const my = modTotalY - quietZoneModules;
@@ -216,7 +210,7 @@ export function overlayQrIntoArtwork(
 
       if (style === 'frosted-light') {
         if (isDarkModule) {
-          blendPixelOver(out, idx, 8, 12, 24, moduleAlpha);
+          blendPixelOver(out, idx, 0, 0, 0, moduleAlpha);
         } else {
           blendPixelOver(out, idx, backdropColor[0], backdropColor[1], backdropColor[2], backdropAlpha);
         }
