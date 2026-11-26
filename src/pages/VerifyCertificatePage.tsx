@@ -2314,7 +2314,7 @@ export function VerifyCertificatePage() {
 
       {evidenceSummary && <VerifiedArtworkDetailsCard summary={evidenceSummary} />}
 
-      {result.manifest?.qrMask && (
+      {isAdvanced && result.manifest?.qrMask && (
         <div
           role="note"
           data-testid="verify-qr-mask-notice"
@@ -2360,7 +2360,7 @@ export function VerifyCertificatePage() {
         </div>
       )}
 
-      {result.manifest && !showTopProofStep2Cta && (
+      {isAdvanced && result.manifest && !showTopProofStep2Cta && (
         <section className="ga-card rounded-2xl p-5 space-y-3">
           <h2 className="text-sm sm:text-base font-semibold ga-text">
             {t.verify.attachArtworkTitle}
@@ -2378,7 +2378,9 @@ export function VerifyCertificatePage() {
         </section>
       )}
 
-      <p className="text-xs ga-text-muted px-1">{t.verify.trustReminder}</p>
+      {isAdvanced && (
+        <p className="text-xs ga-text-muted px-1">{t.verify.trustReminder}</p>
+      )}
 
       {/* Non-cryptographic Perceptual Similarity Check (Advanced Mode) */}
       {isAdvanced && attachedRaster && (
