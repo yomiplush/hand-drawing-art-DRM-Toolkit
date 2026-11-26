@@ -229,7 +229,7 @@ describe('End-to-end signing, QR burning, PNG encoding, QR decoding & verificati
         qrOptions: {
           x: 20,
           y: 20,
-          boxSize: 160,
+          boxSize: 200,
           opacity: 0.72,
           style: 'frosted-light',
           eccLevel: 'Q',

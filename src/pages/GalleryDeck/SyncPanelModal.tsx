@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   AlertTriangle,
   Cloud,
@@ -66,13 +66,6 @@ export function SyncPanelModal({
     getCustomNostrProofRelays().join('\n'),
   );
   const [customRelaysSaved, setCustomRelaysSaved] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setCustomRelaysInput(getCustomNostrProofRelays().join('\n'));
-      setCustomRelaysSaved(false);
-    }
-  }, [open]);
 
   if (!open) return null;
 
