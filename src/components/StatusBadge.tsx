@@ -1,7 +1,6 @@
 import {
   AlertTriangle,
   CheckCircle2,
-  HelpCircle,
   ShieldAlert,
   ShieldCheck,
   XCircle,
@@ -33,11 +32,9 @@ interface RowSpec {
 
 export function StatusDimensionsGrid({
   signatureStatus,
-  integrityStatus,
   identityStatus,
   trustedKeyLabel,
   trustedKeyUnconfirmed = false,
-  matchedMode,
 }: StatusGridProps) {
   const { t } = useI18n();
   const mv = t.minimal.verify;
@@ -60,24 +57,6 @@ export function StatusDimensionsGrid({
     },
   };
 
-  const intMap: Record<ArtworkIntegrityStatus, RowSpec> = {
-    matched: {
-      tone: 'success',
-      icon: CheckCircle2,
-      text: mv.intMatched,
-    },
-    mismatched: {
-      tone: 'danger',
-      icon: XCircle,
-      text: mv.intMismatched,
-    },
-    'not-checked': {
-      tone: 'warning',
-      icon: HelpCircle,
-      text: mv.intNotChecked,
-    },
-  };
-
   const idMap: Record<AuthorIdentityStatus, RowSpec> = {
     'locally-trusted': {
       tone: 'success',
@@ -92,11 +71,9 @@ export function StatusDimensionsGrid({
   };
 
   const sigRow = sigMap[signatureStatus];
-  const intRow = intMap[integrityStatus];
   const idRow = idMap[identityStatus];
 
   const SigIcon = sigRow.icon;
-  const IntIcon = intRow.icon;
   const IdIcon = idRow.icon;
 
   return (
@@ -110,25 +87,6 @@ export function StatusDimensionsGrid({
         icon={<SigIcon className="h-5 w-5" />}
         helpText={mv.sigHelp}
         helpLabel={`${mv.sigLabel} — ?`}
-        helpCloseLabel={t.minimal.home.closeHelp}
-      />
-
-      <CompactStatus
-        testId="status-integrity"
-        helpTestId="status-integrity-help"
-        label={mv.intLabel}
-        value={intRow.text}
-        tone={intRow.tone}
-        icon={<IntIcon className="h-5 w-5" />}
-        extra={
-          matchedMode ? (
-            <span className="rounded-md ga-surface-subtle px-2 py-0.5 text-[11px] font-mono ga-text-secondary">
-              {matchedMode}
-            </span>
-          ) : undefined
-        }
-        helpText={mv.intHelp}
-        helpLabel={`${mv.intLabel} — ?`}
         helpCloseLabel={t.minimal.home.closeHelp}
       />
 
