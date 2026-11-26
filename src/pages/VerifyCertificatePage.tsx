@@ -83,7 +83,14 @@ const SHARE_TARGET_CACHE_KEY = '/__shared-artwork__';
 
 function detectUrlProofInput(routerHash: string, routerSearch: string): string | null {
   const hash = routerHash || (typeof window !== 'undefined' ? window.location.hash : '');
-  if (hash && (hash.includes('proof=') || hash.startsWith('#45:') || hash.startsWith('#45%3A') || hash.startsWith('#45%3a'))) {
+  if (
+    hash &&
+    (hash.includes('proof=') ||
+      hash.startsWith('#45:') ||
+      hash.startsWith('#45%3A') ||
+      hash.startsWith('#45%3a') ||
+      (hash.length > 40 && hash.toLowerCase() !== '#privacypolicy' && hash !== '#create'))
+  ) {
     return hash;
   }
   const search = routerSearch || (typeof window !== 'undefined' ? window.location.search : '');

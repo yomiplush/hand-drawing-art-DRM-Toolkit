@@ -3,7 +3,7 @@ import { base45Decode, base45Encode } from '../encoding/base45';
 import { parsePortableProofBundle } from './proofBundle';
 import { DEFAULT_VERIFY_BASE_URL, MAX_PROOF_BYTES } from './types';
 
-export const COMPACT_VERIFY_BASE_URL = 'HTTPS://CERTIFIED-HANDMADE.COM/V';
+export const COMPACT_VERIFY_BASE_URL = 'HTTPS://CERTIFIED-HANDMADE.COM/';
 
 const MAX_PROOF_TOKEN_CHARS = Math.ceil((MAX_PROOF_BYTES * 4) / 3) + 16;
 const MAX_PROOF_INPUT_CHARS = 32_768;
@@ -56,9 +56,9 @@ export function buildCompactBase45ProofUrl(
   proofBytes: Uint8Array,
   baseUrl = COMPACT_VERIFY_BASE_URL,
 ): string {
-  const cleanBase = baseUrl.trim().replace(/\/$/, '').toUpperCase();
+  const cleanBase = baseUrl.trim().toUpperCase();
   const token = base45Encode(proofBytes);
-  return `${cleanBase}#45:${token}`;
+  return `${cleanBase}#${token}`;
 }
 
 export function extractProofBytesFromInput(rawInput: string): Uint8Array {
@@ -86,13 +86,20 @@ export function extractProofBytesFromInput(rawInput: string): Uint8Array {
 
   let token: string | null;
 
-  // Case 1: URL containing #45:<BASE45> (compact QR Alphanumeric mode) or #proof=...
+  // Case 1: URL containing #<BASE45>, #45:<BASE45>, or #proof=...
   if (trimmed.includes('#')) {
     const hashIdx = trimmed.indexOf('#');
     const fragment = trimmed.slice(hashIdx + 1);
     if (fragment.startsWith('45:') || fragment.startsWith('45%3A') || fragment.startsWith('45%3a')) {
       const b45Payload = fragment.startsWith('45:') ? fragment.slice(3) : fragment.slice(5);
       const bytes = base45Decode(b45Payload);
+      if (bytes.byteLength === 0 || bytes.byteLength > MAX_PROOF_BYTES) {
+        throw new Error('Proof payload is empty or exceeds maximum byte length');
+      }
+      return bytes;
+    }
+    if (!fragment.includes('proof=') && fragment.length > 40) {
+      const bytes = base45Decode(fragment);
       if (bytes.byteLength === 0 || bytes.byteLength > MAX_PROOF_BYTES) {
         throw new Error('Proof payload is empty or exceeds maximum byte length');
       }

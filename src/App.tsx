@@ -167,6 +167,12 @@ function AppRoutes() {
   );
 
   const isHashPrivacyRoute = location.hash.toLowerCase() === '#privacypolicy';
+  const isHashProofRoute =
+    location.hash.includes('proof=') ||
+    location.hash.startsWith('#45:') ||
+    location.hash.startsWith('#45%3A') ||
+    location.hash.startsWith('#45%3a') ||
+    (location.hash.length > 40 && !isHashPrivacyRoute && location.hash !== '#create');
 
   return (
     <>
@@ -187,7 +193,18 @@ function AppRoutes() {
                 />
               }
             >
-              <Route path="/" element={isHashPrivacyRoute ? privacyElement : <HomePage />} />
+              <Route
+                path="/"
+                element={
+                  isHashPrivacyRoute ? (
+                    privacyElement
+                  ) : isHashProofRoute ? (
+                    <VerifyCertificatePage />
+                  ) : (
+                    <HomePage />
+                  )
+                }
+              />
               <Route path="/privacypolicy" element={privacyElement} />
               <Route path="/tutorial" element={<TutorialPage />} />
               <Route path="/create" element={<CreateCertificatePage />} />
