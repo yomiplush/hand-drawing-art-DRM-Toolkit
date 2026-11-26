@@ -17,6 +17,7 @@ export interface SimpleTranslations {
     storedKeysCount: string;
     offlineReadyLabel: string;
     specNavLabel: string;
+    offlineNavLabel: string;
   };
   home: {
     headline: string;
@@ -122,6 +123,7 @@ const enSimple: SimpleTranslations = {
     storedKeysCount: 'keys',
     offlineReadyLabel: 'Offline ready',
     specNavLabel: 'Spec',
+    offlineNavLabel: 'Offline',
   },
   home: {
     headline: 'Your art. Your proof.',
@@ -238,6 +240,7 @@ const jaSimple: SimpleTranslations = {
     storedKeysCount: '件の鍵',
     offlineReadyLabel: 'オフライン対応済',
     specNavLabel: '仕様・ドキュメント',
+    offlineNavLabel: 'オフライン版',
   },
   home: {
     headline: '大切な絵に、あなたの証を。',

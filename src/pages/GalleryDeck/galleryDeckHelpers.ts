@@ -4,7 +4,7 @@ import { hashCanonicalRaster } from '../../core/image/canonicalRaster';
 import { decodeImageFileToCanonicalRgba8 } from '../../core/image/pngCodec';
 import type { CanonicalRaster } from '../../core/image/pngCodec';
 import { rasterToPreviewDataUrl } from '../../core/image/previewDataUrl';
-import { createSignedArtworkPng } from '../../core/manifest/signArtwork';
+import { createInImageSignedArtworkPng, createSignedArtworkPng } from '../../core/manifest/signArtwork';
 import { LICENSE_DEFINITIONS } from '../../core/manifest/types';
 import type { LicenseDeclaration, LicenseId } from '../../core/manifest/types';
 import { createAuthorKey, listAuthorKeys } from '../../core/storage/keyStore';
@@ -145,8 +145,9 @@ export async function certifyArtworkInDeck(params: {
   idbAdapter: IndexedDbGalleryAdapter;
   licenseId?: LicenseId;
   authorName?: string;
+  qrMode?: 'in-image' | 'outer-border';
 }): Promise<GalleryArtworkItem> {
-  const { item, idbAdapter, licenseId = 'ARR', authorName } = params;
+  const { item, idbAdapter, licenseId = 'ARR', authorName, qrMode = 'in-image' } = params;
   const blobKey = item.blobRef ?? `blob:${item.id}`;
   const storedBlob = await idbAdapter.loadBlob(blobKey);
   if (!storedBlob) {
@@ -165,19 +166,43 @@ export async function certifyArtworkInDeck(params: {
   });
   const { raster } = await decodeImageFileToCanonicalRgba8(file);
 
-  const signed = await createSignedArtworkPng({
-    artworkRaster: raster,
-    authorKey,
-    license: buildLicenseDeclaration(licenseId),
-    authorName: authorName || item.authorName || authorKey.label,
-    artworkTitle: item.title || undefined,
-    burnOptions: {
-      placement: 'bottom-right',
-      marginPx: 16,
-      theme: 'dark-slate',
-      showLabel: true,
-    },
-  });
+  const signed =
+    qrMode === 'outer-border'
+      ? await createSignedArtworkPng({
+          artworkRaster: raster,
+          authorKey,
+          license: buildLicenseDeclaration(licenseId),
+          authorName: authorName || item.authorName || authorKey.label,
+          artworkTitle: item.title || undefined,
+          burnOptions: {
+            placement: 'bottom-right',
+            marginPx: 16,
+            theme: 'dark-slate',
+            showLabel: true,
+          },
+        })
+      : await createInImageSignedArtworkPng({
+          artworkRaster: raster,
+          authorKey,
+          license: buildLicenseDeclaration(licenseId),
+          authorName: authorName || item.authorName || authorKey.label,
+          artworkTitle: item.title || undefined,
+          qrOptions: (() => {
+            const boxSize = Math.max(
+              96,
+              Math.min(200, Math.round(Math.min(raster.width, raster.height) * 0.16)),
+            );
+            return {
+              x: Math.max(12, raster.width - boxSize - 16),
+              y: Math.max(12, raster.height - boxSize - 16),
+              boxSize,
+              opacity: 0.85,
+              style: 'frosted-light' as const,
+              eccLevel: 'M' as const,
+              quietZoneModules: 2,
+            };
+          })(),
+        });
 
   const signedBlobRef = `blob:${item.id}:signed`;
   await idbAdapter.saveBlob(signedBlobRef, signed.pngBytes, 'image/png');
@@ -199,7 +224,7 @@ export async function certifyArtworkInDeck(params: {
     thumbnailDataUrl: signedThumbnail,
     blobRef: signedBlobRef,
     provenanceStatus: 'signed',
-    qrMode: 'outer-border',
+    qrMode: qrMode === 'outer-border' ? 'outer-border' : 'in-image-mask',
     publicKeyFingerprint: fingerprint.shortDisplay,
     artworkSha256Hex: bytesToHex(signed.manifest.sha256),
     licenseId,

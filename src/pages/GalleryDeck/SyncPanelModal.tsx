@@ -1,59 +1,63 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
+  AlertTriangle,
   Cloud,
   Database,
   Download,
-  FileCode2,
-  FolderSync,
   HardDrive,
-  Lock,
   RefreshCw,
+  Trash2,
   Upload,
   X,
 } from 'lucide-react';
 import { useI18n } from '../../i18n/context';
-import { downloadOfflineViewerHtml } from '../../services/galleryCrypto';
-import { isFileSystemAccessSupported } from '../../services/galleryStorage';
 import type { SyncTierStatus } from '../../types/gallerydeck';
 
 interface SyncPanelModalProps {
   open: boolean;
   itemCount: number;
   tierStatuses: Record<'indexeddb' | 'filesystem' | 'gdrive', SyncTierStatus>;
-  linkedDirName: string | null;
   driveConnected: boolean;
   syncing: boolean;
   onClose: () => void;
-  onLinkDirectory: () => Promise<void>;
   onConnectDrive: () => Promise<void>;
+  onResetDriveSync: () => Promise<void>;
   onSyncNow: () => Promise<void>;
   onExportArchive: () => Promise<void>;
   onImportArchive: (file: File) => Promise<void>;
-  onOpenVault?: () => void;
 }
 
 export function SyncPanelModal({
   open,
   itemCount,
   tierStatuses,
-  linkedDirName,
   driveConnected,
   syncing,
   onClose,
-  onLinkDirectory,
   onConnectDrive,
+  onResetDriveSync,
   onSyncNow,
   onExportArchive,
   onImportArchive,
-  onOpenVault,
 }: SyncPanelModalProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const gd = t.galleryDeck;
+  const isJa = locale === 'ja';
   const archiveInputRef = useRef<HTMLInputElement | null>(null);
+  const [driveResetStep, setDriveResetStep] = useState<0 | 1 | 2>(0);
+  const [resettingDrive, setResettingDrive] = useState(false);
 
   if (!open) return null;
 
-  const fsSupported = isFileSystemAccessSupported();
+  const handleConfirmResetDrive = async () => {
+    setResettingDrive(true);
+    try {
+      await onResetDriveSync();
+      setDriveResetStep(0);
+    } finally {
+      setResettingDrive(false);
+    }
+  };
 
   return (
     <div
@@ -62,7 +66,10 @@ export function SyncPanelModal({
       aria-label={gd.syncModalTitle}
       data-testid="gallerydeck-sync-modal"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4"
-      onClick={onClose}
+      onClick={() => {
+        setDriveResetStep(0);
+        onClose();
+      }}
     >
       <div
         className="relative w-full max-w-2xl rounded-2xl border border-slate-700/80 bg-slate-900/95 text-slate-100 shadow-2xl p-5 sm:p-6 space-y-5"
@@ -75,7 +82,10 @@ export function SyncPanelModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => {
+              setDriveResetStep(0);
+              onClose();
+            }}
             aria-label={gd.closeDetails}
             className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer"
           >
@@ -100,52 +110,116 @@ export function SyncPanelModal({
             </span>
           </div>
 
-          {/* Tier 2: Local Directory (File System Access API) */}
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3.5">
-            <div className="flex items-center gap-3">
-              <FolderSync className="h-5 w-5 text-indigo-400 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-white">{gd.tierLocalDirectory}</p>
-                <p className="text-xs text-slate-400">
-                  {linkedDirName
-                    ? `${gd.linkedFolderPrefix}: ${linkedDirName}`
-                    : fsSupported
-                      ? gd.tierLocalDirectoryDesc
-                      : gd.fsNotSupported}
-                </p>
+          {/* Tier 2: Google Drive */}
+          <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Cloud className="h-5 w-5 text-sky-400 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-white">{gd.tierGoogleDrive}</p>
+                  <p className="text-xs text-slate-400">
+                    {driveConnected ? gd.driveConnectedDesc : gd.driveDisconnectedDesc}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  disabled={syncing || resettingDrive}
+                  onClick={() => void onConnectDrive()}
+                  data-testid="gallerydeck-connect-drive-btn"
+                  className="rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-100 cursor-pointer"
+                >
+                  {driveConnected ? gd.syncNow : gd.connectDrive}
+                </button>
+                {driveConnected && driveResetStep === 0 && (
+                  <button
+                    type="button"
+                    disabled={syncing || resettingDrive}
+                    onClick={() => setDriveResetStep(1)}
+                    data-testid="gallerydeck-reset-drive-btn"
+                    className="inline-flex items-center gap-1 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 disabled:opacity-40 border border-rose-400/40 px-2.5 py-1.5 text-xs font-medium text-rose-200 cursor-pointer"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>{isJa ? '同期設定を削除' : 'Remove Sync'}</span>
+                  </button>
+                )}
               </div>
             </div>
-            <button
-              type="button"
-              disabled={!fsSupported || syncing}
-              onClick={() => void onLinkDirectory()}
-              data-testid="gallerydeck-link-dir-btn"
-              className="rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-100 cursor-pointer shrink-0"
-            >
-              {linkedDirName ? gd.changeFolder : gd.linkFolder}
-            </button>
-          </div>
 
-          {/* Tier 3: Google Drive */}
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3.5">
-            <div className="flex items-center gap-3">
-              <Cloud className="h-5 w-5 text-sky-400 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-white">{gd.tierGoogleDrive}</p>
-                <p className="text-xs text-slate-400">
-                  {driveConnected ? gd.driveConnectedDesc : gd.driveDisconnectedDesc}
-                </p>
+            {driveResetStep === 1 && (
+              <div
+                data-testid="gallerydeck-reset-drive-confirm-1"
+                className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-2.5"
+              >
+                <div className="flex items-start gap-2 text-xs text-amber-200">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
+                  <p className="font-medium">
+                    {isJa
+                      ? 'Google Drive の同期設定を削除しますか？'
+                      : 'Remove Google Drive sync settings?'}
+                  </p>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDriveResetStep(0)}
+                    className="rounded-lg bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs text-slate-200 cursor-pointer"
+                  >
+                    {isJa ? 'キャンセル' : 'Cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDriveResetStep(2)}
+                    data-testid="gallerydeck-reset-drive-next-btn"
+                    className="rounded-lg bg-amber-500 hover:bg-amber-400 px-3 py-1.5 text-xs font-semibold text-slate-950 cursor-pointer"
+                  >
+                    {isJa ? '削除する' : 'Continue'}
+                  </button>
+                </div>
               </div>
-            </div>
-            <button
-              type="button"
-              disabled={syncing}
-              onClick={() => void onConnectDrive()}
-              data-testid="gallerydeck-connect-drive-btn"
-              className="rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-100 cursor-pointer shrink-0"
-            >
-              {driveConnected ? gd.syncNow : gd.connectDrive}
-            </button>
+            )}
+
+            {driveResetStep === 2 && (
+              <div
+                data-testid="gallerydeck-reset-drive-confirm-2"
+                className="rounded-xl border border-rose-500/50 bg-rose-500/15 p-3 space-y-2.5"
+              >
+                <div className="flex items-start gap-2 text-xs text-rose-100">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-rose-400" />
+                  <p className="font-semibold">
+                    {isJa
+                      ? '本当に削除しますか？Google Drive との連携トークンと同期設定が完全にリセットされます。'
+                      : 'Are you really sure? This will revoke the Google Drive token and reset all sync settings.'}
+                  </p>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    disabled={resettingDrive}
+                    onClick={() => setDriveResetStep(0)}
+                    className="rounded-lg bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs text-slate-200 cursor-pointer"
+                  >
+                    {isJa ? 'キャンセル' : 'Cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={resettingDrive}
+                    onClick={() => void handleConfirmResetDrive()}
+                    data-testid="gallerydeck-reset-drive-final-btn"
+                    className="rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-50 px-3 py-1.5 text-xs font-semibold text-white cursor-pointer"
+                  >
+                    {resettingDrive
+                      ? isJa
+                        ? '削除中…'
+                        : 'Removing…'
+                      : isJa
+                        ? '本当に削除する'
+                        : 'Yes, Remove Permanently'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Portable .chdeck Archive Fallback */}
@@ -190,26 +264,6 @@ export function SyncPanelModal({
                   }
                 }}
               />
-              {onOpenVault && (
-                <button
-                  type="button"
-                  onClick={onOpenVault}
-                  data-testid="sync-modal-open-vault-btn"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/40 px-3 py-2 text-xs font-medium text-emerald-200 cursor-pointer"
-                >
-                  <Lock className="h-3.5 w-3.5" />
-                  {gd.vaultButton}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => downloadOfflineViewerHtml()}
-                data-testid="sync-modal-download-offline-html-btn"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 px-3 py-2 text-xs font-medium text-slate-100 cursor-pointer"
-              >
-                <FileCode2 className="h-3.5 w-3.5 text-emerald-400" />
-                {gd.vaultDownloadOfflineViewer}
-              </button>
             </div>
           </div>
         </div>
@@ -217,7 +271,7 @@ export function SyncPanelModal({
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
           <button
             type="button"
-            disabled={syncing}
+            disabled={syncing || resettingDrive}
             onClick={() => void onSyncNow()}
             data-testid="gallerydeck-sync-all-btn"
             className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 px-4 py-2 text-sm font-semibold text-slate-950 cursor-pointer"

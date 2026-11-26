@@ -22,7 +22,11 @@ interface ArtworkDetailDrawerProps {
   item: GalleryArtworkItem | null;
   busyAction: 'certify' | 'verify' | null;
   onClose: () => void;
-  onCertify: (item: GalleryArtworkItem, licenseId: LicenseId) => Promise<void>;
+  onCertify: (
+    item: GalleryArtworkItem,
+    licenseId: LicenseId,
+    qrMode: 'in-image' | 'outer-border',
+  ) => Promise<void>;
   onVerify: (item: GalleryArtworkItem) => Promise<void>;
   onDownload: (item: GalleryArtworkItem) => Promise<void>;
   onDelete: (item: GalleryArtworkItem) => void;
@@ -40,6 +44,7 @@ export function ArtworkDetailDrawer({
   const { t } = useI18n();
   const gd = t.galleryDeck;
   const [selectedLicense, setSelectedLicense] = useState<LicenseId>(item?.licenseId ?? 'ARR');
+  const [selectedQrMode, setSelectedQrMode] = useState<'in-image' | 'outer-border'>('in-image');
   const [copiedProof, setCopiedProof] = useState(false);
 
   if (!item) return null;
@@ -203,6 +208,42 @@ export function ArtworkDetailDrawer({
                       </option>
                     ))}
                   </select>
+
+                  <div className="pt-1 space-y-1.5">
+                    <label className="text-xs ga-text-secondary font-medium block">
+                      {t.simple.create.qrStyleLabel}
+                    </label>
+                    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t.simple.create.qrStyleLabel}>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={selectedQrMode === 'in-image'}
+                        onClick={() => setSelectedQrMode('in-image')}
+                        data-testid="gallerydeck-qrmode-in-image"
+                        className={`rounded-xl border px-3 py-2 text-left text-xs transition-colors cursor-pointer ${
+                          selectedQrMode === 'in-image'
+                            ? 'border-[var(--ga-accent)] bg-[var(--ga-accent-soft)] ga-text font-semibold'
+                            : 'ga-border ga-surface-subtle ga-text-secondary hover:ga-text'
+                        }`}
+                      >
+                        <div>{t.simple.create.styleInsideTitle}</div>
+                      </button>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={selectedQrMode === 'outer-border'}
+                        onClick={() => setSelectedQrMode('outer-border')}
+                        data-testid="gallerydeck-qrmode-outer-border"
+                        className={`rounded-xl border px-3 py-2 text-left text-xs transition-colors cursor-pointer ${
+                          selectedQrMode === 'outer-border'
+                            ? 'border-[var(--ga-accent)] bg-[var(--ga-accent-soft)] ga-text font-semibold'
+                            : 'ga-border ga-surface-subtle ga-text-secondary hover:ga-text'
+                        }`}
+                      >
+                        <div>{t.simple.create.styleOuterTitle}</div>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -214,7 +255,7 @@ export function ArtworkDetailDrawer({
                   <button
                     type="button"
                     disabled={busyAction !== null}
-                    onClick={() => void onCertify(item, selectedLicense)}
+                    onClick={() => void onCertify(item, selectedLicense, selectedQrMode)}
                     data-testid="gallerydeck-certify-btn"
                     className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--ga-accent)] hover:bg-[var(--ga-accent-hover)] disabled:opacity-50 px-4 py-2.5 text-sm font-semibold text-[#FAF9F6] transition-colors cursor-pointer"
                   >

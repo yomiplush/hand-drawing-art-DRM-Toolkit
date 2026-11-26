@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AlertTriangle, ShieldAlert, X } from 'lucide-react';
 import { useI18n } from '../../i18n/context';
 
@@ -12,23 +12,18 @@ interface GoogleDriveRiskConsentModalProps {
  * Mandatory risk-warning & consent gate displayed before any Google Drive OAuth
  * or Drive sync/load action can proceed.
  */
-export function GoogleDriveRiskConsentModal({
-  open,
+export function GoogleDriveRiskConsentModal(props: GoogleDriveRiskConsentModalProps) {
+  if (!props.open) return null;
+  return <GoogleDriveRiskConsentModalBody {...props} />;
+}
+
+function GoogleDriveRiskConsentModalBody({
   onCancel,
   onConfirmConsent,
 }: GoogleDriveRiskConsentModalProps) {
   const { t } = useI18n();
   const gd = t.galleryDeck;
   const [agreed, setAgreed] = useState(false);
-
-  // Reset consent checkbox every time the modal opens
-  useEffect(() => {
-    if (open) {
-      setAgreed(false);
-    }
-  }, [open]);
-
-  if (!open) return null;
 
   return (
     <div

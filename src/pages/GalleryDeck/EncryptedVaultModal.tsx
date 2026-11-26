@@ -123,14 +123,19 @@ export function EncryptedVaultModal({
   // Cleanup ObjectURLs on unmount or modal close, and load saved local vaults when opened
   useEffect(() => {
     if (open) {
-      void refreshSavedVaults();
-    } else {
+      const timer = window.setTimeout(() => {
+        void refreshSavedVaults();
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+    const timer = window.setTimeout(() => {
       releaseViewingImage();
       if (session) {
         session.dispose();
         setSession(null);
       }
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 

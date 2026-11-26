@@ -7,6 +7,7 @@ import {
   FileSignature,
   Gamepad2,
   Globe,
+  HardDriveDownload,
   Heart,
   KeyRound,
   RefreshCw,
@@ -93,6 +94,7 @@ export function Layout({
     { to: '/vault', label: t.vault.navItem, icon: Archive, testId: 'cockpit-vault-link' },
     { to: '/devices', label: t.devices.navItem, icon: Smartphone, testId: 'cockpit-devices-link' },
     { to: '/spec', label: t.simple.header.specNavLabel, icon: BookOpen, testId: 'cockpit-spec-link' },
+    { to: '/offline', label: t.simple.header.offlineNavLabel, icon: HardDriveDownload, testId: 'cockpit-offline-link' },
   ];
 
   const primaryKey = authorKeys[0] ?? null;

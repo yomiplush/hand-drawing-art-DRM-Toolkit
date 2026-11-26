@@ -41,6 +41,9 @@ const PrivacyPolicyPage = lazy(() =>
 const GalleryDeckPage = lazy(() =>
   import('./pages/GalleryDeck').then((m) => ({ default: m.GalleryDeckPage })),
 );
+const OfflinePage = lazy(() =>
+  import('./pages/OfflinePage').then((m) => ({ default: m.OfflinePage })),
+);
 
 function RouteLoadingFallback() {
   return (
@@ -198,6 +201,7 @@ function AppRoutes() {
               <Route path="/gallerydeck" element={<GalleryDeckPage />} />
               <Route path="/docs" element={<DocsPage />} />
               <Route path="/spec" element={<DocsPage />} />
+              <Route path="/offline" element={<OfflinePage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

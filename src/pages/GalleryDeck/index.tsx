@@ -6,7 +6,6 @@ import {
   Gamepad2,
   HardDrive,
   ImagePlus,
-  Lock,
   QrCode,
   Search,
   ShieldAlert,
@@ -39,11 +38,9 @@ import type {
   SyncTierStatus,
 } from '../../types/gallerydeck';
 import { ArtworkDetailDrawer } from './ArtworkDetailDrawer';
-import { EncryptedVaultModal } from './EncryptedVaultModal';
 import {
   certifyArtworkInDeck,
   importArtworkFileToDeck,
-  relinkCatalogFromLocalFolder,
   verifyArtworkInDeck,
 } from './galleryDeckHelpers';
 import { GoogleDriveRiskConsentModal } from './GoogleDriveRiskConsentModal';
@@ -57,7 +54,8 @@ export function GalleryDeckPage() {
   const gd = t.galleryDeck;
   const isJa = locale === 'ja';
 
-  const idbAdapterRef = useRef<IndexedDbGalleryAdapter>(new IndexedDbGalleryAdapter());
+  const [idbAdapter] = useState<IndexedDbGalleryAdapter>(() => new IndexedDbGalleryAdapter());
+  const idbAdapterRef = useRef<IndexedDbGalleryAdapter>(idbAdapter);
   const fsAdapterRef = useRef<FileSystemGalleryAdapter>(new FileSystemGalleryAdapter());
   const gdriveAdapterRef = useRef<GoogleDriveGalleryAdapter>(
     new GoogleDriveGalleryAdapter(googleAuthManager),
@@ -79,7 +77,7 @@ export function GalleryDeckPage() {
   const [busyAction, setBusyAction] = useState<'certify' | 'verify' | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [statusToast, setStatusToast] = useState<string | null>(null);
-  const [linkedDirName, setLinkedDirName] = useState<string | null>(null);
+  const [linkedDirName] = useState<string | null>(null);
   const [driveConnected, setDriveConnected] = useState<boolean>(
     () => googleAuthManager.getState().connected,
   );
@@ -251,13 +249,18 @@ export function GalleryDeckPage() {
     }
   };
 
-  const handleCertify = async (item: GalleryArtworkItem, licenseId: LicenseId) => {
+  const handleCertify = async (
+    item: GalleryArtworkItem,
+    licenseId: LicenseId,
+    qrMode: 'in-image' | 'outer-border' = 'in-image',
+  ) => {
     setBusyAction('certify');
     try {
       const updated = await certifyArtworkInDeck({
         item,
         idbAdapter: idbAdapterRef.current,
         licenseId,
+        qrMode,
       });
       const nextCatalog: GalleryDeckCatalog = {
         ...catalog,
@@ -366,26 +369,6 @@ export function GalleryDeckPage() {
     }
   };
 
-  const handleLinkDirectory = async () => {
-    try {
-      const name = await fsAdapterRef.current.linkDirectory();
-      setLinkedDirName(name);
-      const { catalog: relinked, relinkedCount } = await relinkCatalogFromLocalFolder(
-        catalog,
-        fsAdapterRef.current,
-        idbAdapterRef.current,
-      );
-      await persistCatalog(relinked);
-      if (relinkedCount > 0) {
-        showToast(`${name} (${relinkedCount})`);
-      } else {
-        await handleSyncAll();
-      }
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : gd.toastSyncFailed);
-    }
-  };
-
   const executeConnectDrive = async () => {
     const auth = googleAuthManager;
     if (!auth.getState().connected) {
@@ -411,6 +394,17 @@ export function GalleryDeckPage() {
     setDriveRiskConsentAccepted(true);
     setDriveRiskModalOpen(false);
     void executeConnectDrive();
+  };
+
+  const handleResetDriveSync = async () => {
+    await googleAuthManager.disconnect({ revokeAuthorization: true });
+    setDriveConnected(false);
+    setDriveRiskConsentAccepted(false);
+    setTierStatuses((prev) => ({
+      ...prev,
+      gdrive: { tier: 'gdrive', state: 'disconnected', lastSyncedAt: null },
+    }));
+    showToast(isJa ? 'Google Drive の同期設定を削除しました' : 'Google Drive sync settings removed');
   };
 
   const handleExportArchive = async () => {
@@ -527,39 +521,6 @@ export function GalleryDeckPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="inline-flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => void handleLinkDirectory()}
-                className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium cursor-pointer"
-              >
-                <FolderOpen className="h-3.5 w-3.5 ga-text-muted" />
-                <span className="hidden sm:inline">{linkedDirName ? gd.changeFolder : gd.linkFolder}</span>
-              </button>
-              <HelpTip
-                label={gd.tierLocalDirectory}
-                text={gd.tierLocalDirectoryDesc}
-                testId="gallerydeck-folder-tip-btn"
-              />
-            </div>
-
-            <div className="inline-flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setVaultModalOpen(true)}
-                data-testid="gallerydeck-open-vault-btn"
-                className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium cursor-pointer"
-              >
-                <Lock className="h-3.5 w-3.5 ga-text-muted" />
-                <span className="hidden sm:inline">{gd.vaultButton}</span>
-              </button>
-              <HelpTip
-                label={gd.vaultModalTitle}
-                text={gd.vaultZeroKnowledgeNote}
-                testId="gallerydeck-vault-tip-btn"
-              />
-            </div>
-
             <button
               type="button"
               onClick={() => setSyncModalOpen(true)}
@@ -704,14 +665,6 @@ export function GalleryDeckPage() {
                   <Sparkles className="h-3.5 w-3.5" />
                   <span>{t.discordUx.homeUx.demoCalloutBtn}</span>
                 </Link>
-                <button
-                  type="button"
-                  onClick={() => void handleLinkDirectory()}
-                  className="chm-link-dynamic ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-medium cursor-pointer"
-                >
-                  <FolderOpen className="h-3.5 w-3.5 ga-text-muted" />
-                  <span>{gd.linkFolder}</span>
-                </button>
               </div>
 
               <div className="flex items-center justify-center gap-1.5 text-[11px] ga-text-muted">
@@ -946,42 +899,14 @@ export function GalleryDeckPage() {
         open={syncModalOpen}
         itemCount={catalog.items.filter((i) => !i.deleted).length}
         tierStatuses={tierStatuses}
-        linkedDirName={linkedDirName}
         driveConnected={driveConnected}
         syncing={syncing}
         onClose={() => setSyncModalOpen(false)}
-        onLinkDirectory={handleLinkDirectory}
         onConnectDrive={handleConnectDrive}
+        onResetDriveSync={handleResetDriveSync}
         onSyncNow={() => handleSyncAll()}
         onExportArchive={handleExportArchive}
         onImportArchive={handleImportArchive}
-        onOpenVault={() => {
-          setSyncModalOpen(false);
-          setVaultModalOpen(true);
-        }}
-      />
-
-      {/* Zero-Knowledge Encrypted Vault & Offline Viewer Modal */}
-      <EncryptedVaultModal
-        open={vaultModalOpen}
-        items={catalog.items}
-        idbAdapter={idbAdapterRef.current}
-        onClose={() => setVaultModalOpen(false)}
-        onToast={showToast}
-        onImportDecryptedItems={async (decryptedItems) => {
-          const byId = new Map(catalog.items.map((item) => [item.id, item]));
-          for (const item of decryptedItems) {
-            byId.set(item.id, item);
-          }
-          const nextCatalog: GalleryDeckCatalog = {
-            ...catalog,
-            updatedAt: Date.now(),
-            items: Array.from(byId.values()).sort((a, b) => b.importedAt - a.importedAt),
-          };
-          await persistCatalog(nextCatalog);
-          setFocusedIndex(0);
-          showToast(`${decryptedItems.length} ${gd.toastImported}`);
-        }}
       />
 
       {/* Mandatory Google Drive Risk Consent Gate Modal */}
