@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { ArrowLeft, ArrowRight, Check, FileSignature, Globe, Hash, HelpCircle, Move, QrCode, Share2, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, FileSignature, Globe, Hash, HeartHandshake, HelpCircle, Move, QrCode, Share2, Sparkles, X } from 'lucide-react';
 import { LicenseSummaryCard } from '../../components/LicenseSummaryCard';
 import type { InImageQrStyle } from '../../core/image/inImageQr';
 import { LICENSE_DEFINITIONS } from '../../core/manifest/types';
-import type { CompactSnsLink, CreationMethod, LicenseId } from '../../core/manifest/types';
+import type { CompactSnsLink, CreationMethod, CreatorProfileLink, LicenseId } from '../../core/manifest/types';
 import { validateTrustedSnsUrl, validateTrustedWebsiteUrl } from '../../core/security/urlGuard';
 import { useI18n } from '../../i18n/context';
 import type { GalleryArtworkItem } from '../../types/gallerydeck';
@@ -25,6 +25,7 @@ export interface CertifyModalSubmission {
   description?: string;
   website?: string;
   snsLinks?: CompactSnsLink[];
+  supportLinks?: CreatorProfileLink[];
   tags?: string[];
   creationMethod?: CreationMethod;
   inImagePlacement?: InImageQrPlacementSelection;
@@ -92,6 +93,7 @@ function InImageQrPlacementModalBody({
   const [description, setDescription] = useState<string>(item.description ?? '');
   const [website, setWebsite] = useState<string>('');
   const [snsLinksText, setSnsLinksText] = useState<string>('');
+  const [supportLinksText, setSupportLinksText] = useState<string>('');
   const [tagsText, setTagsText] = useState<string>(
     item.tags.length > 0 ? item.tags.map((tag) => (tag.startsWith('#') ? tag : `#${tag}`)).join(' ') : '',
   );
@@ -121,6 +123,44 @@ function InImageQrPlacementModalBody({
       .filter((s) => s.length > 0);
     if (urls.length === 0) return undefined;
     return urls.map((url) => ({ url }));
+  };
+
+  const parseSupportLinks = (raw: string): CreatorProfileLink[] | undefined => {
+    const urls = raw
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+      .slice(0, 4);
+    if (urls.length === 0) return undefined;
+    return urls.map((url) => {
+      try {
+        const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+        if (host.includes('ko-fi.com')) return { url, label: 'Ko-fi' };
+        if (host.includes('patreon.com')) return { url, label: 'Patreon' };
+        if (host.includes('subscribestar.')) return { url, label: 'SubscribeStar' };
+        if (host.includes('fanbox.cc')) return { url, label: 'FANBOX' };
+        if (host.includes('fantia.jp')) return { url, label: 'Fantia' };
+        if (host.includes('booth.pm')) return { url, label: 'BOOTH' };
+        if (host.includes('skeb.jp')) return { url, label: 'Skeb' };
+        if (host.includes('skima.jp')) return { url, label: 'SKIMA' };
+        if (host.includes('coconala.com')) return { url, label: 'ココナラ' };
+        if (host.includes('tsunagu.cloud')) return { url, label: 'つなぐ' };
+        if (host.includes('ci-en.')) return { url, label: 'Ci-en' };
+        if (host.includes('dlsite.com')) return { url, label: 'DLsite' };
+        if (host.includes('suzuri.jp')) return { url, label: 'SUZURI' };
+        if (host.includes('vgen.co')) return { url, label: 'VGen' };
+        if (host.includes('buymeacoffee.com')) return { url, label: 'Buy Me a Coffee' };
+        if (host.includes('gumroad.com')) return { url, label: 'Gumroad' };
+        if (host.includes('boosty.to')) return { url, label: 'Boosty' };
+        if (host.includes('throne.com')) return { url, label: 'Throne' };
+        if (host.includes('artistree.io')) return { url, label: 'Artistree' };
+        if (host.includes('ofuse.me')) return { url, label: 'OFUSE' };
+        if (host.includes('doneru.jp')) return { url, label: 'Doneru' };
+        return { url, label: 'Support' };
+      } catch {
+        return { url, label: 'Support' };
+      }
+    });
   };
 
   const parseTags = (raw: string): string[] | undefined => {
@@ -160,6 +200,24 @@ function InImageQrPlacementModalBody({
         if (!snsCheck.ok) {
           setValidationError(isJa ? (snsCheck.reasonJa ?? '不正なSNSリンクです') : (snsCheck.reasonEn ?? 'Untrusted SNS link'));
           return false;
+        }
+      }
+    }
+
+    const rawSupport = parseSupportLinks(supportLinksText);
+    if (rawSupport) {
+      for (const link of rawSupport) {
+        const supCheck = validateTrustedSnsUrl(link.url);
+        if (!supCheck.ok) {
+          const siteFallback = validateTrustedWebsiteUrl(link.url);
+          if (!siteFallback.ok) {
+            setValidationError(
+              isJa
+                ? (supCheck.reasonJa ?? '不正な支援リンクです')
+                : (supCheck.reasonEn ?? 'Untrusted support link'),
+            );
+            return false;
+          }
         }
       }
     }
@@ -404,6 +462,25 @@ function InImageQrPlacementModalBody({
                 </label>
               </div>
 
+              <label className="space-y-1 block">
+                <span className="inline-flex items-center gap-1 text-xs text-sky-200/90">
+                  <HeartHandshake className="h-3.5 w-3.5 text-pink-400" />
+                  {isJa ? 'クリエイター(Artist)を支援' : 'Support the Creator (Artist)'}
+                </span>
+                <input
+                  type="text"
+                  value={supportLinksText}
+                  onChange={(e) => setSupportLinksText(e.target.value)}
+                  placeholder={
+                    isJa
+                      ? 'https://skeb.jp/..., https://...fanbox.cc, https://fantia.jp/..., https://ko-fi.com/..., https://patreon.com/...'
+                      : 'https://ko-fi.com/..., https://patreon.com/..., https://subscribestar.com/..., https://vgen.co/..., https://skeb.jp/...'
+                  }
+                  data-testid="certify-modal-support-input"
+                  className="w-full rounded-xl border border-sky-400/25 bg-[#04142b]/90 px-3 py-2 text-xs text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
+                />
+              </label>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="space-y-1 block">
                   <span className="inline-flex items-center gap-1 text-xs text-sky-200/90">
@@ -559,6 +636,7 @@ function InImageQrPlacementModalBody({
                       description: description.trim() || undefined,
                       website: website.trim() || undefined,
                       snsLinks: parseSnsLinks(snsLinksText),
+                      supportLinks: parseSupportLinks(supportLinksText),
                       tags: parseTags(tagsText),
                       creationMethod,
                     });
@@ -747,6 +825,7 @@ function InImageQrPlacementModalBody({
                       description: description.trim() || undefined,
                       website: website.trim() || undefined,
                       snsLinks: parseSnsLinks(snsLinksText),
+                      supportLinks: parseSupportLinks(supportLinksText),
                       tags: parseTags(tagsText),
                       creationMethod,
                       inImagePlacement: {

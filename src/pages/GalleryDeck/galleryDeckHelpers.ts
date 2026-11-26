@@ -150,6 +150,7 @@ export async function certifyArtworkInDeck(params: {
   description?: string;
   website?: string;
   snsLinks?: CompactSnsLink[];
+  portfolioLinks?: Array<{ url: string; label?: string }>;
   tags?: string[];
   creationMethod?: CreationMethod;
   qrMode?: 'in-image' | 'outer-border';
@@ -170,6 +171,7 @@ export async function certifyArtworkInDeck(params: {
     description,
     website,
     snsLinks,
+    portfolioLinks,
     tags,
     creationMethod,
     qrMode = 'in-image',
@@ -212,6 +214,7 @@ export async function certifyArtworkInDeck(params: {
           tags: cleanTags,
           website,
           snsLinks,
+          portfolioLinks,
           creationMethod,
           burnOptions: {
             placement: 'bottom-right',
@@ -230,6 +233,7 @@ export async function certifyArtworkInDeck(params: {
           tags: cleanTags,
           website,
           snsLinks,
+          portfolioLinks,
           creationMethod,
           compactBase45Url: true,
           nostrUltraCompactQr: true,

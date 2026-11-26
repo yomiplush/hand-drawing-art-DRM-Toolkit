@@ -288,6 +288,7 @@ export function GalleryDeckPage() {
         description: submission.description,
         website: submission.website,
         snsLinks: submission.snsLinks,
+        portfolioLinks: submission.supportLinks,
         tags: submission.tags,
         creationMethod: submission.creationMethod,
         qrMode: submission.qrMode,

@@ -171,7 +171,7 @@ export function Layout({
                   value={locale}
                   onChange={(e) => setLocale(e.target.value as Locale)}
                   data-testid="lang-select"
-                  className="appearance-none rounded-full ga-btn-secondary max-w-[78px] sm:max-w-[144px] md:max-w-none truncate ps-7 pe-5 py-1.5 text-xs sm:text-sm font-medium transition-colors min-h-[38px] sm:min-h-[40px] cursor-pointer"
+                  className="appearance-none rounded-full ga-btn-secondary w-auto max-w-none whitespace-nowrap ps-7 pe-6 py-1.5 text-xs sm:text-sm font-medium transition-colors min-h-[38px] sm:min-h-[40px] cursor-pointer"
                 >
                   {LOCALE_OPTIONS.map((opt) => (
                     <option

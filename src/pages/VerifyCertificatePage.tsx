@@ -1698,6 +1698,32 @@ export function VerifyCertificatePage() {
               </div>
             )}
 
+            {safeV3PortfolioLinks.length > 0 && (
+              <div
+                data-testid="verify-v3-support-links"
+                className="sm:col-span-2 ga-surface-subtle rounded-xl border border-pink-400/30 px-3.5 py-2.5 space-y-1.5"
+              >
+                <div className="text-[11px] font-medium text-pink-400">
+                  {locale === 'ja' ? 'クリエイター(Artist)を支援' : 'Support the Creator (Artist)'}
+                </div>
+                <ul className="flex flex-wrap gap-2">
+                  {safeV3PortfolioLinks.map((link, idx) => (
+                    <li key={`${link.url}-${idx}`}>
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-pink-400/40 bg-pink-500/10 hover:bg-pink-500/20 px-3 py-1 text-xs font-semibold text-pink-500 dark:text-pink-300 transition-colors"
+                      >
+                        <span>{link.label || link.url}</span>
+                        <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {safeV3SnsLinks.length > 0 && (
               <div
                 data-testid="verify-v3-creator-links"
@@ -2036,7 +2062,33 @@ export function VerifyCertificatePage() {
                 </div>
               )}
 
-              {safeV3SnsLinks.length > 0 && (
+              {safeV3PortfolioLinks.length > 0 && (
+              <div
+                data-testid="verify-v3-support-links"
+                className="sm:col-span-2 ga-surface-subtle rounded-xl border border-pink-400/30 px-3.5 py-2.5 space-y-1.5"
+              >
+                <div className="text-[11px] font-medium text-pink-400">
+                  {locale === 'ja' ? 'クリエイター(Artist)を支援' : 'Support the Creator (Artist)'}
+                </div>
+                <ul className="flex flex-wrap gap-2">
+                  {safeV3PortfolioLinks.map((link, idx) => (
+                    <li key={`${link.url}-${idx}`}>
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-pink-400/40 bg-pink-500/10 hover:bg-pink-500/20 px-3 py-1 text-xs font-semibold text-pink-500 dark:text-pink-300 transition-colors"
+                      >
+                        <span>{link.label || link.url}</span>
+                        <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {safeV3SnsLinks.length > 0 && (
                 <div className="space-y-1.5">
                   <div className="text-[11px] ga-text-muted">
                     {t.nextGen.verify.v3SnsLinksLabel}
