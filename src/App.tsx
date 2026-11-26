@@ -212,6 +212,8 @@ function AppRoutes() {
               <Route path="/verify" element={<VerifyCertificatePage />} />
               <Route path="/v" element={<VerifyCertificatePage />} />
               <Route path="/V" element={<VerifyCertificatePage />} />
+              <Route path="/n/:nostrId" element={<VerifyCertificatePage />} />
+              <Route path="/N/:nostrId" element={<VerifyCertificatePage />} />
               <Route path="/keys" element={<KeysPage />} />
               <Route path="/devices" element={<DevicesPage />} />
               <Route path="/vault" element={<VaultPage />} />

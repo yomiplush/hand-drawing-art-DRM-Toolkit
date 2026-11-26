@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { fetchProofFromNostrRelays } from '../core/nostr/proofRelay';
 import {
   AlertTriangle,
   Camera,
@@ -112,6 +113,7 @@ export function VerifyCertificatePage() {
   const demoTriggeredRef = useRef(false);
   const scanTimerRef = useRef<number | null>(null);
   const location = useLocation();
+  const { nostrId } = useParams<{ nostrId?: string }>();
   const proofBundleInputId = useId();
   const evidenceFileInputId = useId();
   const localFilesInputId = useId();
@@ -337,6 +339,26 @@ export function VerifyCertificatePage() {
   );
 
   // Automatically verify #proof= / ?proof= when QR link opens or URL changes
+  useEffect(() => {
+    if (!nostrId) return;
+    let cancelled = false;
+    void fetchProofFromNostrRelays(nostrId)
+      .then((bytes) => {
+        if (cancelled) return;
+        setLaunchedWithHashProof(true);
+        const token = base64UrlEncode(bytes);
+        setProofInput(token);
+        return runProofVerify(token, null, 'Nostr QR');
+      })
+      .catch(() => {
+        // Handled cleanly if relay lookup fails
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nostrId]);
+
   useEffect(() => {
     const urlProof = detectUrlProofInput(location.hash, location.search);
     if (!urlProof) return;

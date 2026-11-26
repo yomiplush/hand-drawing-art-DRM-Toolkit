@@ -17,6 +17,7 @@ import {
   formatUuidHex,
   generateArtworkId,
 } from './cborCodec';
+import { publishProofToNostrRelays } from '../nostr/proofRelay';
 import { buildCompactBase45ProofUrl, buildProofUrl } from './proofUrl';
 import {
   DEFAULT_VERIFY_BASE_URL,
@@ -125,6 +126,7 @@ export async function createSignedArtworkPng(
     burnOptions: QrBurnOptions;
     verifyBaseUrl?: string;
     compactBase45Url?: boolean;
+    nostrUltraCompactQr?: boolean;
     issuedAt?: number;
   },
 ): Promise<SignedArtworkResult> {
@@ -138,6 +140,7 @@ export async function createSignedArtworkPng(
     burnOptions,
     verifyBaseUrl = DEFAULT_VERIFY_BASE_URL,
     compactBase45Url = false,
+    nostrUltraCompactQr = false,
     issuedAt = Math.floor(Date.now() / 1000),
   } = params;
 
@@ -214,9 +217,19 @@ export async function createSignedArtworkPng(
   const signingMessage = buildSigningMessage(payloadBytes, effectiveVersion);
   const signature = await signWithAuthorKey(authorKey, signingMessage, passphraseIfEncrypted);
   const proofBytes = encodeSignedProofEnvelope(payloadBytes, signature, effectiveVersion);
-  const proofUrl = compactBase45Url
-    ? buildCompactBase45ProofUrl(proofBytes)
-    : buildProofUrl(proofBytes, verifyBaseUrl);
+  let proofUrl: string;
+  if (nostrUltraCompactQr) {
+    const published = await publishProofToNostrRelays(proofBytes).catch(() => null);
+    proofUrl = published
+      ? published.proofUrl
+      : compactBase45Url
+        ? buildCompactBase45ProofUrl(proofBytes)
+        : buildProofUrl(proofBytes, verifyBaseUrl);
+  } else {
+    proofUrl = compactBase45Url
+      ? buildCompactBase45ProofUrl(proofBytes)
+      : buildProofUrl(proofBytes, verifyBaseUrl);
+  }
   const qrMatrix = generateQrMatrix(proofUrl, 'M');
 
   // Verify layout matches converged module count
@@ -350,6 +363,7 @@ export async function createInImageSignedArtworkPng(
     qrOptions: InImageQrOptions;
     verifyBaseUrl?: string;
     compactBase45Url?: boolean;
+    nostrUltraCompactQr?: boolean;
     issuedAt?: number;
   },
 ): Promise<InImageSignedArtworkResult> {
@@ -363,6 +377,7 @@ export async function createInImageSignedArtworkPng(
     qrOptions,
     verifyBaseUrl = DEFAULT_VERIFY_BASE_URL,
     compactBase45Url = false,
+    nostrUltraCompactQr = false,
     issuedAt = Math.floor(Date.now() / 1000),
   } = params;
 
@@ -399,9 +414,19 @@ export async function createInImageSignedArtworkPng(
   const signingMessage = buildSigningMessage(payloadBytes, effectiveVersion);
   const signature = await signWithAuthorKey(authorKey, signingMessage, passphraseIfEncrypted);
   const proofBytes = encodeSignedProofEnvelope(payloadBytes, signature, effectiveVersion);
-  const proofUrl = compactBase45Url
-    ? buildCompactBase45ProofUrl(proofBytes)
-    : buildProofUrl(proofBytes, verifyBaseUrl);
+  let proofUrl: string;
+  if (nostrUltraCompactQr) {
+    const published = await publishProofToNostrRelays(proofBytes).catch(() => null);
+    proofUrl = published
+      ? published.proofUrl
+      : compactBase45Url
+        ? buildCompactBase45ProofUrl(proofBytes)
+        : buildProofUrl(proofBytes, verifyBaseUrl);
+  } else {
+    proofUrl = compactBase45Url
+      ? buildCompactBase45ProofUrl(proofBytes)
+      : buildProofUrl(proofBytes, verifyBaseUrl);
+  }
   const qrMatrix = generateQrMatrix(proofUrl, clamped.eccLevel);
 
   const { raster, clamped: finalClamped } = overlayQrIntoArtwork(
