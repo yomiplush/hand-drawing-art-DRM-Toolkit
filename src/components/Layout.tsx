@@ -77,7 +77,7 @@ export function Layout({
   }, [isAdvanced, location.pathname, refreshKeysStatus]);
 
   const cockpitLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-colors min-h-[36px] shrink-0 ${
+    `chm-link-dynamic inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 sm:px-3 py-1.5 text-xs font-medium min-h-[36px] shrink-0 ${
       isActive
         ? 'bg-[var(--ga-accent-soft)] text-[var(--ga-accent)] border ga-border-strong'
         : 'ga-text-secondary hover:bg-[var(--ga-accent-soft)] hover:text-[var(--ga-text)] border border-transparent'
@@ -294,7 +294,12 @@ export function Layout({
       </header>
 
       <main className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 py-6 sm:py-10 min-w-0">
-        <Outlet />
+        <div
+          key={`${location.pathname}:${isAdvanced ? 'adv' : 'simple'}`}
+          className="chm-page-enter min-w-0 w-full"
+        >
+          <Outlet />
+        </div>
       </main>
 
       <footer className="border-t ga-border ga-header py-1.5 sm:py-2 text-[11px] sm:text-xs ga-text-muted">

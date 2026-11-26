@@ -39,6 +39,20 @@ interface EncryptedVaultModalProps {
   idbAdapter: IndexedDbGalleryAdapter;
   onClose: () => void;
   onToast: (message: string) => void;
+  onImportDecryptedItems?: (items: GalleryArtworkItem[]) => Promise<void> | void;
+}
+
+async function urlToDataUrl(url: string): Promise<string> {
+  if (!url) return '';
+  if (url.startsWith('data:')) return url;
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+    reader.onerror = () => reject(reader.error ?? new Error('Failed to read thumbnail'));
+    reader.readAsDataURL(blob);
+  });
 }
 
 type VaultTab = 'export' | 'decrypt';
@@ -49,6 +63,7 @@ export function EncryptedVaultModal({
   idbAdapter,
   onClose,
   onToast,
+  onImportDecryptedItems,
 }: EncryptedVaultModalProps) {
   const { t } = useI18n();
   const gd = t.galleryDeck;
@@ -303,6 +318,67 @@ export function EncryptedVaultModal({
       if (session) session.dispose();
       setSession(nextSession);
       setActiveFolder('ALL');
+
+      // Automatically reflect decrypted artworks into GalleryDeck (IndexedDB + catalog)
+      if (onImportDecryptedItems && nextSession.manifest.items.length > 0) {
+        const now = Date.now();
+        const hydrated: GalleryArtworkItem[] = [];
+        for (const entry of nextSession.manifest.items) {
+          let blobRef: string | undefined;
+          let mimeType = entry.mimeType || 'image/png';
+          let fileSizeBytes = entry.fileSizeBytes;
+          try {
+            const { blobUrl, mimeType: decryptedMime } = await nextSession.decryptFullImage(entry.id);
+            try {
+              const res = await fetch(blobUrl);
+              const bytes = new Uint8Array(await res.arrayBuffer());
+              mimeType = decryptedMime || mimeType;
+              fileSizeBytes = bytes.byteLength;
+              await idbAdapter.saveBlob(entry.id, bytes, mimeType);
+              blobRef = entry.id;
+            } finally {
+              URL.revokeObjectURL(blobUrl);
+            }
+          } catch {
+            // Keep metadata even if full image chunk fails
+          }
+
+          let thumbnailDataUrl = '';
+          const thumbUrl = nextSession.thumbnailUrls[entry.id];
+          if (thumbUrl) {
+            try {
+              thumbnailDataUrl = await urlToDataUrl(thumbUrl);
+            } catch {
+              thumbnailDataUrl = '';
+            }
+          }
+
+          hydrated.push({
+            id: entry.id,
+            title: entry.title,
+            authorName: entry.authorName,
+            createdAt: entry.createdAt || now,
+            importedAt: now,
+            updatedAt: now,
+            width: entry.width,
+            height: entry.height,
+            mimeType,
+            fileSizeBytes,
+            thumbnailDataUrl,
+            blobRef,
+            provenanceStatus: entry.provenanceStatus ?? 'unverified',
+            qrMode: 'none',
+            publicKeyFingerprint: entry.publicKeyFingerprint,
+            licenseId: entry.licenseId,
+            tags: entry.tags ?? [],
+            collections: entry.collections ?? [],
+            deleted: false,
+          });
+        }
+        if (hydrated.length > 0) {
+          await onImportDecryptedItems(hydrated);
+        }
+      }
     } catch (err) {
       setDecryptError(err instanceof Error ? err.message : gd.vaultDecryptFailed);
     } finally {

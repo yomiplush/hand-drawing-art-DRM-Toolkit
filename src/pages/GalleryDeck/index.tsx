@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { HelpTip } from '../../components/HelpTip';
+import { useAppPreferences } from '../../components/PreferencesContext';
 import { googleAuthManager } from '../../core/google/gisAuth';
 import type { LicenseId } from '../../core/manifest/types';
 import { useDeckNavigation } from '../../hooks/useDeckNavigation';
@@ -51,8 +52,10 @@ import { SyncPanelModal } from './SyncPanelModal';
 const FILTER_TABS: GalleryFilterTab[] = ['all', 'recent', 'verified', 'unverified', 'collections'];
 
 export function GalleryDeckPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const { isAdvanced } = useAppPreferences();
   const gd = t.galleryDeck;
+  const isJa = locale === 'ja';
 
   const idbAdapterRef = useRef<IndexedDbGalleryAdapter>(new IndexedDbGalleryAdapter());
   const fsAdapterRef = useRef<FileSystemGalleryAdapter>(new FileSystemGalleryAdapter());
@@ -479,9 +482,22 @@ export function GalleryDeckPage() {
           void handleImportFiles(e.dataTransfer.files);
         }
       }}
-      className="relative -mx-4 sm:-mx-6 -my-6 sm:-my-10 min-h-[calc(100vh-6rem)] overflow-hidden bg-[var(--ga-bg)] ga-text flex flex-col justify-between"
+      className="relative -mx-4 sm:-mx-6 -my-6 sm:-my-10 min-h-[calc(100vh-6rem)] overflow-hidden bg-transparent ga-text flex flex-col justify-between"
     >
-      {/* Minimal Gallery Header */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        multiple
+        data-testid="gallerydeck-file-input"
+        className="hidden"
+        onChange={(e) => {
+          void handleImportFiles(e.target.files);
+          e.target.value = '';
+        }}
+      />
+      {/* Minimal Gallery Header (hidden in Simple Mode when empty so GalleryDeck floats cleanly alone) */}
+      {(isAdvanced || visibleItems.length > 0 || searchQuery.length > 0 || activeTab !== 'all') && (
       <div className="relative z-10 mx-auto w-full max-w-6xl px-4 sm:px-6 pt-5 pb-3 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex items-center gap-2">
@@ -562,23 +578,11 @@ export function GalleryDeckPage() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               data-testid="gallerydeck-import-btn"
-              className="ga-btn-primary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer"
+              className="chm-link-dynamic ga-btn-primary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold cursor-pointer"
             >
               <ImagePlus className="h-4 w-4" />
               {gd.importArtwork}
             </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              multiple
-              data-testid="gallerydeck-file-input"
-              className="hidden"
-              onChange={(e) => {
-                void handleImportFiles(e.target.files);
-                e.target.value = '';
-              }}
-            />
           </div>
         </div>
 
@@ -629,42 +633,73 @@ export function GalleryDeckPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Main Gallery Light-Table Stage */}
       <div className="relative z-10 flex-1 flex flex-col justify-center py-6 sm:py-8">
         {visibleItems.length === 0 ? (
           <div
             data-testid="gallerydeck-empty-state"
-            className="mx-auto w-full max-w-md px-4 text-center space-y-5"
+            className="mx-auto w-full max-w-lg px-4 text-center space-y-5"
           >
-            <div className="rounded-3xl border border-dashed ga-border-strong ga-surface-solid p-8 sm:p-10 space-y-5 shadow-[var(--ga-shadow)]">
+            <div className="ga-card rounded-3xl p-7 sm:p-10 space-y-6">
+              <div className="space-y-1.5">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight ga-text">
+                  {gd.title}
+                </h1>
+                <p className="text-xs sm:text-sm ga-text-secondary">
+                  {isJa
+                    ? '絵を入れて署名するだけ。完全無料・登録なし・画像はサーバーに送りません。'
+                    : gd.emptySubtitle}
+                </p>
+              </div>
+
+              {/* Ultra-clear 3-step visual flow for illustrators */}
+              <div className="grid grid-cols-3 gap-2 text-[11px] sm:text-xs">
+                <div className="ga-surface-subtle rounded-2xl px-2 py-2.5 font-semibold ga-text">
+                  <span className="block text-[10px] ga-text-accent font-mono mb-0.5">STEP 1</span>
+                  {isJa ? '絵を入れる' : 'Drop Art'}
+                </div>
+                <div className="ga-surface-subtle rounded-2xl px-2 py-2.5 font-semibold ga-text">
+                  <span className="block text-[10px] ga-text-accent font-mono mb-0.5">STEP 2</span>
+                  {isJa ? '署名をつける' : 'Sign Proof'}
+                </div>
+                <div className="ga-surface-subtle rounded-2xl px-2 py-2.5 font-semibold ga-text">
+                  <span className="block text-[10px] ga-text-accent font-mono mb-0.5">STEP 3</span>
+                  {isJa ? 'PNGを保存' : 'Save PNG'}
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full group flex flex-col items-center justify-center gap-3 py-4 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--ga-focus)] rounded-2xl"
+                data-testid={isAdvanced ? 'gallerydeck-empty-import-btn' : 'gallerydeck-import-btn'}
+                className="chm-link-dynamic w-full group flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed ga-border-strong bg-[var(--ga-accent-soft)] hover:bg-[var(--ga-surface-subtle)] py-7 px-4 cursor-pointer"
               >
-                <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--ga-accent-soft)] text-[var(--ga-accent)] transition-transform group-hover:scale-105">
+                <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl ga-btn-primary shadow-[var(--ga-shadow)] transition-transform group-hover:scale-105">
                   <ImagePlus className="h-7 w-7" />
                 </span>
                 <span className="text-base sm:text-lg font-bold tracking-tight ga-text">
-                  {gd.importArtwork}
+                  {isJa ? 'イラストを追加（タップ / ドロップ）' : gd.importArtwork}
+                </span>
+                <span className="text-[11px] ga-text-muted">
+                  PNG / JPEG / WebP
                 </span>
               </button>
 
-              <div className="flex items-center justify-center gap-1.5 text-xs ga-text-muted">
-                <span>{t.simple.home.localOnlyBadge}</span>
-                <HelpTip
-                  label={t.simple.home.localOnlyTipLabel}
-                  text={t.simple.home.localOnlyTipText}
-                  testId="gallerydeck-empty-local-tip"
-                />
-              </div>
-
               <div className="pt-2 border-t ga-border flex flex-wrap items-center justify-center gap-2">
+                <Link
+                  to="/verify"
+                  data-testid="gallerydeck-quick-verify-link"
+                  className="chm-link-dynamic ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold ga-text"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5 ga-text-accent" />
+                  <span>{isJa ? '作品を検証する' : t.simple.home.verifyCardTitle}</span>
+                </Link>
                 <Link
                   to="/verify?demo=sample"
                   data-testid="home-sample-demo-link"
-                  className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold ga-text-accent"
+                  className="chm-link-dynamic ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold ga-text-accent"
                 >
                   <Sparkles className="h-3.5 w-3.5" />
                   <span>{t.discordUx.homeUx.demoCalloutBtn}</span>
@@ -672,11 +707,20 @@ export function GalleryDeckPage() {
                 <button
                   type="button"
                   onClick={() => void handleLinkDirectory()}
-                  className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-medium cursor-pointer"
+                  className="chm-link-dynamic ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-medium cursor-pointer"
                 >
                   <FolderOpen className="h-3.5 w-3.5 ga-text-muted" />
                   <span>{gd.linkFolder}</span>
                 </button>
+              </div>
+
+              <div className="flex items-center justify-center gap-1.5 text-[11px] ga-text-muted">
+                <span>{t.simple.home.localOnlyBadge}</span>
+                <HelpTip
+                  label={t.simple.home.localOnlyTipLabel}
+                  text={t.simple.home.localOnlyTipText}
+                  testId="gallerydeck-empty-local-tip"
+                />
               </div>
             </div>
           </div>
@@ -685,8 +729,9 @@ export function GalleryDeckPage() {
             {/* Gallery Framed Spotlight Stage */}
             {focusedItem && (
               <div
+                key={focusedItem.id}
                 data-testid="gallerydeck-spotlight-stage"
-                className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center rounded-3xl border ga-border ga-surface-solid p-4 sm:p-6 shadow-[var(--ga-shadow)]"
+                className="chm-spotlight-enter grid grid-cols-1 lg:grid-cols-12 gap-6 items-center rounded-3xl ga-card p-4 sm:p-6"
               >
                 <div className="lg:col-span-7">
                   <div className="rounded-2xl border ga-border ga-surface-subtle p-3 sm:p-4">
@@ -837,7 +882,8 @@ export function GalleryDeckPage() {
         )}
       </div>
 
-      {/* Quiet Status Strip */}
+      {/* Quiet Status Strip (shown in Advanced Mode or when artworks exist) */}
+      {(isAdvanced || visibleItems.length > 0) && (
       <footer className="relative z-10 border-t ga-border ga-surface-subtle">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs ga-text-muted">
           <div className="flex items-center gap-3 min-w-0">
@@ -871,6 +917,7 @@ export function GalleryDeckPage() {
           </div>
         </div>
       </footer>
+      )}
 
       {/* Toast Notification */}
       {statusToast && (
@@ -921,6 +968,20 @@ export function GalleryDeckPage() {
         idbAdapter={idbAdapterRef.current}
         onClose={() => setVaultModalOpen(false)}
         onToast={showToast}
+        onImportDecryptedItems={async (decryptedItems) => {
+          const byId = new Map(catalog.items.map((item) => [item.id, item]));
+          for (const item of decryptedItems) {
+            byId.set(item.id, item);
+          }
+          const nextCatalog: GalleryDeckCatalog = {
+            ...catalog,
+            updatedAt: Date.now(),
+            items: Array.from(byId.values()).sort((a, b) => b.importedAt - a.importedAt),
+          };
+          await persistCatalog(nextCatalog);
+          setFocusedIndex(0);
+          showToast(`${decryptedItems.length} ${gd.toastImported}`);
+        }}
       />
 
       {/* Mandatory Google Drive Risk Consent Gate Modal */}

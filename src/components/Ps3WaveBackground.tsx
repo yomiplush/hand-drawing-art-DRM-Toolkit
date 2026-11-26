@@ -13,31 +13,40 @@ interface RibbonConfig {
 
 const RIBBONS: RibbonConfig[] = [
   {
-    yRatio: 0.48,
-    amplitude: 44,
-    frequency: 0.0019,
-    speed: 0.14,
+    yRatio: 0.42,
+    amplitude: 54,
+    frequency: 0.0017,
+    speed: 0.18,
     phase: 0.0,
-    crestAlpha: 0.14,
-    fillTopAlpha: 0.08,
+    crestAlpha: 0.28,
+    fillTopAlpha: 0.14,
   },
   {
-    yRatio: 0.56,
-    amplitude: 52,
-    frequency: 0.0015,
-    speed: -0.1,
-    phase: 1.7,
-    crestAlpha: 0.17,
-    fillTopAlpha: 0.09,
+    yRatio: 0.50,
+    amplitude: 64,
+    frequency: 0.00135,
+    speed: -0.14,
+    phase: 1.5,
+    crestAlpha: 0.36,
+    fillTopAlpha: 0.17,
   },
   {
-    yRatio: 0.65,
-    amplitude: 36,
-    frequency: 0.0022,
-    speed: 0.09,
-    phase: 3.4,
-    crestAlpha: 0.11,
-    fillTopAlpha: 0.06,
+    yRatio: 0.58,
+    amplitude: 48,
+    frequency: 0.0021,
+    speed: 0.12,
+    phase: 3.1,
+    crestAlpha: 0.26,
+    fillTopAlpha: 0.13,
+  },
+  {
+    yRatio: 0.67,
+    amplitude: 38,
+    frequency: 0.0016,
+    speed: -0.09,
+    phase: 4.8,
+    crestAlpha: 0.20,
+    fillTopAlpha: 0.10,
   },
 ];
 
@@ -79,37 +88,37 @@ export function Ps3WaveBackground() {
     const drawFrame = (elapsedSec: number) => {
       const bg = ctx.createLinearGradient(0, 0, 0, height);
       if (isDark) {
-        // Studio Canvas Night (#0F1115 -> #181B22)
-        bg.addColorStop(0, '#0F1115');
-        bg.addColorStop(0.5, '#13161D');
-        bg.addColorStop(0.85, '#181B22');
-        bg.addColorStop(1, '#0F1115');
+        // Deep Abyssal Azure (PS3 XMB Sapphire Night)
+        bg.addColorStop(0, '#040B1A');
+        bg.addColorStop(0.45, '#071734');
+        bg.addColorStop(0.82, '#0B2350');
+        bg.addColorStop(1, '#040B1A');
       } else {
-        // Studio Canvas Light (#FAFAFA -> #EEF4FC)
-        bg.addColorStop(0, '#FAFAFA');
-        bg.addColorStop(0.48, '#F6F8FC');
-        bg.addColorStop(0.88, '#EDF3FC');
-        bg.addColorStop(1, '#E4EEF9');
+        // Crystal Azure Sky (Luminous Cerulean Mist)
+        bg.addColorStop(0, '#F3F8FF');
+        bg.addColorStop(0.42, '#E5F0FF');
+        bg.addColorStop(0.82, '#D3E5FF');
+        bg.addColorStop(1, '#C5DCFF');
       }
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, width, height);
 
       const glow = ctx.createRadialGradient(
         width * 0.5,
-        height * 0.36,
+        height * 0.34,
         24,
         width * 0.5,
-        height * 0.42,
-        Math.max(width, height) * 0.65,
+        height * 0.44,
+        Math.max(width, height) * 0.72,
       );
       if (isDark) {
-        glow.addColorStop(0, 'rgba(61, 115, 197, 0.14)');
-        glow.addColorStop(0.55, 'rgba(40, 89, 182, 0.06)');
-        glow.addColorStop(1, 'rgba(15, 17, 21, 0)');
+        glow.addColorStop(0, 'rgba(56, 189, 248, 0.22)');
+        glow.addColorStop(0.48, 'rgba(37, 117, 252, 0.12)');
+        glow.addColorStop(1, 'rgba(4, 11, 26, 0)');
       } else {
-        glow.addColorStop(0, 'rgba(130, 184, 255, 0.18)');
-        glow.addColorStop(0.55, 'rgba(226, 236, 250, 0.22)');
-        glow.addColorStop(1, 'rgba(250, 250, 250, 0)');
+        glow.addColorStop(0, 'rgba(56, 189, 248, 0.24)');
+        glow.addColorStop(0.5, 'rgba(37, 117, 252, 0.10)');
+        glow.addColorStop(1, 'rgba(243, 248, 255, 0)');
       }
       ctx.fillStyle = glow;
       ctx.fillRect(0, 0, width, height);
@@ -143,13 +152,13 @@ export function Ps3WaveBackground() {
 
         const ribbonGrad = ctx.createLinearGradient(0, baseY - r.amplitude, 0, height);
         if (isDark) {
-          ribbonGrad.addColorStop(0, `rgba(130, 184, 255, ${r.fillTopAlpha})`);
-          ribbonGrad.addColorStop(0.4, `rgba(61, 115, 197, ${r.fillTopAlpha * 0.45})`);
-          ribbonGrad.addColorStop(1, 'rgba(15, 17, 21, 0)');
+          ribbonGrad.addColorStop(0, `rgba(96, 195, 255, ${r.fillTopAlpha})`);
+          ribbonGrad.addColorStop(0.38, `rgba(37, 117, 252, ${r.fillTopAlpha * 0.55})`);
+          ribbonGrad.addColorStop(1, 'rgba(4, 11, 26, 0)');
         } else {
-          ribbonGrad.addColorStop(0, `rgba(61, 115, 197, ${r.fillTopAlpha * 0.78})`);
-          ribbonGrad.addColorStop(0.42, `rgba(130, 184, 255, ${r.fillTopAlpha * 0.48})`);
-          ribbonGrad.addColorStop(1, 'rgba(250, 250, 250, 0)');
+          ribbonGrad.addColorStop(0, `rgba(29, 92, 230, ${r.fillTopAlpha * 0.85})`);
+          ribbonGrad.addColorStop(0.42, `rgba(56, 189, 248, ${r.fillTopAlpha * 0.5})`);
+          ribbonGrad.addColorStop(1, 'rgba(243, 248, 255, 0)');
         }
         ctx.fillStyle = ribbonGrad;
         ctx.fill();
@@ -163,9 +172,9 @@ export function Ps3WaveBackground() {
         }
         ctx.lineTo(last[0], last[1]);
         ctx.strokeStyle = isDark
-          ? `rgba(130, 184, 255, ${r.crestAlpha})`
-          : `rgba(40, 89, 182, ${r.crestAlpha * 0.55})`;
-        ctx.lineWidth = 1;
+          ? `rgba(147, 215, 255, ${r.crestAlpha})`
+          : `rgba(29, 92, 230, ${r.crestAlpha * 0.65})`;
+        ctx.lineWidth = 1.4;
         ctx.stroke();
       }
     };

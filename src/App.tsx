@@ -5,6 +5,7 @@ import { registerSW } from 'virtual:pwa-register';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
 import { Layout } from './components/Layout';
 import { PreferencesProvider } from './components/PreferencesContext';
+import { Ps3WaveBackground } from './components/Ps3WaveBackground';
 import { SeoHead } from './components/SeoHead';
 import {
   getConsentStatus,
@@ -166,6 +167,7 @@ function AppRoutes() {
 
   return (
     <>
+      <Ps3WaveBackground />
       <SeoHead />
 
       <RouteErrorBoundary resetKey={location.pathname}>
