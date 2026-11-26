@@ -159,6 +159,41 @@ describe('Zero-Knowledge GalleryCrypto Engine', () => {
     const afterDelete = await loadLocalEncryptedVaultFile(meta.id);
     expect(afterDelete).toBeNull();
   });
+
+  it('encrypts and restores wss:// customNostrRelays in the vault manifest without leaking plaintext', async () => {
+    const relayA = 'wss://paid-relay.example.com';
+    const relayB = 'wss://self-hosted.example.org/nostr';
+    const { manifest, chunks } = await buildEncryptedVaultChunks({
+      vaultName: 'Drive Relay Sync',
+      items: [],
+      passphrase: 'relay-sync-passphrase',
+      customNostrRelays: [relayA, 'https://ignored.example.com', relayB, relayA],
+      iterations: MIN_PBKDF2_ITERATIONS,
+    });
+    expect(manifest.customNostrRelays).toEqual([relayA, relayB]);
+
+    // Verify plaintext relay URL is not present in the encrypted manifest chunk
+    const manifestChunk = chunks.find((c) => c.name === 'manifest.enc');
+    expect(manifestChunk).toBeDefined();
+    const rawText = new TextDecoder().decode(manifestChunk!.data);
+    expect(rawText).not.toContain(relayA);
+    expect(rawText).not.toContain(relayB);
+
+    // Pack & decrypt via openEncryptedVaultSession
+    const vaultBlob = packChunksToVaultBlob(chunks);
+    const vaultFile = new File([vaultBlob], 'drive-sync.gdvault', {
+      type: 'application/octet-stream',
+    });
+    const session = await openEncryptedVaultSession({
+      files: [vaultFile],
+      passphrase: 'relay-sync-passphrase',
+    });
+    try {
+      expect(session.manifest.customNostrRelays).toEqual([relayA, relayB]);
+    } finally {
+      session.dispose();
+    }
+  });
 });
 
 describe('GoogleDriveRiskConsentModal', () => {

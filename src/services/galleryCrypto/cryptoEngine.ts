@@ -255,10 +255,18 @@ export async function buildEncryptedVaultChunks(params: {
   vaultName: string;
   items: VaultBuildInputItem[];
   passphrase: string;
+  customNostrRelays?: string[];
   iterations?: number;
   onProgress?: (done: number, total: number) => void;
 }): Promise<BuiltEncryptedVault> {
-  const { vaultName, items, passphrase, iterations = DEFAULT_PBKDF2_ITERATIONS, onProgress } = params;
+  const {
+    vaultName,
+    items,
+    passphrase,
+    customNostrRelays,
+    iterations = DEFAULT_PBKDF2_ITERATIONS,
+    onProgress,
+  } = params;
   const manifestEntries: EncryptedVaultManifestEntry[] = [];
   const chunks: EncryptedChunkFile[] = [];
   const folderSet = new Set<string>();
@@ -311,12 +319,23 @@ export async function buildEncryptedVaultChunks(params: {
     onProgress?.(completed, total);
   }
 
+  const cleanedRelays = Array.isArray(customNostrRelays)
+    ? Array.from(
+        new Set(
+          customNostrRelays
+            .map((u) => u.trim())
+            .filter((u) => /^wss:\/\/.+/i.test(u)),
+        ),
+      )
+    : [];
+
   const manifest: EncryptedVaultManifest = {
     version: 1,
     createdAt: Date.now(),
     vaultName: vaultName.trim() || 'GalleryDeck Vault',
     folders: Array.from(folderSet),
     items: manifestEntries,
+    ...(cleanedRelays.length > 0 ? { customNostrRelays: cleanedRelays } : {}),
   };
 
   const encManifest = await encryptJson(manifest, passphrase, iterations);

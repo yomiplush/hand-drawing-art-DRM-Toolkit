@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Cloud,
   FolderOpen,
@@ -16,6 +16,11 @@ import { HelpTip } from '../../components/HelpTip';
 import { useAppPreferences } from '../../components/PreferencesContext';
 import { googleAuthManager } from '../../core/google/gisAuth';
 import type { LicenseId } from '../../core/manifest/types';
+import {
+  getCustomNostrProofRelays,
+  setCustomNostrProofRelays,
+} from '../../core/nostr/proofRelay';
+import { listAuthorKeys } from '../../core/storage/keyStore';
 import { useDeckNavigation } from '../../hooks/useDeckNavigation';
 import { useI18n } from '../../i18n/context';
 import {
@@ -57,6 +62,7 @@ import { SyncPanelModal } from './SyncPanelModal';
 const FILTER_TABS: GalleryFilterTab[] = ['all', 'recent', 'verified', 'unverified', 'collections'];
 
 export function GalleryDeckPage() {
+  const navigate = useNavigate();
   const { t, locale } = useI18n();
   const { isAdvanced } = useAppPreferences();
   const gd = t.galleryDeck;
@@ -78,9 +84,11 @@ export function GalleryDeckPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [syncModalOpen, setSyncModalOpen] = useState(
+  const [openedFromSyncQuery] = useState(
     () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('sync') === '1',
   );
+  const [syncModalOpen, setSyncModalOpen] = useState(openedFromSyncQuery);
+  const [hasAuthorKey, setHasAuthorKey] = useState<boolean | null>(null);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [fullscreenVisible, setFullscreenVisible] = useState(false);
   const [pendingQrPlacement, setPendingQrPlacement] = useState<{
@@ -114,9 +122,16 @@ export function GalleryDeckPage() {
     }, 3500);
   }, []);
 
-  // Load initial catalog from IndexedDB
+  // Load initial catalog from IndexedDB & check local author keys
   useEffect(() => {
     let active = true;
+    void listAuthorKeys()
+      .then((keys) => {
+        if (active) setHasAuthorKey(keys.length > 0);
+      })
+      .catch(() => {
+        if (active) setHasAuthorKey(false);
+      });
     void loadInitialCatalog(idbAdapterRef.current).then((loaded) => {
       if (!active) return;
       setCatalog(loaded);
@@ -217,6 +232,14 @@ export function GalleryDeckPage() {
     setFocusedIndex(0);
   }, []);
 
+  const handleCloseSyncModal = useCallback(() => {
+    setSyncModalOpen(false);
+    const activeCount = catalog.items.filter((i) => !i.deleted).length;
+    if (openedFromSyncQuery && hasAuthorKey === false && activeCount === 0) {
+      navigate('/', { replace: true });
+    }
+  }, [catalog.items, hasAuthorKey, navigate, openedFromSyncQuery]);
+
   const { gamepadConnected, gamepadName } = useDeckNavigation({
     itemCount: visibleItems.length,
     focusedIndex: safeFocusedIndex,
@@ -232,7 +255,7 @@ export function GalleryDeckPage() {
       } else if (selectedItemId) {
         setSelectedItemId(null);
       } else if (syncModalOpen) {
-        setSyncModalOpen(false);
+        handleCloseSyncModal();
       }
     },
     onNextTab: handleNextTab,
@@ -476,17 +499,19 @@ export function GalleryDeckPage() {
         fullMimeType: stored.mimeType || item.mimeType || 'image/png',
       });
     }
-    if (inputs.length === 0) {
+    const customNostrRelays = getCustomNostrProofRelays();
+    if (inputs.length === 0 && customNostrRelays.length === 0) {
       throw new Error(
         isJa
-          ? '暗号化して保存できるイラスト画像がローカルにありません。'
-          : 'No local artwork images found to encrypt and upload.',
+          ? '暗号化して保存できるイラスト画像やカスタム Nostr リレー設定がローカルにありません。'
+          : 'No local artwork images or custom Nostr relay settings found to encrypt and upload.',
       );
     }
     const built = await buildEncryptedVaultChunks({
       vaultName: 'GalleryDeck Drive Sync',
       items: inputs,
       passphrase,
+      customNostrRelays,
     });
     const bundleBlob = packChunksToVaultBlob(built.chunks);
     await gdriveAdapterRef.current.saveEncryptedBundle(bundleBlob);
@@ -496,8 +521,12 @@ export function GalleryDeckPage() {
     }));
     showToast(
       isJa
-        ? `${inputs.length}件の作品を暗号化して Google Drive に保存しました`
-        : `Encrypted and saved ${inputs.length} artwork(s) to Google Drive`,
+        ? customNostrRelays.length > 0
+          ? `${inputs.length}件の作品とカスタム Nostr リレー ${customNostrRelays.length}件を暗号化して Google Drive に保存しました`
+          : `${inputs.length}件の作品を暗号化して Google Drive に保存しました`
+        : customNostrRelays.length > 0
+          ? `Encrypted and saved ${inputs.length} artwork(s) and ${customNostrRelays.length} custom Nostr relay(s) to Google Drive`
+          : `Encrypted and saved ${inputs.length} artwork(s) to Google Drive`,
     );
   };
 
@@ -571,14 +600,21 @@ export function GalleryDeckPage() {
       };
       await persistCatalog(nextCatalog);
       setFocusedIndex(0);
+      const restoredRelays = Array.isArray(session.manifest.customNostrRelays)
+        ? setCustomNostrProofRelays(session.manifest.customNostrRelays)
+        : [];
       setTierStatuses((prev) => ({
         ...prev,
         gdrive: { tier: 'gdrive', state: 'synced', lastSyncedAt: Date.now() },
       }));
       showToast(
         isJa
-          ? `Google Drive から ${restoredItems.length}件の作品を復号して復元しました`
-          : `Decrypted and restored ${restoredItems.length} artwork(s) from Google Drive`,
+          ? restoredRelays.length > 0
+            ? `Google Drive から ${restoredItems.length}件の作品とカスタム Nostr リレー ${restoredRelays.length}件を復号して復元しました`
+            : `Google Drive から ${restoredItems.length}件の作品を復号して復元しました`
+          : restoredRelays.length > 0
+            ? `Decrypted and restored ${restoredItems.length} artwork(s) and ${restoredRelays.length} custom Nostr relay(s) from Google Drive`
+            : `Decrypted and restored ${restoredItems.length} artwork(s) from Google Drive`,
       );
     } finally {
       session.dispose();
@@ -1112,7 +1148,7 @@ export function GalleryDeckPage() {
         tierStatuses={tierStatuses}
         driveConnected={driveConnected}
         syncing={syncing}
-        onClose={() => setSyncModalOpen(false)}
+        onClose={handleCloseSyncModal}
         onConnectDrive={handleConnectDrive}
         onUploadEncryptedDrive={handleUploadEncryptedDrive}
         onRestoreEncryptedDrive={handleRestoreEncryptedDrive}

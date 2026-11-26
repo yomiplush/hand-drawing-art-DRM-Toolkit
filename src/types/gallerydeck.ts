@@ -115,6 +115,8 @@ export interface EncryptedVaultManifest {
   vaultName: string;
   folders: string[];
   items: EncryptedVaultManifestEntry[];
+  /** Optional encrypted custom/paid Nostr relay URLs (wss://...) backed up with the vault. */
+  customNostrRelays?: string[];
 }
 
 export interface DecryptedVaultSession {

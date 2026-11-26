@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Cloud,
@@ -66,6 +66,13 @@ export function SyncPanelModal({
     getCustomNostrProofRelays().join('\n'),
   );
   const [customRelaysSaved, setCustomRelaysSaved] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setCustomRelaysInput(getCustomNostrProofRelays().join('\n'));
+      setCustomRelaysSaved(false);
+    }
+  }, [open]);
 
   if (!open) return null;
 
@@ -252,6 +259,8 @@ export function SyncPanelModal({
                       setDriveCryptoBusy('restore');
                       try {
                         await onRestoreEncryptedDrive(drivePassphrase);
+                        setCustomRelaysInput(getCustomNostrProofRelays().join('\n'));
+                        setCustomRelaysSaved(false);
                       } catch (err) {
                         setDriveCryptoError(err instanceof Error ? err.message : String(err));
                       } finally {
