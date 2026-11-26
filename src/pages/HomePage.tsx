@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Archive,
@@ -16,11 +16,16 @@ import {
 } from 'lucide-react';
 import { HelpTip } from '../components/HelpTip';
 import { useAppPreferences } from '../components/PreferencesContext';
-import { SimpleKeysCard } from '../components/SimpleKeysCard';
 import { listAuthorKeys, listTrustedKeys } from '../core/storage/keyStore';
 import type { AuthorKeyRecord, TrustedKeyRecord } from '../core/storage/keyStore';
 import { useI18n } from '../i18n/context';
-import { GalleryDeckPage } from './GalleryDeck';
+
+const GalleryDeckPage = lazy(() =>
+  import('./GalleryDeck').then((m) => ({ default: m.GalleryDeckPage })),
+);
+const SimpleKeysCard = lazy(() =>
+  import('../components/SimpleKeysCard').then((m) => ({ default: m.SimpleKeysCard })),
+);
 
 export function HomePage() {
   const { t } = useI18n();
@@ -50,16 +55,20 @@ export function HomePage() {
     if (keysLoaded && authorKeys.length === 0) {
       return (
         <div data-testid="home-first-key-onboarding" className="min-w-0 w-full py-6 sm:py-10">
-          <SimpleKeysCard
-            showContinueToDeck={false}
-            onKeyReady={(record) => setAuthorKeys([record])}
-          />
+          <Suspense fallback={<div className="py-12 text-center text-xs ga-text-muted">…</div>}>
+            <SimpleKeysCard
+              showContinueToDeck={false}
+              onKeyReady={(record) => setAuthorKeys([record])}
+            />
+          </Suspense>
         </div>
       );
     }
     return (
       <div data-testid="home-minimal-page" className="min-w-0 w-full">
-        <GalleryDeckPage />
+        <Suspense fallback={<div className="py-16 text-center text-xs ga-text-muted">…</div>}>
+          <GalleryDeckPage />
+        </Suspense>
       </div>
     );
   }
