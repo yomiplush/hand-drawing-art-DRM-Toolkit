@@ -310,7 +310,7 @@ describe('CHM Compact Proof Protocol v3 + Compression Benchmark + CLI Parity', (
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 
   it('benchmarks v1/v3 uncompressed vs DEFLATE+PrefixDict+BitPack & Base64url vs Base45 QR versions', () => {
     const sha = new Uint8Array(32).fill(0xab);

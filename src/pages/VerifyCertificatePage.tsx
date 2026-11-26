@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import {
-  fetchArtworkLikeCount,
+  fetchArtworkLikeStatus,
   fetchProofFromNostrRelays,
   hasLikedArtworkLocally,
   publishArtworkLike,
@@ -2779,9 +2779,10 @@ function ArtworkLikeButton({ artworkIdHex, locale }: { artworkIdHex: string; loc
 
   useEffect(() => {
     let cancelled = false;
-    void fetchArtworkLikeCount(artworkIdHex).then((n) => {
+    void fetchArtworkLikeStatus(artworkIdHex).then(({ count: n, likedToday }) => {
       if (!cancelled) {
-        setCount(hasLikedArtworkLocally(artworkIdHex) ? Math.max(n, 1) : n);
+        if (likedToday) setLiked(true);
+        setCount(likedToday ? Math.max(n, 1) : n);
       }
     });
     return () => {
@@ -2807,15 +2808,15 @@ function ArtworkLikeButton({ artworkIdHex, locale }: { artworkIdHex: string; loc
       onClick={() => void handleLike()}
       disabled={liked || sending}
       data-testid="verify-artwork-like-btn"
-      aria-label={isJa ? 'この作品にいいねする（1回限り）' : 'Like this artwork (once)'}
+      aria-label={isJa ? 'この作品にいいねする（1日1回まで）' : 'Like this artwork (once per day)'}
       title={
         liked
           ? isJa
-            ? 'いいね済み（Nostrリレーに記録）'
-            : 'Liked (recorded on Nostr relays)'
+            ? '本日はいいね済み（1日1回まで・Nostrリレーに記録）'
+            : 'Liked today (once per day, recorded on Nostr relays)'
           : isJa
-            ? 'いいねを送る（Nostr無料リレー・1回限り）'
-            : 'Send a heart (via free Nostr relays, once)'
+            ? 'いいねを送る（Nostr無料リレー・1日1回まで）'
+            : 'Send a heart (via free Nostr relays, once per day)'
       }
       className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
         liked

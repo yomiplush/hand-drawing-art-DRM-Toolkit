@@ -12,7 +12,7 @@
  * against the artist's Ed25519 signature.
  */
 
-import { base64UrlDecode, base64UrlEncode } from '../crypto/sha256';
+import { base64UrlDecode, base64UrlEncode, sha256Hex } from '../crypto/sha256';
 import { MAX_PROOF_BYTES } from '../manifest/types';
 import { createSignedNostrEvent, verifyNostrEvent } from './nip01';
 import type { NostrEvent } from './nip01';
@@ -322,45 +322,95 @@ export async function fetchProofFromNostrRelays(
   return bytes;
 }
 
-const LIKED_ARTWORKS_STORAGE_KEY = 'chm_liked_artworks_v1';
+const LIKED_ARTWORKS_STORAGE_KEY = 'chm_liked_artworks_daily_v2';
 const NOSTR_REACTION_KIND = 7;
 
-function readLikedArtworkSet(): Set<string> {
-  if (typeof window === 'undefined' || !window.localStorage) return new Set();
+function getUtcDayKey(now = Date.now()): string {
+  return new Date(now).toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
+}
+
+function readLikedArtworkDayMap(): Record<string, string> {
+  if (typeof window === 'undefined' || !window.localStorage) return {};
   try {
     const raw = window.localStorage.getItem(LIKED_ARTWORKS_STORAGE_KEY);
-    if (!raw) return new Set();
+    if (!raw) return {};
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return new Set();
-    return new Set(parsed.filter((v): v is string => typeof v === 'string'));
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof v === 'string') out[k] = v;
+    }
+    return out;
   } catch {
-    return new Set();
+    return {};
   }
 }
 
-function markArtworkLikedLocally(artworkIdHex: string): void {
+function markArtworkLikedTodayLocally(artworkIdHex: string, dayKey = getUtcDayKey()): void {
   if (typeof window === 'undefined' || !window.localStorage) return;
   try {
-    const set = readLikedArtworkSet();
-    set.add(artworkIdHex.trim().toLowerCase());
-    window.localStorage.setItem(LIKED_ARTWORKS_STORAGE_KEY, JSON.stringify(Array.from(set)));
+    const map = readLikedArtworkDayMap();
+    map[artworkIdHex.trim().toLowerCase()] = dayKey;
+    window.localStorage.setItem(LIKED_ARTWORKS_STORAGE_KEY, JSON.stringify(map));
   } catch {
     // ignore storage quota errors
   }
 }
 
 export function hasLikedArtworkLocally(artworkIdHex: string): boolean {
-  return readLikedArtworkSet().has(artworkIdHex.trim().toLowerCase());
+  const map = readLikedArtworkDayMap();
+  return map[artworkIdHex.trim().toLowerCase()] === getUtcDayKey();
 }
 
-function fetchLikePubkeysFromSingleRelay(relayUrl: string, tagValue: string): Promise<string[]> {
+let cachedClientIpPromise: Promise<string | null> | null = null;
+
+/**
+ * Fetches the visitor's public IP from Cloudflare's same-origin /cdn-cgi/trace endpoint
+ * (zero third-party requests). Returns null on localhost/standalone or offline.
+ */
+async function getClientIpForDailyLikeLimit(): Promise<string | null> {
+  if (typeof window === 'undefined' || typeof fetch !== 'function') return null;
+  if (cachedClientIpPromise) return cachedClientIpPromise;
+  cachedClientIpPromise = (async () => {
+    try {
+      const host = window.location.hostname;
+      if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return null;
+      const res = await fetch('/cdn-cgi/trace', { cache: 'no-store' });
+      if (!res.ok) return null;
+      const text = await res.text();
+      const match = text.match(/^ip=(.+)$/m);
+      return match?.[1]?.trim() || null;
+    } catch {
+      return null;
+    }
+  })();
+  return cachedClientIpPromise;
+}
+
+async function computeDailyIpHash(artworkIdHex: string, dayKey: string): Promise<string | null> {
+  const ip = await getClientIpForDailyLikeLimit();
+  if (!ip) return null;
+  const raw = new TextEncoder().encode(`chm-like-day:${artworkIdHex}:${ip}:${dayKey}`);
+  const hex = await sha256Hex(raw);
+  return hex.slice(0, 32);
+}
+
+interface LikeRelayRecord {
+  dedupeKey: string;
+  dailyIpHash?: string;
+}
+
+function fetchLikeRecordsFromSingleRelay(
+  relayUrl: string,
+  tagValue: string,
+): Promise<LikeRelayRecord[]> {
   return new Promise((resolve) => {
     if (typeof WebSocket === 'undefined') {
       resolve([]);
       return;
     }
     let settled = false;
-    const pubkeys = new Set<string>();
+    const records = new Map<string, LikeRelayRecord>();
     const finish = () => {
       if (settled) return;
       settled = true;
@@ -370,7 +420,7 @@ function fetchLikePubkeysFromSingleRelay(relayUrl: string, tagValue: string): Pr
       } catch {
         // ignore
       }
-      resolve(Array.from(pubkeys));
+      resolve(Array.from(records.values()));
     };
 
     let ws: WebSocket;
@@ -409,7 +459,12 @@ function fetchLikePubkeysFromSingleRelay(relayUrl: string, tagValue: string): Pr
             typeof candidate.pubkey === 'string' &&
             verifyNostrEvent(candidate)
           ) {
-            pubkeys.add(candidate.pubkey);
+            const ipTag = candidate.tags?.find(
+              (t) => Array.isArray(t) && t[0] === 'd' && typeof t[1] === 'string' && t[1].startsWith('ipday:'),
+            );
+            const dailyIpHash = ipTag ? ipTag[1].slice('ipday:'.length) : undefined;
+            const dedupeKey = dailyIpHash ? `ipday:${dailyIpHash}` : `pk:${candidate.pubkey}`;
+            records.set(dedupeKey, { dedupeKey, dailyIpHash });
           }
         } else if (parsed[0] === 'EOSE' && parsed[1] === subId) {
           finish();
@@ -425,32 +480,54 @@ function fetchLikePubkeysFromSingleRelay(relayUrl: string, tagValue: string): Pr
 }
 
 /**
- * Fetches the deduplicated NIP-25 heart-like count for an artwork from free Nostr relays.
+ * Fetches the deduplicated NIP-25 heart-like count for an artwork from free Nostr relays,
+ * enforcing once-per-day-per-IP deduplication via salted SHA-256 IP+day hashes.
  */
+export async function fetchArtworkLikeStatus(
+  artworkIdHex: string,
+  relays: readonly string[] = NOSTR_PROOF_RELAYS,
+): Promise<{ count: number; likedToday: boolean }> {
+  const cleanId = artworkIdHex.trim().toLowerCase();
+  const likedLocally = hasLikedArtworkLocally(cleanId);
+  if (!cleanId || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+    return { count: likedLocally ? 1 : 0, likedToday: likedLocally };
+  }
+  const dayKey = getUtcDayKey();
+  const tagValue = `chm-like:${cleanId}`;
+  const activeRelays = getActiveFreeRelays(relays);
+  const [myDailyIpHash, results] = await Promise.all([
+    computeDailyIpHash(cleanId, dayKey),
+    Promise.all(activeRelays.map((url) => fetchLikeRecordsFromSingleRelay(url, tagValue))),
+  ]);
+  const uniqueKeys = new Set<string>();
+  let likedByIpToday = false;
+  for (const list of results) {
+    for (const rec of list) {
+      uniqueKeys.add(rec.dedupeKey);
+      if (myDailyIpHash && rec.dailyIpHash === myDailyIpHash) {
+        likedByIpToday = true;
+      }
+    }
+  }
+  if (likedByIpToday && !likedLocally) {
+    markArtworkLikedTodayLocally(cleanId, dayKey);
+  }
+  return {
+    count: uniqueKeys.size,
+    likedToday: likedLocally || likedByIpToday,
+  };
+}
+
 export async function fetchArtworkLikeCount(
   artworkIdHex: string,
   relays: readonly string[] = NOSTR_PROOF_RELAYS,
 ): Promise<number> {
-  const cleanId = artworkIdHex.trim().toLowerCase();
-  if (!cleanId || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
-    return 0;
-  }
-  const tagValue = `chm-like:${cleanId}`;
-  const activeRelays = getActiveFreeRelays(relays);
-  const results = await Promise.all(
-    activeRelays.map((url) => fetchLikePubkeysFromSingleRelay(url, tagValue)),
-  );
-  const uniquePubkeys = new Set<string>();
-  for (const list of results) {
-    for (const pk of list) {
-      uniquePubkeys.add(pk);
-    }
-  }
-  return uniquePubkeys.size;
+  const status = await fetchArtworkLikeStatus(artworkIdHex, relays);
+  return status.count;
 }
 
 /**
- * Publishes a one-time NIP-25 heart reaction (kind: 7, content: "+") for an artwork
+ * Publishes a once-per-day-per-IP NIP-25 heart reaction (kind: 7, content: "+") for an artwork
  * to free public Nostr relays using an ephemeral keypair (no login required).
  */
 export async function publishArtworkLike(
@@ -461,23 +538,30 @@ export async function publishArtworkLike(
   if (!cleanId || hasLikedArtworkLocally(cleanId)) {
     return false;
   }
-  markArtworkLikedLocally(cleanId);
+  const dayKey = getUtcDayKey();
+  markArtworkLikedTodayLocally(cleanId, dayKey);
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return false;
   }
 
+  const dailyIpHash = await computeDailyIpHash(cleanId, dayKey);
+
   const keypair = generateNostrKeypair();
   let event: NostrEvent;
   try {
+    const tags: string[][] = [
+      ['t', `chm-like:${cleanId}`],
+      ['t', 'certified-handmade'],
+    ];
+    if (dailyIpHash) {
+      tags.push(['d', `ipday:${dailyIpHash}`]);
+    }
     event = createSignedNostrEvent(
       {
         kind: NOSTR_REACTION_KIND,
         created_at: Math.floor(Date.now() / 1000),
-        tags: [
-          ['t', `chm-like:${cleanId}`],
-          ['t', 'certified-handmade'],
-        ],
+        tags,
         content: '+',
       },
       keypair.secretKey,
