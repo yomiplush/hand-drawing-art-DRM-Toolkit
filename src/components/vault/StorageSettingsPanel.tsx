@@ -43,6 +43,7 @@ import {
 } from '../../core/vault/driveSyncEngine';
 import type { CrossDeviceVaultKeyShareEnvelope } from '../../core/vault/vaultCrypto';
 import { useI18n } from '../../i18n/context';
+import { DiscordWebhookSettings } from '../discord/DiscordWebhookSettings';
 import { HelpTip } from '../HelpTip';
 import { FriendlyErrorAlert } from '../ui/FriendlyErrorAlert';
 
@@ -1080,6 +1081,8 @@ export function StorageSettingsPanel({ onVaultChanged }: StorageSettingsPanelPro
           </p>
         )}
       </div>
+
+      <DiscordWebhookSettings />
     </section>
   );
 }

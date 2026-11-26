@@ -5,6 +5,7 @@ import { ARTWORK_DETAILS_I18N } from './artworkDetails';
 import { I18nContext, LOCALE_OPTIONS } from './context';
 import type { FullTranslations, Locale } from './context';
 import { DEVICE_PAIRING_I18N } from './devicePairing';
+import { DISCORD_UX_I18N } from './discord';
 import { en } from './en';
 import type { Translations } from './en';
 import { GOOGLE_COMPLIANCE_I18N } from './googleCompliance';
@@ -74,6 +75,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     googleCompliance: GOOGLE_COMPLIANCE_I18N[locale] ?? GOOGLE_COMPLIANCE_I18N.en,
     humanUx: HUMAN_UX_I18N[locale] ?? HUMAN_UX_I18N.en,
     simple: SIMPLE_I18N[locale] ?? SIMPLE_I18N.en,
+    discordUx: DISCORD_UX_I18N[locale] ?? DISCORD_UX_I18N.en,
   };
 
   return (

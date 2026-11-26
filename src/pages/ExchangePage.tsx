@@ -4,6 +4,7 @@ import { AlertTriangle, KeyRound, ShieldCheck, Smartphone } from 'lucide-react';
 import { ChmExchangeView } from '@yomiplush/chm-exchange/react';
 import type { ChmExchangeTheme, ExchangeTab } from '@yomiplush/chm-exchange/react';
 import '@yomiplush/chm-exchange/styles.css';
+import { DiscordIdentityLinkPanel } from '../components/discord/DiscordIdentityLinkPanel';
 import { HelpTip } from '../components/HelpTip';
 import { useAppPreferences } from '../components/PreferencesContext';
 import { HelpIconButton } from '../components/ui/HelpIconButton';
@@ -168,6 +169,10 @@ export function ExchangePage() {
             <span>{t.keys.generateTitle}</span>
           </Link>
         }
+      />
+
+      <DiscordIdentityLinkPanel
+        initialProfileParam={searchParams.get('discordProfile') ?? undefined}
       />
     </div>
   );

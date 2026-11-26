@@ -7,10 +7,10 @@ import {
   Cloud,
   Compass,
   FileSignature,
+  ImagePlus,
   KeyRound,
   QrCode,
   Share2,
-  Shield,
   ShieldCheck,
   SlidersHorizontal,
   Smartphone,
@@ -67,9 +67,9 @@ export function HomePage() {
             </p>
             <p
               data-testid="home-subtitle"
-              className="text-sm sm:text-base ga-text-secondary break-words"
+              className="text-sm sm:text-base ga-text-secondary break-words leading-relaxed max-w-xl mx-auto"
             >
-              {t.simple.home.subline}
+              {t.discordUx.homeUx.benefitSubcopy}
             </p>
           </div>
 
@@ -141,20 +141,71 @@ export function HomePage() {
             </Link>
           </div>
 
-          {/* 1-click Sample Artwork Demo */}
+          {/* High-visibility 1-click Sample Artwork Demo CTA */}
           <div className="pt-1">
-            <Link
-              to="/verify?demo=sample"
-              data-testid="home-sample-demo-link"
-              className="chm-spring-btn inline-flex items-center justify-center gap-2 rounded-full ga-btn-secondary px-5 py-2.5 text-xs sm:text-sm font-medium min-h-[44px] max-w-full"
-            >
-              <Sparkles className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
-              <span className="min-w-0 break-words">{t.simple.home.sampleDemoLink}</span>
-            </Link>
+            <div className="ga-surface-subtle rounded-2xl border ga-border-strong p-3.5 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-start">
+              <div className="flex items-center gap-2 text-xs sm:text-sm font-medium ga-text">
+                <Sparkles className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
+                <span>{t.discordUx.homeUx.demoCalloutPrefix}</span>
+              </div>
+              <Link
+                to="/verify?demo=sample"
+                data-testid="home-sample-demo-link"
+                className="chm-spring-btn ga-btn-secondary inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--ga-accent)] px-4 py-2 text-xs sm:text-sm font-semibold ga-text-accent min-h-[44px] shrink-0 max-w-full"
+              >
+                <span className="min-w-0 break-words">{t.discordUx.homeUx.demoCalloutBtn}</span>
+                <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
+
+          {/* 3-Step Minimal Visual Diagram: How Invisible Seal & QR Works */}
+          <div
+            data-testid="home-how-it-works"
+            className="pt-2 space-y-3 text-start"
+          >
+            <h2 className="text-xs sm:text-sm font-semibold uppercase tracking-wider ga-text-muted text-center">
+              {t.discordUx.homeUx.howItWorksTitle}
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--ga-accent-soft)] ga-text-accent">
+                  <ImagePlus className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <div className="text-xs sm:text-sm font-semibold ga-text">
+                  {t.discordUx.homeUx.step1Title}
+                </div>
+                <p className="text-xs ga-text-secondary leading-relaxed">
+                  {t.discordUx.homeUx.step1Desc}
+                </p>
+              </div>
+              <div className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--ga-accent-soft)] ga-text-accent">
+                  <QrCode className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <div className="text-xs sm:text-sm font-semibold ga-text">
+                  {t.discordUx.homeUx.step2Title}
+                </div>
+                <p className="text-xs ga-text-secondary leading-relaxed">
+                  {t.discordUx.homeUx.step2Desc}
+                </p>
+              </div>
+              <div className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--ga-accent-soft)] ga-text-accent">
+                  <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <div className="text-xs sm:text-sm font-semibold ga-text">
+                  {t.discordUx.homeUx.step3Title}
+                </div>
+                <p className="text-xs ga-text-secondary leading-relaxed">
+                  {t.discordUx.homeUx.step3Desc}
+                </p>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* Quiet secondary navigation strip */}
+        {/* Quiet secondary navigation strip (Privacy Policy consolidated in footer) */}
         <nav
           aria-label="Secondary links"
           className="mx-auto flex flex-wrap items-center justify-center gap-2.5 text-xs pt-2 max-w-full"
@@ -175,15 +226,6 @@ export function HomePage() {
           >
             <Cloud className="h-3.5 w-3.5 ga-text-accent shrink-0" aria-hidden="true" />
             <span>{t.googleCompliance.homeOverview.storageLinkLabel}</span>
-          </Link>
-
-          <Link
-            to="/privacypolicy"
-            data-testid="home-privacy-link"
-            className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 min-h-[44px]"
-          >
-            <Shield className="h-3.5 w-3.5 ga-text-accent shrink-0" aria-hidden="true" />
-            <span>{t.googleCompliance.homeOverview.privacyLinkLabel}</span>
           </Link>
 
           <button
@@ -372,14 +414,6 @@ export function HomePage() {
         >
           <Compass className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
           <span>{t.tutorial.navLabel}</span>
-        </Link>
-        <Link
-          to="/privacypolicy"
-          data-testid="home-privacy-link"
-          className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 min-h-[44px]"
-        >
-          <Shield className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
-          <span>{t.googleCompliance.homeOverview.privacyLinkLabel}</span>
         </Link>
       </nav>
     </div>

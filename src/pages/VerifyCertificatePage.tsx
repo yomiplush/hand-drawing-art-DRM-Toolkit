@@ -17,6 +17,7 @@ import {
   Info,
   Link2,
   Loader2,
+  MessageSquare,
   Share2,
   ShieldAlert,
   SlidersHorizontal,
@@ -40,6 +41,7 @@ import { HelpIconButton } from '../components/ui/HelpIconButton';
 import { ThreeStepIndicator, WorkerProgressBar } from '../components/ui/StepProgressBar';
 import { VerifiedArtworkDetailsCard } from '../components/VerifiedArtworkDetailsCard';
 import { base64UrlEncode, bytesToHex } from '../core/crypto/sha256';
+import { getStoredDiscordBinding } from '../core/discord/identityLink';
 import { getSampleSignedArtworkFile } from '../core/demo/sampleArtwork';
 import { comparePerceptualHashes } from '../core/image/perceptualHash';
 import type { PerceptualComparisonResult } from '../core/image/perceptualHash';
@@ -1427,6 +1429,47 @@ export function VerifyCertificatePage() {
         trustedKeyUnconfirmed={result.trustedKeyUnconfirmed}
         matchedMode={result.matchedMode}
       />
+
+      {result.signatureStatus === 'valid' &&
+        result.manifest &&
+        (() => {
+          const pubKeyB64 = base64UrlEncode(result.manifest.publicKey);
+          const storedBinding = getStoredDiscordBinding(pubKeyB64);
+          const manifestDiscordSns = result.manifest.snsLinks?.find(
+            (s) => s.platform === 'discord' && (s.label?.trim() || s.url.trim()),
+          );
+          const discordHandle =
+            storedBinding?.discordUsername ??
+            manifestDiscordSns?.label?.trim() ??
+            manifestDiscordSns?.url.trim() ??
+            null;
+          if (!discordHandle) return null;
+          const sourceLabel = storedBinding
+            ? t.discordUx.identityLink.verifyBadgeSourceExchange
+            : t.discordUx.identityLink.verifyBadgeSourceManifest;
+          return (
+            <div
+              data-testid="verify-discord-badge"
+              className="ga-status-info rounded-2xl border p-4 flex items-start gap-3 min-w-0"
+            >
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--ga-accent-soft)] ga-text-accent shrink-0">
+                <MessageSquare className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div className="space-y-0.5 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 text-sm font-semibold ga-text">
+                  <span>{t.discordUx.identityLink.verifyBadgeTitle}</span>
+                  <span className="rounded-full bg-[var(--ga-accent-soft)] px-2.5 py-0.5 font-mono text-xs ga-text-accent">
+                    {discordHandle}
+                  </span>
+                </div>
+                <p className="text-xs ga-text-secondary">
+                  {t.discordUx.identityLink.verifyBadgeDesc}
+                </p>
+                <p className="text-[11px] ga-text-muted">{sourceLabel}</p>
+              </div>
+            </div>
+          );
+        })()}
 
       {result.manifest &&
         (result.keyNoticeStatus === 'revocation-notice' ||

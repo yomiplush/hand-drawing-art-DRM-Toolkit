@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react';
 import type { SupportedLocale } from '../core/storage/consent';
 import type { ArtworkDetailsTranslations } from './artworkDetails';
 import type { DevicePairingTranslations } from './devicePairing';
+import type { DiscordAndUxTranslations } from './discord';
 import type { Translations } from './en';
 import type { GoogleComplianceTranslations } from './googleCompliance';
 import type { HardeningTranslations } from './hardening';
@@ -35,6 +36,7 @@ export type FullTranslations = Translations & {
   googleCompliance: GoogleComplianceTranslations;
   humanUx: HumanUxTranslations;
   simple: SimpleTranslations;
+  discordUx: DiscordAndUxTranslations;
 };
 
 export interface LocaleOption {

@@ -14,6 +14,7 @@ import {
   ImagePlus,
   Info,
   KeyRound,
+  MessageSquare,
   Plus,
   QrCode,
   RotateCcw,
@@ -44,6 +45,12 @@ import { ThreeStepIndicator, WorkerProgressBar } from '../components/ui/StepProg
 import { computePublicKeyFingerprint } from '../core/crypto/ed25519';
 import { evaluatePassphraseStrength } from '../core/crypto/keyBackup';
 import { bytesToHex } from '../core/crypto/sha256';
+import { getStoredDiscordBinding } from '../core/discord/identityLink';
+import {
+  formatDiscordWebhookError,
+  loadDiscordSettings,
+  sendDiscordProofLog,
+} from '../core/discord/webhook';
 import { clampInImageQrOptions } from '../core/image/inImageQr';
 import type { InImageQrStyle } from '../core/image/inImageQr';
 import type { CanonicalRaster } from '../core/image/pngCodec';
@@ -334,6 +341,11 @@ export function CreateCertificatePage() {
   const [postBackupBusy, setPostBackupBusy] = useState(false);
   const [postBackupError, setPostBackupError] = useState<string | null>(null);
   const [postBackupSaved, setPostBackupSaved] = useState(false);
+  const [discordLogBusy, setDiscordLogBusy] = useState(false);
+  const [discordLogSent, setDiscordLogSent] = useState<'manual' | 'auto' | null>(null);
+  const [discordLogError, setDiscordLogError] = useState<string | null>(null);
+  const [keyLossAlertDismissed, setKeyLossAlertDismissed] = useState(false);
+  const lastAutoSentArtworkIdRef = useRef<string | null>(null);
 
   const applyProfileToForm = (p: AuthorProfile) => {
     setSelectedProfileId(p.id);
@@ -401,6 +413,38 @@ export function CreateCertificatePage() {
     () => keys.find((k) => k.id === selectedKeyId) ?? null,
     [keys, selectedKeyId],
   );
+
+  useEffect(() => {
+    if (!signedResult) return;
+    const artworkIdHex = signedResult.manifest.artworkIdHex;
+    if (lastAutoSentArtworkIdRef.current === artworkIdHex) return;
+    const settings = loadDiscordSettings();
+    if (!settings.webhookUrl || !settings.autoSendOnCertify) return;
+
+    lastAutoSentArtworkIdRef.current = artworkIdHex;
+    let active = true;
+    const binding = selectedKey
+      ? getStoredDiscordBinding(selectedKey.publicKeyBase64Url)
+      : null;
+    void sendDiscordProofLog(settings.webhookUrl, {
+      title: signedResult.manifest.artworkTitle,
+      authorName: signedResult.manifest.authorName,
+      artworkHashHex: artworkIdHex,
+      signedAtIso: new Date().toISOString(),
+      fingerprintShort: selectedKey?.fingerprintShort ?? artworkIdHex.slice(0, 12),
+      discordHandle: binding?.discordUsername,
+    })
+      .then(() => {
+        if (active) setDiscordLogSent('auto');
+      })
+      .catch((err) => {
+        if (!active) return;
+        setDiscordLogError(formatDiscordWebhookError(err, t.discordUx.webhook));
+      });
+    return () => {
+      active = false;
+    };
+  }, [signedResult, selectedKey, t.discordUx.webhook]);
 
   const clampedStudioOptions = useMemo(() => {
     if (!artworkRaster || artworkRaster.width < 21 || artworkRaster.height < 21) return null;
@@ -2697,7 +2741,128 @@ export function CreateCertificatePage() {
               <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{!isAdvanced ? t.simple.create.verifyNowBtn : t.nav.verify}</span>
             </Link>
+
+            {loadDiscordSettings().webhookUrl ? (
+              <button
+                type="button"
+                disabled={discordLogBusy}
+                data-testid="send-discord-proof-btn"
+                onClick={async () => {
+                  const settings = loadDiscordSettings();
+                  if (!settings.webhookUrl || !signedResult) return;
+                  setDiscordLogBusy(true);
+                  setDiscordLogError(null);
+                  try {
+                    const binding = selectedKey
+                      ? getStoredDiscordBinding(selectedKey.publicKeyBase64Url)
+                      : null;
+                    await sendDiscordProofLog(settings.webhookUrl, {
+                      title: signedResult.manifest.artworkTitle,
+                      authorName: signedResult.manifest.authorName,
+                      artworkHashHex: signedResult.manifest.artworkIdHex,
+                      signedAtIso: new Date().toISOString(),
+                      fingerprintShort: selectedKey?.fingerprintShort ?? signedResult.manifest.artworkIdHex.slice(0, 12),
+                      discordHandle: binding?.discordUsername,
+                    });
+                    setDiscordLogSent('manual');
+                  } catch (err) {
+                    setDiscordLogError(formatDiscordWebhookError(err, t.discordUx.webhook));
+                  } finally {
+                    setDiscordLogBusy(false);
+                  }
+                }}
+                className="ga-btn-secondary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium min-h-[44px] cursor-pointer disabled:opacity-50"
+              >
+                <MessageSquare className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
+                <span>
+                  {discordLogBusy
+                    ? t.discordUx.certifyLog.sendingBtn
+                    : t.discordUx.certifyLog.sendBtn}
+                </span>
+              </button>
+            ) : (
+              <Link
+                to="/storage#discord-webhook"
+                data-testid="setup-discord-webhook-link"
+                className="ga-btn-secondary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-medium min-h-[44px]"
+              >
+                <MessageSquare className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
+                <span>{t.discordUx.webhook.configureLinkLabel}</span>
+              </Link>
+            )}
           </div>
+
+          {discordLogSent && (
+            <p
+              role="status"
+              data-testid="discord-proof-sent-status"
+              className="ga-status-success rounded-xl border px-3 py-2 text-xs flex items-center gap-1.5"
+            >
+              <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>
+                {discordLogSent === 'auto'
+                  ? t.discordUx.certifyLog.autoSentBadge
+                  : t.discordUx.certifyLog.sentBadge}
+              </span>
+            </p>
+          )}
+          {discordLogError && (
+            <p
+              role="alert"
+              data-testid="discord-proof-error"
+              className="ga-status-error rounded-xl border px-3 py-2 text-xs"
+            >
+              {discordLogError}
+            </p>
+          )}
+
+          {/* First-time key-loss prevention onboarding alert */}
+          {!keyLossAlertDismissed && !selectedKey?.hasBackupDownloaded && !postBackupSaved && (
+            <div
+              role="note"
+              data-testid="create-key-loss-onboarding-alert"
+              className="ga-status-warning rounded-2xl border p-4 space-y-2.5"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" aria-hidden="true" />
+                  <div className="space-y-1">
+                    <h3 className="text-xs sm:text-sm font-bold">
+                      {t.discordUx.keyLossAlert.title}
+                    </h3>
+                    <p className="text-xs leading-relaxed">
+                      {t.discordUx.keyLossAlert.body}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setKeyLossAlertDismissed(true)}
+                  className="text-xs underline opacity-80 hover:opacity-100 shrink-0 cursor-pointer"
+                >
+                  {t.discordUx.keyLossAlert.dismissBtn}
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 ps-7">
+                <Link
+                  to="/keys"
+                  data-testid="onboarding-backup-keys-link"
+                  className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold min-h-[36px]"
+                >
+                  <KeyRound className="h-3.5 w-3.5 ga-text-accent shrink-0" aria-hidden="true" />
+                  <span>{t.discordUx.keyLossAlert.keysPageLink}</span>
+                </Link>
+                <Link
+                  to="/storage#discord-webhook"
+                  data-testid="onboarding-backup-storage-link"
+                  className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold min-h-[36px]"
+                >
+                  <MessageSquare className="h-3.5 w-3.5 ga-text-accent shrink-0" aria-hidden="true" />
+                  <span>{t.discordUx.keyLossAlert.storagePageLink}</span>
+                </Link>
+              </div>
+            </div>
+          )}
 
           {/* Mandatory HelpTip #3: Gentle post-sign .chkey.json backup reminder */}
           {!isAdvanced && (

@@ -8,6 +8,7 @@ import {
   Copy,
   Download,
   KeyRound,
+  MessageSquare,
   PlusCircle,
   QrCode,
   Share2,
@@ -31,6 +32,12 @@ import {
 import type { VerifiedChallengeResult } from '../core/crypto/challenge';
 import { decryptKeyBackup, evaluatePassphraseStrength } from '../core/crypto/keyBackup';
 import type { EncryptedKeyBackup } from '../core/crypto/keyBackup';
+import {
+  formatDiscordWebhookError,
+  loadDiscordSettings,
+  sendDiscordEncryptedKeyBackup,
+  sendDiscordPublicKeyBackup,
+} from '../core/discord/webhook';
 import { createSignedKeyNotice } from '../core/manifest/keyNotice';
 import type { KeyNoticeReason, KeyNoticeType, PortableKeyNoticeBundle } from '../core/manifest/keyNotice';
 import {
@@ -98,6 +105,8 @@ export function KeysPage() {
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expandedQrKeyId, setExpandedQrKeyId] = useState<string | null>(null);
+  const [discordBusyKeyId, setDiscordBusyKeyId] = useState<string | null>(null);
+  const [discordKeyMsg, setDiscordKeyMsg] = useState<Record<string, { type: 'ok' | 'err'; text: string }>>({});
 
   // Notice creation & import state (Phase 3)
   const [noticeSubjectKeyId, setNoticeSubjectKeyId] = useState('');
@@ -287,6 +296,78 @@ export function KeysPage() {
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
       // Clipboard fallback ignored
+    }
+  };
+
+  const handleSendPublicKeyToDiscord = async (k: AuthorKeyRecord) => {
+    const settings = loadDiscordSettings();
+    if (!settings.webhookUrl) {
+      setDiscordKeyMsg((prev) => ({
+        ...prev,
+        [k.id]: { type: 'err', text: t.discordUx.webhook.notConfiguredError },
+      }));
+      return;
+    }
+    setDiscordBusyKeyId(k.id);
+    setDiscordKeyMsg((prev) => {
+      const next = { ...prev };
+      delete next[k.id];
+      return next;
+    });
+    try {
+      const exportBundleJson = JSON.stringify(buildPublicKeyExportBundle(k), null, 2);
+      await sendDiscordPublicKeyBackup(settings.webhookUrl, {
+        label: k.label,
+        publicKeyBase64Url: k.publicKeyBase64Url,
+        fingerprintHex: k.fingerprintHex,
+        fingerprintShort: k.fingerprintShort,
+        exportBundleJson,
+      });
+      setDiscordKeyMsg((prev) => ({
+        ...prev,
+        [k.id]: { type: 'ok', text: t.discordUx.keyBackup.sentPublicKeyMsg },
+      }));
+    } catch (err) {
+      setDiscordKeyMsg((prev) => ({
+        ...prev,
+        [k.id]: { type: 'err', text: formatDiscordWebhookError(err, t.discordUx.webhook) },
+      }));
+    } finally {
+      setDiscordBusyKeyId(null);
+    }
+  };
+
+  const handleSendEncryptedKeyToDiscord = async (k: AuthorKeyRecord) => {
+    if (!k.encryptedBackup) return;
+    const settings = loadDiscordSettings();
+    if (!settings.webhookUrl) {
+      setDiscordKeyMsg((prev) => ({
+        ...prev,
+        [k.id]: { type: 'err', text: t.discordUx.webhook.notConfiguredError },
+      }));
+      return;
+    }
+    if (!window.confirm(t.discordUx.keyBackup.encryptedConfirmWarning)) {
+      return;
+    }
+    setDiscordBusyKeyId(k.id);
+    try {
+      await sendDiscordEncryptedKeyBackup(settings.webhookUrl, {
+        label: k.label,
+        fingerprintShort: k.fingerprintShort,
+        encryptedBackupJson: JSON.stringify(k.encryptedBackup, null, 2),
+      });
+      setDiscordKeyMsg((prev) => ({
+        ...prev,
+        [k.id]: { type: 'ok', text: t.discordUx.keyBackup.sentEncryptedMsg },
+      }));
+    } catch (err) {
+      setDiscordKeyMsg((prev) => ({
+        ...prev,
+        [k.id]: { type: 'err', text: formatDiscordWebhookError(err, t.discordUx.webhook) },
+      }));
+    } finally {
+      setDiscordBusyKeyId(null);
     }
   };
 
@@ -806,6 +887,34 @@ export function KeysPage() {
 
                     <button
                       type="button"
+                      disabled={discordBusyKeyId === k.id}
+                      data-testid={`send-discord-pubkey-${k.id}`}
+                      onClick={() => void handleSendPublicKeyToDiscord(k)}
+                      className="ga-btn-secondary inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium min-h-[44px] max-w-full whitespace-normal text-center cursor-pointer disabled:opacity-50"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5 text-[var(--ga-accent)] shrink-0" />
+                      <span>
+                        {discordBusyKeyId === k.id
+                          ? t.discordUx.keyBackup.sendingBtn
+                          : t.discordUx.keyBackup.sendPublicKeyBtn}
+                      </span>
+                    </button>
+
+                    {k.encryptedBackup && (
+                      <button
+                        type="button"
+                        disabled={discordBusyKeyId === k.id}
+                        data-testid={`send-discord-enckey-${k.id}`}
+                        onClick={() => void handleSendEncryptedKeyToDiscord(k)}
+                        className="ga-status-warning inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium min-h-[44px] max-w-full whitespace-normal text-center cursor-pointer disabled:opacity-50"
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                        <span>{t.discordUx.keyBackup.sendEncryptedBtn}</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
                       onClick={() => handleDeleteAuthorKey(k.id)}
                       className="ga-status-error inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium min-h-[44px] max-w-full whitespace-normal text-center cursor-pointer hover:opacity-90"
                     >
@@ -813,6 +922,27 @@ export function KeysPage() {
                       <span>{t.keys.deleteKeyBtn}</span>
                     </button>
                   </div>
+
+                  {discordKeyMsg[k.id] && (
+                    <div
+                      role={discordKeyMsg[k.id].type === 'err' ? 'alert' : 'status'}
+                      className={`rounded-xl border px-3 py-2 text-xs flex flex-wrap items-center justify-between gap-2 ${
+                        discordKeyMsg[k.id].type === 'err'
+                          ? 'ga-status-error'
+                          : 'ga-status-success'
+                      }`}
+                    >
+                      <span>{discordKeyMsg[k.id].text}</span>
+                      {discordKeyMsg[k.id].type === 'err' && (
+                        <Link
+                          to="/storage#discord-webhook"
+                          className="underline font-semibold"
+                        >
+                          {t.discordUx.webhook.configureLinkLabel}
+                        </Link>
+                      )}
+                    </div>
+                  )}
 
                   {qrExpanded && (
                     <div
