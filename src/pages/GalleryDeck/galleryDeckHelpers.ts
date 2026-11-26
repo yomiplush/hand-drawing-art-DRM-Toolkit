@@ -9,8 +9,11 @@ import { LICENSE_DEFINITIONS } from '../../core/manifest/types';
 import type { LicenseDeclaration, LicenseId } from '../../core/manifest/types';
 import { createAuthorKey, listAuthorKeys } from '../../core/storage/keyStore';
 import { verifyProofAndArtwork } from '../../core/verify/verifier';
-import type { IndexedDbGalleryAdapter } from '../../services/galleryStorage';
-import type { GalleryArtworkItem } from '../../types/gallerydeck';
+import type {
+  FileSystemGalleryAdapter,
+  IndexedDbGalleryAdapter,
+} from '../../services/galleryStorage';
+import type { GalleryArtworkItem, GalleryDeckCatalog } from '../../types/gallerydeck';
 
 function generateItemId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -48,6 +51,7 @@ function buildThumbnailDataUrl(raster: CanonicalRaster): string {
 export async function importArtworkFileToDeck(
   file: File,
   idbAdapter: IndexedDbGalleryAdapter,
+  fsAdapter?: FileSystemGalleryAdapter,
 ): Promise<GalleryArtworkItem> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const { raster } = await decodeImageFileToCanonicalRgba8(file);
@@ -58,6 +62,9 @@ export async function importArtworkFileToDeck(
   const id = generateItemId();
   const blobRef = `blob:${id}`;
   await idbAdapter.saveBlob(blobRef, bytes, file.type || 'image/png');
+  if (fsAdapter?.isLinked()) {
+    await fsAdapter.writeArtworkFile(file.name, bytes).catch(() => {});
+  }
 
   const now = Date.now();
   return {
@@ -72,11 +79,64 @@ export async function importArtworkFileToDeck(
     fileSizeBytes: bytes.byteLength,
     thumbnailDataUrl,
     blobRef,
+    localFileName: file.name,
     provenanceStatus: 'unverified',
     qrMode: 'none',
     artworkSha256Hex: sha256Hex,
     tags: [],
     collections: [],
+  };
+}
+
+/**
+ * Re-links artwork thumbnails and full-resolution blobs from the user's fixed local folder
+ * after browser cookie/cache eviction or Google Drive metadata-only DB restore.
+ */
+export async function relinkCatalogFromLocalFolder(
+  catalog: GalleryDeckCatalog,
+  fsAdapter: FileSystemGalleryAdapter,
+  idbAdapter: IndexedDbGalleryAdapter,
+): Promise<{ catalog: GalleryDeckCatalog; relinkedCount: number }> {
+  if (!fsAdapter.isLinked()) {
+    return { catalog, relinkedCount: 0 };
+  }
+  let relinkedCount = 0;
+  const updatedItems: GalleryArtworkItem[] = [];
+
+  for (const item of catalog.items) {
+    if (item.deleted || (item.thumbnailDataUrl && item.blobRef) || !item.localFileName) {
+      updatedItems.push(item);
+      continue;
+    }
+    const file = await fsAdapter.readArtworkFile(item.localFileName);
+    if (!file) {
+      updatedItems.push(item);
+      continue;
+    }
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const { raster } = await decodeImageFileToCanonicalRgba8(file);
+      const thumbnailDataUrl = buildThumbnailDataUrl(raster);
+      const blobRef = item.blobRef ?? `blob:${item.id}`;
+      await idbAdapter.saveBlob(blobRef, bytes, file.type || 'image/png');
+      relinkedCount += 1;
+      updatedItems.push({
+        ...item,
+        thumbnailDataUrl,
+        blobRef,
+      });
+    } catch {
+      updatedItems.push(item);
+    }
+  }
+
+  return {
+    catalog: {
+      ...catalog,
+      localFolderName: fsAdapter.getDirectoryName() ?? catalog.localFolderName,
+      items: updatedItems,
+    },
+    relinkedCount,
   };
 }
 

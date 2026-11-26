@@ -84,6 +84,7 @@ export function validateArtworkItem(raw: unknown): GalleryArtworkItem | null {
     fileSizeBytes,
     thumbnailDataUrl,
     blobRef: sanitizeString(raw.blobRef, 160),
+    localFileName: sanitizeString(raw.localFileName, 256),
     provenanceStatus,
     qrMode,
     publicKeyFingerprint: sanitizeString(raw.publicKeyFingerprint, 128),
@@ -128,6 +129,7 @@ export function validateCatalog(raw: unknown): GalleryDeckCatalog {
     version: GALLERY_DECK_CATALOG_VERSION,
     updatedAt,
     deviceId: base.deviceId,
+    localFolderName: sanitizeString(raw.localFolderName, 128),
     collections: collections.length > 0 ? collections : base.collections,
     items,
   };
@@ -158,6 +160,7 @@ export function mergeCatalogs(
       mergedMap.set(remoteItem.id, {
         ...remoteItem,
         blobRef: remoteItem.blobRef ?? existing.blobRef,
+        localFileName: remoteItem.localFileName ?? existing.localFileName,
         thumbnailDataUrl: remoteItem.thumbnailDataUrl || existing.thumbnailDataUrl,
       });
     } else if (existing.updatedAt === remoteItem.updatedAt) {
@@ -166,6 +169,7 @@ export function mergeCatalogs(
         mergedMap.set(remoteItem.id, {
           ...remoteItem,
           blobRef: remoteItem.blobRef ?? existing.blobRef,
+          localFileName: remoteItem.localFileName ?? existing.localFileName,
           thumbnailDataUrl: remoteItem.thumbnailDataUrl || existing.thumbnailDataUrl,
         });
       }
@@ -179,6 +183,7 @@ export function mergeCatalogs(
     version: GALLERY_DECK_CATALOG_VERSION,
     updatedAt: Math.max(local.updatedAt, remote.updatedAt),
     deviceId: local.deviceId,
+    localFolderName: local.localFolderName ?? remote.localFolderName,
     collections: Array.from(collectionSet),
     items,
   };

@@ -78,4 +78,29 @@ export class FileSystemGalleryAdapter implements StorageAdapter {
     await writable.write(JSON.stringify(catalog, null, 2));
     await writable.close();
   }
+
+  /**
+   * Reads an artwork image file by name from the user's fixed local folder.
+   * Used to instantly relink thumbnails & full-res blobs after browser cookie/cache eviction.
+   */
+  async readArtworkFile(fileName: string): Promise<File | null> {
+    if (!this.dirHandle || !fileName) return null;
+    try {
+      const fileHandle = await this.dirHandle.getFileHandle(fileName);
+      return await fileHandle.getFile();
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Writes an artwork image file into the user's fixed local folder.
+   */
+  async writeArtworkFile(fileName: string, bytes: Uint8Array): Promise<void> {
+    if (!this.dirHandle || !fileName) return;
+    const fileHandle = await this.dirHandle.getFileHandle(fileName, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(bytes.slice());
+    await writable.close();
+  }
 }

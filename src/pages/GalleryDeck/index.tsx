@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Cloud,
+  FolderOpen,
   Gamepad2,
   HardDrive,
   ImagePlus,
@@ -36,6 +37,7 @@ import { ArtworkDetailDrawer } from './ArtworkDetailDrawer';
 import {
   certifyArtworkInDeck,
   importArtworkFileToDeck,
+  relinkCatalogFromLocalFolder,
   verifyArtworkInDeck,
 } from './galleryDeckHelpers';
 import { SyncPanelModal } from './SyncPanelModal';
@@ -208,7 +210,11 @@ export function GalleryDeckPage() {
     try {
       const imported: GalleryArtworkItem[] = [];
       for (const file of Array.from(files)) {
-        const item = await importArtworkFileToDeck(file, idbAdapterRef.current);
+        const item = await importArtworkFileToDeck(
+          file,
+          idbAdapterRef.current,
+          fsAdapterRef.current,
+        );
         imported.push(item);
       }
       const nextCatalog: GalleryDeckCatalog = {
@@ -341,7 +347,17 @@ export function GalleryDeckPage() {
     try {
       const name = await fsAdapterRef.current.linkDirectory();
       setLinkedDirName(name);
-      await handleSyncAll();
+      const { catalog: relinked, relinkedCount } = await relinkCatalogFromLocalFolder(
+        catalog,
+        fsAdapterRef.current,
+        idbAdapterRef.current,
+      );
+      await persistCatalog(relinked);
+      if (relinkedCount > 0) {
+        showToast(`${name} (${relinkedCount})`);
+      } else {
+        await handleSyncAll();
+      }
     } catch (err) {
       showToast(err instanceof Error ? err.message : gd.toastSyncFailed);
     }
@@ -442,29 +458,38 @@ export function GalleryDeckPage() {
         className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#070d18]/90 via-[#0a1220]/75 to-[#060b14]/95"
       />
 
-      {/* Top Console Header */}
-      <div className="relative z-10 mx-auto w-full max-w-6xl px-4 sm:px-6 pt-5 pb-3 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-              <span>{gd.title}</span>
-              <span className="rounded-md bg-cyan-500/20 border border-cyan-400/40 px-2 py-0.5 text-[11px] font-mono text-cyan-300">
-                LOCAL-FIRST
-              </span>
+      {/* Minimal Header */}
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-4 sm:px-6 pt-4 pb-2 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white">
+              {gd.title}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-400 mt-0.5">{gd.subtitle}</p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
+            {linkedDirName && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-800/90 border border-slate-700 px-2.5 py-0.5 text-[11px] font-mono text-cyan-300">
+                <FolderOpen className="h-3 w-3" />
+                {linkedDirName}
+              </span>
+            )}
             {gamepadConnected && (
               <span
                 title={gamepadName ?? undefined}
-                className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 px-2.5 py-1 text-xs text-indigo-200"
+                className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 border border-indigo-400/40 px-2 py-0.5 text-[11px] text-indigo-200"
               >
-                <Gamepad2 className="h-3.5 w-3.5" />
-                {gd.gamepadReady}
+                <Gamepad2 className="h-3 w-3" />
               </span>
             )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleLinkDirectory()}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 px-3 py-2 text-xs font-medium text-slate-200 cursor-pointer"
+            >
+              <FolderOpen className="h-3.5 w-3.5 text-indigo-400" />
+              <span className="hidden sm:inline">{linkedDirName ? gd.changeFolder : gd.linkFolder}</span>
+            </button>
 
             <button
               type="button"
@@ -477,7 +502,7 @@ export function GalleryDeckPage() {
               ) : (
                 <HardDrive className="h-3.5 w-3.5 text-cyan-400" />
               )}
-              {gd.storageSyncButton}
+              <span className="hidden sm:inline">{gd.storageSyncButton}</span>
             </button>
 
             <button
@@ -555,17 +580,31 @@ export function GalleryDeckPage() {
         {visibleItems.length === 0 ? (
           <div
             data-testid="gallerydeck-empty-state"
-            className="mx-auto max-w-md text-center px-6 py-12 rounded-3xl border border-slate-800/90 bg-slate-900/70 backdrop-blur-md space-y-4 shadow-xl"
+            className="mx-auto max-w-md text-center px-6 py-10 rounded-3xl border border-slate-800/90 bg-slate-900/70 backdrop-blur-md space-y-5 shadow-xl"
           >
-            <ImagePlus className="h-10 w-10 text-cyan-400 mx-auto" />
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold text-white">{gd.emptyTitle}</h2>
-              <p className="text-xs text-slate-400">{gd.emptySubtitle}</p>
+            <h2 className="text-base font-semibold text-white">{gd.emptyTitle}</h2>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => void handleLinkDirectory()}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-4 py-2.5 text-xs font-semibold text-slate-100 cursor-pointer"
+              >
+                <FolderOpen className="h-4 w-4 text-indigo-400" />
+                1. {gd.linkFolder}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSyncModalOpen(true)}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-4 py-2.5 text-xs font-semibold text-slate-100 cursor-pointer"
+              >
+                <Cloud className="h-4 w-4 text-sky-400" />
+                2. {gd.storageSyncButton}
+              </button>
             </div>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950 cursor-pointer"
             >
               <ImagePlus className="h-4 w-4" />
               {gd.importArtwork}

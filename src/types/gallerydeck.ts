@@ -25,6 +25,8 @@ export interface GalleryArtworkItem {
   thumbnailDataUrl: string;
   /** Key referencing full-resolution binary asset in local IndexedDB blob store. */
   blobRef?: string;
+  /** Relative filename inside the user's fixed local artwork folder for instant cache-eviction recovery. */
+  localFileName?: string;
   provenanceStatus: GalleryProvenanceStatus;
   qrMode: GalleryQrMode;
   publicKeyFingerprint?: string;
@@ -44,6 +46,8 @@ export interface GalleryDeckCatalog {
   version: typeof GALLERY_DECK_CATALOG_VERSION;
   updatedAt: number;
   deviceId: string;
+  /** Remembered name of the user's fixed local artwork folder (metadata only). */
+  localFolderName?: string;
   collections: string[];
   items: GalleryArtworkItem[];
 }
