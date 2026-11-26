@@ -299,6 +299,7 @@ export function GalleryDeckPage() {
       await persistCatalog(nextCatalog);
       setPendingQrPlacement(null);
       showToast(gd.toastCertified);
+      void handleDownload(updated);
     } catch (err) {
       showToast(err instanceof Error ? err.message : gd.toastCertifyFailed);
     } finally {
