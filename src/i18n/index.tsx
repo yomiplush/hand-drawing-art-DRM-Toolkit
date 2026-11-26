@@ -15,9 +15,6 @@ import { HOWTO_I18N } from './howto';
 import { HUMAN_UX_I18N } from './humanUx';
 import { ja } from './ja';
 import { LICENSE_I18N } from './licenses';
-import { ko, zhCN, zhTW } from './locales/eastAsia';
-import { ar, de, es, fr, it, pt } from './locales/europeanAndArabic';
-import { ru, uk } from './locales/slavic';
 import { MINIMAL_UI_I18N } from './minimalUi';
 import { NEXT_GEN_I18N } from './nextGen';
 import { QR_STUDIO_I18N } from './qrStudio';
@@ -27,24 +24,41 @@ import { TUTORIAL_I18N } from './tutorial';
 import { VAULT_I18N } from './vault';
 import { VERIFY_MOBILE_I18N } from './verifyMobile';
 
-const LOCALE_MAP: Record<Locale, Translations> = {
+const STATIC_LOCALE_MAP: Partial<Record<Locale, Translations>> = {
   en,
   ja,
-  'zh-CN': zhCN,
-  'zh-TW': zhTW,
-  ko,
-  ru,
-  uk,
-  es,
-  fr,
-  de,
-  pt,
-  it,
-  ar,
 };
+
+async function loadExtraLocale(locale: Locale): Promise<Translations | null> {
+  if (locale === 'zh-CN' || locale === 'zh-TW' || locale === 'ko') {
+    const mod = await import('./locales/eastAsia');
+    if (locale === 'zh-CN') return mod.zhCN;
+    if (locale === 'zh-TW') return mod.zhTW;
+    return mod.ko;
+  }
+  if (locale === 'ru' || locale === 'uk') {
+    const mod = await import('./locales/slavic');
+    return locale === 'ru' ? mod.ru : mod.uk;
+  }
+  if (
+    locale === 'es' ||
+    locale === 'fr' ||
+    locale === 'de' ||
+    locale === 'pt' ||
+    locale === 'it' ||
+    locale === 'ar'
+  ) {
+    const mod = await import('./locales/europeanAndArabic');
+    return mod[locale];
+  }
+  return null;
+}
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(detectInitialLang);
+  const [loadedLocales, setLoadedLocales] = useState<Partial<Record<Locale, Translations>>>(
+    STATIC_LOCALE_MAP,
+  );
 
   const setLocale = (next: Locale) => {
     setLocaleState(next);
@@ -55,10 +69,20 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.lang = locale;
     const option = LOCALE_OPTIONS.find((o) => o.code === locale);
     document.documentElement.dir = option?.dir ?? 'ltr';
-  }, [locale]);
+
+    if (loadedLocales[locale]) return;
+    let cancelled = false;
+    void loadExtraLocale(locale).then((dict) => {
+      if (cancelled || !dict) return;
+      setLoadedLocales((prev) => ({ ...prev, [locale]: dict }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [locale, loadedLocales]);
 
   const toggleLocale = () => setLocale(locale === 'en' ? 'ja' : 'en');
-  const base = LOCALE_MAP[locale] ?? en;
+  const base = loadedLocales[locale] ?? en;
   const t: FullTranslations = {
     ...base,
     licenses: LICENSE_I18N[locale] ?? LICENSE_I18N.en,
