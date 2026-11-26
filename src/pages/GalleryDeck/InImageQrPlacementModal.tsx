@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, ArrowRight, Check, FileSignature, Globe, Hash, HelpCircle, Move, QrCode, Share2, Sparkles, X } from 'lucide-react';
 import { LicenseSummaryCard } from '../../components/LicenseSummaryCard';
+import type { InImageQrStyle } from '../../core/image/inImageQr';
 import { LICENSE_DEFINITIONS } from '../../core/manifest/types';
 import type { CompactSnsLink, CreationMethod, LicenseId } from '../../core/manifest/types';
 import { validateTrustedSnsUrl, validateTrustedWebsiteUrl } from '../../core/security/urlGuard';
@@ -13,6 +14,7 @@ export interface InImageQrPlacementSelection {
   y: number;
   boxSize: number;
   opacity: number;
+  style?: InImageQrStyle;
 }
 
 export interface CertifyModalSubmission {
@@ -98,6 +100,7 @@ function InImageQrPlacementModalBody({
   const [licenseId, setLicenseId] = useState<LicenseId>(initialLicenseId);
   const [licenseHelpOpen, setLicenseHelpOpen] = useState(false);
   const [qrMode, setQrMode] = useState<'in-image' | 'outer-border'>(initialQrMode);
+  const [qrStyle, setQrStyle] = useState<InImageQrStyle>('frosted-light');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -633,20 +636,58 @@ function InImageQrPlacementModalBody({
                     height: `${heightPct}%`,
                     opacity: opacityPct / 100,
                   }}
-                  className={`absolute flex flex-col items-center justify-center rounded-md border-2 border-cyan-300 bg-white/90 text-slate-900 shadow-lg touch-none ${
+                  className={`absolute flex flex-col items-center justify-center rounded-md border-2 border-cyan-300 shadow-lg touch-none ${
+                    qrStyle === 'frosted-light'
+                      ? 'bg-white/90 text-slate-900'
+                      : qrStyle === 'frosted-dark'
+                        ? 'bg-slate-950/90 text-white'
+                        : qrStyle === 'modules-dark'
+                          ? 'bg-transparent text-slate-950'
+                          : 'bg-transparent text-white'
+                  } ${
                     dragging ? 'cursor-grabbing ring-2 ring-cyan-400' : 'cursor-grab'
                   }`}
                 >
-                  <QrCode className="h-1/2 w-1/2 text-slate-900" />
-                  <span className="text-[9px] font-mono font-bold tracking-tight text-slate-800 leading-none">
+                  <QrCode className="h-1/2 w-1/2" />
+                  <span className="text-[9px] font-mono font-bold tracking-tight leading-none">
                     QR
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Size & Opacity Sliders */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* QR Style & Size / Opacity Controls */}
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="certify-modal-qr-style"
+                  className="text-xs font-medium text-sky-200/90 block"
+                >
+                  {isJa ? 'QRの見た目（枠・色反転）' : 'QR Appearance (Border / Invert)'}
+                </label>
+                <select
+                  id="certify-modal-qr-style"
+                  value={qrStyle}
+                  onChange={(e) => setQrStyle(e.target.value as InImageQrStyle)}
+                  data-testid="qr-placement-style-select"
+                  className="w-full rounded-xl border border-sky-400/30 bg-[#04142b]/90 px-3 py-2 text-xs sm:text-sm text-white focus:border-sky-400 focus:outline-none"
+                >
+                  <option value="frosted-light">
+                    {isJa ? '白枠あり・通常（おすすめ）' : 'Light Plate — Standard (Recommended)'}
+                  </option>
+                  <option value="frosted-dark">
+                    {isJa ? '黒枠あり・色反転' : 'Dark Plate — Inverted'}
+                  </option>
+                  <option value="modules-dark">
+                    {isJa ? '白枠なし・黒QRのみ（背景透過）' : 'No Border — Dark QR Only (Transparent)'}
+                  </option>
+                  <option value="modules-light">
+                    {isJa ? '枠なし・白QRのみ（色反転・背景透過）' : 'No Border — Light QR Only (Inverted)'}
+                  </option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label className="space-y-1.5 text-xs text-sky-200/85">
                 <div className="flex items-center justify-between">
                   <span>{isJa ? 'QRサイズ' : 'QR Size'}</span>
@@ -676,6 +717,7 @@ function InImageQrPlacementModalBody({
                   className="w-full accent-sky-400 cursor-pointer"
                 />
               </label>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-sky-400/20">
@@ -712,6 +754,7 @@ function InImageQrPlacementModalBody({
                         y: coords.y,
                         boxSize,
                         opacity: opacityPct / 100,
+                        style: qrStyle,
                       },
                     })
                   }

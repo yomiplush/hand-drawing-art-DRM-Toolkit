@@ -158,6 +158,7 @@ export async function certifyArtworkInDeck(params: {
     y: number;
     boxSize: number;
     opacity: number;
+    style?: 'frosted-light' | 'frosted-dark' | 'modules-dark' | 'modules-light';
   };
 }): Promise<GalleryArtworkItem> {
   const {
@@ -243,7 +244,7 @@ export async function certifyArtworkInDeck(params: {
               y: inImagePlacement?.y ?? Math.max(12, raster.height - boxSize - 16),
               boxSize,
               opacity: inImagePlacement?.opacity ?? 1,
-              style: 'frosted-light' as const,
+              style: inImagePlacement?.style ?? 'frosted-light',
               eccLevel: 'H' as const,
               quietZoneModules: 2,
             };
