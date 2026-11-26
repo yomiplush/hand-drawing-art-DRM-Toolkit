@@ -37,44 +37,44 @@ export const ja: Translations = {
   privacyPolicy: {
     title: 'プライバシーポリシー & GDPRに基づく開示',
     subtitle:
-      'EU一般データ保護規則（GDPR: Regulation (EU) 2016/679 / gdpr-info.eu）およびePrivacy指令に基づき、Certified Handmadeのローカル完結型アーキテクチャに即して策定しています。',
-    lastUpdated: '制定・最終更新日: 2026年11月24日',
+      'EU一般データ保護規則（GDPR: Regulation (EU) 2016/679 / gdpr-info.eu）およびePrivacy指令に基づき、Certified Handmade（https://www.certified-handmade.com/）のローカル完結型アーキテクチャに即して策定しています。',
+    lastUpdated: '制定・最終更新日: 2026年11月27日',
     gdprRefLabel: 'GDPR条文リファレンス:',
     gdprRefUrl: 'https://gdpr-info.eu/',
     controlsTitle: '同意管理・ローカルデータ操作（GDPR第7条3項）',
     controlsDesc:
-      '任意の設定Cookie／ストレージに対する同意はいつでも変更・撤回できます。「拒否する」を選択すると、任意の設定データ（言語設定Cookie/localStorage）は即座に削除され、署名・検証機能には影響しません。',
+      '任意の設定Cookie／ストレージに対する同意はいつでも変更・撤回できます。「拒否する」を選択すると、任意の設定データ（言語設定Cookie/localStorage）は即座に削除され、署名・GalleryDeck・検証機能には影響しません。',
     reopenBannerBtn: 'Cookie同意ポップアップを再表示',
     resetConsentBtn: '任意データを削除して同意状態をリセット',
     manageKeysBtn: 'ローカル署名鍵の管理・削除（/keys）',
     sections: [
       {
-        title: '1. 管理者およびオープンソース構成（GDPR第13条）',
-        body: 'Certified HandmadeはMITライセンスのオープンソース静的Webアプリケーション（github.com/yomiplush/hand-drawing-art-DRM-Toolkit、予定ドメイン: certified-handmade.com）です。ユーザーアカウント、中央認証サーバー、外部データベース、アクセス解析・テレメトリー、広告配信機構は一切存在しません。',
+        title: '1. 管理者・連絡先およびオープンソース構成（GDPR第13条1項(a)）',
+        body: 'Certified Handmadeは、https://www.certified-handmade.com/ で公開されているMITライセンスのオープンソース静的Webアプリケーション（リポジトリ: https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit）です。プライバシーやGDPRに関するお問い合わせはGitHubリポジトリのIssues（github.com/yomiplush/hand-drawing-art-DRM-Toolkit/issues）よりご連絡ください。ユーザーアカウント、中央認証サーバー、外部データベース、行動解析・テレメトリー、広告配信機構は一切存在しません。',
       },
       {
-        title: '2. 端末内のみでローカル処理されるデータ',
-        body: '読み込んだ作品画像、正規化RGBA8ピクセルデータ、SHA-256ハッシュ、Ed25519公開鍵・秘密鍵、暗号化バックアップ（.chkey.json）、カメラ映像フレーム（getUserMedia）、および #proof=... URLフラグメントは、すべて利用者のブラウザメモリおよび端末内ストレージのみで処理されます。これらが外部サーバーへ送信されることはありません。',
+        title: '2. 端末内のみでローカル処理されるデータ（GDPR第5条1項(c)・第25条）',
+        body: '読み込んだ作品画像、正規化RGBA8ピクセルデータ、SHA-256ハッシュ、Ed25519公開鍵・秘密鍵、暗号化バックアップ（.chkey.json）、GalleryDeckのローカルカタログおよび画像キャッシュ（IndexedDB / File System Access API）、ゼロ知識暗号化保管庫（.gdvault）、カメラ映像フレーム（getUserMedia）、および #proof=... URLフラグメントは、すべて利用者のブラウザメモリおよび端末内ストレージのみで処理されます。作品画像や未暗号化の秘密鍵が外部サーバーへ送信されることはありません。',
       },
       {
-        title: '3. 処理の法的根拠（GDPR第6条1項）',
-        body: '• 第6条1項(b) / (f)（契約/利用者が要求した機能実行・正当な利益による必須処理）: 選択した画像のローカル読み込み、署名・検証の実行、PWAオフライン用キャッシュ、および同意拒否/許可の選択状態の保持。\n• 第6条1項(a)（明示的同意）: 任意の機能設定Cookie/localStorage（UI表示言語設定の永続記憶）、QRスキャン開始時のカメラ権限、および /devices で明示的に同意して有効化した場合のみの分散型デバイス同期（wss:// Nostrリレー接続）。',
+        title: '3. 処理の目的および法的根拠（GDPR第6条1項）',
+        body: '• 第6条1項(b)（利用者が要求したローカル機能の実行に必須）: 選択した画像のローカル読み込み、署名・検証の実行、PWAオフライン用キャッシュ、ならびに署名鍵・GalleryDeck・暗号化保管庫の端末内保存。\n• 第6条1項(f)（正当な利益 — セキュリティおよび不正・スパム防止）: 同意選択状態の保持（追跡IDなし）、Cloudflare Pagesによる安全な静的配信、および /verify のNostrいいねボタン押下時に同一オリジンの /cdn-cgi/trace から取得したIPアドレスを用いてブラウザ内で日次ソルト付きSHA-256ハッシュを計算する1日1回制限処理（生のIPアドレスは保存・公開しません）。\n• 第6条1項(a)（明示的同意）: 任意の機能設定Cookie/localStorage（UI表示言語設定の永続記憶）、QRスキャン開始時のカメラ権限、/devices での分散型デバイス同期やNostrリレー接続（wss://）、/storage でのGoogleドライブ（drive.appdata）連携、および利用者が設定したDiscord Webhookへの通知送信。',
       },
       {
-        title: '4. Cookieおよびブラウザストレージ一覧',
-        body: '広告用・行動追跡用・サードパーティ分析用のCookieは一切使用せず、既定状態では外部通信を一切行いません。/devices で「分散型同期」を明示的に有効化した場合に限り、利用者が選択したNostrリレーへ wss:// 接続を行います（作品画像・秘密鍵・個人情報は一切送信しませんが、接続先リレー運営者にはIPアドレス・接続時刻・同期用公開IDが観測されます）。',
+        title: '4. Cookieおよびブラウザストレージ一覧（ePrivacy指令・GDPR第13条）',
+        body: '広告用・行動追跡用・サードパーティ分析用のCookieは一切使用せず、既定状態では外部通信を一切行いません。外部通信は、利用者が任意機能（分散型同期・Nostrリレー・Nostrいいね・Googleドライブ appDataFolder連携・Discord Webhook通知）を明示的に操作・有効化した場合に限り発生します。',
       },
       {
-        title: '5. 静的ホスティング基盤について（Cloudflare Pages）',
-        body: '本サイトは静的アセット（HTML/JS/CSS/アイコン）のみをHTTPSで配信します。初回アクセス時のHTTPS通信において、Cloudflare Pagesの配信インフラが接続IPアドレスやTLSヘッダー等の標準的な一時通信メタデータを処理する場合があります。一度PWAキャッシュ後はオフラインでも動作し、#proof=... フラグメント内の署名データはブラウザの仕様上HTTPリクエストに含まれません。',
+        title: '5. 静的ホスティング基盤および任意の外部連携（Cloudflare・Nostr・Discord）',
+        body: '• Cloudflare Pages（静的ホスティング）: 初回アクセス時のHTTPS通信において、Cloudflareの配信インフラが接続IPアドレスやTLSヘッダー等の標準的な一時通信メタデータを静的ファイル配信および不正対策のために処理します。PWAキャッシュ後はオフラインでも動作し、#proof=... フラグメント内の署名データはブラウザの仕様上HTTPリクエストに含まれません。\n• 任意のNostrリレー（wss://）: 分散型同期（/devices）、任意公開インデックス（kind 30078）、または作品いいね（kind 7）を実行した場合に限り、選択されたNostrリレーへ接続します。接続先リレー運営者にはIPアドレス・接続時刻・Nostrイベントのメタデータが観測されます（作品画像・秘密鍵・個人情報は一切送信しません）。\n• 任意のDiscord Webhook: 利用者が自らDiscord Webhook URLを設定し送信または自動通知を有効化した場合に限り、証明書サマリーを discord.com/api/webhooks/... へ直接送信します。',
       },
       {
-        title: '6. GDPRに基づく利用者の権利（第7条・第15条〜第22条・第77条）',
-        body: '• アクセス権およびデータポータビリティ権（第15条・第20条）: 鍵管理画面（/keys）から保存済みの公開鍵や暗号化バックアップ（.chkey.json）、署名付きPNGをいつでも閲覧・エクスポートできます。\n• 削除権 / 忘れられる権利（第17条）: /keys 画面からの鍵削除、本ページでの任意データ消去、またはブラウザのサイトデータ消去により全データを完全に削除できます。\n• 同意撤回権（第7条3項）: 下部の同意設定またはフッターの「🍪 Cookie設定」からいつでも撤回可能です。\n• 監督機関への不服申立権（第77条）: EU/EEA居住者は管轄のデータ保護監督機関へ不服を申し立てる権利を有します。',
+        title: '6. GDPRに基づく利用者の権利（第7条3項・第15条〜第22条・第77条）',
+        body: '• アクセス権およびデータポータビリティ権（第15条・第20条）: 鍵管理画面（/keys）、GalleryDeck（/gallerydeck）、保管庫（/vault）から保存済みデータをいつでも閲覧し、公開鍵・暗号化バックアップ（.chkey.json / .gdvault）・署名付きPNGをエクスポートできます。\n• 訂正権（第16条）: ローカルの作家プロフィール、作品メタデータ、設定はアプリ内でいつでも修正できます。\n• 削除権 / 忘れられる権利（第17条）: /keys での鍵削除、GalleryDeckや保管庫データの削除、本ページでの任意データ消去、Googleドライブ連携解除、またはブラウザのサイトデータ消去により全データを完全に削除できます。\n• 処理の制限権および異議申立権（第18条・第21条）: 同期・リレー・Webhook等の任意連携はいつでも無効化でき、ローカル完結型のため利用停止・サイトデータ消去によりすべての処理を即時停止できます。\n• 同意撤回権（第7条3項）: 上部の同意設定またはフッターの「🍪 Cookie設定」からいつでも撤回可能です。\n• 監督機関への不服申立権（第77条）: EU/EEA居住者は管轄のデータ保護監督機関へ不服を申し立てる権利を有します。',
       },
       {
-        title: '7. 第三者提供・域外移転・自動プロファイリング',
-        body: '本アプリケーションが作品データや秘密鍵を第三者へ提供・販売・域外移転することはありません。また、GDPR第22条に該当する自動化された意思決定やプロファイリングも行いません。',
+        title: '7. 第三者提供・域外移転（第44条〜第49条）・自動意思決定（第22条）',
+        body: '本アプリケーションが利用者の作品データや秘密鍵を第三者へ販売・提供することはありません。静的サイト配信（Cloudflare Pages）や利用者が明示的に有効化した外部連携（Googleドライブ、Discord Webhook、公開Nostrリレー）の利用時には、各事業者のプライバシーポリシーおよび保護措置（またはGDPR第49条1項(a)の利用者主導の明示的同意）のもとでEU/EEA域外へ通信メタデータまたは暗号化データが移転される場合があります。また、GDPR第22条に該当する自動化された意思決定やプロファイリングは一切行いません。',
       },
     ],
     tableHeaders: {
@@ -93,7 +93,13 @@ export const ja: Translations = {
       {
         name: 'IndexedDB (certified-handmade-store)',
         category: '利用者操作に基づく必須ストレージ（第6条1項(b)）',
-        purpose: 'Ed25519署名鍵、ローカル信頼済み鍵、デバイス登録簿、および同期有効時のラップ済みNostr同期鍵・同期ログ・送信キューを保存。',
+        purpose: 'Ed25519署名鍵、ローカル信頼済み鍵、デバイス登録簿、証明保管庫、および同期有効時のラップ済みNostr同期鍵・同期ログ・送信キューを保存。',
+        retention: '利用者が削除するかブラウザが消去するまで',
+      },
+      {
+        name: 'IndexedDB (certified-handmade-gallerydeck & certified-handmade-encrypted-vaults)',
+        category: '利用者操作に基づく必須ストレージ（第6条1項(b)）',
+        purpose: 'GalleryDeckのローカル作品カタログ・画像キャッシュおよびゼロ知識暗号化保管庫（.gdvault）を端末内に保存。',
         retention: '利用者が削除するかブラウザが消去するまで',
       },
       {
@@ -107,6 +113,12 @@ export const ja: Translations = {
         category: '任意の設定（明示的同意 — 第6条1項(a)）',
         purpose: '選択したUI言語（日本語・English・中文 等）を次回訪問時も記憶する。',
         retention: '同意時は180日間。拒否時は即座に削除・保存しない',
+      },
+      {
+        name: 'localStorage UI・ツール設定（モード・テーマ・検証履歴・カスタムリレー・日次いいね記録・任意のDiscord設定）',
+        category: '利用者操作に基づくローカル状態（第6条1項(b) / (f)）',
+        purpose: 'シンプル/詳細モード、ライト/ダークテーマ、ローカル検証履歴、カスタムNostrリレー一覧、日次いいね重複防止記録（chm_liked_artworks_daily_v2）、および利用者が入力したDiscord Webhook/プロフィール設定を保持。',
+        retention: '利用者が削除するかブラウザのサイトデータを消去するまで',
       },
       {
         name: '解析・広告・トラッキングCookie',

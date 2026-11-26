@@ -15,8 +15,10 @@
 | Data Location | What Is Stored / Sent | What Is Explicitly Excluded |
 | --- | --- | --- |
 | **Local `CHM-VAULT-v1` (`proofVault` store)** | Compact primary `CHM1` CBOR proof (`~300–500 B`), `artworkId`, `authorFingerprint`, title/author/license strings, `imageSha256Hex`, opt-in flags (`~1 KiB` total/record). | Artwork pixels, thumbnails, local filesystem paths, WIP binaries, private keys. |
+| **Local GalleryDeck & Encrypted Vaults (`certified-handmade-gallerydeck`, `certified-handmade-encrypted-vaults`)** | Local artwork catalog, local image blobs, and zero-knowledge `.gdvault` encrypted archives stored strictly in browser IndexedDB (or user-selected local folder via File System Access API). | Unsolicited cloud uploads, telemetry, plaintext passphrases. |
 | **Private Device Sync (`kind 1059` NIP-59)** | NIP-44 ciphertext inside ephemeral single-use Gift Wrap (`p`-tag = recipient `nostrPubkeyHex`, `created_at` randomized up to `+/- 48h`), containing CBOR device ops and user-selected Vault proofs only. | Artwork pixels, unselected Vault items, private keys, plaintext social profile scraping. |
-| **Opt-In Public Proof Index (`kind 30078`)** | Published **only** on explicit per-action user trigger. Contains `CHM-PUBLIC-PROOF-v1` JSON (`proofBase64Url`, `authorFingerprintHex`, declared `creationMethod`) + tags `d`, `t`, `chm_author`. | Private keys, device lists, device IDs, WIP hashes, artwork images. |
+| **Opt-In Public Proof Index (`kind 30078`) & Artwork Likes (`kind 7`)** | Published **only** on explicit per-action user trigger. Public Proof Index contains `CHM-PUBLIC-PROOF-v1` JSON + tags. Daily like rate-limiting computes a client-side daily salted SHA-256 hash using Cloudflare's same-origin `/cdn-cgi/trace` IP (raw IP is never stored or published). | Raw IP addresses, private keys, device lists, device IDs, WIP hashes, artwork images. |
+| **Optional Google Drive (`drive.appdata`) & Discord Webhook** | Client-side AES-256-GCM encrypted vault files inside hidden `appDataFolder` with RAM-only OAuth tokens; or user-configured Discord Webhook certificate summary embeds. | Original artworks, unencrypted private keys, visible Drive files, third-party analytics. |
 
 ---
 

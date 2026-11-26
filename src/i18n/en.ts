@@ -35,44 +35,44 @@ export const en = {
   privacyPolicy: {
     title: 'Privacy Policy & GDPR Notice',
     subtitle:
-      'Prepared in alignment with Regulation (EU) 2016/679 (GDPR — gdpr-info.eu) and the ePrivacy Directive for Certified Handmade.',
-    lastUpdated: 'Effective / Updated: November 24, 2026',
+      'Prepared in alignment with Regulation (EU) 2016/679 (GDPR — gdpr-info.eu) and the ePrivacy Directive for Certified Handmade (https://www.certified-handmade.com/).',
+    lastUpdated: 'Effective / Updated: November 27, 2026',
     gdprRefLabel: 'GDPR Reference Text:',
     gdprRefUrl: 'https://gdpr-info.eu/',
     controlsTitle: 'Your Consent & Local Storage Controls (Art. 7(3) GDPR)',
     controlsDesc:
-      'You may accept, reject, or withdraw consent for optional preference cookies/storage at any time. Rejecting immediately clears optional preference storage without affecting core local signing or verification.',
+      'You may accept, reject, or withdraw consent for optional preference cookies/storage at any time. Rejecting immediately clears optional preference storage without affecting core local signing, GalleryDeck, or verification.',
     reopenBannerBtn: 'Open Bottom Cookie Popup',
     resetConsentBtn: 'Clear Optional Data & Reset Consent',
     manageKeysBtn: 'Manage / Delete Local Keys (/keys)',
     sections: [
       {
-        title: '1. Controller & Open-Source Scope (Art. 13 GDPR)',
-        body: 'Certified Handmade is a static, client-side, open-source web application (MIT License) maintained at github.com/yomiplush/hand-drawing-art-DRM-Toolkit and planned for hosting at certified-handmade.com. There are no user accounts, no central authentication servers, no telemetry, and no commercial data monetization.',
+        title: '1. Controller, Contact & Open-Source Scope (Art. 13(1)(a) GDPR)',
+        body: 'Certified Handmade is a static, client-side, open-source web application (MIT License) hosted at https://www.certified-handmade.com/ and maintained at https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit. For privacy inquiries or GDPR requests, please open an issue or contact the maintainer via the GitHub repository (github.com/yomiplush/hand-drawing-art-DRM-Toolkit/issues). There are no user accounts, no central authentication servers, no behavioral telemetry, and no commercial data monetization.',
       },
       {
-        title: '2. Data Processed Strictly Locally on Your Device',
-        body: 'All artwork files, RGBA8 pixel buffers, SHA-256 digests, Ed25519 private/public keys, passphrase-encrypted backups (.chkey.json), camera QR frames (getUserMedia), and #proof=... URL fragments are processed exclusively inside your browser memory and local device storage. Artwork images and private keys are NEVER uploaded to any server.',
+        title: '2. Data Processed Strictly Locally on Your Device (Art. 5(1)(c) & Art. 25 GDPR)',
+        body: 'All artwork files, RGBA8 pixel buffers, SHA-256 digests, Ed25519 private/public keys, passphrase-encrypted backups (.chkey.json), GalleryDeck local catalogs and image caches (IndexedDB / File System Access API), zero-knowledge encrypted vaults (.gdvault), camera QR frames (getUserMedia), and #proof=... URL fragments are processed exclusively inside your browser memory and local device storage. Artwork images and unencrypted private keys are NEVER uploaded to any server.',
       },
       {
-        title: '3. Legal Bases for Processing (Art. 6(1) GDPR)',
-        body: '• Art. 6(1)(b) / Art. 6(1)(f) (Strictly Necessary Local Execution): Reading image files you select, generating/verifying cryptographic proofs, caching static assets via Service Worker for offline use, and storing your consent choice locally.\n• Art. 6(1)(a) (Explicit Consent): Storing optional UI preference cookies/localStorage (chosen language), accessing your camera during QR scanning, and connecting over wss:// ONLY if you explicitly opt in to Decentralized Device Sync in /devices.',
+        title: '3. Purposes & Legal Bases for Processing (Art. 6(1) GDPR)',
+        body: '• Art. 6(1)(b) (Strictly Necessary Local Execution Requested by You): Reading image files you select, generating/verifying cryptographic proofs, caching static assets via Service Worker for offline PWA use, and storing local keys, GalleryDeck catalogs, and encrypted vaults on your device.\n• Art. 6(1)(f) (Legitimate Interests — Security & Abuse Prevention): Recording your consent status locally (no tracking ID), delivering static assets securely via Cloudflare Pages, and enforcing a once-per-day per-IP anti-spam limit when you click the Nostr heart-like button on /verify by fetching your IP from Cloudflare’s same-origin /cdn-cgi/trace endpoint and computing a daily salted SHA-256 hash locally in your browser (your raw IP address is never stored or published).\n• Art. 6(1)(a) (Explicit Consent): Storing optional UI preference cookies/localStorage (chosen language), accessing your camera during QR scanning, connecting over wss:// ONLY if you explicitly opt in to Decentralized Device Sync (/devices) or Nostr Proof Relays, connecting Google Drive (drive.appdata) on /storage, or sending certificate embeds to a user-configured Discord Webhook.',
       },
       {
-        title: '4. Cookies & Client-Side Storage Inventory',
-        body: 'We do NOT use any advertising, profiling, social media, or third-party analytics cookies. By default Certified Handmade makes zero external network requests. Only if you explicitly opt in to Decentralized Sync in /devices will your browser open outbound wss:// WebSocket connections to user-selected Nostr relays—exposing your IP address, timestamps, and sync npub routing metadata to those independent relay operators (artworks, private keys, and PII are NEVER sent).',
+        title: '4. Cookies & Client-Side Storage Inventory (ePrivacy & Art. 13 GDPR)',
+        body: 'We do NOT use any advertising, profiling, social media, or third-party analytics cookies. By default, Certified Handmade makes zero external network requests at rest. Outbound connections occur only when you explicitly trigger an opt-in feature (Decentralized Sync / Nostr relays, Nostr artwork likes, Google Drive appDataFolder sync, or Discord Webhook notifications).',
       },
       {
-        title: '5. Static Hosting Infrastructure (Cloudflare Pages)',
-        body: 'When your browser initially fetches static HTML/JS/CSS/icon files over HTTPS, Cloudflare Pages processes standard transient HTTP transport metadata (such as IP address and TLS connection headers) strictly to deliver static files and protect against abuse. Once cached by the PWA Service Worker, subsequent offline usage sends zero network requests. Proof payloads reside inside the URL #proof=... fragment, which browsers do not transmit in HTTP GET requests.',
+        title: '5. Static Hosting & Optional External Integrations (Cloudflare, Nostr, Discord)',
+        body: '• Cloudflare Pages (Static Hosting): When your browser fetches static HTML/JS/CSS/icon files over HTTPS, Cloudflare processes standard transient HTTP transport metadata (such as IP address and TLS headers) strictly to deliver static files and mitigate abuse. Once cached by the PWA Service Worker, offline usage sends zero network requests. Proof payloads reside inside the URL #proof=... fragment, which browsers do not send in HTTP GET requests.\n• Optional Nostr Relays (wss://): If you enable Decentralized Sync (/devices), publish to the Opt-In Public Proof Index (kind 30078), or click the heart-like button (kind 7), your browser connects directly to selected Nostr relays. Independent relay operators can observe your IP address, connection timestamps, and Nostr event metadata (artworks, private keys, and PII are NEVER sent).\n• Optional Discord Webhook: Only if you manually enter a Discord Webhook URL and trigger or enable auto-send on certify does your browser POST a certificate summary embed directly to discord.com/api/webhooks/....',
       },
       {
-        title: '6. Your Rights Under GDPR (Art. 7, Art. 15–22, Art. 77)',
-        body: '• Right of Access & Portability (Art. 15, 20): Inspect all locally stored keys in Identity / Keys (/keys) and export public keys or encrypted backups (.chkey.json) and signed PNGs at any time.\n• Right to Erasure (Art. 17): Delete individual keys in /keys, clear optional preference storage below, or clear your browser’s site data.\n• Right to Withdraw Consent (Art. 7(3)): Click "Reject Optional" or reopen the cookie popup below at any time.\n• Right to Lodge a Complaint (Art. 77): You have the right to lodge a complaint with a competent EU/EEA data protection supervisory authority.',
+        title: '6. Your Rights Under GDPR (Art. 7(3), Art. 15–22 & Art. 77)',
+        body: '• Right of Access & Data Portability (Art. 15, Art. 20): Inspect all locally stored keys in Identity / Keys (/keys), GalleryDeck items (/gallerydeck), and Vault records (/vault), and export public keys, encrypted backups (.chkey.json / .gdvault), and signed PNGs at any time.\n• Right to Rectification (Art. 16): Edit or update your local artist profiles, artwork metadata, and preferences directly in the app at any time.\n• Right to Erasure / "Right to be Forgotten" (Art. 17): Delete individual keys in /keys, remove local vaults or GalleryDeck entries, clear optional preference storage above, disconnect Google Drive / revoke access, or clear your browser’s site data.\n• Right to Restriction & Right to Object (Art. 18, Art. 21): Disable optional sync, relays, or webhooks at any time; because processing is local-first, stopping use or clearing site data immediately halts all processing.\n• Right to Withdraw Consent (Art. 7(3)): Click "Reject Optional" or reopen the cookie popup above (or via Footer -> Cookie Settings) at any time.\n• Right to Lodge a Complaint (Art. 77): You have the right to lodge a complaint with a competent EU/EEA data protection supervisory authority.',
       },
       {
-        title: '7. Recipients, Third-Country Transfers & Automated Decision-Making',
-        body: 'No personal data from your artworks or keys is shared with third parties or transferred to third countries by the application. Certified Handmade does not perform automated decision-making or profiling under Art. 22 GDPR.',
+        title: '7. Recipients, Third-Country Transfers (Art. 44–49) & Automated Decision-Making (Art. 22)',
+        body: 'Certified Handmade does not sell, rent, or share personal data with third parties. When you access the static site (Cloudflare Pages) or explicitly enable optional integrations (Google Drive, Discord Webhooks, or public Nostr relays), those independent providers may process transport metadata or encrypted payloads outside the EU/EEA under their respective privacy policies and safeguards (or Art. 49(1)(a) explicit user-initiated action). Certified Handmade does not perform automated decision-making or profiling under Art. 22 GDPR.',
       },
     ],
     tableHeaders: {
@@ -91,7 +91,13 @@ export const en = {
       {
         name: 'IndexedDB (certified-handmade-store)',
         category: 'Strictly Necessary on User Action (Art. 6(1)(b))',
-        purpose: 'Stores local Ed25519 keys, Locally Trusted Keys, device pairing state, and (if sync is enabled) wrapped Nostr device keys, sync op logs, and outbox queues.',
+        purpose: 'Stores local Ed25519 keys, Locally Trusted Keys, device pairing state, proof vault records, and (if sync is enabled) wrapped Nostr device keys, sync op logs, and outbox queues.',
+        retention: 'Until deleted by user or browser eviction',
+      },
+      {
+        name: 'IndexedDB (certified-handmade-gallerydeck & certified-handmade-encrypted-vaults)',
+        category: 'Strictly Necessary on User Action (Art. 6(1)(b))',
+        purpose: 'Stores your local GalleryDeck artwork catalog, local image blobs, and zero-knowledge encrypted .gdvault archives exclusively on your device.',
         retention: 'Until deleted by user or browser eviction',
       },
       {
@@ -105,6 +111,12 @@ export const en = {
         category: 'Optional Preference (Consent — Art. 6(1)(a))',
         purpose: 'Remembers your chosen interface language across visits.',
         retention: '180 days if accepted; deleted immediately if rejected',
+      },
+      {
+        name: 'localStorage UI & Tool State (mode, theme, verification log, custom relays, daily like map, optional Discord settings)',
+        category: 'User-Initiated Local State (Art. 6(1)(b) / Art. 6(1)(f))',
+        purpose: 'Stores Simple/Advanced UI mode, light/dark theme, local verification log, custom Nostr relay list, daily local like-deduplication state (chm_liked_artworks_daily_v2), and user-entered Discord webhook/profile settings.',
+        retention: 'Until cleared by user or browser site data reset',
       },
       {
         name: 'Analytics / Ad / Tracking Cookies',

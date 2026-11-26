@@ -111,12 +111,12 @@ const ROUTES = [
     slug: 'privacypolicy',
     title: 'Privacy Policy, GDPR & Google Drive Limited Use Notice | Certified Handmade',
     description:
-      'GDPR & Google API privacy disclosure: zero tracking, zero analytics, 100% local artwork/key processing, and optional RAM-only OAuth Google Drive (drive.appdata) client-side AES-256-GCM encrypted vault storage.',
+      'GDPR (Regulation (EU) 2016/679) & Google API privacy disclosure for certified-handmade.com: zero tracking, zero analytics, 100% local artwork/key/GalleryDeck processing, opt-in Nostr & Discord integrations, and RAM-only OAuth Google Drive (drive.appdata) encrypted vault storage.',
     keywords:
-      'Privacy Policy, GDPR Compliance, Google Drive Limited Use, drive.appdata, Zero Telemetry, Local-Only Web App, Offline Privacy, プライバシーポリシー, 完全ローカル',
+      'Privacy Policy, GDPR Compliance, gdpr-info.eu, Google Drive Limited Use, drive.appdata, Zero Telemetry, Local-Only Web App, Offline Privacy, プライバシーポリシー, 完全ローカル',
     heading: 'Privacy Policy, GDPR & Google Drive (drive.appdata) Limited Use Notice',
     summary:
-      'Certified Handmade processes all artwork files and cryptographic keys strictly locally in your browser with zero analytics or tracking cookies. Optional Google Drive sync uses only the narrow drive.appdata scope with RAM-only OAuth tokens and client-side AES-256-GCM encryption inside your hidden appDataFolder in strict compliance with the Google API Services User Data Policy (Limited Use).',
+      'Certified Handmade (https://www.certified-handmade.com/) processes all artwork files, GalleryDeck catalogs, and cryptographic keys strictly locally in your browser with zero analytics or tracking cookies. Aligned with GDPR (https://gdpr-info.eu/) and Google API Services User Data Policy (Limited Use), external connections occur only on explicit user opt-in (Google Drive drive.appdata, Nostr relays, or Discord Webhooks).',
   },
 ];
 
