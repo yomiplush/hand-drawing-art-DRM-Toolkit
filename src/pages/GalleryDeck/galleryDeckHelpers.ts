@@ -193,8 +193,11 @@ export async function certifyArtworkInDeck(params: {
   const { raster } = await decodeImageFileToCanonicalRgba8(file);
 
   const resolvedTitle = artworkTitle || item.title || undefined;
-  const tagLine = tags && tags.length > 0 ? tags.map((t) => `#${t}`).join(' ') : '';
-  const combinedDescription = [description?.trim(), tagLine].filter(Boolean).join('\n') || undefined;
+  const cleanDescription = description?.trim() || undefined;
+  const cleanTags =
+    tags && tags.length > 0
+      ? tags.map((t) => t.replace(/^#+/, '').trim()).filter(Boolean).slice(0, 15)
+      : undefined;
 
   const signed =
     qrMode === 'outer-border'
@@ -204,7 +207,8 @@ export async function certifyArtworkInDeck(params: {
           license: buildLicenseDeclaration(licenseId),
           authorName: authorName || item.authorName || authorKey.label,
           artworkTitle: resolvedTitle,
-          description: combinedDescription,
+          description: cleanDescription,
+          tags: cleanTags,
           website,
           snsLinks,
           creationMethod,
@@ -221,7 +225,8 @@ export async function certifyArtworkInDeck(params: {
           license: buildLicenseDeclaration(licenseId),
           authorName: authorName || item.authorName || authorKey.label,
           artworkTitle: resolvedTitle,
-          description: combinedDescription,
+          description: cleanDescription,
+          tags: cleanTags,
           website,
           snsLinks,
           creationMethod,

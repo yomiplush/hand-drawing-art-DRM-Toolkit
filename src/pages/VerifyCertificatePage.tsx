@@ -950,6 +950,7 @@ export function VerifyCertificatePage() {
     manifestV3 &&
       manifestV3.version === PROTOCOL_VERSION_COMPACT &&
       (manifestV3.description ||
+        (manifestV3.tags && manifestV3.tags.length > 0) ||
         safeV3Website ||
         safeV3SnsLinks.length > 0 ||
         safeV3PortfolioLinks.length > 0 ||
@@ -1645,6 +1646,27 @@ export function VerifyCertificatePage() {
               </div>
             )}
 
+            {result.manifest.tags && result.manifest.tags.length > 0 && (
+              <div
+                data-testid="verify-v3-tags"
+                className="sm:col-span-2 ga-surface-subtle rounded-xl border ga-border px-3.5 py-2.5 space-y-1.5"
+              >
+                <div className="text-[11px] ga-text-muted">
+                  {locale === 'ja' ? 'タグ' : 'Tags'}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {result.manifest.tags.map((tag, idx) => (
+                    <span
+                      key={`${tag}-${idx}`}
+                      className="inline-flex items-center rounded-full border ga-border ga-card-solid px-2.5 py-0.5 text-xs font-medium ga-text-accent"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {safeV3Website && (
               <div className="sm:col-span-2 ga-surface-subtle rounded-xl border ga-border px-3.5 py-2.5 space-y-1">
                 <div className="text-[11px] ga-text-muted">
@@ -1943,6 +1965,27 @@ export function VerifyCertificatePage() {
               <p className="text-xs sm:text-sm ga-text whitespace-pre-wrap break-words leading-relaxed">
                 {result.manifest.description}
               </p>
+            </div>
+          )}
+
+          {result.manifest.tags && result.manifest.tags.length > 0 && (
+            <div
+              data-testid="verify-v3-tags-card"
+              className="ga-surface-subtle rounded-xl border ga-border p-4 space-y-2"
+            >
+              <div className="text-[11px] ga-text-muted">
+                {locale === 'ja' ? 'タグ' : 'Tags'}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {result.manifest.tags.map((tag, idx) => (
+                  <span
+                    key={`${tag}-${idx}`}
+                    className="inline-flex items-center rounded-full border ga-border ga-card-solid px-2.5 py-0.5 text-xs font-medium ga-text-accent"
+                  >
+                    #{tag}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
 
@@ -2492,6 +2535,12 @@ export function VerifyCertificatePage() {
               <DetailRow
                 label={t.artworkDetails.descriptionLabel}
                 value={result.manifest.description}
+              />
+            )}
+            {result.manifest.tags && result.manifest.tags.length > 0 && (
+              <DetailRow
+                label={locale === 'ja' ? 'タグ' : 'Tags'}
+                value={result.manifest.tags.map((tag) => `#${tag}`).join(' ')}
               />
             )}
             {safeV3Website && (

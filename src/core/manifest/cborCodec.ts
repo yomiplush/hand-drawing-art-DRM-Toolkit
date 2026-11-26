@@ -183,6 +183,7 @@ function encodeLicenseTuple(license: LicenseDeclaration, isV3: boolean): unknown
 function hasV3OnlyFields(manifest: UnsignedManifest): boolean {
   return (
     manifest.description !== undefined ||
+    (manifest.tags !== undefined && manifest.tags.length > 0) ||
     manifest.website !== undefined ||
     (manifest.snsLinks !== undefined && manifest.snsLinks.length > 0) ||
     (manifest.portfolioLinks !== undefined && manifest.portfolioLinks.length > 0) ||
@@ -391,6 +392,25 @@ export function encodeUnsignedPayload(manifest: UnsignedManifest): Uint8Array {
     if (policyNote !== undefined) {
       payloadMap.set(17, policyNote);
     }
+    if (manifest.tags && manifest.tags.length > 0) {
+      if (manifest.tags.length > 15) {
+        throw new Error('tags cannot exceed 15 entries');
+      }
+      const encodedTags: string[] = [];
+      for (let i = 0; i < manifest.tags.length; i++) {
+        const cleanTag = sanitizeV3SingleLine(
+          manifest.tags[i].replace(/^#+/, ''),
+          48,
+          `tags[${i}]`,
+        );
+        if (cleanTag !== undefined) {
+          encodedTags.push(cleanTag);
+        }
+      }
+      if (encodedTags.length > 0) {
+        payloadMap.set(18, encodedTags);
+      }
+    }
   }
 
   return cborEncode(payloadMap, rfc8949EncodeOptions);
@@ -574,7 +594,7 @@ export function decodeSignedProofEnvelope(proofBytes: Uint8Array): DecodedProofE
 
   const allowedKeys =
     version === PROTOCOL_VERSION_COMPACT
-      ? new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+      ? new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
       : version === PROTOCOL_VERSION_MASKED
         ? new Set([1, 2, 3, 4, 5, 6, 7, 8, 9])
         : new Set([1, 2, 3, 4, 5, 6, 7, 8]);
@@ -729,6 +749,7 @@ export function decodeSignedProofEnvelope(proofBytes: Uint8Array): DecodedProofE
   let creationEnvironment: CreationEnvironmentData | undefined;
   let evidenceHashes: EvidenceHashRecord[] | undefined;
   let policyNote: string | undefined;
+  let tags: string[] | undefined;
 
   if (isV3) {
     if (decodedPayload.has(10)) {
@@ -906,6 +927,15 @@ export function decodeSignedProofEnvelope(proofBytes: Uint8Array): DecodedProofE
         'policyNote',
       );
     }
+    if (decodedPayload.has(18)) {
+      const rawTags = decodedPayload.get(18);
+      if (!Array.isArray(rawTags) || rawTags.length === 0 || rawTags.length > 15) {
+        throw new Error('tags must be a non-empty bounded array');
+      }
+      tags = rawTags.map((entry, idx) =>
+        assertCanonicalDecodedString(entry, sanitizeV3SingleLine, 48, `tags[${idx}]`),
+      );
+    }
   }
 
   const unsignedManifest: UnsignedManifest = {
@@ -920,6 +950,7 @@ export function decodeSignedProofEnvelope(proofBytes: Uint8Array): DecodedProofE
     authorName,
     artworkTitle,
     ...(description !== undefined ? { description } : {}),
+    ...(tags !== undefined ? { tags } : {}),
     ...(website !== undefined ? { website } : {}),
     ...(snsLinks !== undefined ? { snsLinks } : {}),
     ...(portfolioLinks !== undefined ? { portfolioLinks } : {}),

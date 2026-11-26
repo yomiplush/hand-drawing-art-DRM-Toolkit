@@ -59,6 +59,7 @@ export function measureUnsignedQrSizing(params: {
     authorName: params.manifestWithoutCrypto?.authorName,
     artworkTitle: params.manifestWithoutCrypto?.artworkTitle,
     description: params.manifestWithoutCrypto?.description,
+    tags: params.manifestWithoutCrypto?.tags,
     website: params.manifestWithoutCrypto?.website,
     snsLinks: params.manifestWithoutCrypto?.snsLinks,
     portfolioLinks: params.manifestWithoutCrypto?.portfolioLinks,

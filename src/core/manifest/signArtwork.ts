@@ -40,6 +40,7 @@ import type {
 export interface CompactPublicMetadataParams {
   protocolVersion?: 1 | 2 | 3;
   description?: string;
+  tags?: string[];
   website?: string;
   snsLinks?: CompactSnsLink[];
   portfolioLinks?: CreatorProfileLink[];
@@ -80,6 +81,7 @@ function shouldUseV3(
   if (params.protocolVersion === PROTOCOL_VERSION_COMPACT) return true;
   if (
     params.description !== undefined ||
+    (params.tags && params.tags.length > 0) ||
     params.website !== undefined ||
     (params.snsLinks && params.snsLinks.length > 0) ||
     (params.portfolioLinks && params.portfolioLinks.length > 0) ||
@@ -99,6 +101,7 @@ function shouldUseV3(
 function pickOptionalV3Fields(params: CompactPublicMetadataParams) {
   return {
     ...(params.description !== undefined ? { description: params.description } : {}),
+    ...(params.tags && params.tags.length > 0 ? { tags: params.tags } : {}),
     ...(params.website !== undefined ? { website: params.website } : {}),
     ...(params.snsLinks && params.snsLinks.length > 0 ? { snsLinks: params.snsLinks } : {}),
     ...(params.portfolioLinks && params.portfolioLinks.length > 0

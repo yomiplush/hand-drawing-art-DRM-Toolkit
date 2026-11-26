@@ -168,6 +168,7 @@ export interface UnsignedManifest {
   artworkTitle?: string;
   // Protocol v3 self-contained public metadata (offline QR readable)
   description?: string;
+  tags?: string[];
   website?: string;
   snsLinks?: CompactSnsLink[];
   portfolioLinks?: CreatorProfileLink[];
