@@ -23,6 +23,8 @@ export const NOSTR_PROOF_RELAYS = [
   'wss://nos.lol',
   'wss://relay.primal.net',
   'wss://nostr.bitcoiner.social',
+  'wss://relay.nostr.band',
+  'wss://nostr.mom',
 ] as const;
 
 export const NOSTR_PROOF_URL_PREFIX = 'HTTPS://CERTIFIED-HANDMADE.COM/N/';
@@ -202,6 +204,9 @@ export async function publishProofToNostrRelays(
 
 /**
  * Fetches and verifies a Nostr-hosted CHM proof event by its 64-char hex ID.
+ * Implements automatic read-repair (anti-purge self-healing): whenever a valid
+ * signed event is retrieved from any surviving relay, it is silently re-broadcast
+ * in the background to all other relays in the pool so purged copies heal automatically.
  */
 export async function fetchProofFromNostrRelays(
   eventIdHex: string,
@@ -212,6 +217,7 @@ export async function fetchProofFromNostrRelays(
     throw new Error('Invalid Nostr proof event ID');
   }
 
+  let winningRelay: string | null = null;
   const event = await new Promise<NostrEvent | null>((resolve) => {
     let remaining = relays.length;
     let done = false;
@@ -224,6 +230,7 @@ export async function fetchProofFromNostrRelays(
         if (done) return;
         if (ev) {
           done = true;
+          winningRelay = relayUrl;
           resolve(ev);
           return;
         }
@@ -238,6 +245,12 @@ export async function fetchProofFromNostrRelays(
 
   if (!event || !event.content) {
     throw new Error('Proof event not found on Nostr relays');
+  }
+
+  // Anti-purge self-healing: silently re-broadcast the immutable signed event to peer relays
+  const peerRelays = relays.filter((r) => r !== winningRelay);
+  if (peerRelays.length > 0) {
+    void Promise.allSettled(peerRelays.map((r) => publishToSingleRelay(r, event)));
   }
 
   const bytes = base64UrlDecode(event.content.trim());
