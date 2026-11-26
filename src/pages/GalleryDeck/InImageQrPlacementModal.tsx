@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { ArrowLeft, ArrowRight, Check, FileSignature, Globe, HelpCircle, Move, QrCode, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, FileSignature, Globe, Hash, HelpCircle, Move, QrCode, Share2, Sparkles, X } from 'lucide-react';
 import { LicenseSummaryCard } from '../../components/LicenseSummaryCard';
 import { LICENSE_DEFINITIONS } from '../../core/manifest/types';
-import type { CompactSnsLink, LicenseId } from '../../core/manifest/types';
-import { validateTrustedWebsiteUrl } from '../../core/security/urlGuard';
+import type { CompactSnsLink, CreationMethod, LicenseId } from '../../core/manifest/types';
+import { validateTrustedSnsUrl, validateTrustedWebsiteUrl } from '../../core/security/urlGuard';
 import { useI18n } from '../../i18n/context';
 import type { GalleryArtworkItem } from '../../types/gallerydeck';
 
@@ -23,6 +23,8 @@ export interface CertifyModalSubmission {
   description?: string;
   website?: string;
   snsLinks?: CompactSnsLink[];
+  tags?: string[];
+  creationMethod?: CreationMethod;
   inImagePlacement?: InImageQrPlacementSelection;
 }
 
@@ -85,8 +87,13 @@ function InImageQrPlacementModalBody({
   const [step, setStep] = useState<'info' | 'placement'>('info');
   const [authorName, setAuthorName] = useState<string>(item.authorName ?? '');
   const [artworkTitle, setArtworkTitle] = useState<string>(item.title ?? '');
-  const [description, setDescription] = useState<string>('');
+  const [description, setDescription] = useState<string>(item.description ?? '');
   const [website, setWebsite] = useState<string>('');
+  const [snsLinksText, setSnsLinksText] = useState<string>('');
+  const [tagsText, setTagsText] = useState<string>(
+    item.tags.length > 0 ? item.tags.map((tag) => (tag.startsWith('#') ? tag : `#${tag}`)).join(' ') : '',
+  );
+  const [creationMethod, setCreationMethod] = useState<CreationMethod>('hand-drawn-no-ai');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [licenseId, setLicenseId] = useState<LicenseId>(initialLicenseId);
   const [licenseHelpOpen, setLicenseHelpOpen] = useState(false);
@@ -104,6 +111,27 @@ function InImageQrPlacementModalBody({
     };
   }, []);
 
+  const parseSnsLinks = (raw: string): CompactSnsLink[] | undefined => {
+    const urls = raw
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (urls.length === 0) return undefined;
+    return urls.map((url) => ({ url }));
+  };
+
+  const parseTags = (raw: string): string[] | undefined => {
+    const parsed = Array.from(
+      new Set(
+        raw
+          .split(/[\s,、]+/)
+          .map((s) => s.trim().replace(/^#+/, ''))
+          .filter((s) => s.length > 0),
+      ),
+    ).slice(0, 15);
+    return parsed.length > 0 ? parsed : undefined;
+  };
+
   const validateRequiredInfo = (): boolean => {
     if (!authorName.trim() || !artworkTitle.trim()) {
       setValidationError(
@@ -119,6 +147,17 @@ function InImageQrPlacementModalBody({
       if (!siteCheck.ok) {
         setValidationError(isJa ? (siteCheck.reasonJa ?? '不正なURLです') : (siteCheck.reasonEn ?? 'Invalid URL'));
         return false;
+      }
+    }
+
+    const rawSns = parseSnsLinks(snsLinksText);
+    if (rawSns) {
+      for (const link of rawSns) {
+        const snsCheck = validateTrustedSnsUrl(link.url);
+        if (!snsCheck.ok) {
+          setValidationError(isJa ? (snsCheck.reasonJa ?? '不正なSNSリンクです') : (snsCheck.reasonEn ?? 'Untrusted SNS link'));
+          return false;
+        }
       }
     }
 
@@ -330,20 +369,78 @@ function InImageQrPlacementModalBody({
                 />
               </label>
 
-              <label className="space-y-1 block">
-                <span className="inline-flex items-center gap-1 text-xs text-sky-200/90">
-                  <Globe className="h-3.5 w-3.5 text-sky-400" />
-                  {isJa ? 'Webサイト / ポートフォリオ URL' : 'Website / Portfolio URL'}
-                </span>
-                <input
-                  type="url"
-                  value={website}
-                  onChange={(e) => setWebsite(e.target.value)}
-                  placeholder="https://example.com"
-                  data-testid="certify-modal-website-input"
-                  className="w-full rounded-xl border border-sky-400/25 bg-[#04142b]/90 px-3 py-2 text-xs text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
-                />
-              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="space-y-1 block">
+                  <span className="inline-flex items-center gap-1 text-xs text-sky-200/90">
+                    <Globe className="h-3.5 w-3.5 text-sky-400" />
+                    {isJa ? 'Webサイト / ポートフォリオ URL' : 'Website / Portfolio URL'}
+                  </span>
+                  <input
+                    type="url"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                    placeholder="https://example.com"
+                    data-testid="certify-modal-website-input"
+                    className="w-full rounded-xl border border-sky-400/25 bg-[#04142b]/90 px-3 py-2 text-xs text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
+                  />
+                </label>
+
+                <label className="space-y-1 block">
+                  <span className="inline-flex items-center gap-1 text-xs text-sky-200/90">
+                    <Share2 className="h-3.5 w-3.5 text-sky-400" />
+                    {isJa ? 'SNS プロフィール' : 'SNS Profile'}
+                  </span>
+                  <input
+                    type="text"
+                    value={snsLinksText}
+                    onChange={(e) => setSnsLinksText(e.target.value)}
+                    placeholder="https://x.com/..., https://bsky.app/..."
+                    data-testid="certify-modal-sns-input"
+                    className="w-full rounded-xl border border-sky-400/25 bg-[#04142b]/90 px-3 py-2 text-xs text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="space-y-1 block">
+                  <span className="inline-flex items-center gap-1 text-xs text-sky-200/90">
+                    <Hash className="h-3.5 w-3.5 text-sky-400" />
+                    {isJa ? '作品タグ（最大15個・スペース区切り）' : 'Tags (up to 15, space separated)'}
+                  </span>
+                  <input
+                    type="text"
+                    value={tagsText}
+                    onChange={(e) => setTagsText(e.target.value)}
+                    placeholder="#風景 #二次創作 #fanart #furry"
+                    data-testid="certify-modal-tags-input"
+                    className="w-full rounded-xl border border-sky-400/25 bg-[#04142b]/90 px-3 py-2 text-xs text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
+                  />
+                </label>
+
+                <label className="space-y-1 block">
+                  <span className="inline-flex items-center gap-1 text-xs text-sky-200/90">
+                    <Sparkles className="h-3.5 w-3.5 text-sky-400" />
+                    {isJa ? '制作証明（制作方法）' : 'Creation Proof (Method)'}
+                  </span>
+                  <select
+                    value={creationMethod}
+                    onChange={(e) => setCreationMethod(e.target.value as CreationMethod)}
+                    data-testid="certify-modal-creation-method-select"
+                    className="w-full rounded-xl border border-sky-400/25 bg-[#04142b]/90 px-3 py-2 text-xs text-white focus:border-sky-400 focus:outline-none"
+                  >
+                    <option value="hand-drawn-no-ai">
+                      {isJa ? '手描き（AI不使用）' : 'Hand-drawn (No AI)'}
+                    </option>
+                    <option value="hand-drawn-ai-assisted">
+                      {isJa ? '手描き（一部AI補助）' : 'Hand-drawn (AI-assisted)'}
+                    </option>
+                    <option value="other">{isJa ? 'その他' : 'Other'}</option>
+                    <option value="prefer-not-to-disclose">
+                      {isJa ? '非公開' : 'Prefer not to disclose'}
+                    </option>
+                  </select>
+                </label>
+              </div>
             </div>
 
             {validationError && (
@@ -458,6 +555,9 @@ function InImageQrPlacementModalBody({
                       qrMode: 'outer-border',
                       description: description.trim() || undefined,
                       website: website.trim() || undefined,
+                      snsLinks: parseSnsLinks(snsLinksText),
+                      tags: parseTags(tagsText),
+                      creationMethod,
                     });
                   }}
                   className="inline-flex items-center gap-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-50 px-4 py-2 text-xs sm:text-sm font-semibold text-slate-950 cursor-pointer"
@@ -604,6 +704,9 @@ function InImageQrPlacementModalBody({
                       qrMode: 'in-image',
                       description: description.trim() || undefined,
                       website: website.trim() || undefined,
+                      snsLinks: parseSnsLinks(snsLinksText),
+                      tags: parseTags(tagsText),
+                      creationMethod,
                       inImagePlacement: {
                         x: coords.x,
                         y: coords.y,

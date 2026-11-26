@@ -288,12 +288,14 @@ export function GalleryDeckPage() {
         description: submission.description,
         website: submission.website,
         snsLinks: submission.snsLinks,
+        tags: submission.tags,
+        creationMethod: submission.creationMethod,
         qrMode: submission.qrMode,
         inImagePlacement: submission.inImagePlacement,
       });
       const nextCatalog: GalleryDeckCatalog = {
         ...catalog,
-        updatedAt: Date.now(),
+        updatedAt: updated.updatedAt,
         items: catalog.items.map((i) => (i.id === updated.id ? updated : i)),
       };
       await persistCatalog(nextCatalog);
@@ -338,7 +340,7 @@ export function GalleryDeckPage() {
       });
       const nextCatalog: GalleryDeckCatalog = {
         ...catalog,
-        updatedAt: Date.now(),
+        updatedAt: updated.updatedAt,
         items: catalog.items.map((i) => (i.id === updated.id ? updated : i)),
       };
       await persistCatalog(nextCatalog);

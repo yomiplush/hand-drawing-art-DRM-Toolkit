@@ -7,7 +7,7 @@ import type { CanonicalRaster } from '../../core/image/pngCodec';
 import { rasterToPreviewDataUrl } from '../../core/image/previewDataUrl';
 import { createInImageSignedArtworkPng, createSignedArtworkPng } from '../../core/manifest/signArtwork';
 import { LICENSE_DEFINITIONS } from '../../core/manifest/types';
-import type { CompactSnsLink, LicenseDeclaration, LicenseId } from '../../core/manifest/types';
+import type { CompactSnsLink, CreationMethod, LicenseDeclaration, LicenseId } from '../../core/manifest/types';
 import { createAuthorKey, listAuthorKeys } from '../../core/storage/keyStore';
 import { verifyProofAndArtwork } from '../../core/verify/verifier';
 import type {
@@ -150,6 +150,8 @@ export async function certifyArtworkInDeck(params: {
   description?: string;
   website?: string;
   snsLinks?: CompactSnsLink[];
+  tags?: string[];
+  creationMethod?: CreationMethod;
   qrMode?: 'in-image' | 'outer-border';
   inImagePlacement?: {
     x: number;
@@ -167,6 +169,8 @@ export async function certifyArtworkInDeck(params: {
     description,
     website,
     snsLinks,
+    tags,
+    creationMethod,
     qrMode = 'in-image',
     inImagePlacement,
   } = params;
@@ -189,6 +193,8 @@ export async function certifyArtworkInDeck(params: {
   const { raster } = await decodeImageFileToCanonicalRgba8(file);
 
   const resolvedTitle = artworkTitle || item.title || undefined;
+  const tagLine = tags && tags.length > 0 ? tags.map((t) => `#${t}`).join(' ') : '';
+  const combinedDescription = [description?.trim(), tagLine].filter(Boolean).join('\n') || undefined;
 
   const signed =
     qrMode === 'outer-border'
@@ -198,9 +204,10 @@ export async function certifyArtworkInDeck(params: {
           license: buildLicenseDeclaration(licenseId),
           authorName: authorName || item.authorName || authorKey.label,
           artworkTitle: resolvedTitle,
-          description,
+          description: combinedDescription,
           website,
           snsLinks,
+          creationMethod,
           burnOptions: {
             placement: 'bottom-right',
             marginPx: 16,
@@ -214,9 +221,10 @@ export async function certifyArtworkInDeck(params: {
           license: buildLicenseDeclaration(licenseId),
           authorName: authorName || item.authorName || authorKey.label,
           artworkTitle: resolvedTitle,
-          description,
+          description: combinedDescription,
           website,
           snsLinks,
+          creationMethod,
           compactBase45Url: true,
           nostrUltraCompactQr: true,
           qrOptions: (() => {
@@ -249,6 +257,7 @@ export async function certifyArtworkInDeck(params: {
     ...item,
     title: resolvedTitle ?? item.title,
     description: description ?? item.description,
+    tags: tags ?? item.tags,
     authorName: authorName || item.authorName || authorKey.label,
     updatedAt: now,
     width: signed.raster.width,

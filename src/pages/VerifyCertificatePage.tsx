@@ -1622,6 +1622,17 @@ export function VerifyCertificatePage() {
               </div>
             </div>
 
+            {result.manifest.creationMethod && (
+              <div className="sm:col-span-2 ga-surface-subtle rounded-xl border ga-border px-3.5 py-2.5 space-y-1">
+                <div className="text-[11px] ga-text-muted">
+                  {locale === 'ja' ? '制作証明（制作方法）' : 'Creation Proof (Method)'}
+                </div>
+                <div className="text-xs sm:text-sm font-medium ga-text">
+                  {formatCreationMethod(result.manifest.creationMethod)}
+                </div>
+              </div>
+            )}
+
             {result.manifest.description && (
               <div
                 data-testid="verify-v3-description"
@@ -2466,6 +2477,17 @@ export function VerifyCertificatePage() {
                 value={result.manifest.policyNote}
               />
             )}
+            {result.manifest.creationMethod && (
+              <div className="sm:col-span-2 ga-surface-subtle rounded-xl border ga-border px-3.5 py-2.5 space-y-1">
+                <div className="text-[11px] ga-text-muted">
+                  {locale === 'ja' ? '制作証明（制作方法）' : 'Creation Proof (Method)'}
+                </div>
+                <div className="text-xs sm:text-sm font-medium ga-text">
+                  {formatCreationMethod(result.manifest.creationMethod)}
+                </div>
+              </div>
+            )}
+
             {result.manifest.description && (
               <DetailRow
                 label={t.artworkDetails.descriptionLabel}
