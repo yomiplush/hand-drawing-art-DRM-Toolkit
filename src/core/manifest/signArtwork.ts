@@ -17,7 +17,7 @@ import {
   formatUuidHex,
   generateArtworkId,
 } from './cborCodec';
-import { buildProofUrl } from './proofUrl';
+import { buildCompactBase45ProofUrl, buildProofUrl } from './proofUrl';
 import {
   DEFAULT_VERIFY_BASE_URL,
   PROTOCOL_VERSION,
@@ -124,6 +124,7 @@ export async function createSignedArtworkPng(
     license: LicenseDeclaration;
     burnOptions: QrBurnOptions;
     verifyBaseUrl?: string;
+    compactBase45Url?: boolean;
     issuedAt?: number;
   },
 ): Promise<SignedArtworkResult> {
@@ -136,6 +137,7 @@ export async function createSignedArtworkPng(
     license,
     burnOptions,
     verifyBaseUrl = DEFAULT_VERIFY_BASE_URL,
+    compactBase45Url = false,
     issuedAt = Math.floor(Date.now() / 1000),
   } = params;
 
@@ -212,7 +214,9 @@ export async function createSignedArtworkPng(
   const signingMessage = buildSigningMessage(payloadBytes, effectiveVersion);
   const signature = await signWithAuthorKey(authorKey, signingMessage, passphraseIfEncrypted);
   const proofBytes = encodeSignedProofEnvelope(payloadBytes, signature, effectiveVersion);
-  const proofUrl = buildProofUrl(proofBytes, verifyBaseUrl);
+  const proofUrl = compactBase45Url
+    ? buildCompactBase45ProofUrl(proofBytes)
+    : buildProofUrl(proofBytes, verifyBaseUrl);
   const qrMatrix = generateQrMatrix(proofUrl, 'M');
 
   // Verify layout matches converged module count
@@ -345,6 +349,7 @@ export async function createInImageSignedArtworkPng(
     license: LicenseDeclaration;
     qrOptions: InImageQrOptions;
     verifyBaseUrl?: string;
+    compactBase45Url?: boolean;
     issuedAt?: number;
   },
 ): Promise<InImageSignedArtworkResult> {
@@ -357,6 +362,7 @@ export async function createInImageSignedArtworkPng(
     license,
     qrOptions,
     verifyBaseUrl = DEFAULT_VERIFY_BASE_URL,
+    compactBase45Url = false,
     issuedAt = Math.floor(Date.now() / 1000),
   } = params;
 
@@ -393,7 +399,9 @@ export async function createInImageSignedArtworkPng(
   const signingMessage = buildSigningMessage(payloadBytes, effectiveVersion);
   const signature = await signWithAuthorKey(authorKey, signingMessage, passphraseIfEncrypted);
   const proofBytes = encodeSignedProofEnvelope(payloadBytes, signature, effectiveVersion);
-  const proofUrl = buildProofUrl(proofBytes, verifyBaseUrl);
+  const proofUrl = compactBase45Url
+    ? buildCompactBase45ProofUrl(proofBytes)
+    : buildProofUrl(proofBytes, verifyBaseUrl);
   const qrMatrix = generateQrMatrix(proofUrl, clamped.eccLevel);
 
   const { raster, clamped: finalClamped } = overlayQrIntoArtwork(

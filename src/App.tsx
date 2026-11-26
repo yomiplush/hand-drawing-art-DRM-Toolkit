@@ -193,6 +193,8 @@ function AppRoutes() {
               <Route path="/create" element={<CreateCertificatePage />} />
               <Route path="/qr-studio" element={<Navigate to="/create?mode=studio" replace />} />
               <Route path="/verify" element={<VerifyCertificatePage />} />
+              <Route path="/v" element={<VerifyCertificatePage />} />
+              <Route path="/V" element={<VerifyCertificatePage />} />
               <Route path="/keys" element={<KeysPage />} />
               <Route path="/devices" element={<DevicesPage />} />
               <Route path="/vault" element={<VaultPage />} />
