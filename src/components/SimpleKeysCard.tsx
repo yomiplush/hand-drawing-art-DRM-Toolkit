@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, Download, KeyRound, Plus, Upload } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Cloud, Download, KeyRound, Plus, Upload } from 'lucide-react';
 import type { EncryptedKeyBackup } from '../core/crypto/keyBackup';
 import {
   createAuthorKey,
@@ -255,16 +255,27 @@ export function SimpleKeysCard({
         </p>
       )}
 
-      {/* Minimal Restore Toggle */}
+      {/* Minimal Restore Toggle & Google Drive Restore */}
       <div className="pt-2 border-t border-sky-400/20 text-center space-y-2.5">
-        <button
-          type="button"
-          onClick={() => setRestoreOpen((v) => !v)}
-          className="inline-flex items-center gap-1.5 text-xs text-sky-300/80 hover:text-sky-200 cursor-pointer"
-        >
-          <Upload className="h-3.5 w-3.5" />
-          <span>{isJa ? 'バックアップ (.chkey.json) から復元' : 'Restore from .chkey.json'}</span>
-        </button>
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+          <button
+            type="button"
+            onClick={() => setRestoreOpen((v) => !v)}
+            className="inline-flex items-center gap-1.5 text-xs text-sky-300/80 hover:text-sky-200 cursor-pointer"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            <span>{isJa ? 'バックアップ (.chkey.json) から復元' : 'Restore from .chkey.json'}</span>
+          </button>
+
+          <Link
+            to="/gallerydeck?sync=1"
+            data-testid="simple-keys-restore-gdrive-link"
+            className="inline-flex items-center gap-1.5 text-xs text-sky-300/80 hover:text-sky-200"
+          >
+            <Cloud className="h-3.5 w-3.5" />
+            <span>{isJa ? 'Google Drive から復号して復元' : 'Decrypt & Restore from Google Drive'}</span>
+          </Link>
+        </div>
 
         {restoreOpen && (
           <div className="space-y-2 pt-1">

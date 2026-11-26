@@ -78,7 +78,9 @@ export function GalleryDeckPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [syncModalOpen, setSyncModalOpen] = useState(
+    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('sync') === '1',
+  );
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [fullscreenVisible, setFullscreenVisible] = useState(false);
   const [pendingQrPlacement, setPendingQrPlacement] = useState<{
@@ -839,6 +841,17 @@ export function GalleryDeckPage() {
                   <Sparkles className="h-3.5 w-3.5" />
                   <span>{t.discordUx.homeUx.demoCalloutBtn}</span>
                 </Link>
+                <button
+                  type="button"
+                  onClick={() => setSyncModalOpen(true)}
+                  data-testid="home-restore-gdrive-btn"
+                  className="chm-link-dynamic ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold ga-text cursor-pointer"
+                >
+                  <Cloud className="h-3.5 w-3.5 text-sky-400" />
+                  <span>
+                    {isJa ? 'Google Drive から復号して復元' : 'Decrypt & Restore from Google Drive'}
+                  </span>
+                </button>
               </div>
 
               <div className="flex items-center justify-center gap-1.5 text-[11px] ga-text-muted">
