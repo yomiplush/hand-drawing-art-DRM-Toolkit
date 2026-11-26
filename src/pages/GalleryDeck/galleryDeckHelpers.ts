@@ -1,5 +1,6 @@
 import { computePublicKeyFingerprint } from '../../core/crypto/ed25519';
-import { bytesToHex } from '../../core/crypto/sha256';
+import { base64UrlEncode, bytesToHex } from '../../core/crypto/sha256';
+import { fetchProofFromNostrRelays } from '../../core/nostr/proofRelay';
 import { hashCanonicalRaster } from '../../core/image/canonicalRaster';
 import { decodeImageFileToCanonicalRgba8 } from '../../core/image/pngCodec';
 import type { CanonicalRaster } from '../../core/image/pngCodec';
@@ -241,8 +242,7 @@ export async function certifyArtworkInDeck(params: {
 
   const fingerprint = await computePublicKeyFingerprint(authorKey.publicKey);
   const signedThumbnail = buildThumbnailDataUrl(signed.raster);
-  const hashFragmentIdx = signed.proofUrl.indexOf('#proof=');
-  const proofToken = hashFragmentIdx >= 0 ? signed.proofUrl.slice(hashFragmentIdx + '#proof='.length) : undefined;
+  const proofToken = base64UrlEncode(signed.proofBytes);
   const now = Date.now();
 
   return {
@@ -277,7 +277,7 @@ export async function verifyArtworkInDeck(params: {
   idbAdapter: IndexedDbGalleryAdapter;
 }): Promise<GalleryArtworkItem> {
   const { item, idbAdapter } = params;
-  const proofInput = item.proofUrl || item.proofToken;
+  let proofInput = item.proofToken || item.proofUrl;
   if (!proofInput) {
     return {
       ...item,
@@ -285,6 +285,13 @@ export async function verifyArtworkInDeck(params: {
       verifiedAt: Date.now(),
       verificationSummary: 'No cryptographic proof attached',
     };
+  }
+
+  // If only a Nostr /N/<eventId> URL is stored, resolve the signed proofBytes automatically
+  const nostrMatch = proofInput.match(/\/[nN]\/([0-9a-fA-F]{64})(?:$|[?#])/);
+  if (nostrMatch) {
+    const resolvedBytes = await fetchProofFromNostrRelays(nostrMatch[1]);
+    proofInput = base64UrlEncode(resolvedBytes);
   }
 
   let artworkRaster: CanonicalRaster | null = null;

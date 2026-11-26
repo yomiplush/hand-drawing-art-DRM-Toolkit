@@ -14,6 +14,10 @@ import {
   X,
 } from 'lucide-react';
 import { useAppPreferences } from '../../components/PreferencesContext';
+import {
+  getCustomNostrProofRelays,
+  setCustomNostrProofRelays,
+} from '../../core/nostr/proofRelay';
 import { useI18n } from '../../i18n/context';
 import type { SyncTierStatus } from '../../types/gallerydeck';
 

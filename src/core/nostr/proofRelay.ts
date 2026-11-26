@@ -24,13 +24,68 @@ export const NOSTR_PROOF_RELAYS = [
   'wss://relay.primal.net',
   'wss://nostr.bitcoiner.social',
   'wss://relay.nostr.band',
-  'wss://nostr.mom',
 ] as const;
 
 export const NOSTR_PROOF_URL_PREFIX = 'HTTPS://CERTIFIED-HANDMADE.COM/N/';
 
 const NOSTR_PROOF_EVENT_KIND = 30078;
 const RELAY_TIMEOUT_MS = 4500;
+const CUSTOM_RELAYS_STORAGE_KEY = 'chm_custom_nostr_proof_relays_v1';
+
+/** Automatically skips relays that report payment-required, auth-required, or repeated failures. */
+const rejectedRelays = new Set<string>();
+
+export function getCustomNostrProofRelays(): string[] {
+  if (typeof window === 'undefined' || !window.localStorage) return [];
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_RELAYS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((u): u is string => typeof u === 'string' && /^wss:\/\/.+/i.test(u.trim()))
+      .map((u) => u.trim());
+  } catch {
+    return [];
+  }
+}
+
+export function setCustomNostrProofRelays(relays: string[]): string[] {
+  const cleaned = Array.from(
+    new Set(
+      relays
+        .map((u) => u.trim())
+        .filter((u) => /^wss:\/\/.+/i.test(u)),
+    ),
+  );
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      window.localStorage.setItem(CUSTOM_RELAYS_STORAGE_KEY, JSON.stringify(cleaned));
+    } catch {
+      // ignore storage quota errors
+    }
+  }
+  return cleaned;
+}
+
+function isPaidOrRestrictedNotice(reason: string): boolean {
+  const lower = reason.toLowerCase();
+  return (
+    lower.includes('paid') ||
+    lower.includes('payment') ||
+    lower.includes('auth-required') ||
+    lower.includes('restricted') ||
+    lower.includes('subscription') ||
+    lower.includes('whitelist')
+  );
+}
+
+function getActiveFreeRelays(relays: readonly string[]): string[] {
+  const custom = getCustomNostrProofRelays();
+  const freeActive = relays.filter((r) => !rejectedRelays.has(r));
+  const combined = Array.from(new Set([...custom, ...(freeActive.length > 0 ? freeActive : relays)]));
+  return combined;
+}
 
 function publishToSingleRelay(relayUrl: string, event: NostrEvent): Promise<boolean> {
   return new Promise((resolve) => {
@@ -73,7 +128,12 @@ function publishToSingleRelay(relayUrl: string, event: NostrEvent): Promise<bool
       try {
         const parsed = JSON.parse(String(msg.data)) as unknown[];
         if (Array.isArray(parsed) && parsed[0] === 'OK' && parsed[1] === event.id) {
-          finish(Boolean(parsed[2]));
+          const accepted = Boolean(parsed[2]);
+          const reason = typeof parsed[3] === 'string' ? parsed[3] : '';
+          if (!accepted && isPaidOrRestrictedNotice(reason)) {
+            rejectedRelays.add(relayUrl);
+          }
+          finish(accepted);
         }
       } catch {
         // ignore malformed relay messages
@@ -190,7 +250,8 @@ export async function publishProofToNostrRelays(
     wipeBytes(keypair.secretKey);
   }
 
-  const results = await Promise.all(relays.map((url) => publishToSingleRelay(url, event)));
+  const activeRelays = getActiveFreeRelays(relays);
+  const results = await Promise.all(activeRelays.map((url) => publishToSingleRelay(url, event)));
   const okCount = results.filter(Boolean).length;
   if (okCount === 0) {
     return null;
@@ -217,15 +278,16 @@ export async function fetchProofFromNostrRelays(
     throw new Error('Invalid Nostr proof event ID');
   }
 
+  const activeRelays = getActiveFreeRelays(relays);
   let winningRelay: string | null = null;
   const event = await new Promise<NostrEvent | null>((resolve) => {
-    let remaining = relays.length;
+    let remaining = activeRelays.length;
     let done = false;
     if (remaining === 0) {
       resolve(null);
       return;
     }
-    for (const relayUrl of relays) {
+    for (const relayUrl of activeRelays) {
       void fetchFromSingleRelay(relayUrl, cleanId).then((ev) => {
         if (done) return;
         if (ev) {
