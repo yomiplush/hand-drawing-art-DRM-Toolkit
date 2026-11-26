@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { ArrowLeft, ArrowRight, Check, FileSignature, Globe, Move, QrCode, Share2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, FileSignature, Globe, HelpCircle, Move, QrCode, Share2, X } from 'lucide-react';
+import { LicenseSummaryCard } from '../../components/LicenseSummaryCard';
 import { LICENSE_DEFINITIONS } from '../../core/manifest/types';
 import type { CompactSnsLink, LicenseId } from '../../core/manifest/types';
 import { useI18n } from '../../i18n/context';
@@ -88,6 +89,7 @@ function InImageQrPlacementModalBody({
   const [snsLinksText, setSnsLinksText] = useState<string>('');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [licenseId, setLicenseId] = useState<LicenseId>(initialLicenseId);
+  const [licenseHelpOpen, setLicenseHelpOpen] = useState(false);
   const [qrMode, setQrMode] = useState<'in-image' | 'outer-border'>(initialQrMode);
 
   useEffect(() => {
@@ -367,11 +369,23 @@ function InImageQrPlacementModalBody({
               </p>
             )}
 
-            <label className="space-y-1.5 block">
-              <span className="text-xs font-medium text-sky-200">
-                {t.simple.create.licenseLabel}
-              </span>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <label htmlFor="certify-modal-license-select" className="text-xs font-medium text-sky-200">
+                  {t.simple.create.licenseLabel}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setLicenseHelpOpen(true)}
+                  aria-label={isJa ? 'ライセンスの説明を見る' : 'View license guide'}
+                  data-testid="certify-modal-license-help-btn"
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-sky-400/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/30 hover:text-white transition-colors cursor-pointer"
+                >
+                  <HelpCircle className="h-3.5 w-3.5" />
+                </button>
+              </div>
               <select
+                id="certify-modal-license-select"
                 value={licenseId}
                 onChange={(e) => setLicenseId(e.target.value as LicenseId)}
                 data-testid="certify-modal-license-select"
@@ -383,7 +397,7 @@ function InImageQrPlacementModalBody({
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
 
             <div className="space-y-1.5">
               <span className="text-xs font-medium text-sky-200 block">
@@ -635,6 +649,52 @@ function InImageQrPlacementModalBody({
           </>
         )}
       </div>
+
+      {/* Separate-Layer License Guide Popup */}
+      {licenseHelpOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={isJa ? 'ライセンスの説明' : 'License Guide'}
+          data-testid="certify-modal-license-help-dialog"
+          onClick={(e) => {
+            e.stopPropagation();
+            setLicenseHelpOpen(false);
+          }}
+          className="fixed inset-0 z-[85] flex items-center justify-center bg-[#020a18]/82 backdrop-blur-md p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-2xl border border-sky-400/40 bg-gradient-to-b from-[#082042]/98 to-[#041328]/98 text-sky-50 shadow-[0_24px_80px_rgba(2,12,30,0.85)] p-5 space-y-4"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                <HelpCircle className="h-4 w-4 text-sky-400 shrink-0" />
+                <span>{isJa ? '見てくれる人とのルール（ライセンス）' : 'Sharing Rules (Licenses)'}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setLicenseHelpOpen(false)}
+                aria-label={isJa ? '閉じる' : 'Close'}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-900/60 hover:bg-sky-800/80 text-sky-100 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              {LICENSE_DEFINITIONS.map((lic) => (
+                <div
+                  key={lic.id}
+                  className={lic.id === licenseId ? 'ring-1 ring-sky-400 rounded-xl' : undefined}
+                >
+                  <LicenseSummaryCard licenseId={lic.id} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
