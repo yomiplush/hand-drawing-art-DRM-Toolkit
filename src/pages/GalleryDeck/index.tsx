@@ -282,7 +282,7 @@ export function GalleryDeckPage() {
     const url = URL.createObjectURL(new Blob([blob.bytes.slice()], { type: blob.mimeType }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${item.title}${item.provenanceStatus === 'signed' ? '-certified' : ''}.png`;
+    a.download = `${item.title || 'artwork'}${item.provenanceStatus === 'signed' ? '-certified' : ''}.png`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
@@ -662,9 +662,11 @@ export function GalleryDeckPage() {
                     </div>
 
                     <div>
-                      <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight truncate">
-                        {focusedItem.title}
-                      </h2>
+                      {focusedItem.title && (
+                        <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight truncate">
+                          {focusedItem.title}
+                        </h2>
+                      )}
                       <p className="text-xs text-slate-400 mt-1 font-mono">
                         {focusedItem.width} × {focusedItem.height} px · {focusedItem.licenseId ?? '—'}
                       </p>
@@ -751,7 +753,9 @@ export function GalleryDeckPage() {
                     </div>
 
                     <div className="p-2.5">
-                      <p className="font-medium text-xs text-white truncate">{item.title}</p>
+                      {item.title && (
+                        <p className="font-medium text-xs text-white truncate">{item.title}</p>
+                      )}
                       <p className="text-[10px] text-slate-400 font-mono mt-0.5">
                         {item.width}×{item.height} · {item.licenseId ?? '—'}
                       </p>
@@ -770,7 +774,9 @@ export function GalleryDeckPage() {
           <div className="flex items-center gap-3 min-w-0">
             {focusedItem ? (
               <>
-                <span className="font-semibold text-slate-200 truncate">{focusedItem.title}</span>
+                {focusedItem.title && (
+                  <span className="font-semibold text-slate-200 truncate">{focusedItem.title}</span>
+                )}
                 <span className="hidden sm:inline font-mono text-[11px] text-slate-500">
                   {focusedItem.publicKeyFingerprint ?? gd.badgeUnverified}
                 </span>

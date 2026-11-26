@@ -28,6 +28,9 @@ test.describe('GalleryDeck (/gallerydeck)', () => {
 
     await expect(page.getByTestId('gallerydeck-carousel')).toBeVisible();
     await expect(page.getByTestId('gallerydeck-card-0')).toHaveAttribute('data-focused', 'true');
+    await expect(page.getByTestId('gallerydeck-spotlight-stage')).not.toContainText('alpha-sketch');
+    await expect(page.getByTestId('gallerydeck-carousel')).not.toContainText('alpha-sketch');
+    await expect(page.getByTestId('gallerydeck-carousel')).not.toContainText('beta-illustration');
 
     // Keyboard navigation: ArrowRight -> focuses card 1, Enter -> opens detail drawer
     await page.keyboard.press('ArrowRight');

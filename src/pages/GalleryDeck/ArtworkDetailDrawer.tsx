@@ -58,7 +58,7 @@ export function ArtworkDetailDrawer({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={item.title}
+      aria-label={item.title || gd.title}
       data-testid="gallerydeck-detail-drawer"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-3 sm:p-6"
       onClick={onClose}
@@ -136,12 +136,16 @@ export function ArtworkDetailDrawer({
           {/* Provenance Metadata & Actions */}
           <div className="flex flex-col justify-between gap-5">
             <div className="space-y-4">
-              <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-white pr-8">{item.title}</h2>
-                {item.authorName && (
-                  <p className="text-sm text-slate-400 mt-0.5">{item.authorName}</p>
-                )}
-              </div>
+              {(item.title || item.authorName) && (
+                <div>
+                  {item.title && (
+                    <h2 className="text-xl sm:text-2xl font-bold text-white pr-8">{item.title}</h2>
+                  )}
+                  {item.authorName && (
+                    <p className="text-sm text-slate-400 mt-0.5">{item.authorName}</p>
+                  )}
+                </div>
+              )}
 
               <dl className="grid grid-cols-2 gap-3 rounded-xl bg-slate-950/70 border border-slate-800 p-3.5 text-xs">
                 <div>

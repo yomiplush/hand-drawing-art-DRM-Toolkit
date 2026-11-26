@@ -22,10 +22,6 @@ function generateItemId(): string {
   return `art-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function stripFileExtension(filename: string): string {
-  return filename.replace(/\.[^/.]+$/, '').trim() || 'Untitled Artwork';
-}
-
 function buildLicenseDeclaration(licenseId: LicenseId): LicenseDeclaration {
   const def = LICENSE_DEFINITIONS.find((d) => d.id === licenseId) ?? LICENSE_DEFINITIONS[0];
   return {
@@ -69,7 +65,7 @@ export async function importArtworkFileToDeck(
   const now = Date.now();
   return {
     id,
-    title: stripFileExtension(file.name),
+    title: '',
     createdAt: file.lastModified || now,
     importedAt: now,
     updatedAt: now,
@@ -164,7 +160,7 @@ export async function certifyArtworkInDeck(params: {
   }
   const authorKey = keys[0];
 
-  const file = new File([storedBlob.bytes.slice()], `${item.title}.png`, {
+  const file = new File([storedBlob.bytes.slice()], `${item.title || 'artwork'}.png`, {
     type: storedBlob.mimeType || 'image/png',
   });
   const { raster } = await decodeImageFileToCanonicalRgba8(file);
@@ -174,7 +170,7 @@ export async function certifyArtworkInDeck(params: {
     authorKey,
     license: buildLicenseDeclaration(licenseId),
     authorName: authorName || item.authorName || authorKey.label,
-    artworkTitle: item.title,
+    artworkTitle: item.title || undefined,
     burnOptions: {
       placement: 'bottom-right',
       marginPx: 16,
@@ -236,7 +232,7 @@ export async function verifyArtworkInDeck(params: {
   if (item.blobRef) {
     const stored = await idbAdapter.loadBlob(item.blobRef);
     if (stored) {
-      const file = new File([stored.bytes.slice()], `${item.title}.png`, {
+      const file = new File([stored.bytes.slice()], `${item.title || 'artwork'}.png`, {
         type: stored.mimeType || 'image/png',
       });
       const decoded = await decodeImageFileToCanonicalRgba8(file);
