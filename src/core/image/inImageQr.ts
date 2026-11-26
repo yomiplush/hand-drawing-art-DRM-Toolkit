@@ -174,11 +174,14 @@ export function overlayQrIntoArtwork(
 
   const { x: boxX, y: boxY, boxSize, opacity, style, quietZoneModules } = clamped;
   const totalModules = qr.size + quietZoneModules * 2;
+  const integerModulePx = Math.floor(boxSize / totalModules);
 
-  // Fill the entire qrMask box edge-to-edge so there is never an oversized wasted white margin
-  const usedSize = boxSize;
-  const originX = boxX;
-  const originY = boxY;
+  // Use exact integer-pixel modules when >= 2px/module to prevent uneven 2px/3px jitter
+  // that gets mangled by SNS WebP/JPEG 4:2:0 block quantization and downscaling.
+  const useIntegerGrid = integerModulePx >= 2;
+  const usedSize = useIntegerGrid ? totalModules * integerModulePx : boxSize;
+  const originX = boxX + Math.floor((boxSize - usedSize) / 2);
+  const originY = boxY + Math.floor((boxSize - usedSize) / 2);
 
   // Crisp pure white backdrop when opacity is 1.0; subtle translucent backdrop otherwise
   const hasBackdrop = style === 'frosted-light' || style === 'frosted-dark';
@@ -198,8 +201,12 @@ export function overlayQrIntoArtwork(
 
       let isDarkModule = false;
       if (relX >= 0 && relX < usedSize && relY >= 0 && relY < usedSize) {
-        const modTotalX = Math.min(totalModules - 1, Math.floor((relX * totalModules) / usedSize));
-        const modTotalY = Math.min(totalModules - 1, Math.floor((relY * totalModules) / usedSize));
+        const modTotalX = useIntegerGrid
+          ? Math.floor(relX / integerModulePx)
+          : Math.min(totalModules - 1, Math.floor((relX * totalModules) / usedSize));
+        const modTotalY = useIntegerGrid
+          ? Math.floor(relY / integerModulePx)
+          : Math.min(totalModules - 1, Math.floor((relY * totalModules) / usedSize));
 
         const mx = modTotalX - quietZoneModules;
         const my = modTotalY - quietZoneModules;

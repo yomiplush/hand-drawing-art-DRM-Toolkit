@@ -221,8 +221,8 @@ export async function certifyArtworkInDeck(params: {
           nostrUltraCompactQr: true,
           qrOptions: (() => {
             const defaultBoxSize = Math.max(
-              120,
-              Math.min(280, Math.round(Math.min(raster.width, raster.height) * 0.16)),
+              180,
+              Math.min(340, Math.round(Math.min(raster.width, raster.height) * 0.22)),
             );
             const boxSize = inImagePlacement?.boxSize ?? defaultBoxSize;
             return {
@@ -231,8 +231,8 @@ export async function certifyArtworkInDeck(params: {
               boxSize,
               opacity: inImagePlacement?.opacity ?? 1,
               style: 'frosted-light' as const,
-              eccLevel: 'L' as const,
-              quietZoneModules: 1,
+              eccLevel: 'H' as const,
+              quietZoneModules: 2,
             };
           })(),
         });
