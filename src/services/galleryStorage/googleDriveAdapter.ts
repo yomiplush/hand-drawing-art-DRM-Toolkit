@@ -12,6 +12,22 @@ import { validateCatalog } from './catalogMerge';
 
 const GALLERY_DECK_DRIVE_ROLE = 'gallerydeck-catalog';
 
+/**
+ * Strips all artwork pixel/thumbnail data and local blob references before cloud sync.
+ * Only cryptographic provenance metadata (hashes, signatures, licenses, titles, tags)
+ * is ever uploaded to Google Drive—never illustration images.
+ */
+export function sanitizeCatalogForCloudSync(catalog: GalleryDeckCatalog): GalleryDeckCatalog {
+  return {
+    ...catalog,
+    items: catalog.items.map((item) => ({
+      ...item,
+      thumbnailDataUrl: '',
+      blobRef: undefined,
+    })),
+  };
+}
+
 export class GoogleDriveGalleryAdapter implements StorageAdapter {
   readonly tier = 'gdrive' as const;
   private readonly authManager: InMemoryGoogleAuthManager;
@@ -73,6 +89,8 @@ export class GoogleDriveGalleryAdapter implements StorageAdapter {
     const accessToken = this.getAccessToken();
     const folderId = await this.ensureRootFolder(accessToken);
 
+    const cloudSafeCatalog = sanitizeCatalogForCloudSync(catalog);
+
     const saved = await this.driveClient.upsertJsonFile({
       accessToken,
       folderId,
@@ -82,7 +100,7 @@ export class GoogleDriveGalleryAdapter implements StorageAdapter {
         chmRole: GALLERY_DECK_DRIVE_ROLE,
         chmSchema: '1',
       },
-      jsonPayload: catalog,
+      jsonPayload: cloudSafeCatalog,
     });
     this.cachedFileId = saved.id;
   }

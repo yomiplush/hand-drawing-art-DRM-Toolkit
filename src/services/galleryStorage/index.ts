@@ -17,7 +17,10 @@ export {
   FileSystemGalleryAdapter,
   isFileSystemAccessSupported,
 } from './fileSystemAdapter';
-export { GoogleDriveGalleryAdapter } from './googleDriveAdapter';
+export {
+  GoogleDriveGalleryAdapter,
+  sanitizeCatalogForCloudSync,
+} from './googleDriveAdapter';
 export { IndexedDbGalleryAdapter } from './indexedDbAdapter';
 
 export interface GallerySyncResult {

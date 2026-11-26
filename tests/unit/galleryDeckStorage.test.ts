@@ -3,6 +3,7 @@ import {
   IndexedDbGalleryAdapter,
   mergeCatalogs,
   parseChdeckArchive,
+  sanitizeCatalogForCloudSync,
   serializeChdeckArchive,
   syncGalleryAdapters,
   validateCatalog,
@@ -164,5 +165,27 @@ describe('GalleryDeck catalog serialization & merge', () => {
     expect(result.syncedTiers).toEqual(['indexeddb', 'filesystem']);
     expect(result.errors.some((e) => e.tier === 'gdrive')).toBe(true);
     expect(savedFsCatalog).not.toBeNull();
+  });
+
+  it('strips all artwork thumbnails and blobRefs before Google Drive cloud sync', () => {
+    const catalog: GalleryDeckCatalog = {
+      ...createEmptyCatalog('local'),
+      items: [
+        makeItem({
+          id: 'art-secret',
+          title: 'Private Sketch',
+          thumbnailDataUrl: 'data:image/png;base64,SECRET_PIXELS',
+          blobRef: 'blob:art-secret',
+          provenanceStatus: 'signed',
+          proofUrl: 'https://certified-handmade.com/verify#proof=abc',
+        }),
+      ],
+    };
+
+    const cloudSafe = sanitizeCatalogForCloudSync(catalog);
+    expect(cloudSafe.items[0].thumbnailDataUrl).toBe('');
+    expect(cloudSafe.items[0].blobRef).toBeUndefined();
+    expect(cloudSafe.items[0].title).toBe('Private Sketch');
+    expect(cloudSafe.items[0].proofUrl).toBe('https://certified-handmade.com/verify#proof=abc');
   });
 });
