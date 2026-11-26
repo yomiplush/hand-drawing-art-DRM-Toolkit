@@ -1079,7 +1079,7 @@ export function VerifyCertificatePage() {
     </AdvancedSettings>
   ) : null;
 
-  const inputTabsSection = (
+  const inputTabsSection = launchedWithHashProof ? null : (
     <section
       data-testid="verify-input-section"
       className="ga-card rounded-2xl p-5 space-y-4"
