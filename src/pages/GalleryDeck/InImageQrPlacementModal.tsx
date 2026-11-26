@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, FileSignature, Globe, HelpCircle, Move, Q
 import { LicenseSummaryCard } from '../../components/LicenseSummaryCard';
 import { LICENSE_DEFINITIONS } from '../../core/manifest/types';
 import type { CompactSnsLink, LicenseId } from '../../core/manifest/types';
+import { validateTrustedSnsUrl, validateTrustedWebsiteUrl } from '../../core/security/urlGuard';
 import { useI18n } from '../../i18n/context';
 import type { GalleryArtworkItem } from '../../types/gallerydeck';
 
@@ -122,6 +123,26 @@ function InImageQrPlacementModalBody({
       );
       return false;
     }
+
+    if (website.trim()) {
+      const siteCheck = validateTrustedWebsiteUrl(website);
+      if (!siteCheck.ok) {
+        setValidationError(isJa ? (siteCheck.reasonJa ?? '不正なURLです') : (siteCheck.reasonEn ?? 'Invalid URL'));
+        return false;
+      }
+    }
+
+    const rawSns = parseSnsLinks(snsLinksText);
+    if (rawSns) {
+      for (const link of rawSns) {
+        const snsCheck = validateTrustedSnsUrl(link.url);
+        if (!snsCheck.ok) {
+          setValidationError(isJa ? (snsCheck.reasonJa ?? '不正なSNSリンクです') : (snsCheck.reasonEn ?? 'Untrusted SNS link'));
+          return false;
+        }
+      }
+    }
+
     setValidationError(null);
     return true;
   };
