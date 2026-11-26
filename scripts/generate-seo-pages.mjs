@@ -20,6 +20,17 @@ function escapeHtml(value) {
 
 const ROUTES = [
   {
+    slug: 'gallerydeck',
+    title: 'GalleryDeck — Local-First Atelier Art Gallery & Provenance Manager | Certified Handmade',
+    description:
+      'Original local-first atelier art gallery and provenance stage with Ed25519 signing, QR burning, keyboard & controller navigation, IndexedDB cache, File System Access sync, and Google Drive sync.',
+    keywords:
+      'GalleryDeck, Local-First Art Gallery, Ed25519 Provenance Manager, Atelier Art Stage, Offline Art Library',
+    heading: 'GalleryDeck — Local-First Atelier Art Gallery & Provenance Manager',
+    summary:
+      'Curate, certify, verify, and sync your hand-drawn artwork library 100% client-side with an original atelier spotlight stage and keyboard/controller navigation.',
+  },
+  {
     slug: 'create',
     title: 'Create Cryptographic Artwork Provenance Certificate & PNG QR | Certified Handmade',
     description:

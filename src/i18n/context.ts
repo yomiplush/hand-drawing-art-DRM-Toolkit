@@ -4,6 +4,7 @@ import type { ArtworkDetailsTranslations } from './artworkDetails';
 import type { DevicePairingTranslations } from './devicePairing';
 import type { DiscordAndUxTranslations } from './discord';
 import type { Translations } from './en';
+import type { GalleryDeckTranslations } from './galleryDeck';
 import type { GoogleComplianceTranslations } from './googleCompliance';
 import type { HardeningTranslations } from './hardening';
 import type { HowToTranslations } from './howto';
@@ -37,6 +38,7 @@ export type FullTranslations = Translations & {
   humanUx: HumanUxTranslations;
   simple: SimpleTranslations;
   discordUx: DiscordAndUxTranslations;
+  galleryDeck: GalleryDeckTranslations;
 };
 
 export interface LocaleOption {

@@ -38,6 +38,9 @@ const TutorialPage = lazy(() =>
 const PrivacyPolicyPage = lazy(() =>
   import('./pages/PrivacyPolicyPage').then((m) => ({ default: m.PrivacyPolicyPage })),
 );
+const GalleryDeckPage = lazy(() =>
+  import('./pages/GalleryDeck').then((m) => ({ default: m.GalleryDeckPage })),
+);
 
 function RouteLoadingFallback() {
   return (
@@ -192,6 +195,7 @@ function AppRoutes() {
               <Route path="/vault" element={<VaultPage />} />
               <Route path="/storage" element={<VaultPage focusStorage />} />
               <Route path="/exchange" element={<ExchangePage />} />
+              <Route path="/gallerydeck" element={<GalleryDeckPage />} />
               <Route path="/docs" element={<DocsPage />} />
               <Route path="/spec" element={<DocsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />

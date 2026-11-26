@@ -8,6 +8,7 @@ import { DEVICE_PAIRING_I18N } from './devicePairing';
 import { DISCORD_UX_I18N } from './discord';
 import { en } from './en';
 import type { Translations } from './en';
+import { GALLERY_DECK_I18N } from './galleryDeck';
 import { GOOGLE_COMPLIANCE_I18N } from './googleCompliance';
 import { HARDENING_I18N } from './hardening';
 import { HOWTO_I18N } from './howto';
@@ -76,6 +77,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     humanUx: HUMAN_UX_I18N[locale] ?? HUMAN_UX_I18N.en,
     simple: SIMPLE_I18N[locale] ?? SIMPLE_I18N.en,
     discordUx: DISCORD_UX_I18N[locale] ?? DISCORD_UX_I18N.en,
+    galleryDeck: GALLERY_DECK_I18N[locale] ?? GALLERY_DECK_I18N.en,
   };
 
   return (
