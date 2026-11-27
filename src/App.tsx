@@ -67,11 +67,33 @@ interface RouteErrorBoundaryState {
   error: Error | null;
 }
 
+const CHUNK_RELOAD_GUARD_KEY = 'chm_chunk_reload_attempted';
+
+function isChunkLoadError(error: Error): boolean {
+  const msg = error?.message || '';
+  return (
+    msg.includes('Failed to fetch dynamically imported module') ||
+    msg.includes('Importing a module script failed') ||
+    msg.includes('ChunkLoadError') ||
+    msg.includes('Loading chunk')
+  );
+}
+
 class RouteErrorBoundary extends Component<RouteErrorBoundaryProps, RouteErrorBoundaryState> {
   state: RouteErrorBoundaryState = { error: null };
 
   static getDerivedStateFromError(error: Error): RouteErrorBoundaryState {
     return { error };
+  }
+
+  componentDidCatch(error: Error): void {
+    if (typeof window !== 'undefined' && isChunkLoadError(error)) {
+      const alreadyReloaded = window.sessionStorage.getItem(CHUNK_RELOAD_GUARD_KEY) === '1';
+      if (!alreadyReloaded) {
+        window.sessionStorage.setItem(CHUNK_RELOAD_GUARD_KEY, '1');
+        window.location.reload();
+      }
+    }
   }
 
   componentDidUpdate(prevProps: RouteErrorBoundaryProps): void {
@@ -82,18 +104,30 @@ class RouteErrorBoundary extends Component<RouteErrorBoundaryProps, RouteErrorBo
 
   render() {
     if (this.state.error) {
+      const chunkErr = isChunkLoadError(this.state.error);
       return (
         <div
           role="alert"
           className="mx-auto max-w-lg my-12 rounded-2xl border ga-border-strong ga-card p-6 text-center space-y-4"
         >
-          <p className="text-sm font-semibold ga-text">{this.state.error.message}</p>
+          <p className="text-sm font-semibold ga-text">
+            {chunkErr
+              ? 'A newer version of Certified Handmade was deployed. Please reload to continue.'
+              : this.state.error.message}
+          </p>
           <button
             type="button"
-            onClick={() => this.setState({ error: null })}
+            onClick={() => {
+              if (chunkErr && typeof window !== 'undefined') {
+                window.sessionStorage.removeItem(CHUNK_RELOAD_GUARD_KEY);
+                window.location.reload();
+              } else {
+                this.setState({ error: null });
+              }
+            }}
             className="ga-btn-primary inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold min-h-[44px] cursor-pointer"
           >
-            Retry
+            {chunkErr ? 'Reload App' : 'Retry'}
           </button>
         </div>
       );

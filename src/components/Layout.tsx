@@ -147,6 +147,30 @@ export function Layout({
               </span>
             </Link>
 
+            {/* Global 4-Pillar Navigation */}
+            <nav
+              aria-label="Primary navigation"
+              data-testid="primary-4-pillar-nav"
+              className="hidden md:flex items-center gap-1 min-w-0"
+            >
+              <NavLink to="/create" className={cockpitLinkClass} data-testid="nav-pillar-create">
+                <FileSignature className="h-3.5 w-3.5 text-[var(--ga-accent)]" aria-hidden="true" />
+                <span>{locale === 'ja' ? '作成' : 'Create'}</span>
+              </NavLink>
+              <NavLink to="/verify" className={cockpitLinkClass} data-testid="nav-pillar-verify">
+                <ShieldCheck className="h-3.5 w-3.5 text-[var(--ga-accent)]" aria-hidden="true" />
+                <span>{locale === 'ja' ? '検証' : 'Verify'}</span>
+              </NavLink>
+              <NavLink to="/gallerydeck" className={cockpitLinkClass} data-testid="nav-pillar-gallerydeck">
+                <Gamepad2 className="h-3.5 w-3.5 text-[var(--ga-accent)]" aria-hidden="true" />
+                <span>GalleryDeck</span>
+              </NavLink>
+              <NavLink to="/keys" className={cockpitLinkClass} data-testid="nav-pillar-keys-exchange">
+                <KeyRound className="h-3.5 w-3.5 text-[var(--ga-accent)]" aria-hidden="true" />
+                <span>{locale === 'ja' ? '鍵・交換' : 'Keys & Exchange'}</span>
+              </NavLink>
+            </nav>
+
             <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 min-w-0">
               {!isOnline && (
                 <span
