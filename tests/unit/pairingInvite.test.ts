@@ -40,11 +40,11 @@ describe('CHM-PAIR-INVITE-v1 PC -> iPad invitation pairing & NIP-59 security', (
       ownerPublicKey: OWNER_PUB,
       ownerDisplayName: 'YomiPlush PC',
       signWithOwnerKey: (msg) => signWithSeed(OWNER_SEED, msg),
-      baseUrl: 'https://certified-handmade.com/devices',
+      baseUrl: 'https://www.certified-handmade.com/devices',
       nowUnix,
     });
 
-    expect(inviteSession.qrUrl).toContain('https://certified-handmade.com/devices#pair-invite=chm-pair-invite:');
+    expect(inviteSession.qrUrl).toContain('https://www.certified-handmade.com/devices#pair-invite=chm-pair-invite:');
     expect(isPairingInviteInput(inviteSession.qrUrl)).toBe(true);
     expect(isPairingInviteInput(inviteSession.token)).toBe(true);
     expect(inviteSession.qrUrl.length).toBeLessThan(650);

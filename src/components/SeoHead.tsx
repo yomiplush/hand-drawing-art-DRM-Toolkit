@@ -5,7 +5,7 @@ import { useI18n } from '../i18n/context';
 import type { Locale } from '../i18n/context';
 import type { SeoPageMeta } from '../i18n/seo';
 
-const SITE_ORIGIN = 'https://certified-handmade.com';
+const SITE_ORIGIN = 'https://www.certified-handmade.com';
 
 const OG_LOCALE_MAP: Record<Locale, string> = {
   en: 'en_US',

@@ -28,5 +28,5 @@ Upgrading `chm-drm-keystore` creates additional object stores cleanly inside `on
 1. Export `.chkey.json` from **`/keys`**.
 2. Export `.chmvault.json` or `.chmvault.enc.json` from **`/vault`** (Note: `CHM-VAULT-v1` backups **never** export private keys, so keep `.chkey.json` backed up separately).
 3. If migrating paired devices, export `.chdevreg.json` from **`/devices`**.
-4. Import on the target origin (`https://certified-handmade.com` or `http://127.0.0.1:43777`).
+4. Import on the target origin (`https://www.certified-handmade.com` or `http://127.0.0.1:43777`).
 5. **Opting Into Nostr Sync:** Existing paired devices do not enable Nostr sync automatically. To sync incrementally over relays, explicitly opt-in on **`/devices`** -> **Decentralized Sync**, probe/choose free relays, and exchange `chm-sync-bind:` peer cards (or re-scan `#pair-cert=` containing `&sync-bind=`).

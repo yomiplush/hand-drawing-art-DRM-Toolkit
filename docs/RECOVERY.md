@@ -19,7 +19,7 @@ Certified Handmade is local-first: users **never** lose permanent access to thei
    - Export the signed `.chdevreg.json` / `.chdevreg.cbor` device registry snapshot or `chm-pair-rev:` token from `/devices` and import it manually onto your other devices.
 
 ### Scenario B — Browser Data Cleared / Hardware Failure / Moving Web <-> Standalone
-Because browsers isolate `IndexedDB` per origin (`https://certified-handmade.com` vs `http://127.0.0.1:43777`) and may evict site data under low-disk pressure:
+Because browsers isolate `IndexedDB` per origin (`https://www.certified-handmade.com` vs `http://127.0.0.1:43777`) and may evict site data under low-disk pressure:
 1. **Before loss (Preventive Backups):**
    - Export your encrypted Author identity backup (`.chkey.json`, PBKDF2-SHA256 `600k` iter + AES-256-GCM) in **`/keys`** and verify it with **Verify Backup Only**.
    - Export your Proof Vault backup (`.chmvault.json` or AES-256-GCM passphrase-encrypted `.chmvault.enc.json`) in **`/vault`**.

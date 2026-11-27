@@ -83,7 +83,7 @@ export function InImageQrStudioPanel({
       try {
         return generateQrMatrix(`${cleanBase}#proof=${'A'.repeat(260)}`, eccLevel);
       } catch {
-        return generateQrMatrix('https://certified-handmade.com/verify', 'M');
+        return generateQrMatrix('https://www.certified-handmade.com/verify', 'M');
       }
     }
   }, [cleanBase, samplePreviewText, eccLevel]);

@@ -17,9 +17,9 @@ describe('SEO, JSON-LD, OGP & AEO (llms.txt) assets', () => {
     expect(indexHtml).toContain('hreflang="ko"');
 
     // OGP & Twitter Card
-    expect(indexHtml).toContain('property="og:image" content="https://certified-handmade.com/og-image.png"');
+    expect(indexHtml).toContain('property="og:image" content="https://www.certified-handmade.com/og-image.png"');
     expect(indexHtml).toContain('name="twitter:card" content="summary_large_image"');
-    expect(indexHtml).toContain('name="twitter:image" content="https://certified-handmade.com/og-image.png"');
+    expect(indexHtml).toContain('name="twitter:image" content="https://www.certified-handmade.com/og-image.png"');
 
     // JSON-LD structured data
     const jsonLdMatch = indexHtml.match(
@@ -49,6 +49,6 @@ describe('SEO, JSON-LD, OGP & AEO (llms.txt) assets', () => {
     expect(script).toContain('sitemap.xml');
     expect(script).toContain('xhtml:link');
     expect(script).toContain('robots.txt');
-    expect(script).toContain('Sitemap: https://certified-handmade.com/sitemap.xml');
+    expect(script).toContain('Sitemap: https://www.certified-handmade.com/sitemap.xml');
   });
 });

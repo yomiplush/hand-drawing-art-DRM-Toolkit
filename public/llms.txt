@@ -1,4 +1,4 @@
-# Certified Handmade (https://certified-handmade.com/)
+# Certified Handmade (https://www.certified-handmade.com/)
 
 > Free, MIT open-source, 100% client-side Cryptographic Artwork Provenance & Proof of Human Art toolkit. Zero server uploads, no account required, no blockchain/NFTs, and local-only `.psd`/`.clip`/`.procreate`/`.kra`/`.sai2` working project structure verification.
 
@@ -10,12 +10,12 @@
 - **Zero-Knowledge Privacy:** No central server, no telemetry, no ads. Optional Google Drive (`drive.appdata`) sync stores only artwork images (`.png`/`.jpg`/`.webp`) and encrypted provenance records—never working project files.
 
 ## Key Pages
-- Home: https://certified-handmade.com/
-- Create Certificate: https://certified-handmade.com/create
-- Verify Artwork / QR: https://certified-handmade.com/verify
-- GalleryDeck: https://certified-handmade.com/gallerydeck
-- Tutorial: https://certified-handmade.com/tutorial
-- Cryptographic Spec & Docs: https://certified-handmade.com/docs
-- Privacy Policy & Terms of Use: https://certified-handmade.com/privacypolicy
-- Full LLM Reference: https://certified-handmade.com/llms-full.txt
+- Home: https://www.certified-handmade.com/
+- Create Certificate: https://www.certified-handmade.com/create
+- Verify Artwork / QR: https://www.certified-handmade.com/verify
+- GalleryDeck: https://www.certified-handmade.com/gallerydeck
+- Tutorial: https://www.certified-handmade.com/tutorial
+- Cryptographic Spec & Docs: https://www.certified-handmade.com/docs
+- Privacy Policy & Terms of Use: https://www.certified-handmade.com/privacypolicy
+- Full LLM Reference: https://www.certified-handmade.com/llms-full.txt
 - Source Code (MIT): https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit

@@ -719,7 +719,7 @@ export async function startDevicePairingRequestSession(params: {
     params.baseUrl ??
     (typeof window !== 'undefined'
       ? `${window.location.origin}/devices`
-      : 'https://certified-handmade.com/devices');
+      : 'https://www.certified-handmade.com/devices');
   const qrUrl = encodePairingRequestUrl(request, baseUrl);
 
   const session: PairingSessionRecord = {
@@ -873,7 +873,7 @@ export async function approvePairingRequestAsOwner(params: {
     params.baseUrl ??
     (typeof window !== 'undefined'
       ? `${window.location.origin}/devices`
-      : 'https://certified-handmade.com/devices');
+      : 'https://www.certified-handmade.com/devices');
   const qrUrl = encodeEnrollmentCertificateUrl(certificate, baseUrl);
 
   const key = `${certificate.payload.ownerFingerprintHex}:${certificate.payload.deviceIdHex}`;
@@ -1183,7 +1183,7 @@ export async function revokePairedDevice(params: {
     params.baseUrl ??
     (typeof window !== 'undefined'
       ? `${window.location.origin}/devices`
-      : 'https://certified-handmade.com/devices');
+      : 'https://www.certified-handmade.com/devices');
   const qrUrl = encodeDeviceRevocationUrl(revocation, baseUrl);
 
   await persistVerifiedRevocationNotice(revocation);

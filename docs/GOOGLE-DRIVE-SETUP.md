@@ -25,7 +25,7 @@ Certified Handmade uses Google Identity Services (`https://accounts.google.com/g
   ```env
   VITE_GOOGLE_CLIENT_ID=948913138881-4k5avda66dnimie2lou6erofuo9d9gmm.apps.googleusercontent.com
   ```
-- **Production Origin:** `https://certified-handmade.com`
+- **Production Origin:** `https://www.certified-handmade.com`
 - **Requested Scope:** `https://www.googleapis.com/auth/drive.appdata` (hidden app-private Drive storage only — full Drive scope is forbidden; `Google Cloud Console → OAuth Consent Screen` should list `https://www.googleapis.com/auth/drive.appdata`)
 - **Prohibited Auth Patterns:**
   - Zero OAuth `client_secret` in client code or frontend environment variables
@@ -88,6 +88,6 @@ appDataFolder/
 3. **Cloudflare Pages Production Checklist:**
    - Verify `VITE_GOOGLE_CLIENT_ID` matches Google Cloud Console Web Client ID (`948913138881-4k5avda66dnimie2lou6erofuo9d9gmm.apps.googleusercontent.com`).
    - Verify Google Cloud Console **OAuth Consent Screen → Data Access / Scopes** includes `https://www.googleapis.com/auth/drive.appdata`.
-   - Verify Authorized JavaScript Origin includes `https://certified-handmade.com`.
+   - Verify Authorized JavaScript Origin includes `https://www.certified-handmade.com`.
    - Verify `public/_headers` preserves `Cross-Origin-Opener-Policy: same-origin-allow-popups` and CSP allows only `https://accounts.google.com/gsi/client` + `https://accounts.google.com/gsi/` frames.
    - Verify `.env.example` and production JS bundles contain zero client secrets.

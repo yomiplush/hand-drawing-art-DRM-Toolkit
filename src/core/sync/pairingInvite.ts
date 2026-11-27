@@ -310,7 +310,7 @@ export async function createSignedPairingInvite(params: {
     params.baseUrl ??
     (typeof window !== 'undefined'
       ? `${window.location.origin}/devices`
-      : 'https://certified-handmade.com/devices');
+      : 'https://www.certified-handmade.com/devices');
   const qrUrl = `${baseUrl}#pair-invite=${token}`;
 
   return {

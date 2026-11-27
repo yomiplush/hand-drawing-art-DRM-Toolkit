@@ -180,7 +180,7 @@ A conforming verifier MUST reject proofs if any of the following hold:
 ### 5.1 Embedded QR URI Format
 
 ```
-https://certified-handmade.com/verify#proof=<base64url(proofBytes)>
+https://www.certified-handmade.com/verify#proof=<base64url(proofBytes)>
 ```
 
 - Using the URL **fragment** (`#proof=...`) ensures browsers never transmit the proof payload in HTTP requests.

@@ -121,7 +121,7 @@ const ROUTES = [
 ];
 
 for (const route of ROUTES) {
-  const canonicalUrl = `https://certified-handmade.com/${route.slug}`;
+  const canonicalUrl = `https://www.certified-handmade.com/${route.slug}`;
   const titleEscaped = escapeHtml(route.title);
   const descEscaped = escapeHtml(route.description);
   const kwEscaped = escapeHtml(route.keywords);
@@ -199,9 +199,9 @@ for (const route of ROUTES) {
 const HREFLANGS = ['en', 'ja', 'zh-CN', 'zh-TW', 'ko'];
 const todayIso = new Date().toISOString().slice(0, 10);
 const allUrls = [
-  { loc: 'https://certified-handmade.com/', priority: '1.0' },
+  { loc: 'https://www.certified-handmade.com/', priority: '1.0' },
   ...ROUTES.map((r) => ({
-    loc: `https://certified-handmade.com/${r.slug}`,
+    loc: `https://www.certified-handmade.com/${r.slug}`,
     priority: r.slug === 'create' || r.slug === 'verify' || r.slug === 'gallerydeck' ? '0.9' : '0.7',
   })),
 ];
@@ -235,7 +235,7 @@ console.log('Generated multilingual sitemap: dist/sitemap.xml');
 const robotsTxt = `User-agent: *
 Allow: /
 
-Sitemap: https://certified-handmade.com/sitemap.xml
+Sitemap: https://www.certified-handmade.com/sitemap.xml
 `;
 fs.writeFileSync(path.join(distDir, 'robots.txt'), robotsTxt, 'utf8');
 console.log('Generated robots.txt: dist/robots.txt');

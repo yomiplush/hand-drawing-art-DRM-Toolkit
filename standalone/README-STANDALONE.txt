@@ -43,7 +43,7 @@ Usage (macOS Apple Silicon / Intel)
 Key Storage & Migration Warning
 -------------------------------
 Browser IndexedDB storage is scoped strictly by origin. Keys created on:
-  - https://certified-handmade.com/
+  - https://www.certified-handmade.com/
   - http://127.0.0.1:43777/
 are stored SEPARATELY by your browser.
 

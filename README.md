@@ -5,9 +5,9 @@
 
 **Your Art. Your Rights. Your Freedom.** (v1.3.1)
 
-Certified Handmade is a **¥0 / $0 forever**, open-source, local-first, offline-first **Cryptographic Artwork Provenance**, **Encrypted Proof Vault**, and **Pluggable Storage & Device Auth** toolkit. Artists can cryptographically sign illustrations locally with Ed25519, embed self-contained verification QR codes into lossless PNG margins (Protocol v1), masked in-image overlays (Protocol v2), or compact DEFLATE + dictionary-compressed QR payloads carrying full artwork/creator/policy/evidence metadata (Protocol v3), manage an encrypted Proof Vault across **Local IndexedDB**, **Portable Encrypted Files (`.chmvault.json`)**, and opt-in **Personal Google Drive**, and optionally synchronize **device authentication & revocations only** over untrusted free public Nostr relays (`CHM-SYNC-v1`)—or run 100% offline via the **Web / PWA Edition** (`https://certified-handmade.com/`), the **Portable Standalone Edition** (`http://127.0.0.1:43777` for Linux x86_64 and Windows x86_64), or the **Independent Offline CLIs**.
+Certified Handmade is a **¥0 / $0 forever**, open-source, local-first, offline-first **Cryptographic Artwork Provenance**, **Encrypted Proof Vault**, and **Pluggable Storage & Device Auth** toolkit. Artists can cryptographically sign illustrations locally with Ed25519, embed self-contained verification QR codes into lossless PNG margins (Protocol v1), masked in-image overlays (Protocol v2), or compact DEFLATE + dictionary-compressed QR payloads carrying full artwork/creator/policy/evidence metadata (Protocol v3), manage an encrypted Proof Vault across **Local IndexedDB**, **Portable Encrypted Files (`.chmvault.json`)**, and opt-in **Personal Google Drive**, and optionally synchronize **device authentication & revocations only** over untrusted free public Nostr relays (`CHM-SYNC-v1`)—or run 100% offline via the **Web / PWA Edition** (`https://www.certified-handmade.com/`), the **Portable Standalone Edition** (`http://127.0.0.1:43777` for Linux x86_64 and Windows x86_64), or the **Independent Offline CLIs**.
 
-- **Website:** https://certified-handmade.com/
+- **Website:** https://www.certified-handmade.com/
 - **Repository:** https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit
 - **License:** MIT (see [`LICENSE`](./LICENSE))
 
@@ -36,7 +36,7 @@ All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding
 
 | Edition | Target | Internet Required? | Storage & OAuth Origin |
 | --- | --- | --- | --- |
-| **Web / PWA Edition** | Desktop, iPhone, iPad, Android browsers | First visit over HTTPS caches PWA; subsequent use works offline (optional opt-in Google Drive Vault & Nostr device-auth sync when explicitly connected) | `https://certified-handmade.com` |
+| **Web / PWA Edition** | Desktop, iPhone, iPad, Android browsers | First visit over HTTPS caches PWA; subsequent use works offline (optional opt-in Google Drive Vault & Nostr device-auth sync when explicitly connected) | `https://www.certified-handmade.com` |
 | **Standalone Edition** | **Linux x86_64** & **Windows x86_64** | **No** — works 100% offline from launch #1 (zero Node.js/Go install needed) | `http://127.0.0.1:43777` (uses Local IndexedDB + Portable `.chmvault.json`; Google OAuth intentionally disabled on loopback) |
 | **Independent CLI Verifiers** | `tools/chm-verify` (Go) & `tools/chm-verify.mjs` (Node.js) | **No** — stateless verification importing zero files from `src/` | CLI / JSON stdout (`v1`, `v2`, and `v3` supported) |
 
@@ -169,7 +169,7 @@ npm run test:standalone
 ## Cloudflare Pages & GitHub Releases Deployment
 
 See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for:
-- Free Cloudflare Pages deployment (`dist/`), `VITE_GOOGLE_CLIENT_ID` build config, Google Cloud Console Origin (`https://certified-handmade.com`), and strict CSP/COOP headers
+- Free Cloudflare Pages deployment (`dist/`), `VITE_GOOGLE_CLIENT_ID` build config, Google Cloud Console Origin (`https://www.certified-handmade.com`), and strict CSP/COOP headers
 - Local & zero-cost GitHub Releases packaging for Linux x86_64 and Windows x86_64 with `SHA256SUMS.txt`
 
 ---
@@ -179,7 +179,7 @@ See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for:
 ### Core Protocol, Security & Deployment Specifications
 - [`SPEC.md`](./SPEC.md) — Canonical manifest schema (Protocol `v1`, `v2`, & `v3` `CHM3\0`), `CHM-EVIDENCE1`, `CHM-NOTICE1`, `CHM-CHALLENGE1`, `CHM-DEVICE-PAIRING-v1`, strict auth-only `CHM-SYNC-v1`, `CHM-VAULT-v1` encrypted Drive envelopes, and normative test vectors.
 - [`SECURITY.md`](./SECURITY.md) — Threat model, Google OAuth 2.0 GIS Token Model & RAM-only token boundaries, Encrypted Vault AES-256-GCM/HKDF-SHA256 design, strict Nostr auth-only isolation, Protocol v3 anti-bomb/dictionary sanitization, CSP/COOP hardening, and honest disclosures.
-- [`DEPLOYMENT.md`](./DEPLOYMENT.md) — Cloudflare Pages setup (`VITE_GOOGLE_CLIENT_ID`, `https://certified-handmade.com`), portable standalone build/release workflow, and self-hosting guide.
+- [`DEPLOYMENT.md`](./DEPLOYMENT.md) — Cloudflare Pages setup (`VITE_GOOGLE_CLIENT_ID`, `https://www.certified-handmade.com`), portable standalone build/release workflow, and self-hosting guide.
 - [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md) — Open-source dependencies and licenses.
 
 ### Architecture, Storage Providers, Protocol v3 & Sync Guides (`docs/`)

@@ -54,7 +54,7 @@ describe('Manifest deterministic CBOR encoding & proof URL handling', () => {
     const proof = encodeSignedProofEnvelope(payloadBytes, sig);
     const url = buildProofUrl(proof);
 
-    expect(url.startsWith('https://certified-handmade.com/verify#proof=')).toBe(true);
+    expect(url.startsWith('https://www.certified-handmade.com/verify#proof=')).toBe(true);
     expect(proof.length).toBeLessThan(350);
 
     const extracted = extractProofBytesFromInput(url);

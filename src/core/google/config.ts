@@ -1,7 +1,7 @@
 export const DEFAULT_GOOGLE_CLIENT_ID =
   '948913138881-4k5avda66dnimie2lou6erofuo9d9gmm.apps.googleusercontent.com';
 
-export const PRODUCTION_ORIGIN = 'https://certified-handmade.com';
+export const PRODUCTION_ORIGIN = 'https://www.certified-handmade.com';
 export const GIS_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 export const GOOGLE_DRIVE_APPDATA_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 /** @deprecated Legacy visible My Drive scope; retained as constant only for disclosure references. */
@@ -80,7 +80,7 @@ export function checkGoogleDriveEnvironmentSupport(params?: {
       clientId,
       origin,
       message:
-        'Google OAuth is unavailable on Standalone local server (127.0.0.1:43777). Use Portable Encrypted Files (.chmvault.json) or open the hosted HTTPS web app at https://certified-handmade.com.',
+        'Google OAuth is unavailable on Standalone local server (127.0.0.1:43777). Use Portable Encrypted Files (.chmvault.json) or open the hosted HTTPS web app at https://www.certified-handmade.com.',
     };
   }
 
@@ -107,7 +107,7 @@ export function checkGoogleDriveEnvironmentSupport(params?: {
       reason: 'insecure-origin',
       clientId,
       origin,
-      message: 'Google OAuth requires an HTTPS origin (e.g. https://certified-handmade.com).',
+      message: 'Google OAuth requires an HTTPS origin (e.g. https://www.certified-handmade.com).',
     };
   }
 

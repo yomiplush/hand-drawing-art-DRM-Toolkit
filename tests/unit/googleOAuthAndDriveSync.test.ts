@@ -202,7 +202,7 @@ describe('Google OAuth 2.0 Memory-Only Auth, Drive Folder Recovery & Encrypted S
     expect(insecure.reason).toBe('insecure-origin');
 
     const prod = checkGoogleDriveEnvironmentSupport({
-      origin: 'https://certified-handmade.com',
+      origin: 'https://www.certified-handmade.com',
     });
     expect(prod.supported).toBe(true);
     expect(prod.reason).toBe('ok');
@@ -254,21 +254,21 @@ describe('Google OAuth 2.0 Memory-Only Auth, Drive Folder Recovery & Encrypted S
 
     nextTokenOutcome = 'denied';
     await expect(
-      auth.connectInteractive({ origin: 'https://certified-handmade.com' }),
+      auth.connectInteractive({ origin: 'https://www.certified-handmade.com' }),
     ).rejects.toThrow(/denied/i);
 
     nextTokenOutcome = 'popup-closed';
     await expect(
-      auth.connectInteractive({ origin: 'https://certified-handmade.com' }),
+      auth.connectInteractive({ origin: 'https://www.certified-handmade.com' }),
     ).rejects.toThrow(/popup/i);
 
     nextTokenOutcome = 'missing-scope';
     await expect(
-      auth.connectInteractive({ origin: 'https://certified-handmade.com' }),
+      auth.connectInteractive({ origin: 'https://www.certified-handmade.com' }),
     ).rejects.toThrow(/drive\.appdata/);
 
     nextTokenOutcome = 'ok';
-    const sessionA = await auth.connectInteractive({ origin: 'https://certified-handmade.com' });
+    const sessionA = await auth.connectInteractive({ origin: 'https://www.certified-handmade.com' });
     expect(gisLoadCalls).toBe(4);
     expect(sessionA.connected).toBe(true);
     expect(sessionA.switchedAccount).toBe(false);
@@ -277,7 +277,7 @@ describe('Google OAuth 2.0 Memory-Only Auth, Drive Folder Recovery & Encrypted S
 
     // Switch account -> flags switchedAccount = true
     activeAccountId = 'perm-acct-b';
-    const sessionB = await auth.connectInteractive({ origin: 'https://certified-handmade.com' });
+    const sessionB = await auth.connectInteractive({ origin: 'https://www.certified-handmade.com' });
     expect(sessionB.switchedAccount).toBe(true);
     expect(sessionB.account?.accountKey).toBe('perm-acct-b');
 

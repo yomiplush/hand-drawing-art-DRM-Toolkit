@@ -3,7 +3,7 @@ export const PROTOCOL_VERSION_MASKED = 2 as const;
 export const PROTOCOL_VERSION_COMPACT = 3 as const;
 export const DOMAIN_SEPARATION_PREFIX = new Uint8Array([0x43, 0x48, 0x4d, 0x31, 0x00]); // "CHM1\0"
 export const DOMAIN_SEPARATION_PREFIX_V3 = new Uint8Array([0x43, 0x48, 0x4d, 0x33, 0x00]); // "CHM3\0"
-export const DEFAULT_VERIFY_BASE_URL = 'https://certified-handmade.com/verify';
+export const DEFAULT_VERIFY_BASE_URL = 'https://www.certified-handmade.com/verify';
 
 export const MAX_AUTHOR_UTF8_BYTES = 48;
 export const MAX_TITLE_UTF8_BYTES = 64;

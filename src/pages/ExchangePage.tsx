@@ -72,7 +72,7 @@ export function ExchangePage() {
   const exchangeBaseUrl =
     typeof window !== 'undefined'
       ? `${window.location.origin}/exchange`
-      : 'https://certified-handmade.com/exchange';
+      : 'https://www.certified-handmade.com/exchange';
 
   const exchangeTheme = resolvedTheme === 'dark' ? DARK_EXCHANGE_THEME : LIGHT_EXCHANGE_THEME;
 

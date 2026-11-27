@@ -2,7 +2,7 @@
 
 Certified Handmade is a **100% static Vite + React + PWA** application requiring **zero backend services**, **zero server databases**, **zero OAuth server secrets**, and **zero paid infrastructure**. It ships in two mutually compatible distributions:
 
-1. **Web / PWA Edition (`dist/`)** — hosted on **Cloudflare Pages (Free plan)** at `https://certified-handmade.com/`.
+1. **Web / PWA Edition (`dist/`)** — hosted on **Cloudflare Pages (Free plan)** at `https://www.certified-handmade.com/`.
 2. **Portable Standalone Edition (`release/`)** — static Go loopback launchers embedding `dist/` for **Linux x86_64** and **Windows x86_64**, distributed via **GitHub Releases** with `SHA256SUMS.txt`.
 
 ---
@@ -17,7 +17,7 @@ Certified Handmade uses the **Google Identity Services (GIS) OAuth 2.0 Token Mod
   ```
 - **Google Cloud Console Requirements:**
   - Application type: **Web application**
-  - Authorized JavaScript origins: `https://certified-handmade.com` (plus `http://localhost:5173` / `http://127.0.0.1:4173` for local dev if desired)
+  - Authorized JavaScript origins: `https://www.certified-handmade.com` (plus `http://localhost:5173` / `http://127.0.0.1:4173` for local dev if desired)
   - Scope: `https://www.googleapis.com/auth/drive.file`
 - **Strictly Prohibited:**
   - **NEVER** place an OAuth `client_secret` in `.env`, Cloudflare Pages environment variables, or client bundle code.
@@ -46,11 +46,16 @@ Certified Handmade uses the **Google Identity Services (GIS) OAuth 2.0 Token Mod
 
 ---
 
-## 3. Assigning Custom Domain (`certified-handmade.com`)
+## 3. Assigning Custom Domain (`www.certified-handmade.com`) & Apex 301 Redirect
 
 1. Open your Cloudflare Pages project → **Custom domains** → **Set up a custom domain**.
-2. Enter `certified-handmade.com` (and optionally `www.certified-handmade.com` redirecting to apex).
-3. Cloudflare configures DNS and Universal SSL/TLS automatically.
+2. Enter `www.certified-handmade.com` as the canonical production domain.
+3. Configure an apex-to-`www` **301 Permanent Redirect** in Cloudflare:
+   - Ensure a Proxied (`proxied: true`) DNS record exists for the apex domain `certified-handmade.com` (e.g. dummy `AAAA` record pointing to `100::`).
+   - Add a **Single Redirect** rule (`http_request_dynamic_redirect`):
+     - **Expression:** `(http.host eq "certified-handmade.com")`
+     - **Target URL (Dynamic):** `concat("https://www.certified-handmade.com", http.request.uri.path)`
+     - **Status code:** `301` (`preserve_query_string: true`)
 4. Keep **Always Use HTTPS** enabled (required for Web Crypto API, Service Worker PWA registration, and Google OAuth production origin matching).
 
 ---

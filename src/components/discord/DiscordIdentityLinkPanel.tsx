@@ -113,7 +113,7 @@ export function DiscordIdentityLinkPanel({
   };
 
   const shareUrl = signedClaim
-    ? `${typeof window !== 'undefined' ? window.location.origin : 'https://certified-handmade.com'}/exchange?discordProfile=${encodeDiscordProfileShareParam(signedClaim)}`
+    ? `${typeof window !== 'undefined' ? window.location.origin : 'https://www.certified-handmade.com'}/exchange?discordProfile=${encodeDiscordProfileShareParam(signedClaim)}`
     : '';
 
   const handleCopy = async (kind: 'json' | 'link', text: string) => {

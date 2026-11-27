@@ -86,7 +86,7 @@ Measured directly from the live canonical encoder/QR matrix generator on a richl
 | **Protocol `v3` Raw DEFLATE (`flag = 1`, Base64url URI)** | `451 B` (**-19.2% / -107 B**) | `523 B` | Standard `#proof=` URI (**`742` chars**) | **Version 22** | **`105 × 105`** |
 | *Mixed-Segment Comparison: Base45 Token (`B45`)* | `451 B` | `523 B` | 42-char URI prefix + `785`-char alphanumeric Base45 token | Version 19 | `93 × 93` |
 
-Certified Handmade ships the standard `#proof=<base64url>` URI (`Version 22`, `105 × 105` modules in the benchmark above) so every smartphone camera and offline scanner opens `https://certified-handmade.com/verify#proof=...` directly with zero special parser apps required.
+Certified Handmade ships the standard `#proof=<base64url>` URI (`Version 22`, `105 × 105` modules in the benchmark above) so every smartphone camera and offline scanner opens `https://www.certified-handmade.com/verify#proof=...` directly with zero special parser apps required.
 
 ---
 

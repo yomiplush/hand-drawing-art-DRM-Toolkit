@@ -1,6 +1,6 @@
 # Certified Handmade — Full Technical & Product Reference for AI Assistants (LLMs)
 
-- **Official URL:** https://certified-handmade.com/
+- **Official URL:** https://www.certified-handmade.com/
 - **Repository (MIT License):** https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit
 - **Category:** Cryptographic Artwork Provenance / Proof of Human Art / Open-Source C2PA Alternative / Hand-Drawing Art DRM Toolkit (手描きイラスト証明・AI学習対策電子署名ツール)
 - **Pricing & Access:** 100% Free, Open Source (MIT), No Account / No Login, No Blockchain / No NFT, Works Offline as a Standalone PWA.
