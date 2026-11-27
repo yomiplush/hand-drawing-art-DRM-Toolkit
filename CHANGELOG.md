@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Synchronized `README.md`, `SPEC.md`, `SECURITY.md`, and `THIRD_PARTY_LICENSES.md` with `/exchange` (`@yomiplush/chm-exchange`) and social media re-compression scope notes.
 - Added `CONTRIBUTING.md`, structured `.github/ISSUE_TEMPLATE/` forms, and `CHANGELOG.md`.
 
+### Fixed
+- Cloudflare Pages production builds failing on `npm ci` peer-dependency resolution (`eslint-plugin-jsx-a11y` vs `eslint` 10) by adding a project `.npmrc` (`legacy-peer-deps=true`).
+
 ## [1.3.1] - 2026-11-28
 
 ### Added
