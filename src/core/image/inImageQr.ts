@@ -34,7 +34,8 @@ export interface QrMaskCoverageStats {
   tier: QrMaskCoverageTier;
 }
 
-const DEFAULT_QUIET_ZONE_MODULES = 1;
+const DEFAULT_QUIET_ZONE_MODULES = 2;
+export const MIN_IN_IMAGE_QR_BOX_PX = 96;
 
 export function computeMaskCoverageStats(
   artWidth: number,
@@ -87,10 +88,10 @@ export function recommendInImageBoxSize(params: {
   const { artWidth, artHeight, qrModules, quietZoneModules = DEFAULT_QUIET_ZONE_MODULES } = params;
   const maxBox = Math.min(artWidth, artHeight);
   const totalModules = Math.max(21, qrModules) + Math.max(0, quietZoneModules) * 2;
-  const minScannablePx = 76;
+  const minScannablePx = MIN_IN_IMAGE_QR_BOX_PX;
   const pxPerModule = Math.max(2, Math.ceil(minScannablePx / totalModules));
   const preferred = totalModules * pxPerModule;
-  const minClamp = Math.min(maxBox, 64);
+  const minClamp = Math.min(maxBox, MIN_IN_IMAGE_QR_BOX_PX);
   return Math.max(minClamp, Math.min(maxBox, preferred));
 }
 
@@ -103,7 +104,7 @@ export function clampInImageQrOptions(
     throw new Error('Artwork dimensions must be at least 21x21 px for in-image QR placement');
   }
   const maxBox = Math.min(artWidth, artHeight);
-  const minBox = Math.min(maxBox, 64);
+  const minBox = Math.min(maxBox, MIN_IN_IMAGE_QR_BOX_PX);
   const rawBox = Number.isFinite(options.boxSize) ? Math.round(options.boxSize) : minBox;
   const boxSize = Math.max(21, Math.min(maxBox, Math.max(minBox, rawBox)));
 
@@ -172,7 +173,9 @@ export function overlayQrIntoArtwork(
   const clamped = clampInImageQrOptions(artwork.width, artwork.height, options);
   const out = new Uint8Array(artwork.data);
 
-  const { x: boxX, y: boxY, boxSize, opacity, style, quietZoneModules } = clamped;
+  const { x: boxX, y: boxY, boxSize, opacity: rawOpacity, style, quietZoneModules } = clamped;
+  // Boost contrast floor for compact QR boxes (<= 128px) so smartphone cameras decode reliably
+  const opacity = boxSize <= 128 ? Math.max(rawOpacity, 0.92) : rawOpacity;
   const totalModules = qr.size + quietZoneModules * 2;
   const integerModulePx = Math.floor(boxSize / totalModules);
 

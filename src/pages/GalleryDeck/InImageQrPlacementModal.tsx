@@ -320,7 +320,7 @@ function InImageQrPlacementModalBody({
   const artWidth = Math.max(120, item.width || 1024);
   const artHeight = Math.max(120, item.height || 1024);
   const minDim = Math.min(artWidth, artHeight);
-  const minBoxSize = Math.min(minDim, 64);
+  const minBoxSize = Math.min(minDim, 96);
   const maxBoxSize = Math.min(minDim, Math.max(minBoxSize + 80, Math.min(540, Math.round(minDim * 0.54))));
   const defaultBoxSize = Math.max(minBoxSize, Math.min(maxBoxSize, Math.round(minDim * 0.1)));
 
