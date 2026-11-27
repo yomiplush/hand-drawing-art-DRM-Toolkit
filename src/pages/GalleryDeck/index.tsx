@@ -53,6 +53,12 @@ import { ArtworkDetailDrawer } from './ArtworkDetailDrawer';
 import { InImageQrPlacementModal } from './InImageQrPlacementModal';
 import type { CertifyModalSubmission } from './InImageQrPlacementModal';
 import {
+  NATIVE_PROJECT_ACCEPT,
+  ProjectParseError,
+  inspectNativeProjectFile,
+  mergeNativeProjectFile,
+} from '../../core/parsers';
+import {
   certifyArtworkInDeck,
   importArtworkFileToDeck,
   verifyArtworkInDeck,
@@ -270,8 +276,14 @@ export function GalleryDeckPage() {
     try {
       const imported: GalleryArtworkItem[] = [];
       for (const file of Array.from(files)) {
+        const { inspection } = await inspectNativeProjectFile(file);
+        const merged = await mergeNativeProjectFile(file, inspection);
+        const baseName = file.name.replace(/\.[^.]+$/, '') || 'artwork';
+        const mergedPngFile = new File([merged.mergedPngBytes.buffer as ArrayBuffer], `${baseName}.png`, {
+          type: 'image/png',
+        });
         const item = await importArtworkFileToDeck(
-          file,
+          mergedPngFile,
           idbAdapterRef.current,
           fsAdapterRef.current,
         );
@@ -293,6 +305,10 @@ export function GalleryDeckPage() {
         });
       }
     } catch (err) {
+      if (err instanceof ProjectParseError) {
+        showToast(locale === 'ja' ? err.messageJa : err.message);
+        return;
+      }
       const safetyMsg = formatArtworkSafetyError(err, locale === 'ja' ? 'ja' : 'en');
       showToast(safetyMsg ?? (err instanceof Error ? err.message : gd.toastImportFailed));
     }
@@ -698,7 +714,7 @@ export function GalleryDeckPage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp"
+        accept={NATIVE_PROJECT_ACCEPT}
         multiple
         data-testid="gallerydeck-file-input"
         className="hidden"
@@ -858,10 +874,10 @@ export function GalleryDeckPage() {
                   <ImagePlus className="h-7 w-7" />
                 </span>
                 <span className="text-base sm:text-lg font-bold tracking-tight ga-text">
-                  {isJa ? 'イラストを追加（タップ / ドロップ）' : gd.importArtwork}
+                  {isJa ? '作品の追加(.psdなど)' : gd.importArtwork}
                 </span>
                 <span className="text-[11px] ga-text-muted">
-                  PNG / JPEG / WebP
+                  .psd / .clip / .procreate / .kra / .sai2
                 </span>
               </button>
 
