@@ -582,6 +582,25 @@ export function evaluateArtworkSafety(input: ArtworkSafetyInput): ArtworkSafetyR
       };
     }
 
+    // Block raw camera photos / live-action video captures / real-photo meme frames
+    // (continuous sensor noise, near-zero flat illustration regions, high photorealism score)
+    if (
+      metrics.photorealismScore >= 0.78 &&
+      metrics.flatPixelRatio < 0.08 &&
+      metrics.microNoiseRatio >= 0.48
+    ) {
+      return {
+        allowed: false,
+        category: 'non_art_raw_photo',
+        reasonCode: 'NON_ART_LIVE_ACTION_PHOTO_BLOCKED',
+        reasonMessage:
+          'Inappropriate image detected: Live-action photographs, video captures, and real-photo memes are not accepted. Only human-made illustrations and artwork are allowed.',
+        reasonMessageJa:
+          '不適切な画像が検出されました: 実写写真・ビデオキャプチャ・荒らし用ミーム画像など、人の手によるアート作品以外の画像は登録できません。',
+        metrics,
+      };
+    }
+
     return {
       allowed: true,
       reasonMessage: 'OK',

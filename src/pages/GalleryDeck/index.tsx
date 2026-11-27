@@ -113,6 +113,7 @@ export function GalleryDeckPage() {
   const [busyAction, setBusyAction] = useState<'certify' | 'verify' | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [statusToast, setStatusToast] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   const [linkedDirName] = useState<string | null>(null);
   const [driveConnected, setDriveConnected] = useState<boolean>(
     () => googleAuthManager.getState().connected,
@@ -277,6 +278,7 @@ export function GalleryDeckPage() {
 
   const handleImportFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
+    setImportError(null);
     try {
       const imported: GalleryArtworkItem[] = [];
       for (const file of Array.from(files)) {
@@ -317,11 +319,15 @@ export function GalleryDeckPage() {
       }
     } catch (err) {
       if (err instanceof ProjectParseError) {
-        showToast(locale === 'ja' ? err.messageJa : err.message);
+        const msg = locale === 'ja' ? err.messageJa : err.message;
+        setImportError(msg);
+        showToast(msg);
         return;
       }
       const safetyMsg = formatArtworkSafetyError(err, locale === 'ja' ? 'ja' : 'en');
-      showToast(safetyMsg ?? (err instanceof Error ? err.message : gd.toastImportFailed));
+      const finalMsg = safetyMsg ?? (err instanceof Error ? err.message : gd.toastImportFailed);
+      setImportError(finalMsg);
+      showToast(finalMsg);
     }
   };
 
@@ -734,6 +740,25 @@ export function GalleryDeckPage() {
           e.target.value = '';
         }}
       />
+      {importError && (
+        <div
+          role="alert"
+          data-testid="gallerydeck-import-error"
+          className="relative z-20 mx-auto mt-4 w-full max-w-2xl px-4"
+        >
+          <div className="flex items-start justify-between gap-3 rounded-2xl border border-rose-500/60 bg-rose-950/85 px-4 py-3 text-sm font-semibold text-rose-200 shadow-lg">
+            <span>{importError}</span>
+            <button
+              type="button"
+              onClick={() => setImportError(null)}
+              aria-label="Close error"
+              className="shrink-0 rounded-lg px-2 py-0.5 text-xs text-rose-300 hover:bg-rose-900/60 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
       {/* Minimal Gallery Header (hidden in Simple Mode when empty so GalleryDeck floats cleanly alone) */}
       {(isAdvanced || visibleItems.length > 0 || searchQuery.length > 0 || activeTab !== 'all') && (
       <div className="relative z-10 mx-auto w-full max-w-6xl px-4 sm:px-6 pt-5 pb-3 space-y-3">
