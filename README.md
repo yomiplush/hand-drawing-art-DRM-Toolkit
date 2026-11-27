@@ -1,6 +1,9 @@
 # Certified Handmade
 
-**Your Art. Your Rights. Your Freedom.**
+[![CI](https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+
+**Your Art. Your Rights. Your Freedom.** (v1.3.1)
 
 Certified Handmade is a **¥0 / $0 forever**, open-source, local-first, offline-first **Cryptographic Artwork Provenance**, **Encrypted Proof Vault**, and **Pluggable Storage & Device Auth** toolkit. Artists can cryptographically sign illustrations locally with Ed25519, embed self-contained verification QR codes into lossless PNG margins (Protocol v1), masked in-image overlays (Protocol v2), or compact DEFLATE + dictionary-compressed QR payloads carrying full artwork/creator/policy/evidence metadata (Protocol v3), manage an encrypted Proof Vault across **Local IndexedDB**, **Portable Encrypted Files (`.chmvault.json`)**, and opt-in **Personal Google Drive**, and optionally synchronize **device authentication & revocations only** over untrusted free public Nostr relays (`CHM-SYNC-v1`)—or run 100% offline via the **Web / PWA Edition** (`https://certified-handmade.com/`), the **Portable Standalone Edition** (`http://127.0.0.1:43777` for Linux x86_64 and Windows x86_64), or the **Independent Offline CLIs**.
 
@@ -180,6 +183,7 @@ See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for:
 - [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md) — Open-source dependencies and licenses.
 
 ### Architecture, Storage Providers, Protocol v3 & Sync Guides (`docs/`)
+- [`docs/SNS-WORKFLOW.md`](./docs/SNS-WORKFLOW.md) — Practical artist workflow guide for SNS posting (handling JPEG/WebP recompression, original PNG distribution, and `dHash64`/`pHash64` visual similarity helper).
 - [`docs/GOOGLE-DRIVE-SETUP.md`](./docs/GOOGLE-DRIVE-SETUP.md) — Google OAuth 2.0 GIS setup, `drive.appdata` (`appDataFolder`) personal folder structure (`appProperties`, recovery), multi-device passphrase/key-share unlock, account switching, and disconnect vs. revoke guide.
 - [`docs/STORAGE-PROVIDERS.md`](./docs/STORAGE-PROVIDERS.md) — Pluggable `StorageProvider` architecture (`IndexedDbStorageProvider`, `PortableFileStorageProvider`, `GoogleDriveStorageProvider`), Vault encryption epochs, 3-way conflict resolution, tombstones, and extension points (IPFS/WebDAV/P2P).
 - [`docs/CHM-COMPACT-PROOF-V3.md`](./docs/CHM-COMPACT-PROOF-V3.md) — Protocol `v3` (`CHM3\0`) self-contained compact QR specification, CBOR keys `1..17`, 12-bit policy flags, 15-code URL dictionary, raw DEFLATE framing & measured QR size benchmarks.

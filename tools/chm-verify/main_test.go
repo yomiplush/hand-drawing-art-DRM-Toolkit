@@ -581,3 +581,74 @@ func TestProtocolV3AndBombDefense(t *testing.T) {
 		t.Fatalf("expected decompression bomb > %d bytes to fail", MaxV3DecompressedBytes)
 	}
 }
+
+func TestProtocolVectors(t *testing.T) {
+	type proofVector struct {
+		ID              string `json:"id"`
+		ProtocolVersion int    `json:"protocolVersion"`
+		ExpectedValid   bool   `json:"expectedValid"`
+		ProofBase64URL  string `json:"proofBase64Url"`
+	}
+	type evidenceVector struct {
+		ID                string `json:"id"`
+		PrimaryProofID    string `json:"primaryProofId"`
+		ExpectedValid     bool   `json:"expectedValid"`
+		ExpectedStatus    string `json:"expectedStatus"`
+		EvidenceBase64URL string `json:"evidenceBase64Url"`
+	}
+	type vectorSuite struct {
+		SchemaVersion   int              `json:"schemaVersion"`
+		ProofVectors    []proofVector    `json:"proofVectors"`
+		EvidenceVectors []evidenceVector `json:"evidenceVectors"`
+	}
+
+	raw, err := os.ReadFile("../../tests/vectors/protocol-vectors.json")
+	if err != nil {
+		t.Fatalf("failed to read protocol-vectors.json: %v", err)
+	}
+	var suite vectorSuite
+	if err := json.Unmarshal(raw, &suite); err != nil {
+		t.Fatalf("failed to parse protocol-vectors.json: %v", err)
+	}
+	if len(suite.ProofVectors) < 9 || len(suite.EvidenceVectors) < 2 {
+		t.Fatalf("unexpected vector counts: proofs=%d evidence=%d", len(suite.ProofVectors), len(suite.EvidenceVectors))
+	}
+
+	proofTokenByID := make(map[string]string, len(suite.ProofVectors))
+
+	for _, vec := range suite.ProofVectors {
+		proofTokenByID[vec.ID] = vec.ProofBase64URL
+
+		var stdout, stderr bytes.Buffer
+		code := run([]string{"--proof", vec.ProofBase64URL, "--json"}, &stdout, &stderr)
+		if vec.ExpectedValid {
+			if code != 0 {
+				t.Fatalf("Go CLI rejected valid vector %s (code=%d, stderr=%s)", vec.ID, code, stderr.String())
+			}
+		} else {
+			if code == 0 {
+				t.Fatalf("Go CLI accepted invalid vector %s (stdout=%s)", vec.ID, stdout.String())
+			}
+		}
+	}
+
+	for _, ev := range suite.EvidenceVectors {
+		primaryToken, ok := proofTokenByID[ev.PrimaryProofID]
+		if !ok {
+			t.Fatalf("missing primary proof %s", ev.PrimaryProofID)
+		}
+		evToken := "chm-evidence:" + ev.EvidenceBase64URL
+
+		var stdout, stderr bytes.Buffer
+		code := run([]string{"--proof", primaryToken, "--evidence", evToken, "--json"}, &stdout, &stderr)
+		if ev.ExpectedValid {
+			if code != 0 {
+				t.Fatalf("Go CLI rejected valid evidence vector %s (code=%d, stderr=%s)", ev.ID, code, stderr.String())
+			}
+		} else {
+			if code == 0 {
+				t.Fatalf("Go CLI accepted invalid evidence vector %s (stdout=%s)", ev.ID, stdout.String())
+			}
+		}
+	}
+}

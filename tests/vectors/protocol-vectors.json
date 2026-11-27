@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "specVersion": "1.3.1",
+  "proofVectors": [
+    {
+      "id": "v1_valid",
+      "description": "Valid Protocol v1 proof with canonical CBOR and Ed25519 signature",
+      "protocolVersion": 1,
+      "expectedValid": true,
+      "proofBase64Url": "gwFYeaYBUBEiM0RVZkeImaq7zN3u_wECWCB5tVYuj-ZU-UB4sRLoqYunkB-FOuaVvtfg45ELrQSWZANYID4UWS_WjdLZXkMBGz69KIMQnq2kGsu7ngdroRwJUP40BIQAABiAGIAFGmdHsoAGhQACAgJrVGVzdCBBcnRpc3RYQCVwjs2A2RsVUVYn2q53a6QnT8G6Sy1QTpXD_6Bz90p_1K-Q6hl8ivhLNOfM2RhgciY-uhX0YoOWgdhLU15AnQI"
+    },
+    {
+      "id": "v2_valid_qrMask",
+      "description": "Valid Protocol v2 proof with in-image qrMask [96, 96, 24, 24]",
+      "protocolVersion": 2,
+      "expectedValid": true,
+      "proofBase64Url": "gwJYg6cBUBEiM0RVZkeImaq7zN3u_wICWCB5tVYuj-ZU-UB4sRLoqYunkB-FOuaVvtfg45ELrQSWZANYID4UWS_WjdLZXkMBGz69KIMQnq2kGsu7ngdroRwJUP40BIQAABiAGIAFGmdHsoAGhQACAgJrVGVzdCBBcnRpc3QJhBhgGGAYGBgYWEAh1cR16EbxhrtLluh7mmCRIW_HZ5AgUveeKkDgNzUCvLEbNWhZq2Ra-yXp5XaAI_0OuvDBQKp7TwMMYvPeQuML"
+    },
+    {
+      "id": "v3_valid_compressed",
+      "description": "Valid Protocol v3 self-contained compact proof with DEFLATE compression",
+      "protocolVersion": 3,
+      "expectedValid": true,
+      "proofBase64Url": "hAMBWQFVW80YIKhk7BKa5t4xc9XuM3ff_WdkilCo3Bqm1_8s5KdDxUahFyu7l0-Qb7V6NnXf9QePJ3KvZZmWwhyhYCcSqX-t99LNOGdGabu9Gs0C89YukTq9ex579kIZzoB_JiwtDAwSDRINrFLp7psa2JoZJLSyQ1KLSxQci0oyi0u4Kq4Hp-ak6Sbn55UkZualpigEFOWX5Cfn5yiUGSuUgBSWpSaX5BcplGeWZCgUpRakJpakpiiUpFaUKJTkK5QUZaanpxYppKSWpBblZuZlFpdkJisUJZYruLi6-TiGuCok5-cWFKUWF2fm5-kp0NEunsZm_szK_NzMgpzS4gx-PkaBxuYIhSA1pjOxivP54jQOT8_q_FB2btJRh7u17_QyZNJkvHTDKyQFGFgFK_T88hUcPYEWAp2ZmZeuAHRSaV5iaUlGflFmFdBFRakpQMuLMpNKS0BWAQBYQAdxNjtyxTGW-2xipuKX2Q0I_wRrPbjSkAu5UlSUH4JNjBc3XYx12TKDl4DYWMzcVBP8oi4mWhT1TafWZUoI4wE"
+    },
+    {
+      "id": "v1_tampered_signature",
+      "description": "Protocol v1 proof with 1-byte tampered Ed25519 signature",
+      "protocolVersion": 1,
+      "expectedValid": false,
+      "expectedErrorHint": "signature",
+      "proofBase64Url": "gwFYeaYBUBEiM0RVZkeImaq7zN3u_wECWCB5tVYuj-ZU-UB4sRLoqYunkB-FOuaVvtfg45ELrQSWZANYID4UWS_WjdLZXkMBGz69KIMQnq2kGsu7ngdroRwJUP40BIQAABiAGIAFGmdHsoAGhQACAgJrVGVzdCBBcnRpc3RYQNpwjs2A2RsVUVYn2q53a6QnT8G6Sy1QTpXD_6Bz90p_1K-Q6hl8ivhLNOfM2RhgciY-uhX0YoOWgdhLU15AnQI"
+    },
+    {
+      "id": "v1_small_order_pubkey",
+      "description": "Protocol v1 proof with all-zero small-order Ed25519 public key",
+      "protocolVersion": 1,
+      "expectedValid": false,
+      "expectedErrorHint": "public key",
+      "proofBase64Url": "gwFYeaYBUBEiM0RVZkeImaq7zN3u_wECWCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANYID4UWS_WjdLZXkMBGz69KIMQnq2kGsu7ngdroRwJUP40BIQAABiAGIAFGmdHsoAGhQACAgJrVGVzdCBBcnRpc3RYQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    {
+      "id": "v1_non_canonical_cbor",
+      "description": "Protocol v1 proof with non-canonical CBOR integer encoding",
+      "protocolVersion": 1,
+      "expectedValid": false,
+      "expectedErrorHint": "canonical",
+      "proofBase64Url": "gwFEoRgBAVhA5NuMG9updnQCiV8MWxfMTE3_odKk2jTFkcVpvXkGZPCPL-r0RZib1vCGEb5Y4kCEc-sc48WoByCeZWVYBO_VCA"
+    },
+    {
+      "id": "v3_deflate_limit_exceeded",
+      "description": "Protocol v3 proof whose DEFLATE payload exceeds MAX_V3_DECOMPRESSED_BYTES (8192)",
+      "protocolVersion": 3,
+      "expectedValid": false,
+      "expectedErrorHint": "deflate",
+      "proofBase64Url": "hAMBWBrtwQENAAAAwqBs71_KHg4oAAAAAAAAAAD4N1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    {
+      "id": "v2_invalid_qrmask_too_small",
+      "description": "Protocol v2 proof with qrMask smaller than minimum 21x21 modules",
+      "protocolVersion": 2,
+      "expectedValid": false,
+      "expectedErrorHint": "qrMask",
+      "proofBase64Url": "gwJYdagBAgJQESIzRFVmR4iZqrvM3e7_AQMaZ0eygARYIHm1Vi6P5lT5QHixEuipi6eQH4U65pW-1-DjkQutBJZkBVggPhRZL9aN0tleQwEbPr0ogxCeraQay7ueB2uhHAlQ_jQGhAAAGIAYgAeEAQICAgmECgoKClhAqB6jnLWv-cxC0g_fffWD53q34VJ86TIe3N5AUC7Bprqsp5yr8HPAb17RVwdnvmbey40YqFBsspK9lRvyRTx-BQ"
+    },
+    {
+      "id": "v2_invalid_qrmask_out_of_bounds",
+      "description": "Protocol v2 proof with qrMask extending outside artwork region",
+      "protocolVersion": 2,
+      "expectedValid": false,
+      "expectedErrorHint": "qrMask",
+      "proofBase64Url": "gwJYeagBAgJQESIzRFVmR4iZqrvM3e7_AQMaZ0eygARYIHm1Vi6P5lT5QHixEuipi6eQH4U65pW-1-DjkQutBJZkBVggPhRZL9aN0tleQwEbPr0ogxCeraQay7ueB2uhHAlQ_jQGhAAAGIAYgAeEAQICAgmEGG4YbhgeGB5YQI4B3AOTX1aFM4FIIWswwlB6lS8KE5S56st7pYY2CG8tXDKy2dnmbmtVJM7Qk9NwAiFOOW7vgHVJZUQeLbDjhAg"
+    }
+  ],
+  "evidenceVectors": [
+    {
+      "id": "evidence_valid",
+      "description": "Valid .chmevidence bound to v1_valid",
+      "primaryProofId": "v1_valid",
+      "expectedValid": true,
+      "expectedStatus": "valid",
+      "evidenceBase64Url": "gwFY4agBUKq7zN3u_0ARIjNEVWZ3iJkCWCB5tVYuj-ZU-UB4sRLoqYunkB-FOuaVvtfg45ELrQSWZANYID4LhfwJNlHauERs0Zu6WH1mxd6JTEuDxenIETMGhonzBFARIjNEVWZHiJmqu8zd7v8BBVggPhRZL9aN0tleQwEbPr0ogxCeraQay7ueB2uhHAlQ_jQGGmdHsuQHowFyVmVjdG9yIFYxIEV4dGVuZGVkAmtUZXN0IEFydGlzdAN4JUJvdW5kIGV2aWRlbmNlIGV4dGVuc2lvbiBmb3IgdjFfdmFsaWQJAVhAmKoKQd_BwRbuIkRfZX_QA6B0tQs52HKdh_CnSKScwkO9qwPTG8cX87HaQg3B1n2utjCHR90PvihQTTPlpC2GBA"
+    },
+    {
+      "id": "evidence_binding_mismatch",
+      "description": "Valid .chmevidence from v1_valid replayed against v2_valid_qrMask",
+      "primaryProofId": "v2_valid_qrMask",
+      "expectedValid": false,
+      "expectedStatus": "binding-mismatch",
+      "evidenceBase64Url": "gwFY4agBUKq7zN3u_0ARIjNEVWZ3iJkCWCB5tVYuj-ZU-UB4sRLoqYunkB-FOuaVvtfg45ELrQSWZANYID4LhfwJNlHauERs0Zu6WH1mxd6JTEuDxenIETMGhonzBFARIjNEVWZHiJmqu8zd7v8BBVggPhRZL9aN0tleQwEbPr0ogxCeraQay7ueB2uhHAlQ_jQGGmdHsuQHowFyVmVjdG9yIFYxIEV4dGVuZGVkAmtUZXN0IEFydGlzdAN4JUJvdW5kIGV2aWRlbmNlIGV4dGVuc2lvbiBmb3IgdjFfdmFsaWQJAVhAmKoKQd_BwRbuIkRfZX_QA6B0tQs52HKdh_CnSKScwkO9qwPTG8cX87HaQg3B1n2utjCHR90PvihQTTPlpC2GBA"
+    }
+  ]
+}

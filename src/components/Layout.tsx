@@ -432,7 +432,7 @@ export function Layout({
               data-testid="footer-changelog-btn"
               className="hover:text-[var(--ga-text)] transition-colors cursor-pointer py-1 shrink-0"
             >
-              {locale === 'ja' ? '更新履歴' : 'Changelog'}
+              {t.a11y.changelogLabel}
             </button>
             <a
               href={GITHUB_REPO_URL}
@@ -491,6 +491,30 @@ export function Layout({
             </div>
 
             <div className="space-y-4 text-xs leading-relaxed">
+              <div className="rounded-xl border border-sky-400/35 bg-sky-950/40 p-3.5 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-semibold text-sky-200">v1.3.1</span>
+                  <span className="text-[11px] text-sky-200/70">2026-11-28</span>
+                </div>
+                <ul className="list-disc pl-4 space-y-1 text-sky-100/95">
+                  {locale === 'ja' ? (
+                    <>
+                      <li>ローカル完結の公開鍵交換ページ（/exchange・@yomiplush/chm-exchange 統合）を追加</li>
+                      <li>鍵バックアップ（.chkey.json）の非破壊・復元乾式チェック（Verify Backup Only）を整備</li>
+                      <li>独立実装者向けの固定テストベクタ（Protocol v1/v2/v3・.chmevidence）と CLI 自動検証を追加</li>
+                      <li>絵師さん向け SNS 運用ガイド（docs/SNS-WORKFLOW.md）と CI / Release 自動化を強化</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>Integrated local-first public key exchange (/exchange via @yomiplush/chm-exchange)</li>
+                      <li>Verified non-mutating .chkey.json backup dry-run check (Verify Backup Only)</li>
+                      <li>Added independent fixed test vectors (Protocol v1/v2/v3 & .chmevidence) with Vitest & CLI verification</li>
+                      <li>Added artist SNS workflow guide (docs/SNS-WORKFLOW.md) and expanded CI & Release automation</li>
+                    </>
+                  )}
+                </ul>
+              </div>
+
               <div className="rounded-xl border border-sky-400/25 bg-sky-950/30 p-3.5 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="font-mono font-semibold text-sky-300">v1.2.0</span>

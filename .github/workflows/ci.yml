@@ -41,6 +41,12 @@ jobs:
       - name: Unit & Integration Tests
         run: npm test
 
+      - name: Go Independent CLI Tests
+        run: cd tools/chm-verify && go test -v ./...
+
+      - name: Go Standalone Server Tests
+        run: cd standalone && go test -v ./...
+
       - name: Production Build
         run: npm run build
 
