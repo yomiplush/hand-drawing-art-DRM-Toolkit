@@ -19,7 +19,7 @@ export default defineConfig({
       filename: 'sw.ts',
       registerType: 'prompt',
       injectRegister: null,
-      includeAssets: ['favicon.svg', 'pwa-192x192.png', 'pwa-512x512.png', '_redirects', '_headers'],
+      includeAssets: ['favicon.ico', 'favicon.svg', 'pwa-192x192.png', 'pwa-512x512.png', '_redirects', '_headers'],
       manifest: {
         name: 'Certified Handmade',
         short_name: 'CertHandmade',

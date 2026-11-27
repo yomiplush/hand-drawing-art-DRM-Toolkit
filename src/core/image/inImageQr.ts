@@ -240,6 +240,63 @@ export function overlayQrIntoArtwork(
     }
   }
 
+  // Draw crisp center Shield + Pencil brand emblem when QR is large enough (>= 96px)
+  // Keeping emblem within ~14% width preserves full ECC scannability.
+  if (boxSize >= 96 && (style === 'frosted-light' || style === 'frosted-dark')) {
+    const emblemSize = Math.max(14, Math.min(44, Math.round(usedSize * 0.14)));
+    const pad = Math.max(2, Math.round(emblemSize * 0.14));
+    const totalEmblem = emblemSize + pad * 2;
+    const startX = originX + Math.floor((usedSize - totalEmblem) / 2);
+    const startY = originY + Math.floor((usedSize - totalEmblem) / 2);
+
+    const isDark = style === 'frosted-dark';
+    const plateBg = isDark ? ([10, 18, 34] as const) : ([255, 255, 255] as const);
+
+    for (let ey = 0; ey < totalEmblem; ey++) {
+      const absY = startY + ey;
+      if (absY < boxY || absY >= boxY + boxSize) continue;
+      for (let ex = 0; ex < totalEmblem; ex++) {
+        const absX = startX + ex;
+        if (absX < boxX || absX >= boxX + boxSize) continue;
+        const idx = absY * stride + absX * 4;
+
+        const ix = ex - pad;
+        const iy = ey - pad;
+        if (ix < 0 || ix >= emblemSize || iy < 0 || iy >= emblemSize) {
+          // Outer quiet pad around emblem
+          blendPixelOver(out, idx, plateBg[0], plateBg[1], plateBg[2], backdropAlpha);
+          continue;
+        }
+
+        // Normalized [0..1] coordinates inside the emblem
+        const u = (ix + 0.5) / emblemSize;
+        const v = (iy + 0.5) / emblemSize;
+
+        // Shield silhouette in [0.18..0.82] x [0.12..0.88]
+        const dx = Math.abs(u - 0.5);
+        const maxHalfW = v < 0.52 ? 0.32 : Math.max(0, 0.32 * (1 - ((v - 0.52) / 0.36) ** 1.35));
+        const inShield = v >= 0.12 && v <= 0.88 && dx <= maxHalfW;
+        const onShieldBorder =
+          inShield && (v <= 0.19 || v >= 0.82 || dx >= Math.max(0, maxHalfW - 0.08));
+
+        // Diagonal pencil stroke from bottom-left (0.34, 0.64) to top-right (0.66, 0.32)
+        const distToPencil = Math.abs((u - 0.5) + (v - 0.48)) / Math.SQRT2;
+        const alongPencil = ((u - 0.5) - (v - 0.48)) / Math.SQRT2;
+        const inPencil = inShield && distToPencil <= 0.065 && alongPencil >= -0.18 && alongPencil <= 0.18;
+
+        if (inPencil) {
+          blendPixelOver(out, idx, 224, 242, 254, moduleAlpha); // bright pencil (#e0f2fe)
+        } else if (onShieldBorder) {
+          blendPixelOver(out, idx, 56, 189, 248, moduleAlpha); // cyan shield border (#38bdf8)
+        } else if (inShield) {
+          blendPixelOver(out, idx, 13, 40, 71, moduleAlpha); // deep navy shield fill (#0d2847)
+        } else {
+          blendPixelOver(out, idx, 6, 17, 30, moduleAlpha); // dark badge bg (#06111e)
+        }
+      }
+    }
+  }
+
   return {
     raster: { width: artwork.width, height: artwork.height, data: out },
     clamped,

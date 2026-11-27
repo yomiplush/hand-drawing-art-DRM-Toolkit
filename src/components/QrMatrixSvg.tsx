@@ -31,6 +31,9 @@ export function QrMatrixSvg({
     }
   }
 
+  const logoSize = Math.max(4, total * 0.16);
+  const logoOffset = (total - logoSize) / 2;
+
   return (
     <svg
       role="img"
@@ -42,6 +45,35 @@ export function QrMatrixSvg({
     >
       <rect x={0} y={0} width={total} height={total} fill="#ffffff" />
       <path d={rects.join('')} fill="#06111e" />
+      {/* Center Shield + Pencil Brand Emblem */}
+      <g shapeRendering="geometricPrecision">
+        <rect
+          x={logoOffset - logoSize * 0.12}
+          y={logoOffset - logoSize * 0.12}
+          width={logoSize * 1.24}
+          height={logoSize * 1.24}
+          rx={logoSize * 0.24}
+          fill="#ffffff"
+        />
+        <g transform={`translate(${logoOffset}, ${logoOffset}) scale(${logoSize / 64})`}>
+          <rect width="64" height="64" rx="14" fill="#06111e" />
+          <path
+            d="M32 9L50 16.5V30.5C50 42.4 42.3 52 32 55.5C21.7 52 14 42.4 14 30.5V16.5L32 9Z"
+            stroke="#38bdf8"
+            strokeWidth="3.5"
+            fill="#0d2847"
+          />
+          <path
+            d="M24 38L27.2 26.5L38.5 18.5L43.5 23.5L35.5 34.8L24 38Z"
+            stroke="#e0f2fe"
+            strokeWidth="2.8"
+            strokeLinejoin="round"
+            fill="#0ea5e9"
+            fillOpacity="0.3"
+          />
+          <circle cx="34.5" cy="27.5" r="2.4" fill="#38bdf8" />
+        </g>
+      </g>
     </svg>
   );
 }
