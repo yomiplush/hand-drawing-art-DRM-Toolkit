@@ -51,7 +51,15 @@ function upsertLink(rel: string, href: string, hreflang?: string): void {
 
 export function SeoHead() {
   const { pathname, search, hash } = useLocation();
-  const { locale, t } = useI18n();
+  const { locale, setLocale, t } = useI18n();
+
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const hlParam = params.get('hl');
+    if (isSupportedLocale(hlParam) && hlParam !== locale) {
+      setLocale(hlParam);
+    }
+  }, [search, locale, setLocale]);
 
   useEffect(() => {
     const params = new URLSearchParams(search);
@@ -67,7 +75,13 @@ export function SeoHead() {
     } else if (pathname === '/create') {
       canonicalPath = '/create';
       meta = params.get('mode') === 'studio' ? t.seo.createStudio : t.seo.create;
-    } else if (pathname === '/verify') {
+    } else if (
+      pathname === '/verify' ||
+      pathname === '/v' ||
+      pathname === '/V' ||
+      pathname.startsWith('/n/') ||
+      pathname.startsWith('/N/')
+    ) {
       canonicalPath = '/verify';
       meta = t.seo.verify;
     } else if (pathname === '/tutorial') {
@@ -86,8 +100,29 @@ export function SeoHead() {
     } else if (pathname === '/exchange') {
       canonicalPath = '/exchange';
       meta = t.seo.exchange ?? t.seo.keys;
-    } else if (pathname === '/docs') {
-      canonicalPath = '/docs';
+    } else if (pathname === '/vault' || pathname === '/storage') {
+      canonicalPath = pathname;
+      meta = {
+        title: `${pathname === '/storage' ? t.nextGen.navStorage : t.vault.navItem} | Certified Handmade`,
+        description: t.seo.home.description,
+        keywords: t.seo.home.keywords,
+      };
+    } else if (pathname === '/gallerydeck') {
+      canonicalPath = '/gallerydeck';
+      meta = {
+        title: `${t.galleryDeck.navItem} | Certified Handmade`,
+        description: t.seo.home.description,
+        keywords: t.seo.home.keywords,
+      };
+    } else if (pathname === '/offline') {
+      canonicalPath = '/offline';
+      meta = {
+        title: `${t.simple.header.offlineNavLabel} | Certified Handmade`,
+        description: t.seo.home.description,
+        keywords: t.seo.home.keywords,
+      };
+    } else if (pathname === '/docs' || pathname === '/spec') {
+      canonicalPath = pathname;
       meta = t.seo.docs;
     }
 

@@ -32,11 +32,16 @@ function GoogleDriveRiskConsentModalBody({
       aria-labelledby="gdrive-risk-modal-title"
       data-testid="gdrive-risk-consent-modal"
       className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4"
-      onClick={onCancel}
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label={gd.closeDetails}
+        onClick={onCancel}
+        className="fixed inset-0 cursor-default"
+      />
       <div
-        className="relative w-full max-w-xl rounded-2xl border border-rose-500/50 bg-slate-900 text-slate-100 shadow-2xl p-5 sm:p-6 space-y-5"
-        onClick={(e) => e.stopPropagation()}
+        className="relative z-10 w-full max-w-xl rounded-2xl border border-rose-500/50 bg-slate-900 text-slate-100 shadow-2xl p-5 sm:p-6 space-y-5"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5 text-rose-400">

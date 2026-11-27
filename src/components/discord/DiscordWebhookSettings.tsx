@@ -101,19 +101,20 @@ export function DiscordWebhookSettings() {
           />
         </div>
 
-        <label className="flex items-start gap-2.5 text-xs sm:text-sm cursor-pointer">
+        <div className="flex items-start gap-2.5 text-xs sm:text-sm">
           <input
+            id="discord-autosend-checkbox"
             type="checkbox"
             checked={autoSend}
             onChange={(e) => setAutoSend(e.target.checked)}
             data-testid="discord-autosend-checkbox"
-            className="mt-1 h-4 w-4 rounded accent-[var(--ga-accent)]"
+            className="mt-1 h-4 w-4 rounded accent-[var(--ga-accent)] cursor-pointer"
           />
-          <span className="space-y-0.5">
+          <label htmlFor="discord-autosend-checkbox" className="space-y-0.5 cursor-pointer">
             <span className="block font-medium ga-text">{w.autoSendLabel}</span>
             <span className="block text-xs ga-text-muted">{w.autoSendHint}</span>
-          </span>
-        </label>
+          </label>
+        </div>
 
         {errorMsg && (
           <p

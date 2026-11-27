@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { persistOptionalLocale } from '../core/storage/consent';
 import { detectInitialLang } from '../state/uiPreferences';
+import { A11Y_I18N } from './a11y';
 import { ARTWORK_DETAILS_I18N } from './artworkDetails';
 import { I18nContext, LOCALE_OPTIONS } from './context';
 import type { FullTranslations, Locale } from './context';
@@ -87,6 +88,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const base = loadedLocales[locale] ?? en;
   const t: FullTranslations = {
     ...base,
+    a11y: A11Y_I18N[locale] ?? A11Y_I18N.en,
     licenses: LICENSE_I18N[locale] ?? LICENSE_I18N.en,
     howTo: HOWTO_I18N[locale] ?? HOWTO_I18N.en,
     tutorial: TUTORIAL_I18N[locale] ?? TUTORIAL_I18N.en,

@@ -416,11 +416,16 @@ function InImageQrPlacementModalBody({
       aria-label={isJa ? '作品情報の入力と証明作成' : 'Artwork Info & Certification'}
       data-testid="gallerydeck-qr-placement-modal"
       className="fixed inset-0 z-[70] flex items-center justify-center bg-[#041226]/82 backdrop-blur-md p-3 sm:p-5"
-      onClick={onCancel}
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label={isJa ? '閉じる' : 'Close'}
+        onClick={onCancel}
+        className="fixed inset-0 cursor-default"
+      />
       <div
-        className="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl border border-sky-400/35 bg-gradient-to-b from-[#071c38]/95 to-[#041328]/98 text-sky-50 shadow-[0_24px_80px_rgba(3,18,42,0.75)] p-4 sm:p-6 space-y-5"
-        onClick={(e) => e.stopPropagation()}
+        className="relative z-10 w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl border border-sky-400/35 bg-gradient-to-b from-[#071c38]/95 to-[#041328]/98 text-sky-50 shadow-[0_24px_80px_rgba(3,18,42,0.75)] p-4 sm:p-6 space-y-5"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -914,9 +919,9 @@ function InImageQrPlacementModalBody({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <label className="space-y-1.5 text-xs text-sky-200/85">
+              <div className="space-y-1.5 text-xs text-sky-200/85">
                 <div className="flex items-center justify-between">
-                  <span>{isJa ? 'QRサイズ' : 'QR Size'}</span>
+                  <label htmlFor="modal-qr-box-size">{isJa ? 'QRサイズ' : 'QR Size'}</label>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -934,6 +939,7 @@ function InImageQrPlacementModalBody({
                   </div>
                 </div>
                 <input
+                  id="modal-qr-box-size"
                   type="range"
                   min={minBoxSize}
                   max={maxBoxSize}
@@ -941,14 +947,15 @@ function InImageQrPlacementModalBody({
                   onChange={(e) => handleBoxSizeChange(Number(e.target.value))}
                   className="w-full accent-sky-400 cursor-pointer"
                 />
-              </label>
+              </div>
 
-              <label className="space-y-1.5 text-xs text-sky-200/85">
+              <div className="space-y-1.5 text-xs text-sky-200/85">
                 <div className="flex items-center justify-between">
-                  <span>{isJa ? '不透明度' : 'Opacity'}</span>
+                  <label htmlFor="modal-qr-opacity">{isJa ? '不透明度' : 'Opacity'}</label>
                   <span className="font-mono text-white">{opacityPct}%</span>
                 </div>
                 <input
+                  id="modal-qr-opacity"
                   type="range"
                   min={75}
                   max={100}
@@ -956,7 +963,7 @@ function InImageQrPlacementModalBody({
                   onChange={(e) => setOpacityPct(Number(e.target.value))}
                   className="w-full accent-sky-400 cursor-pointer"
                 />
-              </label>
+              </div>
               </div>
             </div>
 
@@ -1025,15 +1032,20 @@ function InImageQrPlacementModalBody({
           aria-modal="true"
           aria-label={isJa ? 'ライセンスの説明' : 'License Guide'}
           data-testid="certify-modal-license-help-dialog"
-          onClick={(e) => {
-            e.stopPropagation();
-            setLicenseHelpOpen(false);
-          }}
           className="fixed inset-0 z-[85] flex items-center justify-center bg-[#020a18]/82 backdrop-blur-md p-4"
         >
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label={isJa ? '閉じる' : 'Close'}
+            onClick={(e) => {
+              e.stopPropagation();
+              setLicenseHelpOpen(false);
+            }}
+            className="fixed inset-0 cursor-default"
+          />
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-2xl border border-sky-400/40 bg-gradient-to-b from-[#082042]/98 to-[#041328]/98 text-sky-50 shadow-[0_24px_80px_rgba(2,12,30,0.85)] p-5 space-y-4"
+            className="relative z-10 w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-2xl border border-sky-400/40 bg-gradient-to-b from-[#082042]/98 to-[#041328]/98 text-sky-50 shadow-[0_24px_80px_rgba(2,12,30,0.85)] p-5 space-y-4"
           >
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">

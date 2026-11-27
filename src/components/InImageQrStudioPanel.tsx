@@ -62,6 +62,7 @@ export function InImageQrStudioPanel({
   const [readability, setReadability] = useState<QrReadabilityAssessment | null>(null);
   const [highlightMask, setHighlightMask] = useState<boolean>(false);
   const [optimizedHintVisible, setOptimizedHintVisible] = useState<boolean>(false);
+  const [kbAnnouncement, setKbAnnouncement] = useState<string>('');
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -325,6 +326,33 @@ export function InImageQrStudioPanel({
     }
   };
 
+  const handleCanvasKeyDown = (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+    const step = e.shiftKey ? 20 : 2;
+    const maxX = Math.max(0, artworkRaster.width - clampedOptions.boxSize);
+    const maxY = Math.max(0, artworkRaster.height - clampedOptions.boxSize);
+    let nextX = clampedOptions.x;
+    let nextY = clampedOptions.y;
+
+    if (e.key === 'ArrowLeft') {
+      nextX = Math.max(0, clampedOptions.x - step);
+    } else if (e.key === 'ArrowRight') {
+      nextX = Math.min(maxX, clampedOptions.x + step);
+    } else if (e.key === 'ArrowUp') {
+      nextY = Math.max(0, clampedOptions.y - step);
+    } else if (e.key === 'ArrowDown') {
+      nextY = Math.min(maxY, clampedOptions.y + step);
+    } else {
+      return;
+    }
+
+    e.preventDefault();
+    if (nextX !== clampedOptions.x) onChangeX(nextX);
+    if (nextY !== clampedOptions.y) onChangeY(nextY);
+    setKbAnnouncement(
+      t.a11y.qrPositionAnnounce.replace('{x}', String(nextX)).replace('{y}', String(nextY)),
+    );
+  };
+
   const coverageTone =
     coverageStats.tier === 'high'
       ? 'ga-status-error'
@@ -421,16 +449,26 @@ export function InImageQrStudioPanel({
         </div>
       )}
 
-      <div className="ga-surface-subtle flex flex-col items-center justify-center rounded-xl p-3">
+      <div className="ga-surface-subtle flex flex-col items-center justify-center rounded-xl p-3 space-y-2">
         <canvas
           ref={canvasRef}
+          tabIndex={0}
+          aria-label={t.a11y.qrCanvasAria}
+          aria-describedby="qrstudio-kb-hint"
           data-testid="qrstudio-preview-canvas"
           onPointerDown={handleCanvasPointerDown}
           onPointerMove={handleCanvasPointerMove}
           onPointerUp={handleCanvasPointerUp}
           onPointerCancel={handleCanvasPointerUp}
+          onKeyDown={handleCanvasKeyDown}
           className="max-h-[360px] max-w-full w-auto h-auto rounded cursor-grab active:cursor-grabbing touch-none select-none"
         />
+        <p id="qrstudio-kb-hint" className="text-[11px] ga-text-muted text-center">
+          {t.a11y.qrCanvasKeyboardHint}
+        </p>
+        <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {kbAnnouncement}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -544,10 +582,26 @@ export function InImageAdvancedControls({
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="qrX" className="flex justify-between text-xs ga-text-secondary">
-            <span>{t.qrStudio.xLabel}</span>
-            <span className="font-mono ga-text">{clampedOptions?.x ?? qrX} px</span>
-          </label>
+          <div className="flex items-center justify-between gap-2 text-xs ga-text-secondary">
+            <label htmlFor="qrX">{t.qrStudio.xLabel}</label>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min={0}
+                max={
+                  artworkRaster && clampedOptions
+                    ? Math.max(0, artworkRaster.width - clampedOptions.boxSize)
+                    : 1000
+                }
+                value={clampedOptions?.x ?? qrX}
+                onChange={(e) => onChangeX(Number(e.target.value))}
+                aria-label={t.a11y.qrXNumberAria}
+                data-testid="qrstudio-x-number"
+                className="ga-input w-20 rounded-lg px-2 py-0.5 text-xs font-mono text-end"
+              />
+              <span className="font-mono ga-text-muted" aria-hidden="true">px</span>
+            </div>
+          </div>
           <input
             id="qrX"
             type="range"
@@ -565,10 +619,26 @@ export function InImageAdvancedControls({
         </div>
 
         <div>
-          <label htmlFor="qrY" className="flex justify-between text-xs ga-text-secondary">
-            <span>{t.qrStudio.yLabel}</span>
-            <span className="font-mono ga-text">{clampedOptions?.y ?? qrY} px</span>
-          </label>
+          <div className="flex items-center justify-between gap-2 text-xs ga-text-secondary">
+            <label htmlFor="qrY">{t.qrStudio.yLabel}</label>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min={0}
+                max={
+                  artworkRaster && clampedOptions
+                    ? Math.max(0, artworkRaster.height - clampedOptions.boxSize)
+                    : 1000
+                }
+                value={clampedOptions?.y ?? qrY}
+                onChange={(e) => onChangeY(Number(e.target.value))}
+                aria-label={t.a11y.qrYNumberAria}
+                data-testid="qrstudio-y-number"
+                className="ga-input w-20 rounded-lg px-2 py-0.5 text-xs font-mono text-end"
+              />
+              <span className="font-mono ga-text-muted" aria-hidden="true">px</span>
+            </div>
+          </div>
           <input
             id="qrY"
             type="range"
@@ -586,10 +656,22 @@ export function InImageAdvancedControls({
         </div>
 
         <div>
-          <label htmlFor="qrBoxSize" className="flex justify-between text-xs ga-text-secondary">
-            <span>{t.qrStudio.sizeLabel}</span>
-            <span className="font-mono ga-text">{clampedOptions?.boxSize ?? qrBoxSize} px</span>
-          </label>
+          <div className="flex items-center justify-between gap-2 text-xs ga-text-secondary">
+            <label htmlFor="qrBoxSize">{t.qrStudio.sizeLabel}</label>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min={minBoxSize}
+                max={maxBoxSize}
+                value={clampedOptions?.boxSize ?? qrBoxSize}
+                onChange={(e) => onChangeBoxSize(Number(e.target.value))}
+                aria-label={t.a11y.qrSizeNumberAria}
+                data-testid="qrstudio-size-number"
+                className="ga-input w-20 rounded-lg px-2 py-0.5 text-xs font-mono text-end"
+              />
+              <span className="font-mono ga-text-muted" aria-hidden="true">px</span>
+            </div>
+          </div>
           <input
             id="qrBoxSize"
             type="range"
@@ -603,10 +685,23 @@ export function InImageAdvancedControls({
         </div>
 
         <div>
-          <label htmlFor="qrOpacity" className="flex justify-between text-xs ga-text-secondary">
-            <span>{t.qrStudio.opacityLabel}</span>
-            <span className="font-mono ga-text">{qrOpacityPct}%</span>
-          </label>
+          <div className="flex items-center justify-between gap-2 text-xs ga-text-secondary">
+            <label htmlFor="qrOpacity">{t.qrStudio.opacityLabel}</label>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min={20}
+                max={100}
+                step={1}
+                value={qrOpacityPct}
+                onChange={(e) => onChangeOpacityPct(Number(e.target.value))}
+                aria-label={t.a11y.qrOpacityNumberAria}
+                data-testid="qrstudio-opacity-number"
+                className="ga-input w-20 rounded-lg px-2 py-0.5 text-xs font-mono text-end"
+              />
+              <span className="font-mono ga-text-muted" aria-hidden="true">%</span>
+            </div>
+          </div>
           <input
             id="qrOpacity"
             type="range"

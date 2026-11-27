@@ -599,23 +599,45 @@ function AdvancedKeysPage() {
             </div>
 
             <div className="min-w-0">
-              <label className="block text-xs font-medium ga-text-secondary mb-1">
+              <label
+                htmlFor="keygen-passphrase-input"
+                className="block text-xs font-medium ga-text-secondary mb-1"
+              >
                 {t.keys.backupPassInput}
               </label>
               <input
+                id="keygen-passphrase-input"
                 type="password"
                 value={newPassphrase}
                 onChange={(e) => setNewPassphrase(e.target.value)}
                 placeholder={t.keys.backupPassPlaceholder}
+                aria-invalid={Boolean(genError) || undefined}
+                aria-describedby={genError ? 'keygen-form-error' : undefined}
                 data-testid="keygen-passphrase"
                 className="ga-input w-full min-w-0 rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
               />
               {newPassphrase.length > 0 && (
                 <div className="mt-2 space-y-1">
                   <input
+                    id="keygen-passphrase-confirm-input"
                     type="password"
                     value={newPassphraseConfirm}
                     onChange={(e) => setNewPassphraseConfirm(e.target.value)}
+                    aria-label={
+                      locale === 'ja'
+                        ? 'パスフレーズ（確認用・もう一度入力）'
+                        : 'Confirm passphrase'
+                    }
+                    aria-invalid={
+                      newPassphraseConfirm.length > 0 && newPassphrase !== newPassphraseConfirm
+                        ? true
+                        : undefined
+                    }
+                    aria-describedby={
+                      newPassphraseConfirm.length > 0 && newPassphrase !== newPassphraseConfirm
+                        ? 'keygen-passphrase-mismatch'
+                        : undefined
+                    }
                     placeholder={
                       locale === 'ja'
                         ? 'パスフレーズ（確認用・もう一度入力）'
@@ -625,7 +647,11 @@ function AdvancedKeysPage() {
                     className="ga-input w-full min-w-0 rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
                   />
                   {newPassphraseConfirm.length > 0 && newPassphrase !== newPassphraseConfirm && (
-                    <p role="alert" className="text-xs text-[var(--ga-error-text)]">
+                    <p
+                      id="keygen-passphrase-mismatch"
+                      role="alert"
+                      className="text-xs text-[var(--ga-error-text)]"
+                    >
                       {locale === 'ja'
                         ? 'パスフレーズが一致していません'
                         : 'Passphrases do not match'}

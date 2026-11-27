@@ -1415,6 +1415,9 @@ export function VerifyCertificatePage() {
 
   const resultsSection = result && !scannerSweeping ? (
     <div className="space-y-5" data-testid="verification-results">
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {t.a11y.verificationCompleteAnnounce}
+      </div>
       {!isAdvanced && simpleVerdictKind && (
         <section
           data-testid="verify-simple-verdict"

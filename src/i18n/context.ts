@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { SupportedLocale } from '../core/storage/consent';
+import type { A11yTranslations } from './a11y';
 import type { ArtworkDetailsTranslations } from './artworkDetails';
 import type { DevicePairingTranslations } from './devicePairing';
 import type { DiscordAndUxTranslations } from './discord';
@@ -24,6 +25,7 @@ import type { VerifyMobileTranslations } from './verifyMobile';
 export type Locale = SupportedLocale;
 
 export type FullTranslations = Translations & {
+  a11y: A11yTranslations;
   licenses: LicenseGuideTranslations;
   howTo: HowToTranslations;
   tutorial: TutorialTranslations;

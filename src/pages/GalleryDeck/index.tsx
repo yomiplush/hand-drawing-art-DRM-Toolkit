@@ -1264,15 +1264,20 @@ export function GalleryDeckPage() {
           aria-modal="true"
           aria-label={focusedItem.title}
           data-testid="gallerydeck-fullscreen-lightbox"
-          onClick={closeFullscreen}
-          className={`fixed inset-0 z-[80] flex items-center justify-center bg-[#030e1f]/92 backdrop-blur-md p-4 sm:p-8 cursor-zoom-out transition-opacity duration-300 ease-out ${
+          className={`fixed inset-0 z-[80] flex items-center justify-center bg-[#030e1f]/92 backdrop-blur-md p-4 sm:p-8 transition-opacity duration-300 ease-out ${
             fullscreenVisible ? 'opacity-100' : 'opacity-0'
           }`}
         >
+          <button
+            type="button"
+            aria-label={t.a11y.closeLabel}
+            onClick={closeFullscreen}
+            className="fixed inset-0 cursor-zoom-out"
+          />
           <img
             src={focusedItem.thumbnailDataUrl}
             alt={focusedItem.title}
-            className={`max-h-[92vh] max-w-[94vw] object-contain rounded-xl shadow-[0_24px_80px_rgba(0,0,0,0.75)] transition-all duration-300 ease-out ${
+            className={`relative z-10 pointer-events-none max-h-[92vh] max-w-[94vw] object-contain rounded-xl shadow-[0_24px_80px_rgba(0,0,0,0.75)] transition-all duration-300 ease-out ${
               fullscreenVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
             }`}
           />

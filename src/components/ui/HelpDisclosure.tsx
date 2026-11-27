@@ -1,4 +1,4 @@
-import React, { useId, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { ChevronDown, HelpCircle } from 'lucide-react';
 
 interface HelpDisclosureProps {
@@ -20,20 +20,28 @@ export function HelpDisclosure({
 }: HelpDisclosureProps) {
   const [open, setOpen] = useState(defaultOpen);
   const panelId = useId();
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape' && open) {
-      e.stopPropagation();
-      setOpen(false);
-      triggerRef.current?.focus();
-    }
-  };
+  useEffect(() => {
+    if (!open) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    el.addEventListener('keydown', handleKeyDown);
+    return () => el.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
 
   return (
     <div
+      ref={containerRef}
       data-testid={testId}
-      onKeyDown={handleKeyDown}
       className={`rounded-2xl ga-card ${className}`}
     >
       <button

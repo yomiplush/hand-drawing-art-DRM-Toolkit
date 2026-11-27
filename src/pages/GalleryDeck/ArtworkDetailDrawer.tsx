@@ -65,11 +65,16 @@ export function ArtworkDetailDrawer({
       aria-label={item.title || gd.title}
       data-testid="gallerydeck-detail-drawer"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6"
-      onClick={onClose}
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label={gd.closeDetails}
+        onClick={onClose}
+        className="fixed inset-0 cursor-default"
+      />
       <div
-        className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border ga-border-strong ga-surface-solid ga-text shadow-[var(--ga-shadow-lg)]"
-        onClick={(e) => e.stopPropagation()}
+        className="relative z-10 w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border ga-border-strong ga-surface-solid ga-text shadow-[var(--ga-shadow-lg)]"
       >
         <button
           type="button"
@@ -78,7 +83,7 @@ export function ArtworkDetailDrawer({
           data-testid="gallerydeck-close-drawer"
           className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full ga-surface-subtle border ga-border ga-text-secondary hover:text-[var(--ga-text)] cursor-pointer"
         >
-          <X className="h-5 w-5" />
+          <X className="h-5 w-5" aria-hidden="true" />
         </button>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 sm:p-7">

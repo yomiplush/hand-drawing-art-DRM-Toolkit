@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   Archive,
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { listAuthorKeys } from '../core/storage/keyStore';
 import type { AuthorKeyRecord } from '../core/storage/keyStore';
+import { useAccessibleModal } from '../hooks/useAccessibleModal';
 import { LOCALE_OPTIONS, useI18n } from '../i18n/context';
 import type { Locale } from '../i18n/context';
 import { useAppPreferences } from './PreferencesContext';
@@ -54,6 +55,31 @@ export function Layout({
   );
   const [authorKeys, setAuthorKeys] = useState<AuthorKeyRecord[]>([]);
   const [changelogOpen, setChangelogOpen] = useState(false);
+  const [routeAnnouncement, setRouteAnnouncement] = useState('');
+  const mainRef = useRef<HTMLElement | null>(null);
+  const prevPathnameRef = useRef<string>(location.pathname);
+  const changelogDialogRef = useAccessibleModal(changelogOpen, () => setChangelogOpen(false));
+
+  useEffect(() => {
+    if (prevPathnameRef.current === location.pathname) return;
+    prevPathnameRef.current = location.pathname;
+    const timer = window.setTimeout(() => {
+      const mainEl = mainRef.current;
+      if (mainEl) {
+        const heading = mainEl.querySelector<HTMLElement>('h1');
+        if (heading) {
+          if (!heading.hasAttribute('tabindex')) {
+            heading.setAttribute('tabindex', '-1');
+          }
+          heading.focus({ preventScroll: false });
+        } else {
+          mainEl.focus({ preventScroll: false });
+        }
+      }
+      setRouteAnnouncement(`${t.a11y.routeAnnouncePrefix} ${document.title}`);
+    }, 60);
+    return () => window.clearTimeout(timer);
+  }, [location.pathname, t.a11y.routeAnnouncePrefix]);
 
   const refreshKeysStatus = useCallback(() => {
     void listAuthorKeys()
@@ -108,6 +134,16 @@ export function Layout({
     <div
       className={`relative z-10 min-h-screen flex flex-col bg-transparent ga-text ${bannerOpen ? 'pb-52 sm:pb-40' : ''}`}
     >
+      <a
+        href="#main-content"
+        data-testid="skip-to-main-link"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:start-2 focus:z-[100] focus:rounded-xl focus:px-4 focus:py-2.5 focus:text-sm focus:font-semibold ga-btn-primary shadow-lg"
+      >
+        {t.a11y.skipToMain}
+      </a>
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {routeAnnouncement}
+      </div>
       <header className="sticky top-0 z-40 ga-header">
         <div className="mx-auto max-w-5xl px-3 sm:px-6">
           {/* Primary Header Bar: max 3 visual groups in Simple Mode (Brand, Mode Pill, Language) */}
@@ -152,17 +188,17 @@ export function Layout({
 
             {/* Global 4-Pillar Navigation */}
             <nav
-              aria-label="Primary navigation"
+              aria-label={t.a11y.primaryNavAria}
               data-testid="primary-4-pillar-nav"
               className="hidden md:flex items-center gap-1 min-w-0"
             >
               <NavLink to="/create" className={cockpitLinkClass} data-testid="nav-pillar-create">
                 <FileSignature className="h-3.5 w-3.5 text-[var(--ga-accent)]" aria-hidden="true" />
-                <span>{locale === 'ja' ? '作成' : 'Create'}</span>
+                <span>{t.a11y.navCreate}</span>
               </NavLink>
               <NavLink to="/verify" className={cockpitLinkClass} data-testid="nav-pillar-verify">
                 <ShieldCheck className="h-3.5 w-3.5 text-[var(--ga-accent)]" aria-hidden="true" />
-                <span>{locale === 'ja' ? '検証' : 'Verify'}</span>
+                <span>{t.a11y.navVerify}</span>
               </NavLink>
               <NavLink to="/gallerydeck" className={cockpitLinkClass} data-testid="nav-pillar-gallerydeck">
                 <Gamepad2 className="h-3.5 w-3.5 text-[var(--ga-accent)]" aria-hidden="true" />
@@ -170,7 +206,7 @@ export function Layout({
               </NavLink>
               <NavLink to="/keys" className={cockpitLinkClass} data-testid="nav-pillar-keys-exchange">
                 <KeyRound className="h-3.5 w-3.5 text-[var(--ga-accent)]" aria-hidden="true" />
-                <span>{locale === 'ja' ? '鍵・交換' : 'Keys & Exchange'}</span>
+                <span>{t.a11y.navKeysExchange}</span>
               </NavLink>
             </nav>
 
@@ -243,7 +279,7 @@ export function Layout({
             <div className="mx-auto max-w-5xl px-3 sm:px-6 py-1.5 sm:py-2 space-y-1.5">
               <div className="flex items-center justify-between gap-2 overflow-x-auto chm-no-scrollbar min-w-0 py-0.5">
                 <nav
-                  aria-label="Advanced workspace navigation"
+                  aria-label={t.a11y.advancedNavAria}
                   className="flex flex-nowrap md:flex-wrap items-center gap-1 min-w-0 shrink-0 md:shrink"
                 >
                   {cockpitNavItems.map((item) => {
@@ -337,10 +373,15 @@ export function Layout({
         )}
       </header>
 
-      <main className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 py-6 sm:py-10 min-w-0">
+      <main
+        id="main-content"
+        ref={mainRef}
+        tabIndex={-1}
+        className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 py-6 sm:py-10 min-w-0 focus:outline-none"
+      >
         <div
           key={`${location.pathname}:${isAdvanced ? 'adv' : 'simple'}`}
-          className="chm-page-enter min-w-0 w-full"
+          className="chm-page-enter motion-reduce:animate-none min-w-0 w-full"
         >
           <Outlet />
         </div>
@@ -355,7 +396,7 @@ export function Layout({
             {t.appName} · MIT
           </p>
           <nav
-            aria-label="Footer navigation"
+            aria-label={t.a11y.footerNavAria}
             className="flex items-center gap-3 sm:gap-4 shrink-0"
           >
             <ThemeToggle compact />
@@ -419,26 +460,33 @@ export function Layout({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={locale === 'ja' ? '更新履歴' : 'Changelog'}
+          aria-labelledby="changelog-modal-title"
           data-testid="changelog-modal"
-          onClick={() => setChangelogOpen(false)}
           className="fixed inset-0 z-[75] flex items-center justify-center bg-[#041226]/82 backdrop-blur-md p-4"
         >
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label={t.a11y.closeLabel}
+            onClick={() => setChangelogOpen(false)}
+            className="fixed inset-0 cursor-default"
+          />
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg max-h-[82vh] overflow-y-auto rounded-2xl border border-sky-400/35 bg-gradient-to-b from-[#071c38]/95 to-[#041328]/98 text-sky-50 shadow-[0_24px_80px_rgba(3,18,42,0.75)] p-5 sm:p-6 space-y-4"
+            ref={changelogDialogRef}
+            tabIndex={-1}
+            className="relative z-10 w-full max-w-lg max-h-[82vh] overflow-y-auto rounded-2xl border border-sky-400/35 bg-gradient-to-b from-[#071c38]/95 to-[#041328]/98 text-sky-50 shadow-[0_24px_80px_rgba(3,18,42,0.75)] p-5 sm:p-6 space-y-4 focus:outline-none"
           >
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-white">
-                {locale === 'ja' ? '更新履歴' : 'Changelog'}
+              <h2 id="changelog-modal-title" className="text-base font-bold text-white">
+                {t.a11y.changelogLabel}
               </h2>
               <button
                 type="button"
                 onClick={() => setChangelogOpen(false)}
-                aria-label={locale === 'ja' ? '閉じる' : 'Close'}
+                aria-label={t.a11y.closeLabel}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-900/60 hover:bg-sky-800/80 text-sky-100 cursor-pointer"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
 

@@ -86,14 +86,19 @@ export function SyncPanelModal({
       aria-label={gd.syncModalTitle}
       data-testid="gallerydeck-sync-modal"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4"
-      onClick={() => {
-        setDriveResetStep(0);
-        onClose();
-      }}
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label={gd.closeDetails}
+        onClick={() => {
+          setDriveResetStep(0);
+          onClose();
+        }}
+        className="fixed inset-0 cursor-default"
+      />
       <div
-        className="relative w-full max-w-2xl rounded-2xl border border-slate-700/80 bg-slate-900/95 text-slate-100 shadow-2xl p-5 sm:p-6 space-y-5"
-        onClick={(e) => e.stopPropagation()}
+        className="relative z-10 w-full max-w-2xl rounded-2xl border border-slate-700/80 bg-slate-900/95 text-slate-100 shadow-2xl p-5 sm:p-6 space-y-5"
       >
         <div className="flex items-center justify-between">
           <div>

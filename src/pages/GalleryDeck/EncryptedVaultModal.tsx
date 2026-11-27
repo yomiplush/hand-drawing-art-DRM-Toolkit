@@ -424,11 +424,16 @@ export function EncryptedVaultModal({
       aria-label={gd.vaultModalTitle}
       data-testid="gallerydeck-vault-modal"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-3 sm:p-5"
-      onClick={onClose}
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label={gd.closeDetails}
+        onClick={onClose}
+        className="fixed inset-0 cursor-default"
+      />
       <div
-        className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700/80 bg-slate-900/95 text-slate-100 shadow-2xl p-5 sm:p-6 space-y-5"
-        onClick={(e) => e.stopPropagation()}
+        className="relative z-10 w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700/80 bg-slate-900/95 text-slate-100 shadow-2xl p-5 sm:p-6 space-y-5"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -760,16 +765,22 @@ export function EncryptedVaultModal({
       {/* Full-Resolution On-Demand Decrypted Lightbox (revokes ObjectURL immediately on close) */}
       {viewingItemId && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={viewingTitle || gd.vaultModalTitle}
           className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-slate-950/95 p-4"
-          onClick={(e) => {
-            e.stopPropagation();
-            releaseViewingImage();
-          }}
         >
-          <div
-            className="w-full max-w-5xl flex items-center justify-between gap-3 mb-3"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label={gd.closeDetails}
+            onClick={(e) => {
+              e.stopPropagation();
+              releaseViewingImage();
+            }}
+            className="fixed inset-0 cursor-default"
+          />
+          <div className="relative z-10 w-full max-w-5xl flex items-center justify-between gap-3 mb-3">
             <p className="text-sm font-semibold text-white truncate">{viewingTitle}</p>
             <button
               type="button"
@@ -779,10 +790,7 @@ export function EncryptedVaultModal({
               {gd.closeDetails}
             </button>
           </div>
-          <div
-            className="flex-1 w-full max-w-5xl flex items-center justify-center overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="relative z-10 flex-1 w-full max-w-5xl flex items-center justify-center overflow-hidden">
             {viewingLoading ? (
               <p className="text-xs text-cyan-300">{gd.vaultDecrypting}</p>
             ) : viewingUrl ? (

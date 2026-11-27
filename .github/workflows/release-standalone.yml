@@ -31,7 +31,7 @@ jobs:
 
       - name: Install dependencies & verify checks
         run: |
-          npm ci
+          npm ci --legacy-peer-deps
           npm run typecheck
           npm run lint
           npm test

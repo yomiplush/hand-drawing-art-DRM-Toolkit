@@ -84,7 +84,7 @@ export function StatusDimensionsGrid({
         label={mv.sigLabel}
         value={sigRow.text}
         tone={sigRow.tone}
-        icon={<SigIcon className="h-5 w-5" />}
+        icon={<SigIcon className="h-5 w-5" aria-hidden="true" />}
         helpText={mv.sigHelp}
         helpLabel={`${mv.sigLabel} — ?`}
         helpCloseLabel={t.minimal.home.closeHelp}
@@ -96,7 +96,7 @@ export function StatusDimensionsGrid({
         label={mv.idLabel}
         value={idRow.text}
         tone={idRow.tone}
-        icon={<IdIcon className="h-5 w-5" />}
+        icon={<IdIcon className="h-5 w-5" aria-hidden="true" />}
         extra={
           trustedKeyUnconfirmed && identityStatus === 'unknown' ? (
             <span className="rounded-md ga-status-warning border px-2 py-0.5 text-[11px]">

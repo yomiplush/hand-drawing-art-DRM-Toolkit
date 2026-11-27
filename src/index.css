@@ -385,12 +385,16 @@
   .chm-scanner-sweep,
   .chm-verdict-pop,
   .chm-verdict-wobble,
-  .chm-pulse-soft {
+  .chm-pulse-soft,
+  .chm-page-enter,
+  .chm-spotlight-enter {
     animation: none !important;
   }
 
   .chm-spring-btn:hover:not(:disabled),
-  .chm-spring-btn:active:not(:disabled) {
+  .chm-spring-btn:active:not(:disabled),
+  .chm-link-dynamic:hover:not(:disabled),
+  .chm-link-dynamic:active:not(:disabled) {
     transform: none !important;
   }
 }
@@ -425,11 +429,16 @@
   select,
   textarea,
   summary,
+  canvas[tabindex],
   [role="button"],
+  [role="tab"],
+  [role="slider"],
+  [role="application"],
   [tabindex] {
     &:focus-visible {
       outline: 2px solid var(--ga-focus);
       outline-offset: 2px;
+      box-shadow: 0 0 0 4px var(--ga-accent-soft);
     }
   }
 }
