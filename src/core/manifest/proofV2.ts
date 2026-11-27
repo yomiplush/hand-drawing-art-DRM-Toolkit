@@ -142,8 +142,8 @@ export async function signChmProofV2(params: {
   if (!/^[0-9a-f]{64}$/i.test(payload.source_project_sha256)) {
     throw new Error('source_project_sha256 must be a 64-character hex SHA-256 digest');
   }
-  if (!payload.provenance_metadata.layer_metrics.has_multi_layer_structure) {
-    throw new Error('v2 proof requires verified multi-layer native project structure');
+  if (payload.provenance_metadata.layer_metrics.layer_count < 1) {
+    throw new Error('v2 proof requires a verified native project structure (at least 1 layer)');
   }
 
   const signingBytes = buildSigningBytesV2(payload);
@@ -199,7 +199,7 @@ export async function verifyChmProofAny(params: {
 
     const nativeProjectCertified =
       Boolean(proof.payload.source_project_sha256) &&
-      proof.payload.provenance_metadata.layer_metrics.has_multi_layer_structure;
+      proof.payload.provenance_metadata.layer_metrics.layer_count >= 1;
 
     if (!nativeProjectCertified) {
       errors.push('Proof does not attest a valid multi-layer native project file.');

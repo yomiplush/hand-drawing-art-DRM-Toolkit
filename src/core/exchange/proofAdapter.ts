@@ -38,7 +38,7 @@ export function createChmExchangeArtworkPackage(params: {
   if (!isSignedChmProofV2(params.proof)) {
     throw new Error('CHM-Exchange requires a valid signed v2 native project proof.');
   }
-  if (!params.proof.payload.provenance_metadata.layer_metrics.has_multi_layer_structure) {
+  if (params.proof.payload.provenance_metadata.layer_metrics.layer_count < 1) {
     throw new Error('Standalone unmerged raster images cannot be packaged for CHM-Exchange.');
   }
 

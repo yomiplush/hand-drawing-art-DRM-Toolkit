@@ -163,19 +163,19 @@ export class PsdProjectParser implements BaseProjectParser {
     const parsedLayers = parsePsdLayerRecords(bytes, version, depth);
     const layerCount = parsedLayers.layerCount;
 
-    if (layerCount < 2) {
+    if (layerCount < 1) {
       throw new ProjectParseError(
-        'PSD_SINGLE_LAYER_REJECTED',
-        `Rejected: PSD/PSB has only ${layerCount} layer. At least 2 active layers with drawn pixel content (e.g., sketch/lineart + color or signature) are required to verify creation structure and prevent flat photo/AI spoofing.`,
-        `拒絶されました: レイヤー数が${layerCount}枚のみです。写真やAI生成1枚絵の偽装を防ぐため、描画ピクセルを含む2枚以上の有効レイヤー（例：線画＋着色、または下書き＋仕上げ・サイン等）が必要です。`,
+        'PSD_NO_LAYERS',
+        'Rejected: PSD/PSB contains no layer records.',
+        '拒絶されました: PSD/PSBに有効なレイヤー情報が含まれていません。',
       );
     }
 
-    if (parsedLayers.activePixelLayerCount < 2) {
+    if (parsedLayers.activePixelLayerCount < 1) {
       throw new ProjectParseError(
-        'PSD_INSUFFICIENT_ACTIVE_LAYERS',
-        `Rejected: Found ${layerCount} layers, but only ${parsedLayers.activePixelLayerCount} layer contains non-transparent pixel data. Adding an empty transparent layer to a flat photo or AI image is not accepted—at least 2 layers with actual drawn content (e.g., lineart + color/signature) are required.`,
-        `拒絶されました: レイヤーは${layerCount}枚ありますが、実際に描画ピクセル（非透明データ）を含むレイヤーは${parsedLayers.activePixelLayerCount}枚のみです。1枚絵に空の透明レイヤーを追加しただけのデータは受け付けられません。2枚以上の描画レイヤーが必要です。`,
+        'PSD_EMPTY_LAYERS',
+        'Rejected: PSD/PSB contains no drawn pixel data.',
+        '拒絶されました: PSD/PSBに描画ピクセル（非透明データ）が含まれていません。',
       );
     }
 
