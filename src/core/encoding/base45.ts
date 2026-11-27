@@ -31,8 +31,18 @@ export function base45Encode(bytes: Uint8Array): string {
 }
 
 export function base45Decode(input: string): Uint8Array {
-  // Mobile browsers may percent-encode spaces in URL fragments as %20
-  const normalized = input.replace(/%20/gi, ' ').toUpperCase();
+  // Smartphone cameras & mobile browsers (iOS Safari / Android Chrome) percent-encode
+  // Base45 punctuation in URL fragments (space -> %20, $ -> %24, % -> %25, * -> %2A, + -> %2B, / -> %2F, : -> %3A).
+  // Replace %25 LAST so literal "%25" becomes "%" without double-decoding.
+  const normalized = input
+    .replace(/%20/gi, ' ')
+    .replace(/%24/gi, '$')
+    .replace(/%2A/gi, '*')
+    .replace(/%2B/gi, '+')
+    .replace(/%2F/gi, '/')
+    .replace(/%3A/gi, ':')
+    .replace(/%25/gi, '%')
+    .toUpperCase();
   const len = normalized.length;
   if (len % 3 === 1) {
     throw new Error('Invalid Base45 string length');
