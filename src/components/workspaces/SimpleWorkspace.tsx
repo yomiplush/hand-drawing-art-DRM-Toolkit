@@ -8,7 +8,7 @@ import {
   ShieldCheck,
   Upload,
 } from 'lucide-react';
-import { NATIVE_PROJECT_ACCEPT } from '../../core/parsers';
+import { getNativeProjectAcceptAttr } from '../../core/parsers';
 import type { ProjectInspectionResult, ProjectMergeResult } from '../../core/parsers';
 import type { SignedChmProofV2 } from '../../core/manifest/proofV2';
 import type { ProjectPipelineStage } from '../../core/workers/projectMergeClient';
@@ -142,7 +142,7 @@ export function SimpleWorkspace({
           <input
             ref={inputRef}
             type="file"
-            accept={NATIVE_PROJECT_ACCEPT}
+            accept={getNativeProjectAcceptAttr()}
             data-testid="simple-project-file-input"
             className="hidden"
             onChange={(e) => {

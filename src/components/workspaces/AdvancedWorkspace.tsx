@@ -12,7 +12,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { inspectAuthorName } from '../../core/security/authorNameGuard';
-import { NATIVE_PROJECT_ACCEPT } from '../../core/parsers';
+import { getNativeProjectAcceptAttr } from '../../core/parsers';
 import type {
   ProjectInspectionResult,
   ProjectMergeResult,
@@ -110,7 +110,7 @@ export function AdvancedWorkspace({
             <input
               ref={inputRef}
               type="file"
-              accept={NATIVE_PROJECT_ACCEPT}
+              accept={getNativeProjectAcceptAttr()}
               data-testid="advanced-project-file-input"
               className="hidden"
               onChange={(e) => {

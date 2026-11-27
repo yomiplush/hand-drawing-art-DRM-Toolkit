@@ -6,6 +6,7 @@ import type { InImageQrStyle } from '../../core/image/inImageQr';
 import { LICENSE_DEFINITIONS } from '../../core/manifest/types';
 import type { CompactSnsLink, CreationMethod, CreatorProfileLink, LicenseId } from '../../core/manifest/types';
 import { validateTrustedSnsUrl, validateTrustedWebsiteUrl } from '../../core/security/urlGuard';
+import { inspectAuthorName } from '../../core/security/authorNameGuard';
 import { useI18n } from '../../i18n/context';
 import type { GalleryArtworkItem } from '../../types/gallerydeck';
 
@@ -269,6 +270,12 @@ function InImageQrPlacementModalBody({
       return false;
     }
 
+    const authorGuard = inspectAuthorName(authorName);
+    if (authorGuard.level === 'block') {
+      setValidationError(isJa ? authorGuard.messageJa : authorGuard.messageEn);
+      return false;
+    }
+
     if (website.trim()) {
       const siteCheck = validateTrustedWebsiteUrl(website);
       if (!siteCheck.ok) {
@@ -507,6 +514,28 @@ function InImageQrPlacementModalBody({
                   data-testid="certify-modal-author-input"
                   className="w-full rounded-xl border border-sky-400/30 bg-[#04142b]/90 px-3 py-2.5 text-sm text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
                 />
+                <span className="block text-[11px] text-sky-200/75">
+                  {isJa
+                    ? '※ 本名や学校名ではなく、ニックネーム（ペンネーム）を入れよう'
+                    : 'Use a nickname or pen name — not your real name or school name.'}
+                </span>
+                {(() => {
+                  const guard = inspectAuthorName(authorName);
+                  if (guard.level === 'safe') return null;
+                  return (
+                    <span
+                      role={guard.level === 'block' ? 'alert' : 'status'}
+                      data-testid="certify-modal-author-guard"
+                      className={`block rounded-xl border px-3 py-2 text-[11px] leading-relaxed ${
+                        guard.level === 'block'
+                          ? 'border-rose-400/50 bg-rose-500/15 text-rose-200'
+                          : 'border-amber-400/50 bg-amber-500/15 text-amber-200'
+                      }`}
+                    >
+                      {isJa ? guard.messageJa : guard.messageEn}
+                    </span>
+                  );
+                })()}
               </label>
 
               <label className="space-y-1.5 block">

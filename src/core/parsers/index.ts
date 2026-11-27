@@ -21,6 +21,28 @@ export { BinaryFallbackProjectParser } from './binaryFallbackParser';
 export const NATIVE_PROJECT_ACCEPT =
   '.psd,.psb,.clip,.procreate,.kra,.ora,.sai,.sai2,.mdp,.afdesign,.afphoto,.xcf';
 
+/**
+ * Returns the `<input type="file" accept="...">` value for native project files.
+ *
+ * On iOS / iPadOS Safari and Android, passing custom extensions like `.clip`,
+ * `.procreate`, `.kra`, `.sai2`, or `.psd` causes the OS Files picker to grey out
+ * or hide all files because they lack registered system UTIs/MIME types.
+ * Returning `undefined` on mobile OSes lets users select project files normally
+ * while `resolveProjectParser()` still strictly rejects flat PNG/JPEG/WebP images.
+ */
+export function getNativeProjectAcceptAttr(): string | undefined {
+  if (typeof navigator === 'undefined') return NATIVE_PROJECT_ACCEPT;
+  const ua = navigator.userAgent || '';
+  const isIOS =
+    /iPad|iPhone|iPod/i.test(ua) ||
+    (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints ?? 0) > 1);
+  const isAndroid = /Android/i.test(ua);
+  if (isIOS || isAndroid) {
+    return undefined;
+  }
+  return NATIVE_PROJECT_ACCEPT;
+}
+
 const STANDALONE_RASTER_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.avif'];
 
 const DEFAULT_PARSERS: readonly BaseProjectParser[] = [

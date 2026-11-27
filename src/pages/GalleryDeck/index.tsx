@@ -57,7 +57,7 @@ import { ArtworkDetailDrawer } from './ArtworkDetailDrawer';
 import { InImageQrPlacementModal } from './InImageQrPlacementModal';
 import type { CertifyModalSubmission } from './InImageQrPlacementModal';
 import {
-  NATIVE_PROJECT_ACCEPT,
+  getNativeProjectAcceptAttr,
   ProjectParseError,
   inspectNativeProjectFile,
   mergeNativeProjectFile,
@@ -731,7 +731,7 @@ export function GalleryDeckPage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept={NATIVE_PROJECT_ACCEPT}
+        accept={getNativeProjectAcceptAttr()}
         multiple
         data-testid="gallerydeck-file-input"
         className="hidden"
