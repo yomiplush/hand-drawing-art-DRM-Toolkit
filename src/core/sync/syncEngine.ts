@@ -501,6 +501,13 @@ export async function toggleRelayConfig(url: string, enabled: boolean): Promise<
   }));
 }
 
+export async function resetRelaysToDefault(): Promise<SyncSettings> {
+  return mutateSyncSettings((current) => ({
+    ...current,
+    relays: CURATED_DEFAULT_RELAY_PRESETS.map((preset) => ({ ...preset })),
+  }));
+}
+
 export async function importPeerSyncBindingInput(rawInput: string | Uint8Array): Promise<{
   binding: DecodedBindingAttestation;
   accepted: boolean;

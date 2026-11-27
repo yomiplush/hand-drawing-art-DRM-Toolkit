@@ -22,8 +22,7 @@ export const NOSTR_PROOF_RELAYS = [
   'wss://relay.damus.io',
   'wss://nos.lol',
   'wss://relay.primal.net',
-  'wss://nostr.bitcoiner.social',
-  'wss://relay.nostr.band',
+  'wss://relay.snort.social',
 ] as const;
 
 export const NOSTR_PROOF_URL_PREFIX = 'HTTPS://CERTIFIED-HANDMADE.COM/N/';
@@ -35,6 +34,23 @@ const CUSTOM_RELAYS_STORAGE_KEY = 'chm_custom_nostr_proof_relays_v1';
 /** Automatically skips relays that report payment-required, auth-required, or repeated failures. */
 const rejectedRelays = new Set<string>();
 
+function normalizeWssRelayUrl(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > 512) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol.toLowerCase() !== 'wss:') return null;
+    if (parsed.username || parsed.password || !parsed.hostname) return null;
+    const host = parsed.hostname.toLowerCase();
+    const port = parsed.port ? `:${parsed.port}` : '';
+    const path = parsed.pathname === '/' ? '' : parsed.pathname.replace(/\/+$/, '');
+    return `wss://${host}${port}${path}${parsed.search || ''}`;
+  } catch {
+    return null;
+  }
+}
+
 export function getCustomNostrProofRelays(): string[] {
   if (typeof window === 'undefined' || !window.localStorage) return [];
   try {
@@ -42,9 +58,13 @@ export function getCustomNostrProofRelays(): string[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((u): u is string => typeof u === 'string' && /^wss:\/\/.+/i.test(u.trim()))
-      .map((u) => u.trim());
+    return Array.from(
+      new Set(
+        parsed
+          .map((u) => normalizeWssRelayUrl(u))
+          .filter((u): u is string => u !== null),
+      ),
+    );
   } catch {
     return [];
   }
@@ -54,8 +74,8 @@ export function setCustomNostrProofRelays(relays: string[]): string[] {
   const cleaned = Array.from(
     new Set(
       relays
-        .map((u) => u.trim())
-        .filter((u) => /^wss:\/\/.+/i.test(u)),
+        .map((u) => normalizeWssRelayUrl(u))
+        .filter((u): u is string => u !== null),
     ),
   );
   if (typeof window !== 'undefined' && window.localStorage) {

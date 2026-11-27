@@ -72,10 +72,11 @@ export interface RelayRuntimeStatus {
 }
 
 /**
- * Optional public community Nostr relay presets used strictly for multi-device
- * authentication, binding, and revocation messages.
+ * Default global public community Nostr relay presets used strictly for multi-device
+ * authentication, binding, and revocation messages (CHM-SYNC-v1 / NIP-59 kind: 1059).
  * - Never enabled or contacted until the user explicitly consents to Device Auth Sync.
  * - Artwork details, proofs, profiles, SNS links, and policy presets are never sent here.
+ * - Selected for global availability (no geo-blocks) and high NIP-59 uptime.
  */
 export const CURATED_DEFAULT_RELAY_PRESETS: readonly RelayConfig[] = [
   {
@@ -83,7 +84,7 @@ export const CURATED_DEFAULT_RELAY_PRESETS: readonly RelayConfig[] = [
     enabled: true,
     read: true,
     write: true,
-    label: 'Damus Public Relay (Free community relay)',
+    label: 'Damus Public Relay (Global)',
     isDefaultPreset: true,
     policyStatus: 'unknown',
   },
@@ -92,18 +93,78 @@ export const CURATED_DEFAULT_RELAY_PRESETS: readonly RelayConfig[] = [
     enabled: true,
     read: true,
     write: true,
-    label: 'nos.lol Public Relay (Free community relay)',
+    label: 'nos.lol Public Relay (Global)',
     isDefaultPreset: true,
     policyStatus: 'unknown',
   },
   {
-    url: 'wss://relay.nostr.band',
-    enabled: false,
+    url: 'wss://relay.primal.net',
+    enabled: true,
     read: true,
     write: true,
-    label: 'nostr.band Public Relay (Optional backup)',
+    label: 'Primal Public Relay (Global)',
     isDefaultPreset: true,
     policyStatus: 'unknown',
+  },
+  {
+    url: 'wss://relay.snort.social',
+    enabled: true,
+    read: true,
+    write: true,
+    label: 'Snort Public Relay (Global)',
+    isDefaultPreset: true,
+    policyStatus: 'unknown',
+  },
+] as const;
+
+export interface OptionalRelayPreset extends RelayConfig {
+  /** Whether writing to this relay is restricted to Japan IP addresses (may fail via VPN/overseas IP). */
+  jpIpRestricted?: boolean;
+  /** Short regional note for UI display. */
+  regionNoteJa: string;
+  regionNoteEn: string;
+}
+
+/**
+ * Optional Japan-region public Nostr relay presets for manual one-click addition.
+ * NOT included in default relays to avoid geo-block write failures for global/VPN users.
+ */
+export const OPTIONAL_JAPAN_RELAY_PRESETS: readonly OptionalRelayPreset[] = [
+  {
+    url: 'wss://relay.nostr.wirednet.jp',
+    enabled: true,
+    read: true,
+    write: true,
+    label: 'wirednet.jp (Global IP OK)',
+    isDefaultPreset: false,
+    policyStatus: 'unknown',
+    jpIpRestricted: false,
+    regionNoteJa: 'IP制限なし',
+    regionNoteEn: 'No IP restriction',
+  },
+  {
+    url: 'wss://yabu.me',
+    enabled: true,
+    read: true,
+    write: true,
+    label: 'yabu.me (JP write / Global read)',
+    isDefaultPreset: false,
+    policyStatus: 'unknown',
+    jpIpRestricted: true,
+    regionNoteJa: '書き込みは日本IP限定・読み取りはグローバル可',
+    regionNoteEn: 'Write: Japan IP only · Read: Global',
+  },
+  {
+    url: 'wss://relay-jp.nostr.wirednet.jp',
+    enabled: true,
+    read: true,
+    write: true,
+    label: 'relay-jp.wirednet.jp (JP IP only)',
+    isDefaultPreset: false,
+    policyStatus: 'unknown',
+    jpIpRestricted: true,
+    regionNoteJa: '日本IP限定',
+    regionNoteEn: 'Japan IP only',
   },
 ] as const;
 

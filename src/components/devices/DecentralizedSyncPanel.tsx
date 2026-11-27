@@ -25,12 +25,17 @@ import {
   importPeerSyncBindingInput,
   probeAndSaveRelayPolicy,
   removeRelayConfig,
+  resetRelaysToDefault,
   runDecentralizedSyncCycle,
   saveSyncSettings,
   toggleRelayConfig,
 } from '../../core/sync';
-import { CURATED_DEFAULT_RELAY_PRESETS } from '../../core/sync/types';
+import {
+  CURATED_DEFAULT_RELAY_PRESETS,
+  OPTIONAL_JAPAN_RELAY_PRESETS,
+} from '../../core/sync/types';
 import type {
+  RelayConfig,
   SyncSettings,
   SyncStatusSummary,
   VerifiedPeerBinding,
@@ -175,13 +180,21 @@ export function DecentralizedSyncPanel({
     }
   };
 
-  const handleLoadPresetRelays = async () => {
+  const handleAddPresetRelays = async (presets: readonly RelayConfig[]) => {
     setRelayError(null);
     try {
       const mergedMap = new Map(settings.relays.map((r) => [r.url, r]));
-      for (const preset of CURATED_DEFAULT_RELAY_PRESETS) {
+      for (const preset of presets) {
         if (!mergedMap.has(preset.url)) {
-          mergedMap.set(preset.url, { ...preset });
+          mergedMap.set(preset.url, {
+            url: preset.url,
+            enabled: true,
+            read: preset.read,
+            write: preset.write,
+            label: preset.label,
+            isDefaultPreset: preset.isDefaultPreset,
+            policyStatus: preset.policyStatus ?? 'unknown',
+          });
         }
       }
       await saveSyncSettings({
@@ -190,7 +203,19 @@ export function DecentralizedSyncPanel({
       });
       await onRefresh();
     } catch (err) {
-      setRelayError(err instanceof Error ? err.message : 'Failed to load default relays');
+      setRelayError(err instanceof Error ? err.message : 'Failed to load preset relays');
+    }
+  };
+
+  const handleLoadPresetRelays = () => handleAddPresetRelays(CURATED_DEFAULT_RELAY_PRESETS);
+
+  const handleResetDefaultRelays = async () => {
+    setRelayError(null);
+    try {
+      await resetRelaysToDefault();
+      await onRefresh();
+    } catch (err) {
+      setRelayError(err instanceof Error ? err.message : 'Failed to reset default relays');
     }
   };
 
@@ -642,14 +667,86 @@ export function DecentralizedSyncPanel({
               })}
             </ul>
 
-            <button
-              type="button"
-              data-testid="sync-load-presets-btn"
-              onClick={() => void handleLoadPresetRelays()}
-              className="text-xs font-medium text-[var(--ga-accent)] hover:underline underline-offset-4 cursor-pointer"
-            >
-              {s.loadPresetsBtn}
-            </button>
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <button
+                type="button"
+                data-testid="sync-load-presets-btn"
+                onClick={() => void handleLoadPresetRelays()}
+                className="text-xs font-medium text-[var(--ga-accent)] hover:underline underline-offset-4 cursor-pointer"
+              >
+                {s.loadPresetsBtn}
+              </button>
+              <button
+                type="button"
+                data-testid="sync-reset-presets-btn"
+                onClick={() => void handleResetDefaultRelays()}
+                className="text-xs font-medium ga-text-secondary hover:underline underline-offset-4 cursor-pointer"
+              >
+                {s.resetRelaysBtn}
+              </button>
+            </div>
+
+            {/* Optional Regional Relay Presets (Global & Japan) */}
+            <div className="pt-2 border-t ga-border space-y-2.5 text-xs">
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium ga-text">{s.presetGlobalTitle}</span>
+                  <button
+                    type="button"
+                    data-testid="sync-add-global-presets-btn"
+                    onClick={() => void handleAddPresetRelays(CURATED_DEFAULT_RELAY_PRESETS)}
+                    className="ga-btn-secondary inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-medium cursor-pointer"
+                  >
+                    <Plus className="h-3 w-3" aria-hidden="true" />
+                    <span>{s.presetGlobalAddBtn}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium ga-text">{s.presetJapanTitle}</span>
+                  <button
+                    type="button"
+                    data-testid="sync-add-japan-presets-btn"
+                    onClick={() => void handleAddPresetRelays(OPTIONAL_JAPAN_RELAY_PRESETS)}
+                    className="ga-btn-secondary inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-medium cursor-pointer"
+                  >
+                    <Plus className="h-3 w-3" aria-hidden="true" />
+                    <span>{s.presetJapanAddBtn}</span>
+                  </button>
+                </div>
+                <ul data-testid="sync-japan-preset-list" className="space-y-1">
+                  {OPTIONAL_JAPAN_RELAY_PRESETS.map((preset) => {
+                    const alreadyAdded = settings.relays.some((r) => r.url === preset.url);
+                    return (
+                      <li
+                        key={preset.url}
+                        className="ga-surface-subtle flex flex-wrap items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-[11px]"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="font-mono ga-text break-all">{preset.url}</span>
+                          <span className="ms-2 ga-text-muted">
+                            ({locale === 'ja' ? preset.regionNoteJa : preset.regionNoteEn})
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={alreadyAdded}
+                          onClick={() => void handleAddPresetRelays([preset])}
+                          className="ga-btn-secondary inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] disabled:opacity-50 cursor-pointer shrink-0"
+                        >
+                          <span>{alreadyAdded ? s.presetRelayAdded : s.presetRelayAddOne}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="text-[11px] ga-text-muted leading-relaxed">
+                  {s.presetJapanIpNotice}
+                </p>
+              </div>
+            </div>
           </section>
         </div>
       )}

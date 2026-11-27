@@ -36,6 +36,14 @@ export interface DecentralizedSyncTranslations {
   addRelayPlaceholder: string;
   addRelayBtn: string;
   loadPresetsBtn: string;
+  resetRelaysBtn: string;
+  presetGlobalTitle: string;
+  presetGlobalAddBtn: string;
+  presetJapanTitle: string;
+  presetJapanAddBtn: string;
+  presetJapanIpNotice: string;
+  presetRelayAdded: string;
+  presetRelayAddOne: string;
   removeRelayBtn: string;
   advancedSummary: string;
   advancedNpubLabel: string;
@@ -479,6 +487,15 @@ const JA_DEVICE_PAIRING: DevicePairingTranslations = {
     addRelayPlaceholder: 'wss://relay.example.com',
     addRelayBtn: 'リレーを追加',
     loadPresetsBtn: '推奨公開リレーを読み込む',
+    resetRelaysBtn: 'デフォルトに戻す',
+    presetGlobalTitle: 'Global（標準・IP制限なし）',
+    presetGlobalAddBtn: 'Global 標準4件を追加',
+    presetJapanTitle: 'Japan（日本向け・任意）',
+    presetJapanAddBtn: 'Japan プリセットを追加',
+    presetJapanIpNotice:
+      '※ 一部の日本向けリレー（yabu.me / relay-jp.nostr.wirednet.jp）は、VPNや海外IPからの書き込みに失敗する場合があります。',
+    presetRelayAdded: '追加済み',
+    presetRelayAddOne: '追加',
     removeRelayBtn: '削除',
     advancedSummary: '高度な技術情報（Nostr・暗号鍵の詳細）',
     advancedNpubLabel: 'この端末の同期用公開ID（Nostr npub）',
@@ -746,6 +763,15 @@ const EN_DEVICE_PAIRING: DevicePairingTranslations = {
     addRelayPlaceholder: 'wss://relay.example.com',
     addRelayBtn: 'Add Relay',
     loadPresetsBtn: 'Load Default Public Relays',
+    resetRelaysBtn: 'Reset to Defaults',
+    presetGlobalTitle: 'Global (Standard · No IP restriction)',
+    presetGlobalAddBtn: 'Add Global Standard (4)',
+    presetJapanTitle: 'Japan (Optional)',
+    presetJapanAddBtn: 'Add Japan Presets',
+    presetJapanIpNotice:
+      'Note: Some Japan relays (yabu.me / relay-jp.nostr.wirednet.jp) restrict writes to Japan IPs and may fail over VPN or overseas IPs.',
+    presetRelayAdded: 'Added',
+    presetRelayAddOne: 'Add',
     removeRelayBtn: 'Remove',
     advancedSummary: 'Advanced Technical Info (Nostr & Key Separation)',
     advancedNpubLabel: 'Device Sync Public ID (Nostr npub)',
