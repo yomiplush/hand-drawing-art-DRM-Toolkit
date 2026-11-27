@@ -734,7 +734,7 @@ export function GalleryDeckPage() {
         accept={getNativeProjectAcceptAttr()}
         multiple
         data-testid="gallerydeck-file-input"
-        className="hidden"
+        className="sr-only"
         onChange={(e) => {
           void handleImportFiles(e.target.files);
           e.target.value = '';
@@ -916,6 +916,15 @@ export function GalleryDeckPage() {
                   .psd / .clip / .procreate / .kra / .sai2
                 </span>
               </button>
+
+              <p
+                data-testid="gallerydeck-ipad-procreate-tip"
+                className="text-[11px] leading-relaxed ga-text-muted text-center px-2"
+              >
+                {isJa
+                  ? '※ iPad（Procreate等）でファイルが見当たらないときは、アプリ内で「共有 → Procreate（またはPSD）→ "ファイル"に保存」をしてから選んでね。'
+                  : 'iPad / Procreate tip: If your file does not appear in Files, export it via Share → Procreate (or PSD) → "Save to Files" first.'}
+              </p>
 
               <div className="pt-2 border-t ga-border flex flex-wrap items-center justify-center gap-2">
                 <Link
