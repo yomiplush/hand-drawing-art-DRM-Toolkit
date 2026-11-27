@@ -27,34 +27,23 @@ export interface NativeProjectPickerConfig {
 }
 
 /**
- * Returns browser-optimized `<input type="file">` attributes for native project files:
- * - iOS / iPadOS: omits `accept` (avoids UTI grey-out) and uses single-file mode (`multiple: false`)
- *   to avoid iPadOS `UIDocumentPickerViewController` blank-screen stalls.
- * - Android & macOS Safari: omits `accept` so unrecognized extensions (`.clip`, `.procreate`, `.kra`, `.sai2`)
- *   are never hidden or greyed out.
- * - Windows / Linux / Chromium / Firefox: uses `NATIVE_PROJECT_ACCEPT` with `multiple: true`.
+ * Returns browser-optimized `<input type="file">` attributes for native project files.
+ *
+ * Intentionally omits `accept` (`undefined`) on ALL platforms (Windows, macOS, Linux,
+ * iOS, iPadOS, Android) so OS file pickers never suffer from unregistered UTI/MIME
+ * filtering bugs or blank dialogs. Non-project files (PNG/JPEG/WebP, etc.) are
+ * strictly rejected immediately after selection by `resolveProjectParser()`.
  */
 export function getNativeProjectPickerConfig(
   nav: Pick<Navigator, 'userAgent' | 'platform' | 'maxTouchPoints'> | undefined =
     typeof navigator !== 'undefined' ? navigator : undefined,
 ): NativeProjectPickerConfig {
-  if (!nav) return { accept: NATIVE_PROJECT_ACCEPT, multiple: true };
+  if (!nav) return { accept: undefined, multiple: true };
   const ua = nav.userAgent || '';
   const isIOS =
     /iPad|iPhone|iPod/i.test(ua) ||
     (nav.platform === 'MacIntel' && (nav.maxTouchPoints ?? 0) > 1);
-  const isAndroid = /Android/i.test(ua);
-  const isMacSafari =
-    /Macintosh|Mac OS X/i.test(ua) &&
-    /Safari/i.test(ua) &&
-    !/Chrome|CriOS|Chromium|Edg|Firefox|OPR/i.test(ua);
-  if (isIOS) {
-    return { accept: undefined, multiple: false };
-  }
-  if (isAndroid || isMacSafari) {
-    return { accept: undefined, multiple: true };
-  }
-  return { accept: NATIVE_PROJECT_ACCEPT, multiple: true };
+  return { accept: undefined, multiple: !isIOS };
 }
 
 export function getNativeProjectAcceptAttr(
