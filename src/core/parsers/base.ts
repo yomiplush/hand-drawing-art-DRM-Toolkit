@@ -195,3 +195,87 @@ export function extractEmbeddedPng(bytes: Uint8Array): Uint8Array | null {
   }
   return null;
 }
+
+async function inflateRawBytes(compressed: Uint8Array): Promise<Uint8Array> {
+  if (typeof DecompressionStream === 'undefined') {
+    throw new Error('DecompressionStream is not available in this runtime.');
+  }
+  const stream = new Blob([compressed.buffer as ArrayBuffer])
+    .stream()
+    .pipeThrough(new DecompressionStream('deflate-raw'));
+  const buf = await new Response(stream).arrayBuffer();
+  return new Uint8Array(buf);
+}
+
+/**
+ * Extracts a named entry from a ZIP archive (.procreate, .kra, .ora) using the
+ * Central Directory so both Stored (0) and Deflate (8) entries work reliably
+ * even when local headers use data descriptors.
+ */
+export async function extractZipEntryByMatcher(
+  zipBytes: Uint8Array,
+  matcher: (entryName: string) => boolean,
+): Promise<Uint8Array | null> {
+  const view = new DataView(zipBytes.buffer, zipBytes.byteOffset, zipBytes.byteLength);
+  const decoder = new TextDecoder('utf-8');
+
+  // Locate End of Central Directory (PK\x05\x06) scanning backwards from end
+  const minEocd = Math.max(0, zipBytes.byteLength - 65557);
+  let eocdOffset = -1;
+  for (let i = zipBytes.byteLength - 22; i >= minEocd; i--) {
+    if (
+      zipBytes[i] === 0x50 &&
+      zipBytes[i + 1] === 0x4b &&
+      zipBytes[i + 2] === 0x05 &&
+      zipBytes[i + 3] === 0x06
+    ) {
+      eocdOffset = i;
+      break;
+    }
+  }
+  if (eocdOffset === -1) return null;
+
+  const cdEntries = view.getUint16(eocdOffset + 10, true);
+  let cdOffset = view.getUint32(eocdOffset + 16, true);
+
+  for (let i = 0; i < cdEntries; i++) {
+    if (cdOffset + 46 > zipBytes.byteLength) break;
+    if (
+      zipBytes[cdOffset] !== 0x50 ||
+      zipBytes[cdOffset + 1] !== 0x4b ||
+      zipBytes[cdOffset + 2] !== 0x01 ||
+      zipBytes[cdOffset + 3] !== 0x02
+    ) {
+      break;
+    }
+
+    const compressionMethod = view.getUint16(cdOffset + 10, true);
+    const compressedSize = view.getUint32(cdOffset + 20, true);
+    const nameLen = view.getUint16(cdOffset + 28, true);
+    const extraLen = view.getUint16(cdOffset + 30, true);
+    const commentLen = view.getUint16(cdOffset + 32, true);
+    const localHeaderOffset = view.getUint32(cdOffset + 42, true);
+
+    const name = decoder.decode(zipBytes.subarray(cdOffset + 46, cdOffset + 46 + nameLen));
+    cdOffset += 46 + nameLen + extraLen + commentLen;
+
+    if (!matcher(name)) continue;
+
+    if (localHeaderOffset + 30 > zipBytes.byteLength) continue;
+    const localNameLen = view.getUint16(localHeaderOffset + 26, true);
+    const localExtraLen = view.getUint16(localHeaderOffset + 28, true);
+    const dataStart = localHeaderOffset + 30 + localNameLen + localExtraLen;
+    const dataEnd = dataStart + compressedSize;
+    if (dataEnd > zipBytes.byteLength) continue;
+
+    const rawData = zipBytes.slice(dataStart, dataEnd);
+    if (compressionMethod === 0) {
+      return rawData;
+    }
+    if (compressionMethod === 8) {
+      return inflateRawBytes(rawData);
+    }
+  }
+
+  return null;
+}

@@ -156,28 +156,32 @@ export class PsdProjectParser implements BaseProjectParser {
     inspection: ProjectInspectionResult,
   ): Promise<ProjectMergeResult> {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const width = Math.min(inspection.layerMetrics.canvas_width, 4096);
-    const height = Math.min(inspection.layerMetrics.canvas_height, 4096);
+    const width = inspection.layerMetrics.canvas_width;
+    const height = inspection.layerMetrics.canvas_height;
 
-    // If an embedded composite PNG preview exists, use it; otherwise render deterministic RGBA composite
-    const embeddedPng = extractEmbeddedPng(bytes);
+    // 1. Decode the actual flattened PSD/PSB Image Data Section (Raw or PackBits RLE)
+    const decodedRgba = decodePsdCompositeImageData(bytes);
     let mergedPngBytes: Uint8Array;
-    if (embeddedPng) {
-      mergedPngBytes = embeddedPng;
+
+    if (decodedRgba) {
+      mergedPngBytes = encode({
+        width: decodedRgba.width,
+        height: decodedRgba.height,
+        data: decodedRgba.rgba,
+        depth: 8,
+        channels: 4,
+      });
     } else {
-      const rgba = new Uint8Array(width * height * 4);
-      // Deterministic visual composite from layer metrics + source hash seed
-      const seedByte = parseInt(inspection.sourceProjectSha256.slice(0, 2), 16) || 0x42;
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const idx = (y * width + x) * 4;
-          rgba[idx] = (x + seedByte) & 0xff;
-          rgba[idx + 1] = (y + inspection.layerMetrics.layer_count * 17) & 0xff;
-          rgba[idx + 2] = ((x ^ y) + seedByte) & 0xff;
-          rgba[idx + 3] = 255;
-        }
+      const embeddedPng = extractEmbeddedPng(bytes);
+      if (embeddedPng) {
+        mergedPngBytes = embeddedPng;
+      } else {
+        const w = Math.min(width, 2048);
+        const h = Math.min(height, 2048);
+        const rgba = new Uint8Array(w * h * 4);
+        rgba.fill(255);
+        mergedPngBytes = encode({ width: w, height: h, data: rgba, depth: 8, channels: 4 });
       }
-      mergedPngBytes = encode({ width, height, data: rgba, depth: 8, channels: 4 });
     }
 
     const mergedImageSha256 = bytesToHex(await sha256(mergedPngBytes));
@@ -185,8 +189,131 @@ export class PsdProjectParser implements BaseProjectParser {
       inspection,
       mergedPngBytes,
       mergedImageSha256,
-      width,
-      height,
+      width: decodedRgba?.width ?? width,
+      height: decodedRgba?.height ?? height,
     };
   }
+}
+
+/**
+ * Decodes the flattened composite Image Data Section at the end of a PSD/PSB file.
+ * Supports 8-bit RGB/RGBA/Grayscale in both Compression 0 (Raw) and Compression 1 (PackBits RLE).
+ */
+function decodePsdCompositeImageData(
+  bytes: Uint8Array,
+): { width: number; height: number; rgba: Uint8Array } | null {
+  if (bytes.byteLength < 40) return null;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const version = view.getUint16(4, false);
+  const channels = view.getUint16(12, false);
+  const height = view.getUint32(14, false);
+  const width = view.getUint32(18, false);
+  const depth = view.getUint16(22, false);
+  const colorMode = view.getUint16(24, false); // 1 = Grayscale, 3 = RGB
+
+  if (depth !== 8 || (colorMode !== 1 && colorMode !== 3)) return null;
+  if (width < 1 || height < 1 || width * height > 64_000_000) return null;
+
+  let offset = 26;
+  const colorModeLen = view.getUint32(offset, false);
+  offset += 4 + colorModeLen;
+  if (offset + 4 > bytes.byteLength) return null;
+
+  const imageResourcesLen = view.getUint32(offset, false);
+  offset += 4 + imageResourcesLen;
+
+  const lenSize = version === 2 ? 8 : 4;
+  if (offset + lenSize > bytes.byteLength) return null;
+  const layerMaskLen =
+    version === 2 ? Number(view.getBigUint64(offset, false)) : view.getUint32(offset, false);
+  offset += lenSize + layerMaskLen;
+
+  if (offset + 2 > bytes.byteLength) return null;
+  const compression = view.getUint16(offset, false);
+  offset += 2;
+
+  const pixelCount = width * height;
+  const planesToRead = Math.min(channels, 4);
+  const planes: Uint8Array[] = [];
+
+  if (compression === 0) {
+    // Raw planar channel data
+    for (let c = 0; c < planesToRead; c++) {
+      if (offset + pixelCount > bytes.byteLength) return null;
+      planes.push(bytes.subarray(offset, offset + pixelCount));
+      offset += pixelCount;
+    }
+  } else if (compression === 1) {
+    // PackBits RLE planar channel data
+    const rowCountFieldSize = version === 2 ? 4 : 2;
+    const totalRows = channels * height;
+    const rowLengthsOffset = offset;
+    offset += totalRows * rowCountFieldSize;
+    if (offset > bytes.byteLength) return null;
+
+    for (let c = 0; c < planesToRead; c++) {
+      const plane = new Uint8Array(pixelCount);
+      let dstPos = 0;
+      for (let y = 0; y < height; y++) {
+        const lenPos = rowLengthsOffset + (c * height + y) * rowCountFieldSize;
+        const rleLen =
+          version === 2 ? view.getUint32(lenPos, false) : view.getUint16(lenPos, false);
+        const rowEnd = Math.min(offset + rleLen, bytes.byteLength);
+        const rowDstEnd = dstPos + width;
+
+        while (offset < rowEnd && dstPos < rowDstEnd) {
+          const header = view.getInt8(offset++);
+          if (header >= 0) {
+            const count = header + 1;
+            const end = Math.min(offset + count, rowEnd);
+            for (let k = offset; k < end && dstPos < rowDstEnd; k++) {
+              plane[dstPos++] = bytes[k];
+            }
+            offset = end;
+          } else if (header !== -128) {
+            const count = 1 - header;
+            const val = offset < rowEnd ? bytes[offset++] : 0;
+            for (let k = 0; k < count && dstPos < rowDstEnd; k++) {
+              plane[dstPos++] = val;
+            }
+          }
+        }
+        offset = rowEnd;
+        dstPos = rowDstEnd;
+      }
+      planes.push(plane);
+    }
+  } else {
+    return null;
+  }
+
+  const rgba = new Uint8Array(pixelCount * 4);
+  if (colorMode === 1) {
+    // Grayscale (+ optional alpha)
+    const g = planes[0];
+    const a = planes[1];
+    for (let i = 0; i < pixelCount; i++) {
+      const idx = i * 4;
+      const v = g[i];
+      rgba[idx] = v;
+      rgba[idx + 1] = v;
+      rgba[idx + 2] = v;
+      rgba[idx + 3] = a ? a[i] : 255;
+    }
+  } else {
+    // RGB (+ optional alpha)
+    const r = planes[0];
+    const g = planes[1] ?? r;
+    const b = planes[2] ?? r;
+    const a = planes[3];
+    for (let i = 0; i < pixelCount; i++) {
+      const idx = i * 4;
+      rgba[idx] = r[i];
+      rgba[idx + 1] = g[i];
+      rgba[idx + 2] = b[i];
+      rgba[idx + 3] = a ? a[i] : 255;
+    }
+  }
+
+  return { width, height, rgba };
 }

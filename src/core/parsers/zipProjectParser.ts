@@ -5,6 +5,7 @@ import {
   computeStreamingSha256,
   countAsciiOccurrences,
   extractEmbeddedPng,
+  extractZipEntryByMatcher,
   hasBytesAt,
   indexOfAscii,
   type BaseProjectParser,
@@ -164,16 +165,34 @@ export class ZipProjectParser implements BaseProjectParser {
     inspection: ProjectInspectionResult,
   ): Promise<ProjectMergeResult> {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const embeddedPng = extractEmbeddedPng(bytes);
-    const width = 64;
-    const height = 64;
+
+    // Extract actual merged composite PNG from ZIP archive (handles both Stored and Deflate)
+    let extractedPng: Uint8Array | null = null;
+    if (inspection.format === 'PROCREATE') {
+      extractedPng =
+        (await extractZipEntryByMatcher(bytes, (name) =>
+          name.toLowerCase().endsWith('quicklook/thumbnail.png'),
+        )) ??
+        (await extractZipEntryByMatcher(bytes, (name) => name.toLowerCase().endsWith('.png')));
+    } else {
+      // KRA / ORA: prefer mergedimage.png
+      extractedPng =
+        (await extractZipEntryByMatcher(bytes, (name) =>
+          name.toLowerCase().endsWith('mergedimage.png'),
+        )) ??
+        (await extractZipEntryByMatcher(bytes, (name) => name.toLowerCase().endsWith('.png')));
+    }
+
+    const fallbackPng = extractedPng ?? extractEmbeddedPng(bytes);
+    const width = inspection.layerMetrics.canvas_width || 64;
+    const height = inspection.layerMetrics.canvas_height || 64;
 
     const mergedPngBytes =
-      embeddedPng ??
+      fallbackPng ??
       encode({
-        width,
-        height,
-        data: new Uint8Array(width * height * 4).fill(255),
+        width: 64,
+        height: 64,
+        data: new Uint8Array(64 * 64 * 4).fill(255),
         depth: 8,
         channels: 4,
       });
