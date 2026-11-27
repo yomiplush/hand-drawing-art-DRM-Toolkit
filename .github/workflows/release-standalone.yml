@@ -180,7 +180,7 @@ jobs:
           path: release
 
       - name: Publish GitHub Release on tag push
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             release/certified-handmade-linux-amd64
