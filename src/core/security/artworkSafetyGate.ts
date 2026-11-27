@@ -4,6 +4,7 @@ import type { CanonicalRaster } from '../image/pngCodec';
 export type ArtworkSafetyCategory =
   | 'csam_illegal'
   | 'illicit_drugs_or_trafficking'
+  | 'criminal_threat_or_solicitation'
   | 'non_art_address_or_drop'
   | 'photorealistic_nsfw'
   | 'non_art_raw_photo'
@@ -88,6 +89,22 @@ const ILLICIT_DRUG_PATTERNS: RegExp[] = [
   /シャブ(?:売|買|取引|受け渡し)/,
   /薬物.{0,10}(?:密輸|運搬|運ぶ|受け渡し|配達|住所|ドロップ)/,
   /(?:裏取引|違法取引|密売).{0,12}(?:住所|場所|受け渡し|連絡)/,
+];
+
+const CRIMINAL_THREAT_PATTERNS: RegExp[] = [
+  /犯行予告/,
+  /殺害予告/,
+  /爆破予告/,
+  /放火予告/,
+  /襲撃予告/,
+  /テロ予告/,
+  /闇バイト/,
+  /(?:受け子|出し子|かけ子|運び屋)(?:募集|求人|案件)/,
+  /口座(?:売買|買取|買い取り|譲渡)/,
+  /(?:特殊詐欺|オレオレ詐欺|振り込め詐欺|フィッシング詐欺)/,
+  /(?:爆弾|爆発物|銃器|毒物|サリン).{0,8}(?:作り方|製造法|レシピ|入手)/,
+  /\b(?:bomb\s*threat|mass\s*shooting|terrorist\s*attack|murder\s*for\s*hire|hitman\s*for\s*hire)\b/i,
+  /\b(?:how\s+to\s+make\s+a\s+bomb|build\s+a\s+ghost\s+gun|credit\s*card\s*dump|stolen\s*cvv|phishing\s*kit|money\s*laundering)\b/i,
 ];
 
 const ADULT_NSFW_PATTERNS: RegExp[] = [
@@ -514,6 +531,20 @@ export function evaluateArtworkSafety(input: ArtworkSafetyInput): ArtworkSafetyR
   const textRejection = checkTextSafety(combinedText);
   if (textRejection) {
     return textRejection;
+  }
+
+  for (const pattern of CRIMINAL_THREAT_PATTERNS) {
+    if (pattern.test(combinedText)) {
+      return {
+        allowed: false,
+        category: 'criminal_threat_or_solicitation',
+        reasonCode: 'CRIMINAL_THREAT_BLOCKED',
+        reasonMessage:
+          'Rejected: Content indicating criminal threats, illegal solicitation, fraud, or violence cannot be certified.',
+        reasonMessageJa:
+          '不適切な内容が検出されました: 犯罪示唆・犯行予告・闇バイト・詐欺・違法行為に関わる内容は証明・登録できません。',
+      };
+    }
   }
 
   for (const pattern of ADULT_NSFW_PATTERNS) {
