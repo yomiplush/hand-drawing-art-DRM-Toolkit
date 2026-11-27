@@ -23,7 +23,7 @@ export interface StandaloneTranslations {
 
 const EN_STANDALONE: StandaloneTranslations = {
   badge: 'Offline First · Zero Installer · Zero Cost',
-  title: 'Standalone Edition (Linux & Windows)',
+  title: 'Standalone Edition (Linux, Windows & macOS)',
   subtitle:
     'Run Certified Handmade on air-gapped or USB-portable PCs without internet access—even on first launch. Powered by a lightweight Go loopback server (127.0.0.1:43777) with zero Node.js, Go, or browser extensions required.',
   downloadCta: 'Download on GitHub Releases',
@@ -32,7 +32,7 @@ const EN_STANDALONE: StandaloneTranslations = {
   originNoteBody:
     'The online web edition (certified-handmade.com) and Standalone Edition (http://127.0.0.1:43777) use separate browser IndexedDB storage. Export an encrypted .chkey.json backup from Identity / Keys and restore it to carry your signing keys offline.',
   checksumLabel:
-    'Always verify downloaded archives against SHA256SUMS.txt (`sha256sum -c SHA256SUMS.txt` on Linux, `CertUtil -hashfile ... SHA256` on Windows).',
+    'Always verify downloaded archives against SHA256SUMS.txt (`sha256sum -c SHA256SUMS.txt` on Linux, `shasum -a 256 -c SHA256SUMS.txt` on macOS, `CertUtil -hashfile ... SHA256` on Windows).',
   modes: [
     {
       name: 'Web Edition',
@@ -47,7 +47,7 @@ const EN_STANDALONE: StandaloneTranslations = {
     {
       name: 'Standalone Binary',
       badge: 'USB / Air-Gapped PC',
-      desc: 'Single portable executable for Linux x86_64 & Windows x86_64. Works offline from launch #1 with zero setup.',
+      desc: 'Single portable executable for Linux x86_64, Windows x86_64 & macOS (Apple Silicon / Intel). Works offline from launch #1 with zero setup.',
     },
   ],
   platforms: [
@@ -61,12 +61,22 @@ const EN_STANDALONE: StandaloneTranslations = {
       artifact: 'certified-handmade-standalone-*-windows-amd64.zip',
       notes: 'No installer or admin rights needed. Double-click to open in your default browser.',
     },
+    {
+      os: 'macOS Apple Silicon (M1 / M2 / M3 / M4)',
+      artifact: 'certified-handmade-standalone-*-darwin-arm64.tar.gz',
+      notes: 'Native arm64 binary verified on macOS CI. Extract and run from Terminal.',
+    },
+    {
+      os: 'macOS Intel (x86_64)',
+      artifact: 'certified-handmade-standalone-*-darwin-amd64.tar.gz',
+      notes: 'Native amd64 binary for Intel Macs. Extract and run from Terminal.',
+    },
   ],
 };
 
 const JA_STANDALONE: StandaloneTranslations = {
   badge: '完全オフライン・インストーラー不要・完全無料',
-  title: 'スタンドアローン版（Linux & Windows）',
+  title: 'スタンドアローン版（Linux / Windows / macOS）',
   subtitle:
     '初回起動時からインターネット接続なしで動作するポータブル版です。Go標準ライブラリによる軽量ローカルサーバー（127.0.0.1:43777）で完結し、Node.js や Go の事前インストールは不要です。',
   downloadCta: 'GitHub Releases からダウンロード',
@@ -75,7 +85,7 @@ const JA_STANDALONE: StandaloneTranslations = {
   originNoteBody:
     'Web版（certified-handmade.com）とスタンドアローン版（http://127.0.0.1:43777）ではブラウザのIndexedDB保存領域が分離されています。「鍵管理」で .chkey.json 暗号化バックアップを書き出して復元することで安全に鍵を移行できます。',
   checksumLabel:
-    'ダウンロード後は必ず SHA256SUMS.txt で整合性を検証してください（Linux: `sha256sum -c SHA256SUMS.txt` / Windows: `CertUtil -hashfile ... SHA256`）。',
+    'ダウンロード後は必ず SHA256SUMS.txt で整合性を検証してください（Linux: `sha256sum -c SHA256SUMS.txt` / macOS: `shasum -a 256 -c SHA256SUMS.txt` / Windows: `CertUtil -hashfile ... SHA256`）。',
   modes: [
     {
       name: 'Web版',
@@ -90,7 +100,7 @@ const JA_STANDALONE: StandaloneTranslations = {
     {
       name: 'スタンドアローン実行ファイル',
       badge: 'USBポータブル / 完全隔離PC',
-      desc: 'Linux x86_64・Windows x86_64 向けの単体バイナリ。ネット未接続のPCでも初回起動から動作します。',
+      desc: 'Linux x86_64・Windows x86_64・macOS (Apple Silicon / Intel) 向けの単体バイナリ。ネット未接続のPCでも初回起動から動作します。',
     },
   ],
   platforms: [
@@ -103,6 +113,16 @@ const JA_STANDALONE: StandaloneTranslations = {
       os: 'Windows x86_64（ポータブル .exe）',
       artifact: 'certified-handmade-standalone-*-windows-amd64.zip',
       notes: 'インストーラーや管理者権限不要。ダブルクリックで既定のブラウザが開きます。',
+    },
+    {
+      os: 'macOS Apple Silicon（M1 / M2 / M3 / M4）',
+      artifact: 'certified-handmade-standalone-*-darwin-arm64.tar.gz',
+      notes: 'macOS CI で動作確認済みの arm64 ネイティブバイナリ。展開してターミナルから起動できます。',
+    },
+    {
+      os: 'macOS Intel（x86_64）',
+      artifact: 'certified-handmade-standalone-*-darwin-amd64.tar.gz',
+      notes: 'Intel Mac 向けの amd64 ネイティブバイナリ。展開してターミナルから起動できます。',
     },
   ],
 };

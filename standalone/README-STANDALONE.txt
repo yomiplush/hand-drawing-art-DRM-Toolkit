@@ -29,6 +29,17 @@ Usage (Windows x86_64)
 2. Your default browser opens http://127.0.0.1:43777/ automatically.
 3. Keep the console window open while signing/verifying; press Ctrl+C or close it when finished.
 
+Usage (macOS Apple Silicon / Intel)
+-----------------------------------
+1. Extract the .tar.gz archive (darwin-arm64 for Apple Silicon, darwin-amd64 for Intel).
+2. Make sure the executable bit is set (and clear Gatekeeper quarantine if downloaded via browser):
+     chmod +x certified-handmade-darwin-arm64
+     xattr -d com.apple.quarantine certified-handmade-darwin-arm64 2>/dev/null || true
+3. Run it:
+     ./certified-handmade-darwin-arm64
+4. Your default browser opens http://127.0.0.1:43777/ automatically.
+5. Keep the Terminal window open while signing/verifying; press Ctrl+C when finished.
+
 Key Storage & Migration Warning
 -------------------------------
 Browser IndexedDB storage is scoped strictly by origin. Keys created on:

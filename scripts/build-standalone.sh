@@ -68,6 +68,8 @@ echo "[3/5] Running Go tests against staged webdist..."
 mkdir -p "${RELEASE_DIR}"
 LINUX_BIN="certified-handmade-linux-amd64"
 WIN_BIN="certified-handmade-windows-amd64.exe"
+DARWIN_ARM64_BIN="certified-handmade-darwin-arm64"
+DARWIN_AMD64_BIN="certified-handmade-darwin-amd64"
 
 echo "[4/5] Compiling portable standalone binaries (${APP_VERSION})..."
 (
@@ -83,15 +85,29 @@ echo "[4/5] Compiling portable standalone binaries (${APP_VERSION})..."
     -ldflags="-s -w -X main.appVersion=${APP_VERSION}" \
     -o "${RELEASE_DIR}/${WIN_BIN}" \
     .
+
+  CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 "${GO_BIN}" build \
+    -trimpath \
+    -ldflags="-s -w -X main.appVersion=${APP_VERSION}" \
+    -o "${RELEASE_DIR}/${DARWIN_ARM64_BIN}" \
+    .
+
+  CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 "${GO_BIN}" build \
+    -trimpath \
+    -ldflags="-s -w -X main.appVersion=${APP_VERSION}" \
+    -o "${RELEASE_DIR}/${DARWIN_AMD64_BIN}" \
+    .
 )
 
-chmod +x "${RELEASE_DIR}/${LINUX_BIN}"
+chmod +x "${RELEASE_DIR}/${LINUX_BIN}" "${RELEASE_DIR}/${DARWIN_ARM64_BIN}" "${RELEASE_DIR}/${DARWIN_AMD64_BIN}"
 
 echo "[5/5] Creating reproducible release archives and SHA256SUMS.txt..."
 LINUX_STAGE="${RELEASE_DIR}/stage-linux"
 WIN_STAGE="${RELEASE_DIR}/stage-windows"
-rm -rf "${LINUX_STAGE}" "${WIN_STAGE}"
-mkdir -p "${LINUX_STAGE}" "${WIN_STAGE}"
+DARWIN_ARM64_STAGE="${RELEASE_DIR}/stage-darwin-arm64"
+DARWIN_AMD64_STAGE="${RELEASE_DIR}/stage-darwin-amd64"
+rm -rf "${LINUX_STAGE}" "${WIN_STAGE}" "${DARWIN_ARM64_STAGE}" "${DARWIN_AMD64_STAGE}"
+mkdir -p "${LINUX_STAGE}" "${WIN_STAGE}" "${DARWIN_ARM64_STAGE}" "${DARWIN_AMD64_STAGE}"
 
 cp "${RELEASE_DIR}/${LINUX_BIN}" "${LINUX_STAGE}/"
 cp "${STANDALONE_DIR}/README-STANDALONE.txt" "${LINUX_STAGE}/"
@@ -104,8 +120,20 @@ cp "${STANDALONE_DIR}/README-STANDALONE.txt" "${WIN_STAGE}/"
 cp "${ROOT_DIR}/LICENSE" "${WIN_STAGE}/"
 cp "${ROOT_DIR}/SPEC.md" "${WIN_STAGE}/"
 
+cp "${RELEASE_DIR}/${DARWIN_ARM64_BIN}" "${DARWIN_ARM64_STAGE}/"
+cp "${STANDALONE_DIR}/README-STANDALONE.txt" "${DARWIN_ARM64_STAGE}/"
+cp "${ROOT_DIR}/LICENSE" "${DARWIN_ARM64_STAGE}/"
+cp "${ROOT_DIR}/SPEC.md" "${DARWIN_ARM64_STAGE}/"
+
+cp "${RELEASE_DIR}/${DARWIN_AMD64_BIN}" "${DARWIN_AMD64_STAGE}/"
+cp "${STANDALONE_DIR}/README-STANDALONE.txt" "${DARWIN_AMD64_STAGE}/"
+cp "${ROOT_DIR}/LICENSE" "${DARWIN_AMD64_STAGE}/"
+cp "${ROOT_DIR}/SPEC.md" "${DARWIN_AMD64_STAGE}/"
+
 LINUX_TAR="certified-handmade-standalone-${APP_VERSION}-linux-amd64.tar.gz"
 WIN_ZIP="certified-handmade-standalone-${APP_VERSION}-windows-amd64.zip"
+DARWIN_ARM64_TAR="certified-handmade-standalone-${APP_VERSION}-darwin-arm64.tar.gz"
+DARWIN_AMD64_TAR="certified-handmade-standalone-${APP_VERSION}-darwin-amd64.tar.gz"
 
 tar \
   --sort=name \
@@ -115,6 +143,26 @@ tar \
   --numeric-owner \
   -C "${LINUX_STAGE}" \
   -czf "${RELEASE_DIR}/${LINUX_TAR}" \
+  .
+
+tar \
+  --sort=name \
+  --mtime="@${SOURCE_DATE_EPOCH}" \
+  --owner=0 \
+  --group=0 \
+  --numeric-owner \
+  -C "${DARWIN_ARM64_STAGE}" \
+  -czf "${RELEASE_DIR}/${DARWIN_ARM64_TAR}" \
+  .
+
+tar \
+  --sort=name \
+  --mtime="@${SOURCE_DATE_EPOCH}" \
+  --owner=0 \
+  --group=0 \
+  --numeric-owner \
+  -C "${DARWIN_AMD64_STAGE}" \
+  -czf "${RELEASE_DIR}/${DARWIN_AMD64_TAR}" \
   .
 
 python3 - "${WIN_STAGE}" "${RELEASE_DIR}/${WIN_ZIP}" "${SOURCE_DATE_EPOCH}" <<'PY'
@@ -144,11 +192,20 @@ with zipfile.ZipFile(out_zip, 'w', compression=zipfile.ZIP_DEFLATED, compresslev
             zf.writestr(zi, f.read())
 PY
 
-rm -rf "${LINUX_STAGE}" "${WIN_STAGE}"
+rm -rf "${LINUX_STAGE}" "${WIN_STAGE}" "${DARWIN_ARM64_STAGE}" "${DARWIN_AMD64_STAGE}"
 
 (
   cd "${RELEASE_DIR}"
-  sha256sum "${LINUX_BIN}" "${WIN_BIN}" "${LINUX_TAR}" "${WIN_ZIP}" > SHA256SUMS.txt
+  sha256sum \
+    "${LINUX_BIN}" \
+    "${WIN_BIN}" \
+    "${DARWIN_ARM64_BIN}" \
+    "${DARWIN_AMD64_BIN}" \
+    "${LINUX_TAR}" \
+    "${WIN_ZIP}" \
+    "${DARWIN_ARM64_TAR}" \
+    "${DARWIN_AMD64_TAR}" \
+    > SHA256SUMS.txt
 )
 
 echo "Standalone build complete in ${RELEASE_DIR}:"

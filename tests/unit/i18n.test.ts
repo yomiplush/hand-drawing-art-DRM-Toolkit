@@ -158,7 +158,7 @@ describe('13-language license guide & simple how-to translations', () => {
       expect(st.title.trim().length).toBeGreaterThan(5);
       expect(st.subtitle.trim().length).toBeGreaterThan(20);
       expect(st.modes).toHaveLength(3);
-      expect(st.platforms).toHaveLength(2);
+      expect(st.platforms).toHaveLength(4);
       if (locale !== 'en') {
         expect(st.title).not.toBe(STANDALONE_I18N.en.title);
       }

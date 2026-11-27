@@ -55,7 +55,7 @@ export function OfflinePage() {
           <span>{isJa ? '起動方法とチェックサム検証' : 'Quick Start & Checksum Verification'}</span>
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="ga-surface-subtle rounded-xl p-4 space-y-2">
             <h3 className="text-sm font-medium ga-text">Linux (x86_64)</h3>
             <pre className="overflow-x-auto rounded-lg bg-black/25 p-3 font-mono text-[11px] leading-relaxed ga-text">
@@ -80,6 +80,20 @@ certified-handmade-windows-amd64.exe`}
               {isJa
                 ? 'コンソールウィンドウを開いたまま利用し、終了時は Ctrl+C またはウィンドウを閉じてください。'
                 : 'Keep the console window open while using the app; press Ctrl+C or close it when finished.'}
+            </p>
+          </div>
+
+          <div className="ga-surface-subtle rounded-xl p-4 space-y-2">
+            <h3 className="text-sm font-medium ga-text">macOS (Apple Silicon / Intel)</h3>
+            <pre className="overflow-x-auto rounded-lg bg-black/25 p-3 font-mono text-[11px] leading-relaxed ga-text">
+{`tar -xzf certified-handmade-standalone-*-darwin-arm64.tar.gz
+xattr -d com.apple.quarantine certified-handmade-darwin-arm64
+./certified-handmade-darwin-arm64`}
+            </pre>
+            <p className="text-xs ga-text-secondary leading-relaxed">
+              {isJa
+                ? 'Intel Mac の場合は darwin-amd64 を使用してください。起動すると既定のブラウザが開きます。'
+                : 'Use darwin-amd64 on Intel Macs. Automatically opens http://127.0.0.1:43777/ in your default browser.'}
             </p>
           </div>
         </div>
