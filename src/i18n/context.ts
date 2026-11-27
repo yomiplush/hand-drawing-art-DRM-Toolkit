@@ -17,6 +17,7 @@ import type { QrStudioTranslations } from './qrStudio';
 import type { SeoTranslations } from './seo';
 import type { SimpleTranslations } from './simple';
 import type { TutorialTranslations } from './tutorial';
+import type { UxGuidanceTranslations } from './uxGuidance';
 import type { VaultTranslations } from './vault';
 import type { VerifyMobileTranslations } from './verifyMobile';
 
@@ -41,6 +42,7 @@ export type FullTranslations = Translations & {
   simple: SimpleTranslations;
   discordUx: DiscordAndUxTranslations;
   galleryDeck: GalleryDeckTranslations;
+  uxGuidance: UxGuidanceTranslations;
 };
 
 export interface LocaleOption {

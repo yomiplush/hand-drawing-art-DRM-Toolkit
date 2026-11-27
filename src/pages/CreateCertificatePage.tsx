@@ -1362,6 +1362,18 @@ export function CreateCertificatePage() {
         ]}
       />
 
+      <div
+        role="note"
+        data-testid="create-sns-recompression-note"
+        className="ga-status-info rounded-2xl border px-3.5 py-2.5 text-xs leading-relaxed flex items-start gap-2.5 min-w-0"
+      >
+        <Info className="h-4 w-4 shrink-0 mt-0.5 text-[var(--ga-accent)]" aria-hidden="true" />
+        <div className="min-w-0 space-y-0.5">
+          <p className="font-medium ga-text">{t.uxGuidance.snsRecompression.createTitle}</p>
+          <p className="ga-text-secondary break-words">{t.uxGuidance.snsRecompression.createBody}</p>
+        </div>
+      </div>
+
       <form onSubmit={handleSignAndBurn} className="space-y-6">
         {/* Step 1 — Choose Artwork */}
         <section className="ga-card rounded-2xl p-4 sm:p-5 space-y-4 min-w-0">

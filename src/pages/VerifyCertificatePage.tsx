@@ -2819,6 +2819,18 @@ export function VerifyCertificatePage() {
         ]}
       />
 
+      <div
+        role="note"
+        data-testid="verify-sns-recompression-note"
+        className="ga-status-info rounded-2xl border px-3.5 py-2.5 text-xs leading-relaxed flex items-start gap-2.5 min-w-0"
+      >
+        <Info className="h-4 w-4 shrink-0 mt-0.5 text-[var(--ga-accent)]" aria-hidden="true" />
+        <div className="min-w-0 space-y-0.5">
+          <p className="font-medium ga-text">{t.uxGuidance.snsRecompression.verifyTitle}</p>
+          <p className="ga-text-secondary break-words">{t.uxGuidance.snsRecompression.verifyBody}</p>
+        </div>
+      </div>
+
       {canAttachLocalEvidenceFiles && (
         <input
           id={localFilesInputId}

@@ -34,6 +34,97 @@ export interface QrMaskCoverageStats {
   tier: QrMaskCoverageTier;
 }
 
+export interface QrReadabilityAssessment {
+  pxPerModule: number;
+  tooSmall: boolean;
+  contrastRatio: number;
+  lowContrast: boolean;
+}
+
+export const MIN_RECOMMENDED_PX_PER_MODULE = 2;
+export const MIN_RECOMMENDED_CONTRAST_RATIO = 3.0;
+
+function srgbChannelToLinear(c8: number): number {
+  const s = c8 / 255;
+  return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+}
+
+function relativeLuminance(r: number, g: number, b: number): number {
+  return (
+    0.2126 * srgbChannelToLinear(r) +
+    0.7152 * srgbChannelToLinear(g) +
+    0.0722 * srgbChannelToLinear(b)
+  );
+}
+
+/**
+ * Evaluates in-image QR readability heuristics:
+ * 1. Module pixel size (warns when < 2 px/module).
+ * 2. Average relative luminance contrast between dark modules and light modules/background
+ *    inside the rendered QR box (warns when WCAG contrast ratio < 3.0:1).
+ */
+export function evaluateInImageQrReadability(params: {
+  blendedBox: CanonicalRaster;
+  qr: QrMatrix;
+  quietZoneModules?: number;
+}): QrReadabilityAssessment {
+  const { blendedBox, qr, quietZoneModules = DEFAULT_QUIET_ZONE_MODULES } = params;
+  const boxSize = Math.min(blendedBox.width, blendedBox.height);
+  const totalModules = Math.max(21, qr.size) + Math.max(0, quietZoneModules) * 2;
+  const pxPerModule = Math.round((boxSize / totalModules) * 100) / 100;
+  const tooSmall = pxPerModule < MIN_RECOMMENDED_PX_PER_MODULE;
+
+  const integerModulePx = Math.floor(boxSize / totalModules);
+  const useIntegerGrid = integerModulePx >= 2;
+  const usedSize = useIntegerGrid ? totalModules * integerModulePx : boxSize;
+  const originX = Math.floor((blendedBox.width - usedSize) / 2);
+  const originY = Math.floor((blendedBox.height - usedSize) / 2);
+
+  let darkLumSum = 0;
+  let darkCount = 0;
+  let lightLumSum = 0;
+  let lightCount = 0;
+
+  const stride = blendedBox.width * 4;
+  for (let my = 0; my < qr.size; my++) {
+    const py = originY + Math.floor(((my + quietZoneModules + 0.5) * usedSize) / totalModules);
+    if (py < 0 || py >= blendedBox.height) continue;
+    for (let mx = 0; mx < qr.size; mx++) {
+      const px = originX + Math.floor(((mx + quietZoneModules + 0.5) * usedSize) / totalModules);
+      if (px < 0 || px >= blendedBox.width) continue;
+      const idx = py * stride + px * 4;
+      const lum = relativeLuminance(
+        blendedBox.data[idx],
+        blendedBox.data[idx + 1],
+        blendedBox.data[idx + 2],
+      );
+      if (qr.data[my * qr.size + mx] === 1) {
+        darkLumSum += lum;
+        darkCount++;
+      } else {
+        lightLumSum += lum;
+        lightCount++;
+      }
+    }
+  }
+
+  let contrastRatio = 1;
+  if (darkCount > 0 && lightCount > 0) {
+    const darkMean = darkLumSum / darkCount;
+    const lightMean = lightLumSum / lightCount;
+    const lighter = Math.max(darkMean, lightMean);
+    const darker = Math.min(darkMean, lightMean);
+    contrastRatio = Math.round(((lighter + 0.05) / (darker + 0.05)) * 10) / 10;
+  }
+
+  return {
+    pxPerModule,
+    tooSmall,
+    contrastRatio,
+    lowContrast: contrastRatio < MIN_RECOMMENDED_CONTRAST_RATIO,
+  };
+}
+
 const DEFAULT_QUIET_ZONE_MODULES = 2;
 export const MIN_IN_IMAGE_QR_BOX_PX = 96;
 

@@ -2,10 +2,15 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Eye, Move, Sparkles } from 'lucide-react';
 import {
   computeMaskCoverageStats,
+  evaluateInImageQrReadability,
   overlayQrIntoArtwork,
   recommendInImageBoxSize,
 } from '../core/image/inImageQr';
-import type { ClampedInImageQrOptions, InImageQrStyle } from '../core/image/inImageQr';
+import type {
+  ClampedInImageQrOptions,
+  InImageQrStyle,
+  QrReadabilityAssessment,
+} from '../core/image/inImageQr';
 import type { CanonicalRaster } from '../core/image/pngCodec';
 import { decodeQrFromCanonicalRaster } from '../core/qr/qrDecoder';
 import { generateQrMatrix } from '../core/qr/qrGenerator';
@@ -54,6 +59,7 @@ export function InImageQrStudioPanel({
 }: InImageQrStudioPanelProps) {
   const { t } = useI18n();
   const [isScannable, setIsScannable] = useState<boolean>(true);
+  const [readability, setReadability] = useState<QrReadabilityAssessment | null>(null);
   const [highlightMask, setHighlightMask] = useState<boolean>(false);
   const [optimizedHintVisible, setOptimizedHintVisible] = useState<boolean>(false);
 
@@ -213,6 +219,13 @@ export function InImageQrStudioPanel({
     const timer = window.setTimeout(() => {
       const decoded = decodeQrFromCanonicalRaster(blendedBox);
       setIsScannable(decoded !== null && decoded.rawText === samplePreviewText);
+      setReadability(
+        evaluateInImageQrReadability({
+          blendedBox,
+          qr: previewQrMatrix,
+          quietZoneModules: clampedOptions.quietZoneModules,
+        }),
+      );
     }, 90);
 
     return () => window.clearTimeout(timer);
@@ -378,6 +391,33 @@ export function InImageQrStudioPanel({
               ? t.hardening.qrMaskSafety.warnHigh
               : t.hardening.qrMaskSafety.warnCaution}
           </span>
+        </div>
+      )}
+
+      {readability && (readability.tooSmall || readability.lowContrast) && (
+        <div
+          role="note"
+          data-testid="qrstudio-readability-quality-warning"
+          className="ga-status-warning rounded-xl border px-3 py-2 text-xs leading-relaxed space-y-1"
+        >
+          {readability.tooSmall && (
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+              <span>
+                {t.uxGuidance.qrReadability.tooSmallWarning} (
+                {t.uxGuidance.qrReadability.moduleSizeLabel}: {readability.pxPerModule}px)
+              </span>
+            </div>
+          )}
+          {readability.lowContrast && (
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+              <span>
+                {t.uxGuidance.qrReadability.lowContrastWarning} (
+                {t.uxGuidance.qrReadability.contrastRatioLabel}: {readability.contrastRatio}:1)
+              </span>
+            </div>
+          )}
         </div>
       )}
 

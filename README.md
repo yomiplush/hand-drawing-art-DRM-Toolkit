@@ -8,6 +8,8 @@ Certified Handmade is a **¥0 / $0 forever**, open-source, local-first, offline-
 - **Repository:** https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit
 - **License:** MIT (see [`LICENSE`](./LICENSE))
 
+> **Note on the repository name (`DRM-Toolkit`):** Despite `"DRM"` appearing in the repository URL, Certified Handmade is **not** a copy-protection, viewing-restriction, or encryption-based DRM system. It is an **open cryptographic signing, provenance verification, and machine-readable rights-declaration toolkit**—it never locks files, restricts viewing, or enforces technical copy blocks.
+
 ---
 
 ## Core Principles
@@ -44,7 +46,8 @@ All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding
 1. **Decentralized Ed25519 Key Management, Trust & Challenges (`/keys`, `/exchange`)**
    - Generates Ed25519 keypairs inside the browser (non-extractable Web Crypto `CryptoKey` in IndexedDB where supported, with audited `@noble/ed25519` fallback).
    - Passphrase-encrypted private key backups (`.chkey.json` using 600,000-iteration PBKDF2-SHA256 + AES-256-GCM) with live passphrase strength feedback (`8+` required, `12+` recommended), non-mutating backup verification ("Verify Backup Only"), and restore flow.
-   - Displays copyable full 64-hex SHA-256 key fingerprints and scannable fingerprint QR codes, integrates with `@yomiplush/chm-exchange`, and requires explicit out-of-band fingerprint confirmation before promoting a received key to **Trusted** (`unconfirmed` vs `confirmed`).
+   - **How `non-extractable` `CryptoKey` and `.chkey.json` backups coexist:** During key generation (or restore), a transient 32-byte Ed25519 seed is simultaneously imported into Web Crypto as a `non-extractable` `CryptoKey` (stored in IndexedDB) and encrypted with the user's passphrase into the `.chkey.json` backup payload; the raw seed is then immediately zeroized in memory (`wipeSeed()`). Once created, the Web Crypto `CryptoKey` is never exported—ordinary signing uses the non-extractable handle while portable recovery relies strictly on the passphrase-encrypted `.chkey.json`.
+   - **Local-First Public Key Exchange (`@yomiplush/chm-exchange`, `/exchange`):** Integrated serverless key-exchange UI for sharing, receiving, inspecting, and managing artist public keys and 64-hex SHA-256 fingerprints via QR codes, URL fragments, or portable JSON—running **100% locally with zero central directory or server**. Received keys remain `unconfirmed` until explicit out-of-band fingerprint confirmation promotes them to **Trusted** (`unconfirmed` vs `confirmed`).
    - Supports offline **Key Revocation & Rotation Notices** (`CHM-NOTICE1\0`, `.chnotice.json` / `chm-notice:`) and **Offline Key-Possession Challenge-Response** (`CHM-CHALLENGE1\0`).
 
 2. **Certificate Creation, Mandatory Working-File Verification, Protocol v3 Self-Contained Compact QR & QR Studio (`/create`)**
@@ -114,7 +117,7 @@ go run . --notice /path/to/notice.chnotice.json
 
 ### Prerequisites
 
-- **Web / Tests:** Node.js 20+ (tested on Node 24/26), npm 10+
+- **Web / Tests:** Node.js 22+ (pinned via [`.node-version`](./.node-version); `package.json` `engines.node` requires `>=20.19.0`), npm 10+
 - **Standalone Launcher & Go CLI:** Go 1.22+ (zero third-party Go modules — standard library only)
 
 ### Environment Variables (`.env.example`)

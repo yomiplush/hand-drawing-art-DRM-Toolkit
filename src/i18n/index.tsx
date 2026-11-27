@@ -22,6 +22,7 @@ import { QR_STUDIO_I18N } from './qrStudio';
 import { SEO_I18N } from './seo';
 import { SIMPLE_I18N } from './simple';
 import { TUTORIAL_I18N } from './tutorial';
+import { UX_GUIDANCE_I18N } from './uxGuidance';
 import { VAULT_I18N } from './vault';
 import { VERIFY_MOBILE_I18N } from './verifyMobile';
 
@@ -104,6 +105,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     simple: SIMPLE_I18N[locale] ?? SIMPLE_I18N.en,
     discordUx: DISCORD_UX_I18N[locale] ?? DISCORD_UX_I18N.en,
     galleryDeck: GALLERY_DECK_I18N[locale] ?? GALLERY_DECK_I18N.en,
+    uxGuidance: UX_GUIDANCE_I18N[locale] ?? UX_GUIDANCE_I18N.en,
   };
 
   return (
