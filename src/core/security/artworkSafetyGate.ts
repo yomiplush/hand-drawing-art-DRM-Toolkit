@@ -5,6 +5,7 @@ export type ArtworkSafetyCategory =
   | 'csam_illegal'
   | 'illicit_drugs_or_trafficking'
   | 'criminal_threat_or_solicitation'
+  | 'self_harm_or_suicide'
   | 'non_art_address_or_drop'
   | 'photorealistic_nsfw'
   | 'non_art_raw_photo'
@@ -89,6 +90,20 @@ const ILLICIT_DRUG_PATTERNS: RegExp[] = [
   /シャブ(?:売|買|取引|受け渡し)/,
   /薬物.{0,10}(?:密輸|運搬|運ぶ|受け渡し|配達|住所|ドロップ)/,
   /(?:裏取引|違法取引|密売).{0,12}(?:住所|場所|受け渡し|連絡)/,
+];
+
+const SELF_HARM_SUICIDE_PATTERNS: RegExp[] = [
+  /自殺/,
+  /自傷/,
+  /自害/,
+  /リストカット/,
+  /リスカ/,
+  /首吊り|首つり/,
+  /飛び降り|飛び込み/,
+  /練炭/,
+  /オーバードーズ/,
+  /(?:死にたい|消えたい).{0,10}(?:方法|やり方|一緒|募集)/,
+  /\b(?:suicide|self[- ]?harm|kill\s*myself|kms|kys|wrist\s*cutting|hanging\s*myself|overdose\s*method)\b/i,
 ];
 
 const CRIMINAL_THREAT_PATTERNS: RegExp[] = [
@@ -531,6 +546,20 @@ export function evaluateArtworkSafety(input: ArtworkSafetyInput): ArtworkSafetyR
   const textRejection = checkTextSafety(combinedText);
   if (textRejection) {
     return textRejection;
+  }
+
+  for (const pattern of SELF_HARM_SUICIDE_PATTERNS) {
+    if (pattern.test(combinedText)) {
+      return {
+        allowed: false,
+        category: 'self_harm_or_suicide',
+        reasonCode: 'SELF_HARM_SUICIDE_BLOCKED',
+        reasonMessage:
+          'Inappropriate content detected: Content depicting, encouraging, or suggesting suicide or self-harm is strictly prohibited.',
+        reasonMessageJa:
+          '不適切な画像・内容が検出されました: 自殺・自傷行為を示唆・描写・助長するコンテンツ（特に実写画像）は登録できません。',
+      };
+    }
   }
 
   for (const pattern of CRIMINAL_THREAT_PATTERNS) {
