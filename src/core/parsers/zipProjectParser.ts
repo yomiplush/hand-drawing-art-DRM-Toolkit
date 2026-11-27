@@ -167,7 +167,7 @@ export class ZipProjectParser implements BaseProjectParser {
     const bytes = new Uint8Array(await file.arrayBuffer());
 
     // Extract actual merged composite PNG from ZIP archive (handles both Stored and Deflate)
-    let extractedPng: Uint8Array | null = null;
+    let extractedPng: Uint8Array | null;
     if (inspection.format === 'PROCREATE') {
       extractedPng =
         (await extractZipEntryByMatcher(bytes, (name) =>

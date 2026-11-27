@@ -7,27 +7,80 @@ import {
   verifySourceProjectFile,
 } from '../../src/core/security/sourceProjectVerifier';
 
-function buildMinimalValidPsd(layerCount = 3, width = 800, height = 600): Uint8Array {
-  // 26 header + 4 colorModeLen(0) + 4 imageResLen(0) + 4 layerMaskLen(10) + 4 layerInfoLen(6) + 2 layerCount + 4 padding
-  const buf = new ArrayBuffer(64);
-  const bytes = new Uint8Array(buf);
-  const view = new DataView(buf);
-  // '8BPS'
-  bytes[0] = 0x38;
-  bytes[1] = 0x42;
-  bytes[2] = 0x50;
-  bytes[3] = 0x53;
-  view.setUint16(4, 1, false); // PSD version 1
-  view.setUint16(12, 4, false); // RGBA channels
+function buildMinimalValidPsd(
+  layerCount = 3,
+  width = 800,
+  height = 600,
+  emptyLayerIndices: number[] = [],
+): Uint8Array {
+  const layerRecs: Uint8Array[] = [];
+  const layerChans: Uint8Array[] = [];
+  for (let i = 0; i < layerCount; i++) {
+    const isEmpty = emptyLayerIndices.includes(i);
+    const lw = isEmpty ? 0 : 2;
+    const lh = isEmpty ? 0 : 2;
+    const chDataLen = 2 + lw * lh;
+    const rec = new Uint8Array(18 + 4 * 6 + 16 + 12);
+    const rv = new DataView(rec.buffer);
+    rv.setInt32(0, 0, false);
+    rv.setInt32(4, 0, false);
+    rv.setInt32(8, lh, false);
+    rv.setInt32(12, lw, false);
+    rv.setUint16(16, 4, false);
+    let p = 18;
+    for (const cid of [0, 1, 2, -1]) {
+      rv.setInt16(p, cid, false);
+      rv.setUint32(p + 2, chDataLen, false);
+      p += 6;
+    }
+    rec.set([0x38, 0x42, 0x49, 0x4d], p); // '8BIM'
+    rec.set([0x6e, 0x6f, 0x72, 0x6d], p + 4); // 'norm'
+    rec[p + 8] = 255; // opacity
+    rec[p + 9] = 0; // clipping
+    rec[p + 10] = 0; // flags
+    rec[p + 11] = 0; // filler
+    rv.setUint32(p + 12, 12, false); // extraDataLen
+    rv.setUint32(p + 16, 0, false); // mask
+    rv.setUint32(p + 20, 0, false); // blend ranges
+    rec[p + 24] = 2;
+    rec[p + 25] = 0x4c; // 'L'
+    rec[p + 26] = 0x31 + i;
+    layerRecs.push(rec);
+
+    for (let c = 0; c < 4; c++) {
+      const ch = new Uint8Array(chDataLen);
+      if (lw * lh > 0) ch.fill(255, 2);
+      layerChans.push(ch);
+    }
+  }
+  const recsLen = layerRecs.reduce((s, r) => s + r.byteLength, 0);
+  const chansLen = layerChans.reduce((s, c) => s + c.byteLength, 0);
+  const layerInfoLen = 2 + recsLen + chansLen;
+  const layerMaskLen = 4 + layerInfoLen;
+
+  const bytes = new Uint8Array(26 + 4 + 4 + 4 + layerMaskLen);
+  const view = new DataView(bytes.buffer);
+  bytes.set([0x38, 0x42, 0x50, 0x53], 0); // '8BPS'
+  view.setUint16(4, 1, false);
+  view.setUint16(12, 4, false);
   view.setUint32(14, height, false);
   view.setUint32(18, width, false);
-  view.setUint16(22, 8, false); // 8-bit depth
-  view.setUint16(24, 3, false); // RGB color mode
-  view.setUint32(26, 0, false); // Color Mode Data length = 0
-  view.setUint32(30, 0, false); // Image Resources length = 0
-  view.setUint32(34, 16, false); // Layer & Mask Info length = 16
-  view.setUint32(38, 12, false); // Layer Info length = 12
-  view.setInt16(42, layerCount, false); // Layer count
+  view.setUint16(22, 8, false);
+  view.setUint16(24, 3, false);
+  view.setUint32(26, 0, false);
+  view.setUint32(30, 0, false);
+  view.setUint32(34, layerMaskLen, false);
+  view.setUint32(38, layerInfoLen, false);
+  view.setInt16(42, layerCount, false);
+  let off = 44;
+  for (const r of layerRecs) {
+    bytes.set(r, off);
+    off += r.byteLength;
+  }
+  for (const c of layerChans) {
+    bytes.set(c, off);
+    off += c.byteLength;
+  }
   return bytes;
 }
 
@@ -59,6 +112,9 @@ describe('sourceProjectVerifier', () => {
     expect(result.width).toBe(1920);
     expect(result.height).toBe(1080);
     expect(result.sourceCommitmentHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(result.sourceFileSha256).toBeInstanceOf(Uint8Array);
+    expect(result.sourceFileSha256.byteLength).toBe(32);
+    expect(result.sanitizedBasename).toBe('character_final.psd');
     // Ensure no raw binary fields exist on the returned object (safe for Google Drive / IndexedDB metadata)
     expect(Object.keys(result)).not.toContain('bytes');
     expect(Object.keys(result)).not.toContain('rawBytes');
@@ -100,11 +156,16 @@ describe('sourceProjectVerifier', () => {
     expect(formatSourceProjectError(caught, 'en')).toContain('renamed');
   });
 
-  it('rejects a single-layer PSD file', async () => {
+  it('rejects a single-layer PSD file and a 2-layer PSD with an empty second layer', async () => {
     const singleLayerPsd = buildMinimalValidPsd(1, 512, 512);
     await expect(
       verifySourceProjectFile(makeFakeFile('flat_single.psd', singleLayerPsd)),
-    ).rejects.toThrow(/At least 2 layers/);
+    ).rejects.toThrow(/At least 2 active layers/);
+
+    const emptySecondLayerPsd = buildMinimalValidPsd(2, 512, 512, [1]);
+    await expect(
+      verifySourceProjectFile(makeFakeFile('empty_second.psd', emptySecondLayerPsd)),
+    ).rejects.toThrow(/non-transparent pixel data/);
   });
 
   it('verifies valid Procreate and Krita ZIP-based project archives', async () => {

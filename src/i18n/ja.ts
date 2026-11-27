@@ -169,7 +169,7 @@ export const ja: Translations = {
     subtitle:
       '画像のRGBA8正規化、SHA-256計算、Ed25519電子署名、PNGエンコードはすべてブラウザ内でローカル実行されます。',
     step1: '1. 作品画像を選択',
-    step1Hint: 'PNG推奨（無劣化）。JPEG・WebP入力も正規化RGBA8に変換し、出力は非可逆圧縮を避けたPNGに統一されます。',
+    step1Hint: '複数レイヤーを含む作業ファイル（.psd / .psb / .clip / .procreate / .kra等）が必要です。ブラウザ内で100%ローカル統合され、サーバーへ一切送信されません。',
     dropzoneText: 'タップして画像ファイルを選択、またはドラッグ＆ドロップ',
     dropzoneSub: '最大 50 MB・最大 8192×8192 px（32 MP）',
     imageInfo: '正規化済みキャンバス',

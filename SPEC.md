@@ -33,8 +33,10 @@ To eliminate browser `<canvas>` premultiplied-alpha corruption and color-profile
    - `RGB` (`colorType=2`) expands to `[R, G, B, alpha]` (`0` if matching `tRNS`, else `255`).
    - `Grayscale` (`colorType=0`) and `Grayscale+Alpha` (`colorType=4`) expand `[G, G, G, A]`.
    - `Indexed` (`colorType=3`) expands via `PLTE` and `tRNS` (`255` when `index >= tRNS.length`).
-3. **Non-PNG Inputs (JPEG, WebP):**
-   - Decoded once on import with EXIF orientation applied (`imageOrientation: 'from-image'`, `premultiplyAlpha: 'none'`, `colorSpaceConversion: 'none'`), converted to RGBA8, and exported exclusively as lossless RGBA8 PNG so all downstream verification uses deterministic PNG decoding.
+3. **Native Working Project File Inputs (`.psd`, `.psb`, `.clip`, `.procreate`, `.kra`, etc.):**
+   - Primary signing in `/create` requires a multi-layer native working project file rather than a standalone flat PNG/JPEG/WebP image, preventing one-click AI-generated rasters and camera photos from spoofing hand-drawn provenance.
+   - Pre-flight header checks enforce file size (`<= 512 MiB`), canvas dimensions (`<= 16384 px`, `<= 64 MP`), and layer count (`<= 2048`) **before** full buffer allocation. For `.psd`/`.psb`, the parser verifies actual layer records and requires at least `2` active layers containing non-transparent pixel data (rejecting single-layer PSDs and empty-transparent-layer bypasses).
+   - Composite image data (8-bit, 16-bit, or 32-bit RGB, Grayscale, or CMYK; Raw or PackBits RLE) is decoded and normalized 100% locally in the browser into Canonical Artwork Raster (`CAR-v1` straight `RGBA8`) and exported exclusively as a lossless RGBA8 PNG with the embedded QR code. The raw working file is never uploaded to any server, and its SHA-256 hash is bound into Protocol `v3` `evidenceHashes` (CBOR key `16`).
 4. **Artwork Digest:**
    - **Protocol `v1` (or `v3` without `qrMask`):** `artworkSha256 = SHA-256(rgba8Bytes)` where `rgba8Bytes` is the cropped `region = [artX, artY, artW, artH]` (`artW * artH * 4` bytes).
    - **Protocol `v2` (or `v3` with `qrMask`):** Extract the cropped `region = [artX, artY, artW, artH]` RGBA8 bytes, overwrite every byte inside `qrMask = [mx, my, mw, mh]` (coordinates relative to `region`) with `0x00`, and compute `artworkSha256 = SHA-256(maskedRgba8Bytes)` (see Section 3.2).

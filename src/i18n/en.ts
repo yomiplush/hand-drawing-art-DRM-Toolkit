@@ -167,7 +167,7 @@ export const en = {
     subtitle:
       'All raster normalization, SHA-256 hashing, Ed25519 signing, and PNG encoding execute locally in your browser.',
     step1: '1. Select Artwork',
-    step1Hint: 'PNG recommended (lossless). JPEG and WebP are normalized to canonical RGBA8 and output as lossless PNG.',
+    step1Hint: 'Multi-layer working file required (.psd, .psb, .clip, .procreate, .kra). Merged 100% locally into lossless PNG—never uploaded to any server.',
     dropzoneText: 'Tap to choose an image file or drag & drop here',
     dropzoneSub: 'Max 50 MB · Up to 8192×8192 px (32 MP)',
     imageInfo: 'Normalized Canvas',

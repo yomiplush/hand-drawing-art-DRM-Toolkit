@@ -536,13 +536,33 @@ export function CreateCertificatePage() {
   }, [portfolioLinks]);
 
   const evidenceHashes = useMemo<EvidenceHashRecord[]>(() => {
-    return detailsDraft.evidenceItems.map((item) => ({
+    const manualItems: EvidenceHashRecord[] = detailsDraft.evidenceItems.map((item) => ({
       sha256: item.sha256,
       byteLength: item.byteLength,
       label: item.label || undefined,
       category: item.category,
     }));
-  }, [detailsDraft.evidenceItems]);
+    // Automatically bind the locally verified working project file (.psd/.clip/etc.) into Protocol v3 evidenceHashes (CBOR key 16)
+    if (sourceProjectProof?.sourceFileSha256) {
+      const alreadyIncluded = manualItems.some(
+        (m) =>
+          m.sha256.length === sourceProjectProof.sourceFileSha256.length &&
+          m.sha256.every((b, idx) => b === sourceProjectProof.sourceFileSha256[idx]),
+      );
+      if (!alreadyIncluded) {
+        return [
+          {
+            sha256: sourceProjectProof.sourceFileSha256,
+            byteLength: sourceProjectProof.fileSizeBytes,
+            label: sourceProjectProof.sanitizedBasename || undefined,
+            category: 'project-file',
+          },
+          ...manualItems,
+        ];
+      }
+    }
+    return manualItems;
+  }, [detailsDraft.evidenceItems, sourceProjectProof]);
 
   const cleanWebsite = useMemo(() => trySanitizeProfileUrl(website), [website]);
   const cleanDescription = useMemo(

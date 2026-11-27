@@ -1,4 +1,10 @@
 import { bytesToHex, sha256 } from '../crypto/sha256';
+import {
+  MAX_PSD_DIMENSION,
+  MAX_PSD_PIXELS,
+  parsePsdLayerRecords,
+} from '../parsers/psdParser';
+import { ProjectParseError } from '../parsers/base';
 
 export type SourceProjectFormat = 'PSD' | 'CLIP' | 'PROCREATE' | 'KRA' | 'SAI2';
 
@@ -8,6 +14,10 @@ export interface SourceProjectVerificationResult {
   layerCount: number;
   /** Non-reversible SHA-256 hex commitment of (project bytes || random 16-byte salt). */
   sourceCommitmentHash: string;
+  /** Raw 32-byte SHA-256 of the working project file for automatic Protocol v3 evidenceHashes (CBOR key 16) binding. */
+  sourceFileSha256: Uint8Array;
+  /** Sanitized basename (no directory path) for optional Protocol v3 evidenceHashes label. */
+  sanitizedBasename: string;
   width?: number;
   height?: number;
   fileSizeBytes: number;
@@ -132,80 +142,50 @@ function verifyPsdStructure(bytes: Uint8Array): { width: number; height: number;
   const channels = view.getUint16(12, false);
   const height = view.getUint32(14, false);
   const width = view.getUint32(18, false);
-  if (channels < 1 || channels > 56 || width < 1 || width > 300000 || height < 1 || height > 300000) {
+  const depth = view.getUint16(22, false);
+  if (
+    channels < 1 ||
+    channels > 56 ||
+    width < 1 ||
+    width > MAX_PSD_DIMENSION ||
+    height < 1 ||
+    height > MAX_PSD_DIMENSION ||
+    width * height > MAX_PSD_PIXELS
+  ) {
     throw new SourceProjectVerificationError(
       'INVALID_PSD_DIMENSIONS',
-      'Invalid PSD file: canvas dimensions or channel count are out of range.',
-      '無効なPSDファイルです: キャンバス寸法またはチャンネル数が不正です。',
+      `Invalid PSD file: canvas dimensions (${width}×${height}) or channel count are out of safe local bounds (max ${MAX_PSD_DIMENSION}px, ${MAX_PSD_PIXELS / 1_000_000} MP).`,
+      `無効なPSDファイルです: キャンバス寸法（${width}×${height}）またはチャンネル数が安全上限を超えています。`,
     );
   }
 
-  // Skip Color Mode Data section (offset 26)
-  let offset = 26;
-  if (offset + 4 > bytes.byteLength) {
-    throw new SourceProjectVerificationError(
-      'INVALID_PSD_TRUNCATED',
-      'Invalid PSD file: truncated before Color Mode Data section.',
-      '無効なPSDファイルです: データが途中で途切れています。',
-    );
-  }
-  const colorModeLen = view.getUint32(offset, false);
-  offset += 4 + colorModeLen;
-
-  // Skip Image Resources section
-  if (offset + 4 > bytes.byteLength) {
-    throw new SourceProjectVerificationError(
-      'INVALID_PSD_TRUNCATED',
-      'Invalid PSD file: truncated before Image Resources section.',
-      '無効なPSDファイルです: Image Resourcesセクションが欠落しています。',
-    );
-  }
-  const imageResourcesLen = view.getUint32(offset, false);
-  offset += 4 + imageResourcesLen;
-
-  // Layer and Mask Information section
-  const lenFieldSize = version === 2 ? 8 : 4;
-  if (offset + lenFieldSize > bytes.byteLength) {
-    throw new SourceProjectVerificationError(
-      'INVALID_PSD_NO_LAYERS',
-      'Invalid PSD file: missing Layer and Mask Information section.',
-      '無効なPSDファイルです: レイヤー＆マスク情報セクションが存在しません。',
-    );
-  }
-  const layerMaskLen =
-    version === 2 ? Number(view.getBigUint64(offset, false)) : view.getUint32(offset, false);
-  offset += lenFieldSize;
-
-  if (layerMaskLen <= 0 || offset + lenFieldSize + 2 > bytes.byteLength) {
-    throw new SourceProjectVerificationError(
-      'PSD_NO_MULTI_LAYER',
-      'Rejected: PSD file contains no layer structure. Multi-layer working project data is required.',
-      '拒絶されました: PSDファイルにレイヤー情報が含まれていません。複数レイヤーを持つ作業データが必要です。',
-    );
+  let parsed: ReturnType<typeof parsePsdLayerRecords>;
+  try {
+    parsed = parsePsdLayerRecords(bytes, version, depth);
+  } catch (err) {
+    if (err instanceof ProjectParseError) {
+      throw new SourceProjectVerificationError(err.code, err.message, err.messageJa);
+    }
+    throw err;
   }
 
-  const layerInfoLen =
-    version === 2 ? Number(view.getBigUint64(offset, false)) : view.getUint32(offset, false);
-  offset += lenFieldSize;
-  if (layerInfoLen <= 0 || offset + 2 > bytes.byteLength) {
-    throw new SourceProjectVerificationError(
-      'PSD_EMPTY_LAYER_INFO',
-      'Rejected: PSD Layer Info section is empty. Multi-layer working project data is required.',
-      '拒絶されました: PSDのレイヤー情報が空です。複数レイヤーを持つ作業データが必要です。',
-    );
-  }
-
-  const rawLayerCount = view.getInt16(offset, false);
-  const layerCount = Math.abs(rawLayerCount);
-  if (layerCount < 2) {
+  if (parsed.layerCount < 2) {
     throw new SourceProjectVerificationError(
       'PSD_SINGLE_LAYER_REJECTED',
-      `Rejected: PSD file has only ${layerCount} layer. At least 2 layers are required to verify a genuine working project.`,
-      `拒絶されました: PSDファイルのレイヤー数が${layerCount}枚のみです。正当な作業データとして検証するには2枚以上のレイヤー構造が必要です。`,
+      `Rejected: PSD file has only ${parsed.layerCount} layer. At least 2 active layers with drawn pixel content (e.g., sketch/lineart + color or signature) are required to verify creation structure and prevent flat photo/AI spoofing.`,
+      `拒絶されました: PSDファイルのレイヤー数が${parsed.layerCount}枚のみです。写真やAI生成1枚絵の偽装を防ぐため、描画ピクセルを含む2枚以上の有効レイヤー（例：線画＋着色、または下書き＋仕上げ・サイン等）が必要です。`,
     );
   }
 
-  return { width, height, layerCount };
+  if (parsed.activePixelLayerCount < 2) {
+    throw new SourceProjectVerificationError(
+      'PSD_INSUFFICIENT_ACTIVE_LAYERS',
+      `Rejected: Found ${parsed.layerCount} layers, but only ${parsed.activePixelLayerCount} layer contains non-transparent pixel data. Adding an empty transparent layer to a flat photo or AI image is not accepted—at least 2 layers with actual drawn content are required.`,
+      `拒絶されました: レイヤーは${parsed.layerCount}枚ありますが、実際に描画ピクセル（非透明データ）を含むレイヤーは${parsed.activePixelLayerCount}枚のみです。空の透明レイヤーを追加しただけのデータは受け付けられません。`,
+    );
+  }
+
+  return { width, height, layerCount: parsed.layerCount };
 }
 
 function verifyClipStructure(bytes: Uint8Array): { layerCount: number } {
@@ -324,8 +304,8 @@ export async function verifySourceProjectFile(
     );
   }
 
-  let buffer: ArrayBuffer | null = await file.arrayBuffer();
-  let bytes: Uint8Array | null = new Uint8Array(buffer);
+  const buffer: ArrayBuffer = await file.arrayBuffer();
+  const bytes: Uint8Array = new Uint8Array(buffer);
   const fileSizeBytes = bytes.byteLength;
 
   try {
@@ -366,6 +346,9 @@ export async function verifySourceProjectFile(
       layerCount = sai2.layerCount;
     }
 
+    // Compute raw SHA-256 for automatic Protocol v3 evidenceHashes (CBOR key 16) binding
+    const sourceFileSha256 = await sha256(bytes);
+
     // Compute one-way salted SHA-256 commitment hash of the working file
     const salt = new Uint8Array(16);
     if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
@@ -377,19 +360,22 @@ export async function verifySourceProjectFile(
     const digest = await sha256(combined);
     const sourceCommitmentHash = bytesToHex(digest);
 
+    const rawBase = (file.name || 'working-project').split(/[\\/]/).pop() ?? 'working-project';
+    const sanitizedBasename = rawBase.replace(/[\r\n\t\0]/g, '').trim().slice(0, 96) || 'working-project';
+
     return {
       verified: true,
       projectFormat: expectedFormat,
       layerCount,
       sourceCommitmentHash,
+      sourceFileSha256,
+      sanitizedBasename,
       width,
       height,
       fileSizeBytes,
     };
   } finally {
-    // Explicitly drop references to raw working project bytes so GC can reclaim immediately
-    bytes = null;
-    buffer = null;
+    // Raw project bytes and buffer go out of scope here and are never persisted or transmitted.
   }
 }
 
