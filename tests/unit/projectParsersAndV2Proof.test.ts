@@ -195,26 +195,27 @@ describe('Native Project Parsers, v2 Proof Schema & CHM-Exchange Adapter', () =>
     await expect(inspectNativeProjectFile(spoofed)).rejects.toThrow(/flat raster image/i);
   });
 
-  it('rejects a single-layer PSD with a helpful explanation for artists', async () => {
+  it('accepts a genuine single-layer PSD with has_multi_layer_structure=false', async () => {
     const singleLayerPsd = buildSyntheticPsd({
       layers: [{ name: 'Background', width: 4, height: 4, alphaValue: 255 }],
     });
     const file = makeFileInput('single.psd', singleLayerPsd);
 
-    await expect(inspectNativeProjectFile(file)).rejects.toThrow(ProjectParseError);
-    await expect(inspectNativeProjectFile(file)).rejects.toThrow(/At least 2 active layers/i);
+    const { inspection } = await inspectNativeProjectFile(file);
+    expect(inspection.format).toBe('PSD');
+    expect(inspection.layerMetrics.layer_count).toBe(1);
+    expect(inspection.layerMetrics.has_multi_layer_structure).toBe(false);
   });
 
-  it('rejects a 2-layer PSD where the second layer is empty (0x0) or fully transparent (alpha=0)', async () => {
+  it('marks 2-layer PSDs with an empty or transparent second layer as single-active-layer and rejects all-empty PSDs', async () => {
     const zeroBoxBypass = buildSyntheticPsd({
       layers: [
         { name: 'Photo', width: 4, height: 4, alphaValue: 255 },
         { name: 'Empty Layer', width: 0, height: 0, alphaValue: 0 },
       ],
     });
-    await expect(
-      inspectNativeProjectFile(makeFileInput('empty-box.psd', zeroBoxBypass)),
-    ).rejects.toThrow(/non-transparent pixel data/i);
+    const zeroBoxResult = await inspectNativeProjectFile(makeFileInput('empty-box.psd', zeroBoxBypass));
+    expect(zeroBoxResult.inspection.layerMetrics.has_multi_layer_structure).toBe(false);
 
     const transparentBypass = buildSyntheticPsd({
       layers: [
@@ -222,9 +223,17 @@ describe('Native Project Parsers, v2 Proof Schema & CHM-Exchange Adapter', () =>
         { name: 'Transparent Dummy', width: 4, height: 4, alphaValue: 0 },
       ],
     });
+    const transparentResult = await inspectNativeProjectFile(
+      makeFileInput('transparent-dummy.psd', transparentBypass),
+    );
+    expect(transparentResult.inspection.layerMetrics.has_multi_layer_structure).toBe(false);
+
+    const allEmpty = buildSyntheticPsd({
+      layers: [{ name: 'Empty', width: 4, height: 4, alphaValue: 0 }],
+    });
     await expect(
-      inspectNativeProjectFile(makeFileInput('transparent-dummy.psd', transparentBypass)),
-    ).rejects.toThrow(/non-transparent pixel data/i);
+      inspectNativeProjectFile(makeFileInput('all-empty.psd', allEmpty)),
+    ).rejects.toThrow(ProjectParseError);
   });
 
   it('enforces pre-flight dimension DoS bounds before allocating full buffers', async () => {

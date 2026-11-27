@@ -45,7 +45,7 @@ const CONTACT_PATTERNS: RegExp[] = [
   /[0-9０-９]+丁目[0-9０-９]+番/u,
 ];
 
-// Kanji surname + space + Kanji given name (e.g., "山田 太郎", "佐藤　花子")
+// Kanji surname + space + Kanji given name (e.g., "山田 太郎", "佐藤 花子")
 const JAPANESE_KANJI_FULLNAME_PATTERN =
   /^[\u4E00-\u9FFF]{1,4}[\s\u3000]+[\u4E00-\u9FFF]{1,4}$/u;
 
