@@ -729,6 +729,7 @@ export function GalleryDeckPage() {
       className="relative -mx-4 sm:-mx-6 -my-6 sm:-my-10 min-h-[calc(100vh-6rem)] overflow-hidden bg-transparent ga-text flex flex-col justify-between"
     >
       <input
+        id="gallerydeck-file-input"
         ref={fileInputRef}
         type="file"
         accept={getNativeProjectAcceptAttr()}
@@ -900,9 +901,16 @@ export function GalleryDeckPage() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
+              <label
+                htmlFor="gallerydeck-file-input"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
                 data-testid={isAdvanced ? 'gallerydeck-empty-import-btn' : 'gallerydeck-import-btn'}
                 className="chm-link-dynamic w-full group flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed ga-border-strong bg-[var(--ga-accent-soft)] hover:bg-[var(--ga-surface-subtle)] py-7 px-4 cursor-pointer"
               >
@@ -915,7 +923,7 @@ export function GalleryDeckPage() {
                 <span className="text-[11px] ga-text-muted">
                   .psd / .clip / .procreate / .kra / .sai2
                 </span>
-              </button>
+              </label>
 
               <p
                 data-testid="gallerydeck-ipad-procreate-tip"
