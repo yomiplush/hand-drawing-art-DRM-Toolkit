@@ -57,7 +57,7 @@ import { ArtworkDetailDrawer } from './ArtworkDetailDrawer';
 import { InImageQrPlacementModal } from './InImageQrPlacementModal';
 import type { CertifyModalSubmission } from './InImageQrPlacementModal';
 import {
-  getNativeProjectAcceptAttr,
+  getNativeProjectPickerConfig,
   ProjectParseError,
   inspectNativeProjectFile,
   mergeNativeProjectFile,
@@ -728,19 +728,24 @@ export function GalleryDeckPage() {
       }}
       className="relative -mx-4 sm:-mx-6 -my-6 sm:-my-10 min-h-[calc(100vh-6rem)] overflow-hidden bg-transparent ga-text flex flex-col justify-between"
     >
-      <input
-        id="gallerydeck-file-input"
-        ref={fileInputRef}
-        type="file"
-        accept={getNativeProjectAcceptAttr()}
-        multiple
-        data-testid="gallerydeck-file-input"
-        className="sr-only"
-        onChange={(e) => {
-          void handleImportFiles(e.target.files);
-          e.target.value = '';
-        }}
-      />
+      {(() => {
+        const pickerCfg = getNativeProjectPickerConfig();
+        return (
+          <input
+            id="gallerydeck-file-input"
+            ref={fileInputRef}
+            type="file"
+            accept={pickerCfg.accept}
+            multiple={pickerCfg.multiple}
+            data-testid="gallerydeck-file-input"
+            className="sr-only"
+            onChange={(e) => {
+              void handleImportFiles(e.target.files);
+              e.target.value = '';
+            }}
+          />
+        );
+      })()}
       {importError && (
         <div
           role="alert"
@@ -901,19 +906,21 @@ export function GalleryDeckPage() {
                 </div>
               </div>
 
-              <label
-                htmlFor="gallerydeck-file-input"
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    fileInputRef.current?.click();
-                  }
-                }}
+              <div
                 data-testid={isAdvanced ? 'gallerydeck-empty-import-btn' : 'gallerydeck-import-btn'}
-                className="chm-link-dynamic w-full group flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed ga-border-strong bg-[var(--ga-accent-soft)] hover:bg-[var(--ga-surface-subtle)] py-7 px-4 cursor-pointer"
+                className="relative chm-link-dynamic w-full group flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed ga-border-strong bg-[var(--ga-accent-soft)] hover:bg-[var(--ga-surface-subtle)] py-7 px-4 cursor-pointer"
               >
+                <input
+                  type="file"
+                  aria-label={isJa ? '作品の追加(.psdなど)' : gd.importArtwork}
+                  accept={getNativeProjectPickerConfig().accept}
+                  multiple={getNativeProjectPickerConfig().multiple}
+                  className="absolute inset-0 h-full w-full opacity-0 cursor-pointer z-10"
+                  onChange={(e) => {
+                    void handleImportFiles(e.target.files);
+                    e.target.value = '';
+                  }}
+                />
                 <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl ga-btn-primary shadow-[var(--ga-shadow)] transition-transform group-hover:scale-105">
                   <ImagePlus className="h-7 w-7" />
                 </span>
@@ -923,7 +930,7 @@ export function GalleryDeckPage() {
                 <span className="text-[11px] ga-text-muted">
                   .psd / .clip / .procreate / .kra / .sai2
                 </span>
-              </label>
+              </div>
 
               <p
                 data-testid="gallerydeck-ipad-procreate-tip"

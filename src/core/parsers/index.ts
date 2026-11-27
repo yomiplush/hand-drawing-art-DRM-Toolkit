@@ -21,21 +21,24 @@ export { BinaryFallbackProjectParser } from './binaryFallbackParser';
 export const NATIVE_PROJECT_ACCEPT =
   '.psd,.psb,.clip,.procreate,.kra,.ora,.sai,.sai2,.mdp,.afdesign,.afphoto,.xcf';
 
+export interface NativeProjectPickerConfig {
+  accept: string | undefined;
+  multiple: boolean;
+}
+
 /**
- * Returns the `<input type="file" accept="...">` value for native project files.
- *
- * On iOS / iPadOS Safari, macOS Safari (NSOpenPanel UTI filtering), and Android,
- * passing custom extensions like `.clip`, `.procreate`, `.kra`, `.sai2`, or `.psd`
- * causes the OS file picker to grey out or hide files that lack registered system
- * UTIs/MIME types. Returning `undefined` on those platforms lets users select
- * project files normally while `resolveProjectParser()` still strictly rejects
- * flat PNG/JPEG/WebP images and spoofed headers.
+ * Returns browser-optimized `<input type="file">` attributes for native project files:
+ * - iOS / iPadOS: omits `accept` (avoids UTI grey-out) and uses single-file mode (`multiple: false`)
+ *   to avoid iPadOS `UIDocumentPickerViewController` blank-screen stalls.
+ * - Android & macOS Safari: omits `accept` so unrecognized extensions (`.clip`, `.procreate`, `.kra`, `.sai2`)
+ *   are never hidden or greyed out.
+ * - Windows / Linux / Chromium / Firefox: uses `NATIVE_PROJECT_ACCEPT` with `multiple: true`.
  */
-export function getNativeProjectAcceptAttr(
+export function getNativeProjectPickerConfig(
   nav: Pick<Navigator, 'userAgent' | 'platform' | 'maxTouchPoints'> | undefined =
     typeof navigator !== 'undefined' ? navigator : undefined,
-): string | undefined {
-  if (!nav) return NATIVE_PROJECT_ACCEPT;
+): NativeProjectPickerConfig {
+  if (!nav) return { accept: NATIVE_PROJECT_ACCEPT, multiple: true };
   const ua = nav.userAgent || '';
   const isIOS =
     /iPad|iPhone|iPod/i.test(ua) ||
@@ -45,10 +48,20 @@ export function getNativeProjectAcceptAttr(
     /Macintosh|Mac OS X/i.test(ua) &&
     /Safari/i.test(ua) &&
     !/Chrome|CriOS|Chromium|Edg|Firefox|OPR/i.test(ua);
-  if (isIOS || isAndroid || isMacSafari) {
-    return undefined;
+  if (isIOS) {
+    return { accept: undefined, multiple: false };
   }
-  return NATIVE_PROJECT_ACCEPT;
+  if (isAndroid || isMacSafari) {
+    return { accept: undefined, multiple: true };
+  }
+  return { accept: NATIVE_PROJECT_ACCEPT, multiple: true };
+}
+
+export function getNativeProjectAcceptAttr(
+  nav: Pick<Navigator, 'userAgent' | 'platform' | 'maxTouchPoints'> | undefined =
+    typeof navigator !== 'undefined' ? navigator : undefined,
+): string | undefined {
+  return getNativeProjectPickerConfig(nav).accept;
 }
 
 const STANDALONE_RASTER_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.avif'];
