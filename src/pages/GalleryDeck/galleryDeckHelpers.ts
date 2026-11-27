@@ -9,7 +9,13 @@ import { createInImageSignedArtworkPng, createSignedArtworkPng } from '../../cor
 import { LICENSE_DEFINITIONS } from '../../core/manifest/types';
 import type { CompactSnsLink, CreationMethod, LicenseDeclaration, LicenseId } from '../../core/manifest/types';
 import { createAuthorKey, listAuthorKeys } from '../../core/storage/keyStore';
-import { assertArtworkSafe } from '../../core/security/artworkSafetyGate';
+import { assertArtworkSafeAsync } from '../../core/security/artworkSafetyGate';
+import {
+  buildSourceProjectProofTag,
+  type SourceProjectFileLike,
+  type SourceProjectVerificationResult,
+  verifySourceProjectFile,
+} from '../../core/security/sourceProjectVerifier';
 import { verifyProofAndArtwork } from '../../core/verify/verifier';
 import type {
   FileSystemGalleryAdapter,
@@ -50,14 +56,20 @@ export async function importArtworkFileToDeck(
   file: File,
   idbAdapter: IndexedDbGalleryAdapter,
   fsAdapter?: FileSystemGalleryAdapter,
+  sourceProjectFile?: SourceProjectFileLike,
 ): Promise<GalleryArtworkItem> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const { raster } = await decodeImageFileToCanonicalRgba8(file);
-  assertArtworkSafe({
+  await assertArtworkSafeAsync({
     fileName: file.name,
     rawBytes: bytes,
     raster,
   });
+  let sourceProof: SourceProjectVerificationResult | undefined;
+  if (sourceProjectFile) {
+    // Verified 100% locally in memory; raw working project bytes are NEVER saved to IndexedDB or Google Drive
+    sourceProof = await verifySourceProjectFile(sourceProjectFile);
+  }
   const sha256Bytes = await hashCanonicalRaster(raster);
   const sha256Hex = bytesToHex(sha256Bytes);
   const thumbnailDataUrl = buildThumbnailDataUrl(raster);
@@ -88,6 +100,13 @@ export async function importArtworkFileToDeck(
     artworkSha256Hex: sha256Hex,
     tags: [],
     collections: [],
+    ...(sourceProof
+      ? {
+          sourceProjectFormat: sourceProof.projectFormat,
+          sourceLayerCount: sourceProof.layerCount,
+          sourceCommitmentHash: sourceProof.sourceCommitmentHash,
+        }
+      : {}),
   };
 }
 
@@ -160,6 +179,7 @@ export async function certifyArtworkInDeck(params: {
   tags?: string[];
   creationMethod?: CreationMethod;
   qrMode?: 'in-image' | 'outer-border';
+  sourceProjectFile?: SourceProjectFileLike;
   inImagePlacement?: {
     x: number;
     y: number;
@@ -181,14 +201,19 @@ export async function certifyArtworkInDeck(params: {
     tags,
     creationMethod,
     qrMode = 'in-image',
+    sourceProjectFile,
     inImagePlacement,
   } = params;
-  assertArtworkSafe({
+  await assertArtworkSafeAsync({
     fileName: item.localFileName,
     title: artworkTitle ?? item.title,
     description: description ?? item.description,
     tags: tags ?? item.tags,
   });
+  let sourceProof: SourceProjectVerificationResult | undefined;
+  if (sourceProjectFile) {
+    sourceProof = await verifySourceProjectFile(sourceProjectFile);
+  }
   const blobKey = item.blobRef ?? `blob:${item.id}`;
   const storedBlob = await idbAdapter.loadBlob(blobKey);
   if (!storedBlob) {
@@ -209,10 +234,14 @@ export async function certifyArtworkInDeck(params: {
 
   const resolvedTitle = artworkTitle || item.title || undefined;
   const cleanDescription = description?.trim() || undefined;
-  const cleanTags =
+  const baseTags =
     tags && tags.length > 0
-      ? tags.map((t) => t.replace(/^#+/, '').trim()).filter(Boolean).slice(0, 15)
-      : undefined;
+      ? tags.map((t) => t.replace(/^#+/, '').trim()).filter(Boolean).slice(0, 14)
+      : [];
+  if (sourceProof) {
+    baseTags.push(buildSourceProjectProofTag(sourceProof));
+  }
+  const cleanTags = baseTags.length > 0 ? baseTags : undefined;
 
   const signed =
     qrMode === 'outer-border'

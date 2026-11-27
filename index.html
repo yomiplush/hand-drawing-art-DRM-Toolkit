@@ -24,20 +24,26 @@
     <link rel="alternate" hreflang="x-default" href="https://certified-handmade.com/" />
     <link rel="alternate" hreflang="en" href="https://certified-handmade.com/?hl=en" />
     <link rel="alternate" hreflang="ja" href="https://certified-handmade.com/?hl=ja" />
+    <link rel="alternate" hreflang="zh-CN" href="https://certified-handmade.com/?hl=zh-CN" />
+    <link rel="alternate" hreflang="zh-TW" href="https://certified-handmade.com/?hl=zh-TW" />
+    <link rel="alternate" hreflang="ko" href="https://certified-handmade.com/?hl=ko" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Certified Handmade" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:locale:alternate" content="ja_JP" />
+    <meta property="og:locale:alternate" content="zh_CN" />
+    <meta property="og:locale:alternate" content="zh_TW" />
+    <meta property="og:locale:alternate" content="ko_KR" />
     <meta
       property="og:title"
       content="Certified Handmade — Cryptographic Artwork Provenance &amp; Offline QR Certificates"
     />
     <meta
       property="og:description"
-      content="Your art. Your proof. Always free, no sign-up, and no image uploads. Local-first artwork provenance and offline QR verification."
+      content="Your art. Your proof. Always free, no sign-up, and no image uploads. Local-first artwork provenance, .psd/.clip layer verification, and offline QR certificates."
     />
     <meta property="og:url" content="https://certified-handmade.com/" />
-    <meta property="og:image" content="https://certified-handmade.com/og-card.png" />
+    <meta property="og:image" content="https://certified-handmade.com/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta
@@ -53,7 +59,7 @@
       name="twitter:description"
       content="100% local, standalone open-source Cryptographic Artwork Provenance toolkit. Always free, no sign-up, no image uploads."
     />
-    <meta name="twitter:image" content="https://certified-handmade.com/og-card.png" />
+    <meta name="twitter:image" content="https://certified-handmade.com/og-image.png" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/pwa-192x192.png" />
     <style>
@@ -130,11 +136,54 @@
               },
               {
                 "@type": "Question",
-                "name": "Certified Handmade（手描きDRM）は本当に完全ローカル駆動・スタンドアローンで動作しますか？",
+                "name": "アップロードしたイラストや.psd/.clip作業データはサーバーやGoogle Driveに保存されますか？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "はい。Ed25519電子署名、SHA-256ピクセルハッシュ、AES-256-GCM暗号化バックアップ、QR埋め込み・オフライン検証まですべて端末内で完結し、オフラインPWAおよびスタンドアローン版で動作します。"
+                  "text": "いいえ。すべての処理はブラウザ内で100%ローカル完結し、サーバーへ一切送信されません。.psd/.clip等の作業データは署名時のローカル構造検証直後にメモリから破棄され、端末内IndexedDBにもGoogle Driveにも一切保存・同期されません（Google Drive同期対象はアート画像 .png/.jpg/.webp と暗号化された証明レコードのみです）。"
                 }
+              },
+              {
+                "@type": "Question",
+                "name": "Are my illustrations or .psd/.clip working files uploaded to a server or saved to Google Drive?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. All processing runs 100% locally in your browser with zero server uploads. Working project files (.psd, .clip, .procreate, .kra, .sai2) are verified in memory and immediately discarded—never stored in IndexedDB or Google Drive."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How does Certified Handmade differ from Adobe Content Credentials (C2PA), and does it work on SNS?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Unlike C2PA metadata that social media platforms often strip, Certified Handmade embeds a self-contained Ed25519 + CBOR QR proof directly into the image border or canvas, requires no central CA or login, and verifies .psd/.clip multi-layer structure locally."
+                }
+              }
+            ]
+          },
+          {
+            "@type": "HowTo",
+            "@id": "https://certified-handmade.com/#howto",
+            "name": "How to Prove Hand-Drawn Artwork Locally in 3 Steps",
+            "description": "Certify your hand-drawn illustration 100% locally in your browser with .psd/.clip layer verification and Ed25519 QR signatures.",
+            "totalTime": "PT1M",
+            "step": [
+              {
+                "@type": "HowToStep",
+                "position": 1,
+                "name": "Select Artwork Image & Working Project File",
+                "text": "Choose your finished artwork (.png/.jpg/.webp) and matching working project file (.psd/.clip/.procreate/.kra/.sai2) locally in your browser."
+              },
+              {
+                "@type": "HowToStep",
+                "position": 2,
+                "name": "Local Verification & Ed25519 Cryptographic Signing",
+                "text": "The browser verifies multi-layer project structure in memory (then immediately discards the project file) and signs the canonical SHA-256 pixel hash with your local Ed25519 key."
+              },
+              {
+                "@type": "HowToStep",
+                "position": 3,
+                "name": "Save Certified PNG with Offline QR Proof",
+                "text": "Download your lossless PNG with an embedded verification QR code that anyone can verify offline."
               }
             ]
           }

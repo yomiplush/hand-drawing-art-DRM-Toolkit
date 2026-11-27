@@ -81,6 +81,12 @@ import {
   type VerificationLogEntry,
 } from '../core/verify/verificationLog';
 import { imageWorkerClient, type WorkerProgressStage } from '../core/workers/imageWorkerClient';
+import {
+  ArtworkSafetyError,
+  assertArtworkSafeAsync,
+  formatArtworkSafetyError,
+} from '../core/security/artworkSafetyGate';
+import { parseSourceProjectProofTag } from '../core/security/sourceProjectVerifier';
 import { useI18n } from '../i18n/context';
 
 type InputTab = 'image' | 'camera' | 'proof';
@@ -429,10 +435,7 @@ export function VerifyCertificatePage() {
       const rawBytesPromise = file.arrayBuffer().then((buf) => new Uint8Array(buf));
       setAttachedRaster(null);
       setAttachedFallbackDataUrl(null);
-      void readFileAsDataUrl(file).then((dataUrl) => {
-        if (dataUrl) setAttachedFallbackDataUrl(dataUrl);
-      });
-      setAttachedFileName(file.name);
+      setAttachedFileName(null);
       setErrorMsg(null);
       setQrInfoNote(null);
       setPasteFeedback(null);
@@ -453,8 +456,19 @@ export function VerifyCertificatePage() {
             { fileOrBytes: rawBytes },
             (percent, stage) => setWorkerProgress({ percent, stage }),
           );
+          await assertArtworkSafeAsync({
+            fileName: file.name,
+            title: res.verification.manifest?.artworkTitle,
+            description: res.verification.manifest?.description,
+            rawBytes,
+            raster: res.raster,
+            detectedQrPayloads: res.qrRawText ? [res.qrRawText] : undefined,
+          });
           setAttachedRaster(res.raster);
           setAttachedFileName(file.name);
+          void readFileAsDataUrl(file).then((dataUrl) => {
+            if (dataUrl) setAttachedFallbackDataUrl(dataUrl);
+          });
           setActiveProofRaw(res.qrRawText);
           setProofInput(res.qrRawText);
           setQrInfoNote(
@@ -469,17 +483,21 @@ export function VerifyCertificatePage() {
             suppliedEvidenceFiles,
           );
         } catch (err) {
+          setAttachedRaster(null);
+          setAttachedFallbackDataUrl(null);
+          setAttachedFileName(null);
           setResult(null);
           setEvidenceSummary(null);
           setV3EvidenceMatch(null);
-          setErrorMsg(err instanceof Error ? err.message : 'Failed to verify image');
+          const safetyMsg = formatArtworkSafetyError(err, locale === 'ja' ? 'ja' : 'en');
+          setErrorMsg(safetyMsg ?? (err instanceof Error ? err.message : 'Failed to verify image'));
         } finally {
           setVerifyingProof(false);
           setWorkerProgress(null);
         }
       });
     },
-    [evidenceInputRaw, recordLog, runEvidenceVerification, suppliedEvidenceFiles, triggerScannerSweep],
+    [evidenceInputRaw, locale, recordLog, runEvidenceVerification, suppliedEvidenceFiles, triggerScannerSweep],
   );
 
   const handleLoadSampleArtwork = useCallback(async () => {
@@ -503,9 +521,7 @@ export function VerifyCertificatePage() {
       const rawBytesPromise = file.arrayBuffer().then((buf) => new Uint8Array(buf));
       setAttachedRaster(null);
       setAttachedFallbackDataUrl(null);
-      void readFileAsDataUrl(file).then((dataUrl) => {
-        if (dataUrl) setAttachedFallbackDataUrl(dataUrl);
-      });
+      setAttachedFileName(null);
       setErrorMsg(null);
       setPasteFeedback(null);
       setWorkerProgress({ percent: 15, stage: 'decoding' });
@@ -515,8 +531,16 @@ export function VerifyCertificatePage() {
           const { raster } = await imageWorkerClient.decodeImage(rawBytes, (percent, stage) =>
             setWorkerProgress({ percent, stage }),
           );
+          await assertArtworkSafeAsync({
+            fileName: file.name,
+            rawBytes,
+            raster,
+          });
           setAttachedRaster(raster);
           setAttachedFileName(file.name);
+          void readFileAsDataUrl(file).then((dataUrl) => {
+            if (dataUrl) setAttachedFallbackDataUrl(dataUrl);
+          });
           setSimComparisonName(null);
           setSimComparisonResult(null);
           setSimComparisonError(null);
@@ -524,13 +548,17 @@ export function VerifyCertificatePage() {
             await runProofVerify(activeProofRaw, raster, file.name);
           }
         } catch (err) {
-          setErrorMsg(err instanceof Error ? err.message : 'Failed to decode artwork image');
+          setAttachedRaster(null);
+          setAttachedFallbackDataUrl(null);
+          setAttachedFileName(null);
+          const safetyMsg = formatArtworkSafetyError(err, locale === 'ja' ? 'ja' : 'en');
+          setErrorMsg(safetyMsg ?? (err instanceof Error ? err.message : 'Failed to decode artwork image'));
         } finally {
           setWorkerProgress(null);
         }
       });
     },
-    [activeProofRaw, runProofVerify, triggerScannerSweep],
+    [activeProofRaw, locale, runProofVerify, triggerScannerSweep],
   );
 
   const handleEvidenceExtensionFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -603,6 +631,15 @@ export function VerifyCertificatePage() {
         try {
           const res = await imageWorkerClient.verifyImage({ fileOrBytes: rawBytes });
           if (!active) return;
+          await assertArtworkSafeAsync({
+            fileName: rawName,
+            title: res.verification.manifest?.artworkTitle,
+            description: res.verification.manifest?.description,
+            rawBytes,
+            raster: res.raster,
+            detectedQrPayloads: res.qrRawText ? [res.qrRawText] : undefined,
+          });
+          if (!active) return;
           setLaunchedWithHashProof(false);
           setCameraAutoVerified(false);
           setActiveTab('image');
@@ -622,8 +659,17 @@ export function VerifyCertificatePage() {
             res.verification.manifest,
             suppliedEvidenceFiles,
           );
-        } catch {
+        } catch (innerErr) {
+          if (innerErr instanceof ArtworkSafetyError) {
+            throw innerErr;
+          }
           const { raster } = await imageWorkerClient.decodeImage(rawBytes);
+          if (!active) return;
+          await assertArtworkSafeAsync({
+            fileName: rawName,
+            rawBytes,
+            raster,
+          });
           if (!active) return;
           setAttachedRaster(raster);
           setAttachedFileName(rawName);
@@ -638,7 +684,11 @@ export function VerifyCertificatePage() {
         }
       } catch (err) {
         if (active) {
-          setErrorMsg(err instanceof Error ? err.message : 'Failed to load shared image');
+          setAttachedRaster(null);
+          setAttachedFallbackDataUrl(null);
+          setAttachedFileName(null);
+          const safetyMsg = formatArtworkSafetyError(err, locale === 'ja' ? 'ja' : 'en');
+          setErrorMsg(safetyMsg ?? (err instanceof Error ? err.message : 'Failed to load shared image'));
         }
       }
     })();
@@ -842,7 +892,13 @@ export function VerifyCertificatePage() {
       return;
     }
     try {
-      const { raster: candidateRaster } = await imageWorkerClient.decodeImage(file);
+      const rawBytes = new Uint8Array(await file.arrayBuffer());
+      const { raster: candidateRaster } = await imageWorkerClient.decodeImage(rawBytes);
+      await assertArtworkSafeAsync({
+        fileName: file.name,
+        rawBytes,
+        raster: candidateRaster,
+      });
       const [refHashes, candHashes] = await Promise.all([
         imageWorkerClient.computePerceptualHashes(attachedRaster),
         imageWorkerClient.computePerceptualHashes(candidateRaster),
@@ -852,8 +908,9 @@ export function VerifyCertificatePage() {
       setSimComparisonResult(comparison);
     } catch (err) {
       setSimComparisonResult(null);
+      const safetyMsg = formatArtworkSafetyError(err, locale === 'ja' ? 'ja' : 'en');
       setSimComparisonError(
-        err instanceof Error ? err.message : 'Failed to compare images visually',
+        safetyMsg ?? (err instanceof Error ? err.message : 'Failed to compare images visually'),
       );
     }
   };
@@ -1465,6 +1522,31 @@ export function VerifyCertificatePage() {
         trustedKeyUnconfirmed={result.trustedKeyUnconfirmed}
         matchedMode={result.matchedMode}
       />
+
+      {result.signatureStatus === 'valid' &&
+        result.manifest &&
+        (() => {
+          const srcBadge = parseSourceProjectProofTag(result.manifest.tags);
+          if (!srcBadge) return null;
+          return (
+            <div
+              data-testid="verify-source-project-badge"
+              className="ga-status-success rounded-2xl border p-4 flex items-start gap-3 min-w-0"
+            >
+              <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="min-w-0 space-y-1 text-xs sm:text-sm">
+                <div className="font-semibold">
+                  {locale === 'ja'
+                    ? `作業データ検証済み (${srcBadge.projectFormat} / ${srcBadge.layerCount} レイヤー)`
+                    : `Verified Source Project (${srcBadge.projectFormat} / ${srcBadge.layerCount} Layers)`}
+                </div>
+                <div className="font-mono text-xs opacity-90 break-all">
+                  sourceCommitmentHash: {srcBadge.commitmentHashPrefix}…
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
       {result.signatureStatus === 'valid' &&
         result.manifest &&

@@ -1,3 +1,4 @@
+import jsQR from 'jsqr';
 import type { CanonicalRaster } from '../image/pngCodec';
 
 export type ArtworkSafetyCategory =
@@ -5,7 +6,9 @@ export type ArtworkSafetyCategory =
   | 'illicit_drugs_or_trafficking'
   | 'non_art_address_or_drop'
   | 'photorealistic_nsfw'
-  | 'non_art_raw_photo';
+  | 'non_art_raw_photo'
+  | 'ai_generated_metadata'
+  | 'malicious_embedded_qr';
 
 export interface ArtworkSafetyMetrics {
   skinRatio: number;
@@ -34,6 +37,8 @@ export interface ArtworkSafetyInput {
   tags?: string[];
   rawBytes?: Uint8Array;
   raster?: CanonicalRaster;
+  /** Optional pre-decoded QR/barcode payloads to screen synchronously */
+  detectedQrPayloads?: string[];
 }
 
 export class ArtworkSafetyError extends Error {
@@ -116,17 +121,142 @@ const CAMERA_EXIF_MARKERS = [
 
 const GPS_EXIF_MARKERS = ['GPSInfo', 'GPSLatitude', 'GPSLongitude', 'GPSAltitude'];
 
+// AI-generated illustration metadata signatures (PNG tEXt/iTXt/zTXt, EXIF, XMP)
+const AI_METADATA_PATTERNS: RegExp[] = [
+  // Stable Diffusion / Automatic1111 / Forge / WebUI parameters chunk
+  /Negative prompt\s*:/i,
+  /Steps\s*:\s*\d+\s*,\s*Sampler\s*:/i,
+  /CFG scale\s*:\s*[\d.]+/i,
+  /(?:tEXt|iTXt|zTXt)parameters\0/i,
+  // NovelAI
+  /Software\s*[:\0]?\s*NovelAI/i,
+  /\bNovelAI\b/i,
+  /\bnai-diffusion/i,
+  // ComfyUI
+  /\bComfyUI\b/i,
+  /"class_type"\s*:\s*"KSampler"/i,
+  /"ckpt_name"\s*:\s*"[^"]+\.(?:safetensors|ckpt)"/i,
+  // Midjourney / InvokeAI / DreamStudio / Stability AI
+  /\bMidjourney\b/i,
+  /\binvokeai_metadata\b/i,
+  /\bsd-metadata\b/i,
+  /\bDreamStudio\b/i,
+  /(?:tEXt|iTXt|zTXt)Dream\0/i,
+  /Software\s*[:\0]\s*Dream(?:\s+by\s+WOMBO)?\b/i,
+  /\bStable\s*Diffusion\b/i,
+  /\bAutomatic1111\b/i,
+  /TrainedAlgorithmicMedia/i,
+];
+
+const QR_EXTERNAL_URL_PATTERN = /https?:\/\//i;
+const QR_CONTACT_SCHEME_PATTERN =
+  /^(?:mailto:|tel:|tg:|sms:|whatsapp:|signal:)|\b(?:discord\.gg\/|discord\.com\/invite\/|t\.me\/|telegram\.me\/|line\.me\/|wickr|signal\.group)/i;
+const QR_TRANSACTION_KEYWORD_PATTERN =
+  /\b(?:buy|sell|price|order|shipping|delivery|drop|pickup|pick-up|btc|usdt|monero|xmr|cashapp|venmo)\b|(?:取引|購入|販売|住所|受け渡し|配達|連絡先|口座|振込)/i;
+
+/**
+ * Returns true if the decoded QR/barcode payload is a legitimate Certified Handmade
+ * offline verification URL or compact proof payload.
+ */
+export function isLegitimateCertifiedHandmadePayload(rawText: string): boolean {
+  const trimmed = rawText.trim();
+  if (!trimmed) return false;
+
+  // Compact Base45 proof payload
+  if (trimmed.startsWith('45:') && trimmed.length > 20) {
+    return true;
+  }
+
+  // Official Certified Handmade verification URLs (case-insensitive for QR alphanumeric mode)
+  if (
+    /^https:\/\/(?:www\.)?certified-handmade\.com\/(?:v|verify)?(?:#(?:proof=|45:|[0-9A-Z $%*+\-./:]{20,})|\?proof=)/i.test(
+      trimmed,
+    )
+  ) {
+    return true;
+  }
+
+  // Local development verification URLs with #proof=
+  if (/^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?\/.*#(?:proof=|45:)/i.test(trimmed)) {
+    return true;
+  }
+
+  // Portable Proof Bundle JSON
+  if (trimmed.startsWith('{') && trimmed.includes('"proofBytes"') && trimmed.includes('certified-handmade')) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Checks decoded QR / barcode payloads for unauthorized external URLs, contact schemes,
+ * or illicit transaction / drop-address instructions while allowing legitimate
+ * Certified Handmade verification payloads.
+ */
+export function checkBarcodePayloadsSafety(payloads: string[]): ArtworkSafetyResult | null {
+  for (const raw of payloads) {
+    const text = raw.trim();
+    if (!text) continue;
+
+    if (isLegitimateCertifiedHandmadePayload(text)) {
+      continue;
+    }
+
+    const textRejection = checkTextSafety(text);
+    if (textRejection) {
+      return textRejection;
+    }
+
+    if (
+      QR_EXTERNAL_URL_PATTERN.test(text) ||
+      QR_CONTACT_SCHEME_PATTERN.test(text) ||
+      QR_TRANSACTION_KEYWORD_PATTERN.test(text)
+    ) {
+      return {
+        allowed: false,
+        category: 'malicious_embedded_qr',
+        reasonCode: 'EMBEDDED_QR_OR_BARCODE_BLOCKED',
+        reasonMessage:
+          'Rejected: An embedded QR code or barcode containing an external URL, contact link, or transaction/address data was detected.',
+        reasonMessageJa:
+          '拒絶されました: 外部URL・連絡先リンク・取引や住所情報を含むQRコード／バーコードが画像内に検出されました。',
+      };
+    }
+  }
+  return null;
+}
+
+function checkAiMetadataSafety(rawMetadataStr: string): ArtworkSafetyResult | null {
+  if (!rawMetadataStr) return null;
+  for (const pattern of AI_METADATA_PATTERNS) {
+    if (pattern.test(rawMetadataStr)) {
+      return {
+        allowed: false,
+        category: 'ai_generated_metadata',
+        reasonCode: 'AI_GENERATED_METADATA_BLOCKED',
+        reasonMessage:
+          'Rejected: AI-generated image metadata (e.g., Stable Diffusion, NovelAI, ComfyUI, Midjourney) was detected. Certified Handmade is strictly for human-made artwork.',
+        reasonMessageJa:
+          '拒絶されました: AI生成ツール（Stable Diffusion / NovelAI / ComfyUI / Midjourney等）のメタデータが検出されました。Certified Handmadeは手描き・人間制作のアート作品専用です。',
+      };
+    }
+  }
+  return null;
+}
+
 /**
  * Extracts printable ASCII/UTF-8 metadata snippets from raw image bytes (EXIF / PNG tEXt / iTXt / XMP)
  * without allocating huge strings. Scans up to the first 64 KB and last 16 KB where metadata chunks reside.
  */
 function extractEmbeddedMetadataText(rawBytes?: Uint8Array): {
   embeddedText: string;
+  combinedRaw: string;
   hasCameraExif: boolean;
   hasGpsExif: boolean;
 } {
   if (!rawBytes || rawBytes.byteLength === 0) {
-    return { embeddedText: '', hasCameraExif: false, hasGpsExif: false };
+    return { embeddedText: '', combinedRaw: '', hasCameraExif: false, hasGpsExif: false };
   }
 
   const headLen = Math.min(rawBytes.byteLength, 65536);
@@ -146,7 +276,7 @@ function extractEmbeddedMetadataText(rawBytes?: Uint8Array): {
   const readableRuns = combinedRaw.match(/[\x20-\x7E\u3000-\u9FFF\uFF00-\uFFEF]{4,}/g) ?? [];
   const embeddedText = readableRuns.slice(0, 400).join(' ');
 
-  return { embeddedText, hasCameraExif, hasGpsExif };
+  return { embeddedText, combinedRaw, hasCameraExif, hasGpsExif };
 }
 
 function checkTextSafety(text: string): ArtworkSafetyResult | null {
@@ -329,9 +459,11 @@ function analyzeRasterSafetyMetrics(
  * before it can be added to GalleryDeck or certified.
  */
 export function evaluateArtworkSafety(input: ArtworkSafetyInput): ArtworkSafetyResult {
-  const { embeddedText, hasCameraExif, hasGpsExif } = extractEmbeddedMetadataText(input.rawBytes);
+  const { embeddedText, combinedRaw, hasCameraExif, hasGpsExif } = extractEmbeddedMetadataText(
+    input.rawBytes,
+  );
 
-  // 1. Check user-supplied metadata, filename, and embedded image text chunks
+  // 1a. Check user-supplied metadata, filename, and embedded image text chunks
   const combinedText = [
     input.fileName ?? '',
     input.title ?? '',
@@ -346,6 +478,20 @@ export function evaluateArtworkSafety(input: ArtworkSafetyInput): ArtworkSafetyR
   const textRejection = checkTextSafety(combinedText);
   if (textRejection) {
     return textRejection;
+  }
+
+  // 1b. Check embedded file metadata (PNG tEXt/iTXt/zTXt, EXIF, XMP) for AI generation signatures
+  const aiMetaRejection = checkAiMetadataSafety(combinedRaw);
+  if (aiMetaRejection) {
+    return aiMetaRejection;
+  }
+
+  // 1c. Check any pre-decoded QR/barcode payloads synchronously
+  if (input.detectedQrPayloads && input.detectedQrPayloads.length > 0) {
+    const qrRejection = checkBarcodePayloadsSafety(input.detectedQrPayloads);
+    if (qrRejection) {
+      return qrRejection;
+    }
   }
 
   // 2. Check raster pixel heuristics (skip tiny synthetic test images < 48x48)
@@ -415,6 +561,169 @@ export function evaluateArtworkSafety(input: ArtworkSafetyInput): ArtworkSafetyR
     reasonMessage: 'OK',
     reasonMessageJa: 'OK',
   };
+}
+
+// ---------------------------------------------------------------------------
+// Layer 3: Local QR / Barcode Pixel Scanner (BarcodeDetector API + jsQR fallback)
+// ---------------------------------------------------------------------------
+
+interface BarcodeDetectorLike {
+  detect(source: unknown): Promise<Array<{ rawValue?: string }>>;
+}
+
+interface BarcodeDetectorConstructorLike {
+  new (options?: { formats?: string[] }): BarcodeDetectorLike;
+}
+
+function downscaleRasterForQrScan(
+  raster: CanonicalRaster,
+  maxDim = 640,
+): { data: Uint8ClampedArray; width: number; height: number } {
+  const { width, height, data } = raster;
+  const scale = Math.min(1, maxDim / Math.max(width, height));
+  const targetW = Math.max(1, Math.round(width * scale));
+  const targetH = Math.max(1, Math.round(height * scale));
+  const out = new Uint8ClampedArray(targetW * targetH * 4);
+  for (let y = 0; y < targetH; y++) {
+    const sy = Math.min(height - 1, Math.floor((y / targetH) * height));
+    for (let x = 0; x < targetW; x++) {
+      const sx = Math.min(width - 1, Math.floor((x / targetW) * width));
+      const si = (sy * width + sx) * 4;
+      const di = (y * targetW + x) * 4;
+      const a = data[si + 3];
+      if (a === 255) {
+        out[di] = data[si];
+        out[di + 1] = data[si + 1];
+        out[di + 2] = data[si + 2];
+      } else {
+        const inv = 255 - a;
+        out[di] = Math.round((data[si] * a + 255 * inv) / 255);
+        out[di + 1] = Math.round((data[si + 1] * a + 255 * inv) / 255);
+        out[di + 2] = Math.round((data[si + 2] * a + 255 * inv) / 255);
+      }
+      out[di + 3] = 255;
+    }
+  }
+  return { data: out, width: targetW, height: targetH };
+}
+
+/**
+ * Scans a raster locally for embedded QR codes and barcodes.
+ * Prefers the browser-native BarcodeDetector API and falls back to lightweight jsQR scanning.
+ */
+export async function scanRasterBarcodes(raster: CanonicalRaster): Promise<string[]> {
+  if (raster.width < 32 || raster.height < 32) {
+    return [];
+  }
+
+  const found = new Set<string>();
+  const scaled = downscaleRasterForQrScan(raster, 640);
+
+  // 1. Prefer native BarcodeDetector API when available in the browser
+  const globalObj = globalThis as unknown as {
+    BarcodeDetector?: BarcodeDetectorConstructorLike;
+    OffscreenCanvas?: new (w: number, h: number) => {
+      getContext(type: '2d'): { putImageData(img: ImageData, x: number, y: number): void } | null;
+    };
+    document?: Document;
+    ImageData?: typeof ImageData;
+  };
+
+  if (typeof globalObj.BarcodeDetector === 'function' && typeof globalObj.ImageData === 'function') {
+    try {
+      const detector = new globalObj.BarcodeDetector({
+        formats: ['qr_code', 'aztec', 'data_matrix', 'pdf417', 'code_128', 'ean_13', 'ean_8', 'upc_a'],
+      });
+      const imgData = new globalObj.ImageData(
+        new Uint8ClampedArray(scaled.data),
+        scaled.width,
+        scaled.height,
+      );
+      let source: unknown = imgData;
+      if (typeof globalObj.OffscreenCanvas === 'function') {
+        const canvas = new globalObj.OffscreenCanvas(scaled.width, scaled.height);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.putImageData(imgData, 0, 0);
+          source = canvas;
+        }
+      } else if (typeof globalObj.document?.createElement === 'function') {
+        const canvas = globalObj.document.createElement('canvas');
+        canvas.width = scaled.width;
+        canvas.height = scaled.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.putImageData(imgData, 0, 0);
+          source = canvas;
+        }
+      }
+      const detections = await detector.detect(source);
+      for (const item of detections) {
+        if (item.rawValue && item.rawValue.trim()) {
+          found.add(item.rawValue.trim());
+        }
+      }
+    } catch {
+      // Safely fall through to jsQR fallback
+    }
+  }
+
+  // 2. Lightweight jsQR fallback for browsers without BarcodeDetector (Firefox/Safari/Node)
+  if (found.size === 0) {
+    try {
+      const qr = jsQR(scaled.data, scaled.width, scaled.height, {
+        inversionAttempts: 'attemptBoth',
+      });
+      if (qr?.data && qr.data.trim()) {
+        found.add(qr.data.trim());
+      }
+    } catch {
+      // Safe skip
+    }
+  }
+
+  return Array.from(found);
+}
+
+/**
+ * Full async safety evaluation: runs Layer 1 (metadata/AI), Layer 2 (pixel heuristics),
+ * and Layer 3 (local QR/barcode scanning) 100% client-side.
+ */
+export async function evaluateArtworkSafetyAsync(
+  input: ArtworkSafetyInput,
+): Promise<ArtworkSafetyResult> {
+  const syncResult = evaluateArtworkSafety(input);
+  if (!syncResult.allowed) {
+    return syncResult;
+  }
+
+  if (input.raster) {
+    const scannedPayloads = await scanRasterBarcodes(input.raster);
+    if (scannedPayloads.length > 0) {
+      const qrRejection = checkBarcodePayloadsSafety(scannedPayloads);
+      if (qrRejection) {
+        return {
+          ...qrRejection,
+          metrics: syncResult.metrics,
+        };
+      }
+    }
+  }
+
+  return syncResult;
+}
+
+/**
+ * Throws an ArtworkSafetyError if the artwork or metadata fails full async safety screening.
+ */
+export async function assertArtworkSafeAsync(
+  input: ArtworkSafetyInput,
+): Promise<ArtworkSafetyResult> {
+  const result = await evaluateArtworkSafetyAsync(input);
+  if (!result.allowed) {
+    throw new ArtworkSafetyError(result);
+  }
+  return result;
 }
 
 /**

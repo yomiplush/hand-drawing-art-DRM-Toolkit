@@ -1,34 +1,21 @@
-# Certified Handmade
+# Certified Handmade (https://certified-handmade.com/)
 
-> Hand-Drawing Artist Local DRM & Cryptographic Provenance Toolkit
-> 手描きアーティストのための完全ローカル・スタンドアローン暗号署名＆手描きDRMツール
-> "Your artwork should outlive the platform that certifies it." / 「あなたの作品は、それを証明するプラットフォームより長く生き続けるべきだ。」
+> Free, MIT open-source, 100% client-side Cryptographic Artwork Provenance & Proof of Human Art toolkit. Zero server uploads, no account required, no blockchain/NFTs, and local-only `.psd`/`.clip`/`.procreate`/`.kra`/`.sai2` working project structure verification.
 
-## Overview
-Certified Handmade (https://certified-handmade.com/) is a 100% local, standalone, open-source (MIT) progressive web application (PWA) for hand-drawing artists, illustrators, and creators. It creates and verifies self-contained cryptographic provenance certificates (Ed25519 + SHA-256 + RFC 8949 CBOR) and embeds scannable verification QR codes inside lossless PNG artwork — with zero backend server, zero accounts, zero tracking, and full offline functionality.
+## Core Capabilities
+- **Proof of Human Art & Source Project Verification:** Locally verifies multi-layer working project files (`.psd`, `.clip`, `.procreate`, `.kra`, `.sai2`) in browser memory to block renamed flat images, then immediately discards the raw project file (never stored in IndexedDB or Google Drive) and signs only a salted SHA-256 commitment hash (`sourceCommitmentHash`), format, and layer count.
+- **100% Local Ed25519 Signing & SHA-256 Pixel Integrity:** Computes canonical RGBA8 pixel digests and Ed25519 signatures entirely inside the browser via Web Workers.
+- **Offline QR Certificates (Open-Source C2PA Alternative):** Embeds self-contained RFC 8949 CBOR + Base45 verification URLs (`#proof=...`) into lossless PNG borders or translucent in-image QR codes that survive offline inspection.
+- **Client-Side Artwork Safety Gate:** Blocks AI-generated metadata (Stable Diffusion, NovelAI, ComfyUI, Midjourney), unauthorized embedded QR/barcodes, illegal content, and raw GPS camera photos 100% locally.
+- **Zero-Knowledge Privacy:** No central server, no telemetry, no ads. Optional Google Drive (`drive.appdata`) sync stores only artwork images (`.png`/`.jpg`/`.webp`) and encrypted provenance records—never working project files.
 
-## Core Architecture & Cryptography
-- **Local-First & Standalone PWA**: Runs entirely client-side inside the browser with strict CSP enforcement (`connect-src 'self' wss:` permitting outbound `wss://` Nostr relays ONLY when opt-in Decentralized Device Sync is enabled). Works completely offline after initial load via Service Worker precaching.
-- **Cryptographic Signing (`Ed25519` + `SHA-256`)**: Computes canonical RGBA8 pixel digests (`SHA-256`) bound to artist identity keys (`Ed25519`) and explicit copyright/license metadata (`ARR`, `CC BY 4.0`, `CC BY-NC 4.0`, `CC BY-ND 4.0`, `CC BY-NC-ND 4.0`, `CC BY-SA 4.0`, `CC0 1.0`, `Custom`), serialized as deterministic RFC 8949 CBOR inside URL `#proof=` fragments and PNG `tEXt` metadata (`chm-proof-v2`).
-- **Encrypted Key Management (`AES-256-GCM` + `PBKDF2-SHA256`)**: Artist signing keys are generated locally and exportable as passphrase-encrypted `.chkey.json` backups encrypted with AES-256-GCM (310,000 PBKDF2-SHA256 iterations).
-- **Offline Public-Key Exchange (`@yomiplush/chm-exchange`)**: Shares and inspects public-only Ed25519 artist keys via `#key=` URLs, QR PNGs, and JSON bundles (`/exchange`) with locally recomputed SHA-256 fingerprints and explicit manual trust confirmation.
-- **Manual In-Image QR Studio & Outer Frame Modes**: Burn cryptographic proof QR codes cleanly into an outer border frame (`/create`) or manually place a semi-transparent / corner-masked QR inside the PNG canvas (`/create?mode=studio`) with masked pixel integrity verification (`in-image-masked`).
-- **3-Axis Honest Verification (`/verify`)**: Independently reports A. Cryptographic Signature (`Valid`/`Invalid`), B. Artwork Pixel Integrity (`Matched`/`Mismatched`/`Not Checked`), and C. Author Key Trust (`Locally Trusted Key`/`Unknown`) offline without overclaiming automated "human-made" proof.
-
-## Key Routes
-- `/` — Overview, manifesto, 3-step guide, core local-first principles, and FAQ
-- `/create` — Sign artwork, embed outer QR or switch to Manual In-Image QR Studio (`/create?mode=studio`)
-- `/verify` — Offline verification via signed PNG upload, QR camera scan, clipboard paste, PWA Web Share Target (`/share-target`), or `#proof=` URL fragment
-- `/tutorial` — Beginner step-by-step guide and license cheat sheet
-- `/keys` — Local Ed25519 key generation, public key sharing, and AES-256-GCM encrypted backup/restore
-- `/exchange` — Standalone offline public-key exchange UI powered by `@yomiplush/chm-exchange` (`/exchange#key=...`)
-- `/docs` — Cryptographic architecture, license guide, protocol reference, and open-source specification (`SPEC.md`)
-- `/privacypolicy` — GDPR-compliant privacy notice (zero tracking, consent-gated UI language preference)
-
-## Links
-- Web App: https://certified-handmade.com/
-- Japanese Interface: https://certified-handmade.com/?hl=ja
-- English Interface: https://certified-handmade.com/?hl=en
-- Source Repository: https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit
-- Exchange Module: https://github.com/yomiplush/CHM-Exchange
-- Protocol Specification: https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit/blob/main/SPEC.md
+## Key Pages
+- Home: https://certified-handmade.com/
+- Create Certificate: https://certified-handmade.com/create
+- Verify Artwork / QR: https://certified-handmade.com/verify
+- GalleryDeck: https://certified-handmade.com/gallerydeck
+- Tutorial: https://certified-handmade.com/tutorial
+- Cryptographic Spec & Docs: https://certified-handmade.com/docs
+- Privacy Policy & Terms of Use: https://certified-handmade.com/privacypolicy
+- Full LLM Reference: https://certified-handmade.com/llms-full.txt
+- Source Code (MIT): https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit

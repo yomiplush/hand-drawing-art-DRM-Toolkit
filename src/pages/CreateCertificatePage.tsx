@@ -116,8 +116,16 @@ import type { AuthorKeyRecord } from '../core/storage/keyStore';
 import { saveProofToVault } from '../core/vault';
 import {
   assertArtworkSafe,
+  assertArtworkSafeAsync,
   formatArtworkSafetyError,
 } from '../core/security/artworkSafetyGate';
+import {
+  buildSourceProjectProofTag,
+  formatSourceProjectError,
+  SOURCE_PROJECT_ACCEPT_ATTR,
+  type SourceProjectVerificationResult,
+  verifySourceProjectFile,
+} from '../core/security/sourceProjectVerifier';
 import { imageWorkerClient, type WorkerProgressStage } from '../core/workers/imageWorkerClient';
 import { useI18n } from '../i18n/context';
 
@@ -270,6 +278,10 @@ export function CreateCertificatePage() {
   const [sourceFileName, setSourceFileName] = useState<string>('');
   const [sourceFormat, setSourceFormat] = useState<string>('');
   const [artworkRaster, setArtworkRaster] = useState<CanonicalRaster | null>(null);
+  const [sourceProjectProof, setSourceProjectProof] =
+    useState<SourceProjectVerificationResult | null>(null);
+  const [sourceProjectFileName, setSourceProjectFileName] = useState<string | null>(null);
+  const [sourceProjectError, setSourceProjectError] = useState<string | null>(null);
 
   // Canonical Artwork Metadata (single source of truth across Simple/Advanced toggles)
   const [artworkTitle, setArtworkTitle] = useState('');
@@ -825,7 +837,7 @@ export function CreateCertificatePage() {
         rawFileBytes,
         (percent, stage) => setWorkerProgress({ percent, stage }),
       );
-      assertArtworkSafe({
+      await assertArtworkSafeAsync({
         fileName: file.name,
         rawBytes: rawFileBytes,
         raster,
@@ -851,11 +863,33 @@ export function CreateCertificatePage() {
     }
   };
 
+  const handleSourceProjectSelected = async (file: File) => {
+    setSourceProjectError(null);
+    try {
+      const verified = await verifySourceProjectFile(file);
+      setSourceProjectProof(verified);
+      setSourceProjectFileName(file.name);
+    } catch (err) {
+      setSourceProjectProof(null);
+      setSourceProjectFileName(null);
+      const msg = formatSourceProjectError(err, locale === 'ja' ? 'ja' : 'en');
+      setSourceProjectError(msg ?? (err instanceof Error ? err.message : 'Source project verification failed'));
+    }
+  };
+
   const handleSignAndBurn = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     if (!artworkRaster) {
       setErrorMsg('Please select an artwork image first.');
+      return;
+    }
+    if (!sourceProjectProof) {
+      setErrorMsg(
+        locale === 'ja'
+          ? '署名を発行するには、対応する作業データ（.psd / .clip / .procreate / .kra / .sai2）を選択してローカル構造検証を完了してください（作業データ本体は一切保存・送信されません）。'
+          : 'Please select the matching working project file (.psd / .clip / .procreate / .kra / .sai2) for local structure verification before signing (the project file is never saved or uploaded).',
+      );
       return;
     }
 
@@ -915,6 +949,7 @@ export function CreateCertificatePage() {
         creationEnvironment: sanitizedCreationEnv,
         evidenceHashes: evidenceHashes.length > 0 ? evidenceHashes : undefined,
         policyNote: policyNote.trim() || undefined,
+        tags: [buildSourceProjectProofTag(sourceProjectProof)],
       };
 
       const licensePayload = {
@@ -1298,6 +1333,7 @@ export function CreateCertificatePage() {
               testId="create-image-input"
             />
           ) : (
+            <div className="space-y-3">
             <div className="flex flex-col sm:flex-row items-center gap-4 rounded-xl border ga-border ga-surface-subtle p-4">
               <div className="flex justify-center ga-card-solid rounded-lg p-2 border ga-border shrink-0">
                 <SafeArtworkImage
@@ -1343,6 +1379,63 @@ export function CreateCertificatePage() {
                   </label>
                 </div>
               </div>
+            </div>
+
+            <div
+              data-testid="source-project-verifier-box"
+              className="rounded-xl border ga-border ga-surface-subtle p-3.5 space-y-2"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs font-semibold ga-text">
+                  {locale === 'ja'
+                    ? '必須: 作業データ構造検証（.psd / .clip / .procreate / .kra / .sai2）'
+                    : 'Required: Working Project Structure Verification (.psd / .clip / .procreate / .kra / .sai2)'}
+                </div>
+                <span className="text-[11px] ga-text-muted">
+                  {locale === 'ja'
+                    ? '100%ローカル一時検証・完全非保存（Google Drive同期対象外）'
+                    : '100% local ephemeral check · Never saved or synced to Google Drive'}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <label className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer">
+                  <input
+                    type="file"
+                    accept={SOURCE_PROJECT_ACCEPT_ATTR}
+                    data-testid="create-source-project-input"
+                    className="sr-only"
+                    onClick={(e) => {
+                      e.currentTarget.value = '';
+                    }}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void handleSourceProjectSelected(f);
+                    }}
+                  />
+                  <span>
+                    {locale === 'ja' ? '作業データを選択して検証' : 'Select Working Project File'}
+                  </span>
+                </label>
+                {sourceProjectProof && (
+                  <span
+                    data-testid="source-project-verified-badge"
+                    className="ga-status-success inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium"
+                  >
+                    {locale === 'ja'
+                      ? `検証済み: ${sourceProjectProof.projectFormat} (${sourceProjectProof.layerCount} レイヤー) · ${sourceProjectFileName ?? ''}`
+                      : `Verified: ${sourceProjectProof.projectFormat} (${sourceProjectProof.layerCount} layers) · ${sourceProjectFileName ?? ''}`}
+                  </span>
+                )}
+              </div>
+              {sourceProjectError && (
+                <p
+                  data-testid="source-project-error"
+                  className="text-xs text-rose-600 dark:text-rose-400"
+                >
+                  {sourceProjectError}
+                </p>
+              )}
+            </div>
             </div>
           )}
 

@@ -154,6 +154,18 @@ for (const route of ROUTES) {
     `<link rel="alternate" hreflang="ja" href="${canonicalUrl}?hl=ja" />`,
   );
   html = html.replace(
+    /<link\s+rel="alternate"\s+hreflang="zh-CN"\s+href="[^"]*"\s*\/>/,
+    `<link rel="alternate" hreflang="zh-CN" href="${canonicalUrl}?hl=zh-CN" />`,
+  );
+  html = html.replace(
+    /<link\s+rel="alternate"\s+hreflang="zh-TW"\s+href="[^"]*"\s*\/>/,
+    `<link rel="alternate" hreflang="zh-TW" href="${canonicalUrl}?hl=zh-TW" />`,
+  );
+  html = html.replace(
+    /<link\s+rel="alternate"\s+hreflang="ko"\s+href="[^"]*"\s*\/>/,
+    `<link rel="alternate" hreflang="ko" href="${canonicalUrl}?hl=ko" />`,
+  );
+  html = html.replace(
     /<meta\s+property="og:title"\s+content="[^"]*"\s*\/>/,
     `<meta property="og:title" content="${titleEscaped}" />`,
   );
@@ -182,3 +194,48 @@ for (const route of ROUTES) {
   fs.writeFileSync(outPath, html, 'utf8');
   console.log(`Generated SEO shell: dist/${route.slug}.html`);
 }
+
+// Auto-generate multilingual sitemap.xml (with xhtml:link hreflang alternates) and robots.txt
+const HREFLANGS = ['en', 'ja', 'zh-CN', 'zh-TW', 'ko'];
+const todayIso = new Date().toISOString().slice(0, 10);
+const allUrls = [
+  { loc: 'https://certified-handmade.com/', priority: '1.0' },
+  ...ROUTES.map((r) => ({
+    loc: `https://certified-handmade.com/${r.slug}`,
+    priority: r.slug === 'create' || r.slug === 'verify' || r.slug === 'gallerydeck' ? '0.9' : '0.7',
+  })),
+];
+
+const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+${allUrls
+  .map(({ loc, priority }) => {
+    const alternates = [
+      `    <xhtml:link rel="alternate" hreflang="x-default" href="${loc}" />`,
+      ...HREFLANGS.map(
+        (hl) => `    <xhtml:link rel="alternate" hreflang="${hl}" href="${loc}?hl=${hl}" />`,
+      ),
+    ].join('\n');
+    return `  <url>
+    <loc>${loc}</loc>
+    <lastmod>${todayIso}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>${priority}</priority>
+${alternates}
+  </url>`;
+  })
+  .join('\n')}
+</urlset>
+`;
+
+fs.writeFileSync(path.join(distDir, 'sitemap.xml'), sitemapXml, 'utf8');
+console.log('Generated multilingual sitemap: dist/sitemap.xml');
+
+const robotsTxt = `User-agent: *
+Allow: /
+
+Sitemap: https://certified-handmade.com/sitemap.xml
+`;
+fs.writeFileSync(path.join(distDir, 'robots.txt'), robotsTxt, 'utf8');
+console.log('Generated robots.txt: dist/robots.txt');

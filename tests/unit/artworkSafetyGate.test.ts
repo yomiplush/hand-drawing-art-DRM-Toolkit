@@ -3,8 +3,11 @@ import type { CanonicalRaster } from '../../src/core/image/pngCodec';
 import {
   ArtworkSafetyError,
   assertArtworkSafe,
+  checkBarcodePayloadsSafety,
   evaluateArtworkSafety,
+  evaluateArtworkSafetyAsync,
   formatArtworkSafetyError,
+  isLegitimateCertifiedHandmadePayload,
 } from '../../src/core/security/artworkSafetyGate';
 
 function createFlatArtworkRaster(width = 128, height = 128): CanonicalRaster {
@@ -154,5 +157,157 @@ describe('artworkSafetyGate', () => {
     expect(caught).toBeInstanceOf(ArtworkSafetyError);
     expect(formatArtworkSafetyError(caught, 'ja')).toContain('拒絶されました');
     expect(formatArtworkSafetyError(caught, 'en')).toContain('Rejected:');
+  });
+
+  // -------------------------------------------------------------------------
+  // AI-generated illustration metadata detection
+  // -------------------------------------------------------------------------
+
+  it('blocks AI-generated illustration metadata (Stable Diffusion, NovelAI, ComfyUI, Midjourney)', () => {
+    const sdBytes = new TextEncoder().encode(
+      'PNG\r\n...tEXtparameters\0masterpiece, 1girl\nNegative prompt: lowres, bad anatomy\nSteps: 28, Sampler: Euler a, CFG scale: 7',
+    );
+    const sdResult = evaluateArtworkSafety({ fileName: 'girl.png', rawBytes: sdBytes });
+    expect(sdResult.allowed).toBe(false);
+    expect(sdResult.category).toBe('ai_generated_metadata');
+
+    const naiBytes = new TextEncoder().encode('PNG...tEXtSoftware\0NovelAI\0tEXtSource\0Stable Diffusion XL');
+    const naiResult = evaluateArtworkSafety({ fileName: 'nai_art.png', rawBytes: naiBytes });
+    expect(naiResult.allowed).toBe(false);
+    expect(naiResult.category).toBe('ai_generated_metadata');
+
+    const comfyBytes = new TextEncoder().encode(
+      'PNG...tEXtprompt\0{"3":{"class_type":"KSampler","inputs":{"seed":42}}} ComfyUI',
+    );
+    const comfyResult = evaluateArtworkSafety({ fileName: 'comfy.png', rawBytes: comfyBytes });
+    expect(comfyResult.allowed).toBe(false);
+    expect(comfyResult.category).toBe('ai_generated_metadata');
+
+    const mjBytes = new TextEncoder().encode('PNG...tEXtDescription\0Created with Midjourney v6');
+    const mjResult = evaluateArtworkSafety({ fileName: 'mj.png', rawBytes: mjBytes });
+    expect(mjResult.allowed).toBe(false);
+    expect(mjResult.category).toBe('ai_generated_metadata');
+  });
+
+  // -------------------------------------------------------------------------
+  // Embedded QR / barcode payload screening
+  // -------------------------------------------------------------------------
+
+  it('blocks embedded QR/barcode payloads containing external URLs, contact schemes, or transaction keywords', () => {
+    const urlRes = evaluateArtworkSafety({
+      fileName: 'art_with_qr.png',
+      detectedQrPayloads: ['https://suspicious-shop.example/order?item=123'],
+    });
+    expect(urlRes.allowed).toBe(false);
+    expect(urlRes.category).toBe('malicious_embedded_qr');
+
+    const contactRes = checkBarcodePayloadsSafety(['tg://resolve?domain=secret_drop_bot']);
+    expect(contactRes?.allowed).toBe(false);
+    expect(contactRes?.category).toBe('malicious_embedded_qr');
+
+    const discordRes = checkBarcodePayloadsSafety(['https://discord.gg/abcdef123']);
+    expect(discordRes?.allowed).toBe(false);
+    expect(discordRes?.category).toBe('malicious_embedded_qr');
+
+    const txRes = checkBarcodePayloadsSafety(['購入・受け渡し連絡先: 渋谷駅ロッカー']);
+    expect(txRes?.allowed).toBe(false);
+    expect(txRes?.category).toBe('malicious_embedded_qr');
+  });
+
+  // -------------------------------------------------------------------------
+  // False-positive prevention tests for legitimate hand-drawn artwork
+  // -------------------------------------------------------------------------
+
+  it('allows healthy character illustrations with wide skin-tone area (anime cel-shading & painterly)', () => {
+    // Anime cel-shaded character portrait: ~45% flat/cel-shaded skin tone, ~55% hair/clothing/bg
+    const width = 128;
+    const height = 128;
+    const animeData = new Uint8Array(width * height * 4);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        const inFaceOrArms = x >= 24 && x < 104 && y >= 24 && y < 104;
+        if (inFaceOrArms) {
+          // Flat cel-shaded anime skin with clean shadow band
+          const isShadow = x > 84;
+          animeData[idx] = isShadow ? 218 : 244;
+          animeData[idx + 1] = isShadow ? 174 : 206;
+          animeData[idx + 2] = isShadow ? 156 : 186;
+        } else {
+          // Hair & sky background
+          animeData[idx] = 80;
+          animeData[idx + 1] = 120;
+          animeData[idx + 2] = 210;
+        }
+        animeData[idx + 3] = 255;
+      }
+    }
+    const animeResult = evaluateArtworkSafety({
+      fileName: 'character_portrait_cel.png',
+      title: 'Summer Character Portrait',
+      description: 'Hand-drawn anime character illustration in Clip Studio Paint.',
+      raster: { width, height, data: animeData },
+    });
+    expect(animeResult.allowed).toBe(true);
+
+    // Painterly (厚塗り) character portrait: smooth brush gradients, ~40% skin area, no camera EXIF
+    const painterlyData = new Uint8Array(width * height * 4);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        const inCharacter = x >= 28 && x < 100 && y >= 28 && y < 100;
+        if (inCharacter) {
+          // Smooth painterly shading gradient (diff <= 2 between adjacent pixels)
+          const grad = Math.floor(((x - 28) / 72) * 24);
+          painterlyData[idx] = 235 - grad;
+          painterlyData[idx + 1] = 190 - grad;
+          painterlyData[idx + 2] = 165 - grad;
+        } else {
+          painterlyData[idx] = 45 + Math.floor((y / height) * 40);
+          painterlyData[idx + 1] = 65 + Math.floor((x / width) * 35);
+          painterlyData[idx + 2] = 110;
+        }
+        painterlyData[idx + 3] = 255;
+      }
+    }
+    const painterlyResult = evaluateArtworkSafety({
+      fileName: 'character_atsunuri.png',
+      title: '厚塗りキャラクターイラスト',
+      description: 'Procreateで手描きした厚塗りポートレート作品。',
+      raster: { width, height, data: painterlyData },
+    });
+    expect(painterlyResult.allowed).toBe(true);
+  });
+
+  it('allows background illustrations with fictional signboard text and dream-themed titles', () => {
+    const result = evaluateArtworkSafety({
+      fileName: 'dream_cafe_alley_bg.png',
+      title: 'Dreamy Cafe on Starlight Avenue',
+      description:
+        'Background art featuring fictional neon signs: "CAFE DREAM", "OPEN 24H", "FANTASY BAKERY".',
+      tags: ['background', 'dream', 'signboard', 'handmade'],
+      raster: createFlatArtworkRaster(),
+    });
+    expect(result.allowed).toBe(true);
+  });
+
+  it('allows legitimate Certified Handmade offline verification QR payloads', async () => {
+    const standardUrl =
+      'https://certified-handmade.com/#proof=o2F2AaJhaVggAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    const compactUrl =
+      'HTTPS://CERTIFIED-HANDMADE.COM/#45:QED8WEX00000000000000000000000000000000';
+    const compactRaw = '45:QED8WEX00000000000000000000000000000000';
+
+    expect(isLegitimateCertifiedHandmadePayload(standardUrl)).toBe(true);
+    expect(isLegitimateCertifiedHandmadePayload(compactUrl)).toBe(true);
+    expect(isLegitimateCertifiedHandmadePayload(compactRaw)).toBe(true);
+
+    const result = await evaluateArtworkSafetyAsync({
+      fileName: 'signed_artwork.png',
+      title: 'Original Hand-Drawn Landscape',
+      raster: createFlatArtworkRaster(),
+      detectedQrPayloads: [standardUrl, compactUrl, compactRaw],
+    });
+    expect(result.allowed).toBe(true);
   });
 });

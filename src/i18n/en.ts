@@ -74,6 +74,10 @@ export const en = {
         title: '7. Recipients, Third-Country Transfers (Art. 44–49) & Automated Decision-Making (Art. 22)',
         body: 'Certified Handmade does not sell, rent, or share personal data with third parties. When you access the static site (Cloudflare Pages) or explicitly enable optional integrations (Google Drive, Discord Webhooks, or public Nostr relays), those independent providers may process transport metadata or encrypted payloads outside the EU/EEA under their respective privacy policies and safeguards (or Art. 49(1)(a) explicit user-initiated action). Certified Handmade does not perform automated decision-making or profiling under Art. 22 GDPR.',
       },
+      {
+        title: '8. Terms of Use, Prohibited Content & Zero-Storage Source Verification Policy',
+        body: 'Certified Handmade is strictly dedicated to provenance certification and offline verification of human-made hand-drawn and digital artwork. During signing, working project files (.psd, .clip, .procreate, .kra, .sai2) undergo ephemeral 100% local structure verification in browser memory and are immediately discarded—working project files are NEVER saved to IndexedDB, NEVER uploaded to any server, and NEVER included in Google Drive (drive.appdata) sync (Google Drive sync stores only artwork images .png/.jpg/.webp and encrypted provenance records). You are strictly prohibited from using this tool for illegal content (including CSAM, illicit drugs/trafficking, or physical drop/delivery instructions), non-artwork raw photographs, unauthorized external QR/barcode redirection, or misrepresenting AI-generated imagery as human-made artwork. Because all processing runs 100% locally with zero server uploads, the maintainers never collect, view, or host user files and assume no liability for unlawful or unauthorized use.',
+      },
     ],
     tableHeaders: {
       name: 'Storage / Cookie Name',

@@ -42,6 +42,10 @@ export interface GalleryArtworkItem {
   proofUrl?: string;
   verifiedAt?: number;
   verificationSummary?: string;
+  /** Lightweight source working project verification metadata (NEVER stores raw .psd/.clip bytes). */
+  sourceProjectFormat?: 'PSD' | 'CLIP' | 'PROCREATE' | 'KRA' | 'SAI2';
+  sourceLayerCount?: number;
+  sourceCommitmentHash?: string;
   /** Soft tombstone for timestamp-based multi-tier merge. */
   deleted?: boolean;
 }
