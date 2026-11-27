@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Upload,
 } from 'lucide-react';
+import { inspectAuthorName } from '../../core/security/authorNameGuard';
 import { NATIVE_PROJECT_ACCEPT } from '../../core/parsers';
 import type {
   ProjectInspectionResult,
@@ -251,6 +252,11 @@ export function AdvancedWorkspace({
                   {isJa ? '秘密鍵が未バックアップです' : 'Private key not backed up'}
                 </span>
               </div>
+              <p className="text-[11px] leading-relaxed ga-text-secondary">
+                {isJa
+                  ? 'ブラウザの履歴を消すと鍵が消えてしまいます。大切な作品を守るため、おとなの人（保護者）と一緒にバックアップを保存しておこう。'
+                  : 'Clearing browser history removes local keys. Save a backup together with a parent or guardian to protect your artworks.'}
+              </p>
               <button
                 type="button"
                 onClick={onBackupKeyClick}
@@ -295,14 +301,36 @@ export function AdvancedWorkspace({
               />
             </label>
             <label className="block text-xs font-medium ga-text-secondary">
-              {isJa ? '作者名' : 'Author Name'}
+              {isJa ? '作者名（ニックネーム）' : 'Author Name (Nickname)'}
               <input
                 type="text"
                 value={authorName}
                 onChange={(e) => onChangeAuthorName(e.target.value)}
-                placeholder={isJa ? 'アーティスト名' : 'Artist Name'}
+                placeholder={isJa ? 'ニックネーム・ペンネーム（本名は入れないでね）' : 'Nickname / Pen Name (not your real name)'}
                 className="mt-1 w-full rounded-xl border ga-border bg-[var(--ga-surface-solid)] px-3 py-2 text-xs ga-text"
               />
+              <span className="mt-1 block text-[11px] font-normal ga-text-muted">
+                {isJa
+                  ? '※ 本名や学校名ではなく、ニックネーム（ペンネーム）を入れよう'
+                  : 'Use a nickname or pen name instead of your real name or school.'}
+              </span>
+              {(() => {
+                const guard = inspectAuthorName(authorName);
+                if (guard.level === 'safe') return null;
+                return (
+                  <span
+                    role={guard.level === 'block' ? 'alert' : 'status'}
+                    data-testid="advanced-author-name-guard"
+                    className={`mt-1.5 block rounded-lg border px-2.5 py-1.5 text-[11px] leading-relaxed ${
+                      guard.level === 'block'
+                        ? 'border-rose-500/40 bg-rose-500/10 text-rose-400'
+                        : 'border-amber-500/40 bg-amber-500/10 text-amber-400'
+                    }`}
+                  >
+                    {isJa ? guard.messageJa : guard.messageEn}
+                  </span>
+                );
+              })()}
             </label>
           </div>
 
@@ -310,7 +338,7 @@ export function AdvancedWorkspace({
             <button
               type="button"
               onClick={onCertify}
-              disabled={!mergeResult || stage === 'signing'}
+              disabled={!mergeResult || stage === 'signing' || inspectAuthorName(authorName).level === 'block'}
               data-testid="advanced-certify-btn"
               className="w-full inline-flex items-center justify-center gap-2 rounded-xl ga-btn-primary px-4 py-2.5 text-xs font-semibold min-h-[42px] disabled:opacity-50 cursor-pointer"
             >

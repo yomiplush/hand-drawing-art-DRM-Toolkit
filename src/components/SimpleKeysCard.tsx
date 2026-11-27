@@ -9,6 +9,7 @@ import {
   restoreAuthorKeyFromBackup,
 } from '../core/storage/keyStore';
 import type { AuthorKeyRecord } from '../core/storage/keyStore';
+import { inspectAuthorName } from '../core/security/authorNameGuard';
 import { useI18n } from '../i18n/context';
 
 function downloadKeyBackup(backup: EncryptedKeyBackup, label: string) {
@@ -68,12 +69,18 @@ export function SimpleKeysCard({
   }, []);
 
   const primaryKey = keys[0] ?? null;
+  const labelGuard = inspectAuthorName(label);
 
   const handleCreateKey = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = label.trim();
     if (!trimmed) {
-      setError(isJa ? '作家名を入力してください' : 'Enter your artist name');
+      setError(isJa ? '作家名（ニックネーム）を入力してください' : 'Enter your artist nickname');
+      return;
+    }
+    const guard = inspectAuthorName(trimmed);
+    if (guard.level === 'block') {
+      setError(isJa ? guard.messageJa : guard.messageEn);
       return;
     }
     if (passphrase.trim().length > 0 && passphrase.trim().length < 8) {
@@ -202,6 +209,14 @@ export function SimpleKeysCard({
           <p className="text-xs font-medium text-sky-100">
             {isJa ? '復元用バックアップ (.chkey.json) を保存できます' : 'Save your recovery backup (.chkey.json)'}
           </p>
+          <p
+            data-testid="simple-keys-adult-backup-note"
+            className="text-[11px] leading-relaxed text-sky-200/85"
+          >
+            {isJa
+              ? 'ブラウザの履歴を消すと鍵も消えてしまいます。大切な絵を守るため、おとなの人（保護者）と一緒に保存しておこう。'
+              : 'Clearing browser history deletes local keys. Save this backup together with a parent or guardian to keep your artworks safe.'}
+          </p>
           <button
             type="button"
             onClick={() => void handleDownloadBackup()}
@@ -215,31 +230,61 @@ export function SimpleKeysCard({
 
       {!primaryKey && (
         <form onSubmit={(e) => void handleCreateKey(e)} className="space-y-3.5">
-          <input
-            type="text"
-            value={label}
-            onChange={(e) => {
-              setLabel(e.target.value);
-              setError(null);
-            }}
-            placeholder={isJa ? '作家名（ペンネーム）' : 'Artist Name'}
-            data-testid="simple-keys-label-input"
-            className="w-full rounded-xl border border-sky-400/30 bg-[#04142b]/90 px-3.5 py-2.5 text-sm text-white placeholder:text-sky-300/45 focus:border-sky-400 focus:outline-none"
-          />
-          <input
-            type="password"
-            value={passphrase}
-            onChange={(e) => {
-              setPassphrase(e.target.value);
-              setError(null);
-            }}
-            placeholder={isJa ? 'バックアップ用パスフレーズ（任意・8文字以上）' : 'Backup passphrase (optional, 8+ chars)'}
-            data-testid="simple-keys-passphrase-input"
-            className="w-full rounded-xl border border-sky-400/25 bg-[#04142b]/90 px-3.5 py-2.5 text-xs text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
-          />
+          <div className="space-y-1.5">
+            <input
+              type="text"
+              value={label}
+              onChange={(e) => {
+                setLabel(e.target.value);
+                setError(null);
+              }}
+              placeholder={isJa ? 'ニックネーム・ペンネーム（本名は入れないでね）' : 'Nickname / Pen Name (not your real name)'}
+              data-testid="simple-keys-label-input"
+              className="w-full rounded-xl border border-sky-400/30 bg-[#04142b]/90 px-3.5 py-2.5 text-sm text-white placeholder:text-sky-300/45 focus:border-sky-400 focus:outline-none"
+            />
+            <p
+              data-testid="simple-keys-nickname-hint"
+              className="text-[11px] text-sky-200/75 px-1"
+            >
+              {isJa
+                ? '※ 本名や学校名ではなく、ニックネーム（ペンネーム）を入れよう'
+                : 'Use a nickname or pen name — not your real name or school name.'}
+            </p>
+            {labelGuard.level !== 'safe' && (
+              <p
+                role={labelGuard.level === 'block' ? 'alert' : 'status'}
+                data-testid="simple-keys-name-guard"
+                className={`rounded-xl border px-3 py-2 text-[11px] leading-relaxed ${
+                  labelGuard.level === 'block'
+                    ? 'border-rose-400/50 bg-rose-500/15 text-rose-200'
+                    : 'border-amber-400/50 bg-amber-500/15 text-amber-200'
+                }`}
+              >
+                {isJa ? labelGuard.messageJa : labelGuard.messageEn}
+              </p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <input
+              type="password"
+              value={passphrase}
+              onChange={(e) => {
+                setPassphrase(e.target.value);
+                setError(null);
+              }}
+              placeholder={isJa ? 'バックアップ用パスフレーズ（任意・8文字以上）' : 'Backup passphrase (optional, 8+ chars)'}
+              data-testid="simple-keys-passphrase-input"
+              className="w-full rounded-xl border border-sky-400/25 bg-[#04142b]/90 px-3.5 py-2.5 text-xs text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
+            />
+            <p className="text-[11px] text-sky-200/70 px-1">
+              {isJa
+                ? '※ ブラウザの履歴を消すと鍵が消えるため、おとなの人と一緒にバックアップを保存しておくと安心です。'
+                : 'Clearing browser history removes local keys — back up your key together with a parent or guardian.'}
+            </p>
+          </div>
           <button
             type="submit"
-            disabled={busy}
+            disabled={busy || labelGuard.level === 'block'}
             data-testid="simple-keys-create-btn"
             className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-50 px-4 py-3 text-sm font-semibold text-slate-950 cursor-pointer"
           >

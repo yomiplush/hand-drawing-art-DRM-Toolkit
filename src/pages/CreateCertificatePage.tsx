@@ -119,6 +119,7 @@ import {
   assertArtworkSafeAsync,
   formatArtworkSafetyError,
 } from '../core/security/artworkSafetyGate';
+import { inspectAuthorName } from '../core/security/authorNameGuard';
 import {
   buildSourceProjectProofTag,
   formatSourceProjectError,
@@ -916,6 +917,12 @@ export function CreateCertificatePage() {
       return;
     }
 
+    const authorGuard = inspectAuthorName(authorName);
+    if (authorGuard.level === 'block') {
+      setErrorMsg(locale === 'ja' ? authorGuard.messageJa : authorGuard.messageEn);
+      return;
+    }
+
     try {
       assertArtworkSafe({
         fileName: sourceFileName,
@@ -1504,6 +1511,31 @@ export function CreateCertificatePage() {
                 data-testid="create-author-input"
                 className="ga-input w-full rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
               />
+              <p
+                data-testid="create-author-nickname-hint"
+                className="mt-1 text-[11px] ga-text-muted"
+              >
+                {locale === 'ja'
+                  ? '※ 本名や学校名ではなく、ニックネーム（ペンネーム）を入れよう'
+                  : 'Use a nickname or pen name — not your real name or school name.'}
+              </p>
+              {(() => {
+                const authorGuard = inspectAuthorName(authorName);
+                if (authorGuard.level === 'safe') return null;
+                return (
+                  <p
+                    role={authorGuard.level === 'block' ? 'alert' : 'status'}
+                    data-testid="create-author-name-guard"
+                    className={`mt-1.5 rounded-xl border px-3 py-2 text-xs leading-relaxed ${
+                      authorGuard.level === 'block'
+                        ? 'border-rose-500/40 bg-rose-500/10 text-rose-500'
+                        : 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300'
+                    }`}
+                  >
+                    {locale === 'ja' ? authorGuard.messageJa : authorGuard.messageEn}
+                  </p>
+                );
+              })()}
             </div>
 
             <div>
@@ -1773,6 +1805,14 @@ export function CreateCertificatePage() {
                         {selectedKey.encryptedBackup
                           ? t.create.quickBackupReadyBody
                           : t.create.keyNonExtractableNoBackup}
+                      </p>
+                      <p
+                        data-testid="create-key-backup-adult-note"
+                        className="opacity-90 leading-relaxed font-medium"
+                      >
+                        {locale === 'ja'
+                          ? '※ ブラウザの履歴を消すと鍵も消えてしまいます。大切な作品を守るため、おとなの人（保護者）と一緒にバックアップを保存しておこう。'
+                          : 'Clearing browser history deletes local keys. Save your backup together with a parent or guardian to keep your artworks safe.'}
                       </p>
                     </div>
                   </div>
@@ -3031,6 +3071,15 @@ export function CreateCertificatePage() {
                   </span>
                 )}
               </div>
+
+              <p
+                data-testid="create-post-backup-adult-note"
+                className="text-[11px] ga-text-secondary leading-relaxed"
+              >
+                {locale === 'ja'
+                  ? '※ ブラウザの履歴を消すと端末の鍵が消えてしまいます。大切な絵を失わないよう、おとなの人（保護者）と一緒にバックアップを保存しておこう。'
+                  : 'Clearing browser history removes local keys. Save a backup together with a parent or guardian so you never lose your artworks.'}
+              </p>
 
               {selectedKey?.encryptedBackup ? (
                 <button
