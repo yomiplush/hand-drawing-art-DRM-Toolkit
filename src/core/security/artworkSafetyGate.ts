@@ -398,6 +398,69 @@ function checkTextSafety(text: string): ArtworkSafetyResult | null {
 // ---------------------------------------------------------------------------
 // Layer 2: Client-side Pixel Analysis (Skin-Tone NSFW + Photorealism Heuristic)
 // ---------------------------------------------------------------------------
+// Perceptual 64-bit box-average dHash blocklist for known harassment meme frames
+// (100% local, zero network, invariant to resize/recompression/wrapper format)
+// ---------------------------------------------------------------------------
+
+const PROHIBITED_MEME_DHASH_BLOCKLIST: readonly bigint[] = [
+  0x6343cb43d164c0c8n, // Known Japanese live-action harassment meme frame (normal)
+  0x393d2c3d74d9fcecn, // Known Japanese live-action harassment meme frame (horizontally flipped)
+];
+
+const PERCEPTUAL_HASH_MAX_HAMMING_DISTANCE = 10;
+
+export function computeBoxDHash64(raster: CanonicalRaster): bigint {
+  const { width, height, data } = raster;
+  if (width < 9 || height < 8) return 0n;
+
+  const grid = new Float64Array(8 * 9);
+  for (let gy = 0; gy < 8; gy++) {
+    const y0 = Math.floor((gy * height) / 8);
+    const y1 = Math.max(y0 + 1, Math.floor(((gy + 1) * height) / 8));
+    for (let gx = 0; gx < 9; gx++) {
+      const x0 = Math.floor((gx * width) / 9);
+      const x1 = Math.max(x0 + 1, Math.floor(((gx + 1) * width) / 9));
+      let sum = 0;
+      let count = 0;
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          const idx = (y * width + x) * 4;
+          sum += 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+          count += 1;
+        }
+      }
+      grid[gy * 9 + gx] = count > 0 ? sum / count : 0;
+    }
+  }
+
+  let bits = 0n;
+  for (let gy = 0; gy < 8; gy++) {
+    for (let gx = 0; gx < 8; gx++) {
+      bits = (bits << 1n) | (grid[gy * 9 + gx] > grid[gy * 9 + gx + 1] ? 1n : 0n);
+    }
+  }
+  return bits;
+}
+
+function hammingDistance64(a: bigint, b: bigint): number {
+  let x = a ^ b;
+  let dist = 0;
+  while (x > 0n) {
+    dist += Number(x & 1n);
+    x >>= 1n;
+  }
+  return dist;
+}
+
+function isProhibitedMemePerceptualMatch(raster: CanonicalRaster): boolean {
+  if (raster.width < 32 || raster.height < 32) return false;
+  const hash = computeBoxDHash64(raster);
+  return PROHIBITED_MEME_DHASH_BLOCKLIST.some(
+    (blocked) => hammingDistance64(hash, blocked) <= PERCEPTUAL_HASH_MAX_HAMMING_DISTANCE,
+  );
+}
+
+// ---------------------------------------------------------------------------
 
 function isHumanSkinPixel(r: number, g: number, b: number): boolean {
   if (r <= 95 || g <= 40 || b <= 20) return false;
@@ -654,6 +717,21 @@ export function evaluateArtworkSafety(input: ArtworkSafetyInput): ArtworkSafetyR
           'Rejected: Explicit NSFW imagery detected and blocked. Only legitimate artwork can be added.',
         reasonMessageJa:
           '拒絶されました: 露骨なNSFW画像と判定されたため追加できません。正当なアート作品のみ追加できます。',
+        metrics,
+      };
+    }
+
+    // Layer 2.0: Perceptual dHash blocklist for known live-action harassment meme frames
+    // (catches renamed files like "Tesuto.procreate" with zero meme keywords)
+    if (isProhibitedMemePerceptualMatch(input.raster)) {
+      return {
+        allowed: false,
+        category: 'harassment_meme_spam',
+        reasonCode: 'PROHIBITED_MEME_PERCEPTUAL_HASH_BLOCKED',
+        reasonMessage:
+          'Rejected: Prohibited live-action meme / harassment spam content is not accepted.',
+        reasonMessageJa:
+          '拒絶されました: 荒らし用ミーム画像・実写ビデオキャプチャ等の不適切な画像は登録できません。',
         metrics,
       };
     }
