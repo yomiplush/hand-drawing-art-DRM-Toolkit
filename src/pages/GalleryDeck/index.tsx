@@ -23,6 +23,7 @@ import {
 import { listAuthorKeys } from '../../core/storage/keyStore';
 import { useDeckNavigation } from '../../hooks/useDeckNavigation';
 import { useI18n } from '../../i18n/context';
+import { formatArtworkSafetyError } from '../../core/security/artworkSafetyGate';
 import {
   buildEncryptedVaultChunks,
   openEncryptedVaultSession,
@@ -292,7 +293,8 @@ export function GalleryDeckPage() {
         });
       }
     } catch (err) {
-      showToast(err instanceof Error ? err.message : gd.toastImportFailed);
+      const safetyMsg = formatArtworkSafetyError(err, locale === 'ja' ? 'ja' : 'en');
+      showToast(safetyMsg ?? (err instanceof Error ? err.message : gd.toastImportFailed));
     }
   };
 
@@ -327,7 +329,8 @@ export function GalleryDeckPage() {
       showToast(gd.toastCertified);
       void handleDownload(updated);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : gd.toastCertifyFailed);
+      const safetyMsg = formatArtworkSafetyError(err, locale === 'ja' ? 'ja' : 'en');
+      showToast(safetyMsg ?? (err instanceof Error ? err.message : gd.toastCertifyFailed));
     } finally {
       setBusyAction(null);
     }

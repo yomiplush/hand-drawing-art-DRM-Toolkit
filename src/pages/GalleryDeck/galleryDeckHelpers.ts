@@ -9,6 +9,7 @@ import { createInImageSignedArtworkPng, createSignedArtworkPng } from '../../cor
 import { LICENSE_DEFINITIONS } from '../../core/manifest/types';
 import type { CompactSnsLink, CreationMethod, LicenseDeclaration, LicenseId } from '../../core/manifest/types';
 import { createAuthorKey, listAuthorKeys } from '../../core/storage/keyStore';
+import { assertArtworkSafe } from '../../core/security/artworkSafetyGate';
 import { verifyProofAndArtwork } from '../../core/verify/verifier';
 import type {
   FileSystemGalleryAdapter,
@@ -52,6 +53,11 @@ export async function importArtworkFileToDeck(
 ): Promise<GalleryArtworkItem> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const { raster } = await decodeImageFileToCanonicalRgba8(file);
+  assertArtworkSafe({
+    fileName: file.name,
+    rawBytes: bytes,
+    raster,
+  });
   const sha256Bytes = await hashCanonicalRaster(raster);
   const sha256Hex = bytesToHex(sha256Bytes);
   const thumbnailDataUrl = buildThumbnailDataUrl(raster);
@@ -177,6 +183,12 @@ export async function certifyArtworkInDeck(params: {
     qrMode = 'in-image',
     inImagePlacement,
   } = params;
+  assertArtworkSafe({
+    fileName: item.localFileName,
+    title: artworkTitle ?? item.title,
+    description: description ?? item.description,
+    tags: tags ?? item.tags,
+  });
   const blobKey = item.blobRef ?? `blob:${item.id}`;
   const storedBlob = await idbAdapter.loadBlob(blobKey);
   if (!storedBlob) {

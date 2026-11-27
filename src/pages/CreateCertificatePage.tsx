@@ -114,6 +114,10 @@ import {
 } from '../core/storage/keyStore';
 import type { AuthorKeyRecord } from '../core/storage/keyStore';
 import { saveProofToVault } from '../core/vault';
+import {
+  assertArtworkSafe,
+  formatArtworkSafetyError,
+} from '../core/security/artworkSafetyGate';
 import { imageWorkerClient, type WorkerProgressStage } from '../core/workers/imageWorkerClient';
 import { useI18n } from '../i18n/context';
 
@@ -226,7 +230,7 @@ function OuterMiniQrCanvas({ previewUrl }: { previewUrl: string | null }) {
 }
 
 export function CreateCertificatePage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { isAdvanced, reducedMotion } = useAppPreferences();
   const [searchParams] = useSearchParams();
   const replaceInputId = useId();
@@ -821,6 +825,11 @@ export function CreateCertificatePage() {
         rawFileBytes,
         (percent, stage) => setWorkerProgress({ percent, stage }),
       );
+      assertArtworkSafe({
+        fileName: file.name,
+        rawBytes: rawFileBytes,
+        raster,
+      });
       const minDim = Math.min(raster.width, raster.height);
       const defaultBox = Math.max(
         Math.min(minDim, 180),
@@ -835,7 +844,8 @@ export function CreateCertificatePage() {
       setQrX(Math.max(0, raster.width - defaultBox - pad));
       setQrY(Math.max(0, raster.height - defaultBox - pad));
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to decode image');
+      const safetyMsg = formatArtworkSafetyError(err, locale === 'ja' ? 'ja' : 'en');
+      setErrorMsg(safetyMsg ?? (err instanceof Error ? err.message : 'Failed to decode image'));
     } finally {
       setWorkerProgress(null);
     }
@@ -846,6 +856,20 @@ export function CreateCertificatePage() {
     setErrorMsg(null);
     if (!artworkRaster) {
       setErrorMsg('Please select an artwork image first.');
+      return;
+    }
+
+    try {
+      assertArtworkSafe({
+        fileName: sourceFileName,
+        title: artworkTitle,
+        description: cleanDescription,
+        policyNote,
+        raster: artworkRaster,
+      });
+    } catch (err) {
+      const safetyMsg = formatArtworkSafetyError(err, locale === 'ja' ? 'ja' : 'en');
+      setErrorMsg(safetyMsg ?? (err instanceof Error ? err.message : 'Artwork safety check failed'));
       return;
     }
 
