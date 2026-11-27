@@ -90,6 +90,22 @@ const ILLICIT_DRUG_PATTERNS: RegExp[] = [
   /(?:裏取引|違法取引|密売).{0,12}(?:住所|場所|受け渡し|連絡)/,
 ];
 
+const ADULT_NSFW_PATTERNS: RegExp[] = [
+  /(?:^|[\s_\-./\\#])(?:r-?18g?|nsfw|hentai|porn(?:ography)?|xxx|erotica?|ecchi)(?:[\s_\-./\\]|$)/i,
+  /(?:^|[\s_\-./\\#])(?:nude|naked|explicit\s*sex|hardcore\s*sex|jav)(?:[\s_\-./\\]|$)/i,
+  /アダルト/,
+  /成年向け/,
+  /成人向け/,
+  /18禁/,
+  /１８禁/,
+  /無修正/,
+  /ポルノ/,
+  /エロ(?:画像|絵|漫画|同人|イラスト|動画)/,
+  /ヌード(?:写真|画像)?/,
+  /性行為/,
+  /猥褻|わいせつ/,
+];
+
 const HARASSMENT_MEME_PATTERNS: RegExp[] = [
   /淫夢/,
   /真夏の夜の淫夢/,
@@ -498,6 +514,20 @@ export function evaluateArtworkSafety(input: ArtworkSafetyInput): ArtworkSafetyR
   const textRejection = checkTextSafety(combinedText);
   if (textRejection) {
     return textRejection;
+  }
+
+  for (const pattern of ADULT_NSFW_PATTERNS) {
+    if (pattern.test(combinedText)) {
+      return {
+        allowed: false,
+        category: 'photorealistic_nsfw',
+        reasonCode: 'ADULT_CONTENT_BLOCKED',
+        reasonMessage:
+          'Inappropriate content detected: Adult / R-18 / NSFW content is not allowed on Certified Handmade.',
+        reasonMessageJa:
+          '不適切な画像・内容が検出されました: アダルト・R-18・性的（NSFW）コンテンツは登録できません。',
+      };
+    }
   }
 
   for (const pattern of HARASSMENT_MEME_PATTERNS) {
