@@ -36,6 +36,7 @@ const SHARE_TARGET_CACHE_KEY = '/__shared-artwork__';
 
 cleanupOutdatedCaches();
 precacheAndRoute((self as unknown as SwGlobalScope).__WB_MANIFEST);
+void (self as unknown as SwGlobalScope).skipWaiting();
 
 registerRoute(
   new NavigationRoute(createHandlerBoundToURL('/index.html'), {
