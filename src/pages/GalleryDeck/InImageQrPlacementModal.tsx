@@ -76,6 +76,50 @@ export function InImageQrPlacementModal(props: InImageQrPlacementModalProps) {
   return <InImageQrPlacementModalBody {...props} item={props.item} />;
 }
 
+const CREATE_MODAL_PRESET_STORAGE_KEY = 'chm_gallerydeck_create_preset_v1';
+
+interface CreateModalPreset {
+  authorName: string;
+  website: string;
+  snsLinksText: string;
+  supportLinksText: string;
+  tagsText: string;
+  creationMethod: CreationMethod;
+  licenseId: LicenseId;
+  qrMode: 'in-image' | 'outer-border';
+  qrStyle: InImageQrStyle;
+}
+
+function loadCreateModalPreset(): Partial<CreateModalPreset> | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(CREATE_MODAL_PRESET_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<CreateModalPreset>;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCreateModalPreset(preset: CreateModalPreset): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(CREATE_MODAL_PRESET_STORAGE_KEY, JSON.stringify(preset));
+  } catch {
+    // ignore quota errors
+  }
+}
+
+function clearCreateModalPreset(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(CREATE_MODAL_PRESET_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 function InImageQrPlacementModalBody({
   item,
   initialLicenseId,
@@ -86,23 +130,63 @@ function InImageQrPlacementModalBody({
 }: Omit<InImageQrPlacementModalProps, 'item'> & { item: GalleryArtworkItem }) {
   const { t, locale } = useI18n();
   const isJa = locale === 'ja';
+  const savedPreset = loadCreateModalPreset();
 
   const [step, setStep] = useState<'info' | 'placement'>('info');
-  const [authorName, setAuthorName] = useState<string>(item.authorName ?? '');
+  const [authorName, setAuthorName] = useState<string>(
+    item.authorName || savedPreset?.authorName || '',
+  );
   const [artworkTitle, setArtworkTitle] = useState<string>(item.title ?? '');
   const [description, setDescription] = useState<string>(item.description ?? '');
-  const [website, setWebsite] = useState<string>('');
-  const [snsLinksText, setSnsLinksText] = useState<string>('');
-  const [supportLinksText, setSupportLinksText] = useState<string>('');
-  const [tagsText, setTagsText] = useState<string>(
-    item.tags.length > 0 ? item.tags.map((tag) => (tag.startsWith('#') ? tag : `#${tag}`)).join(' ') : '',
+  const [website, setWebsite] = useState<string>(savedPreset?.website ?? '');
+  const [snsLinksText, setSnsLinksText] = useState<string>(savedPreset?.snsLinksText ?? '');
+  const [supportLinksText, setSupportLinksText] = useState<string>(
+    savedPreset?.supportLinksText ?? '',
   );
-  const [creationMethod, setCreationMethod] = useState<CreationMethod>('hand-drawn-no-ai');
+  const [tagsText, setTagsText] = useState<string>(
+    item.tags.length > 0
+      ? item.tags.map((tag) => (tag.startsWith('#') ? tag : `#${tag}`)).join(' ')
+      : (savedPreset?.tagsText ?? ''),
+  );
+  const [creationMethod, setCreationMethod] = useState<CreationMethod>(
+    savedPreset?.creationMethod ?? 'hand-drawn-no-ai',
+  );
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [licenseId, setLicenseId] = useState<LicenseId>(initialLicenseId);
+  const [licenseId, setLicenseId] = useState<LicenseId>(
+    savedPreset?.licenseId ?? initialLicenseId,
+  );
   const [licenseHelpOpen, setLicenseHelpOpen] = useState(false);
-  const [qrMode, setQrMode] = useState<'in-image' | 'outer-border'>(initialQrMode);
-  const [qrStyle, setQrStyle] = useState<InImageQrStyle>('frosted-light');
+  const [qrMode, setQrMode] = useState<'in-image' | 'outer-border'>(
+    savedPreset?.qrMode ?? initialQrMode,
+  );
+  const [qrStyle, setQrStyle] = useState<InImageQrStyle>(
+    savedPreset?.qrStyle ?? 'frosted-light',
+  );
+  const [presetSavedNotice, setPresetSavedNotice] = useState(false);
+  const [hasSavedPreset, setHasSavedPreset] = useState<boolean>(Boolean(savedPreset));
+
+  const handleSavePreset = () => {
+    saveCreateModalPreset({
+      authorName,
+      website,
+      snsLinksText,
+      supportLinksText,
+      tagsText,
+      creationMethod,
+      licenseId,
+      qrMode,
+      qrStyle,
+    });
+    setHasSavedPreset(true);
+    setPresetSavedNotice(true);
+    window.setTimeout(() => setPresetSavedNotice(false), 2000);
+  };
+
+  const handleClearPreset = () => {
+    clearCreateModalPreset();
+    setHasSavedPreset(false);
+    setPresetSavedNotice(false);
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -371,6 +455,41 @@ function InImageQrPlacementModalBody({
 
         {step === 'info' ? (
           <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-400/25 bg-sky-950/35 px-3 py-2 text-xs">
+              <span className="text-sky-200/80">
+                {isJa
+                  ? 'タイトル・コメント以外の項目をプリセット保存できます'
+                  : 'Save fields (except title & description) as a reusable preset'}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSavePreset}
+                  data-testid="certify-modal-save-preset-btn"
+                  className="inline-flex items-center gap-1 rounded-lg border border-sky-400/40 bg-sky-500/20 hover:bg-sky-500/30 px-2.5 py-1 text-[11px] font-semibold text-sky-100 cursor-pointer"
+                >
+                  {presetSavedNotice ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                      <span>{isJa ? '保存しました' : 'Saved'}</span>
+                    </>
+                  ) : (
+                    <span>{isJa ? 'プリセット保存' : 'Save Preset'}</span>
+                  )}
+                </button>
+                {hasSavedPreset && (
+                  <button
+                    type="button"
+                    onClick={handleClearPreset}
+                    data-testid="certify-modal-clear-preset-btn"
+                    className="rounded-lg border border-sky-400/20 bg-sky-900/40 hover:bg-sky-900/70 px-2 py-1 text-[11px] text-sky-200/80 cursor-pointer"
+                  >
+                    {isJa ? '削除' : 'Clear'}
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label className="space-y-1.5 block">
                 <span className="text-xs font-medium text-sky-200">
