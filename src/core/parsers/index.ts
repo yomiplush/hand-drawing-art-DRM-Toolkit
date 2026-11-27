@@ -24,20 +24,28 @@ export const NATIVE_PROJECT_ACCEPT =
 /**
  * Returns the `<input type="file" accept="...">` value for native project files.
  *
- * On iOS / iPadOS Safari and Android, passing custom extensions like `.clip`,
- * `.procreate`, `.kra`, `.sai2`, or `.psd` causes the OS Files picker to grey out
- * or hide all files because they lack registered system UTIs/MIME types.
- * Returning `undefined` on mobile OSes lets users select project files normally
- * while `resolveProjectParser()` still strictly rejects flat PNG/JPEG/WebP images.
+ * On iOS / iPadOS Safari, macOS Safari (NSOpenPanel UTI filtering), and Android,
+ * passing custom extensions like `.clip`, `.procreate`, `.kra`, `.sai2`, or `.psd`
+ * causes the OS file picker to grey out or hide files that lack registered system
+ * UTIs/MIME types. Returning `undefined` on those platforms lets users select
+ * project files normally while `resolveProjectParser()` still strictly rejects
+ * flat PNG/JPEG/WebP images and spoofed headers.
  */
-export function getNativeProjectAcceptAttr(): string | undefined {
-  if (typeof navigator === 'undefined') return NATIVE_PROJECT_ACCEPT;
-  const ua = navigator.userAgent || '';
+export function getNativeProjectAcceptAttr(
+  nav: Pick<Navigator, 'userAgent' | 'platform' | 'maxTouchPoints'> | undefined =
+    typeof navigator !== 'undefined' ? navigator : undefined,
+): string | undefined {
+  if (!nav) return NATIVE_PROJECT_ACCEPT;
+  const ua = nav.userAgent || '';
   const isIOS =
     /iPad|iPhone|iPod/i.test(ua) ||
-    (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints ?? 0) > 1);
+    (nav.platform === 'MacIntel' && (nav.maxTouchPoints ?? 0) > 1);
   const isAndroid = /Android/i.test(ua);
-  if (isIOS || isAndroid) {
+  const isMacSafari =
+    /Macintosh|Mac OS X/i.test(ua) &&
+    /Safari/i.test(ua) &&
+    !/Chrome|CriOS|Chromium|Edg|Firefox|OPR/i.test(ua);
+  if (isIOS || isAndroid || isMacSafari) {
     return undefined;
   }
   return NATIVE_PROJECT_ACCEPT;

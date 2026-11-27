@@ -1,0 +1,28 @@
+name: Cross-Platform File Picker & Safety CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/core/parsers/**'
+      - 'src/core/security/**'
+      - 'tests/unit/filePickerAccept.test.ts'
+      - 'tests/unit/authorNameGuard.test.ts'
+
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx vitest run tests/unit/filePickerAccept.test.ts tests/unit/authorNameGuard.test.ts
+      - run: npm run typecheck

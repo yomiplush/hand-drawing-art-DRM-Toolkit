@@ -123,10 +123,10 @@ import { inspectAuthorName } from '../core/security/authorNameGuard';
 import {
   buildSourceProjectProofTag,
   formatSourceProjectError,
-  SOURCE_PROJECT_ACCEPT_ATTR,
   type SourceProjectVerificationResult,
   verifySourceProjectFile,
 } from '../core/security/sourceProjectVerifier';
+import { getNativeProjectAcceptAttr } from '../core/parsers';
 import { imageWorkerClient, type WorkerProgressStage } from '../core/workers/imageWorkerClient';
 import { useI18n } from '../i18n/context';
 
@@ -1431,7 +1431,7 @@ export function CreateCertificatePage() {
                 <label className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer">
                   <input
                     type="file"
-                    accept={SOURCE_PROJECT_ACCEPT_ATTR}
+                    accept={getNativeProjectAcceptAttr()}
                     data-testid="create-source-project-input"
                     className="sr-only"
                     onClick={(e) => {
