@@ -8,7 +8,8 @@ export type ArtworkSafetyCategory =
   | 'photorealistic_nsfw'
   | 'non_art_raw_photo'
   | 'ai_generated_metadata'
-  | 'malicious_embedded_qr';
+  | 'malicious_embedded_qr'
+  | 'harassment_meme_spam';
 
 export interface ArtworkSafetyMetrics {
   skinRatio: number;
@@ -87,6 +88,25 @@ const ILLICIT_DRUG_PATTERNS: RegExp[] = [
   /シャブ(?:売|買|取引|受け渡し)/,
   /薬物.{0,10}(?:密輸|運搬|運ぶ|受け渡し|配達|住所|ドロップ)/,
   /(?:裏取引|違法取引|密売).{0,12}(?:住所|場所|受け渡し|連絡)/,
+];
+
+const HARASSMENT_MEME_PATTERNS: RegExp[] = [
+  /淫夢/,
+  /真夏の夜の淫夢/,
+  /野獣先輩/,
+  /田所浩二/,
+  /田所\s*浩二/,
+  /114514/,
+  /1919810/,
+  /ホモビ/,
+  /迫真空手部/,
+  /bb先輩/i,
+  /例のアレ/,
+  /こ↑こ↓/,
+  /いいよこいよ/,
+  /やりますねぇ/,
+  /(?:^|[\s_\-./\\])(?:inmu|yaju|yajuu|tadokoro|kbtit|kmr|mur)(?:[\s_\-./\\]|$)/i,
+  /koji\s*tadokoro/i,
 ];
 
 const DROP_ADDRESS_PATTERNS: RegExp[] = [
@@ -478,6 +498,20 @@ export function evaluateArtworkSafety(input: ArtworkSafetyInput): ArtworkSafetyR
   const textRejection = checkTextSafety(combinedText);
   if (textRejection) {
     return textRejection;
+  }
+
+  for (const pattern of HARASSMENT_MEME_PATTERNS) {
+    if (pattern.test(combinedText)) {
+      return {
+        allowed: false,
+        category: 'harassment_meme_spam',
+        reasonCode: 'HARASSMENT_MEME_BLOCKED',
+        reasonMessage:
+          'Rejected: Prohibited live-action meme / harassment spam content is not accepted.',
+        reasonMessageJa:
+          '拒絶されました: 実写ミーム・荒らし・不適切コンテンツ関連のファイルは追加できません。',
+      };
+    }
   }
 
   // 1b. Check embedded file metadata (PNG tEXt/iTXt/zTXt, EXIF, XMP) for AI generation signatures

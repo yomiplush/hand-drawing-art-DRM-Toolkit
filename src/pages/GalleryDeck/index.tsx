@@ -23,7 +23,11 @@ import {
 import { listAuthorKeys } from '../../core/storage/keyStore';
 import { useDeckNavigation } from '../../hooks/useDeckNavigation';
 import { useI18n } from '../../i18n/context';
-import { formatArtworkSafetyError } from '../../core/security/artworkSafetyGate';
+import {
+  ArtworkSafetyError,
+  evaluateArtworkSafety,
+  formatArtworkSafetyError,
+} from '../../core/security/artworkSafetyGate';
 import {
   buildEncryptedVaultChunks,
   openEncryptedVaultSession,
@@ -277,6 +281,13 @@ export function GalleryDeckPage() {
       const imported: GalleryArtworkItem[] = [];
       for (const file of Array.from(files)) {
         const { inspection } = await inspectNativeProjectFile(file);
+        const preScreen = evaluateArtworkSafety({
+          fileName: file.name,
+          tags: inspection.layers.map((l) => l.name),
+        });
+        if (!preScreen.allowed) {
+          throw new ArtworkSafetyError(preScreen);
+        }
         const merged = await mergeNativeProjectFile(file, inspection);
         const baseName = file.name.replace(/\.[^.]+$/, '') || 'artwork';
         const mergedPngFile = new File([merged.mergedPngBytes.buffer as ArrayBuffer], `${baseName}.png`, {
