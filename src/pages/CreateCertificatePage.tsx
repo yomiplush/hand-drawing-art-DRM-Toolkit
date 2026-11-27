@@ -830,6 +830,9 @@ export function CreateCertificatePage() {
     setErrorMsg(null);
     setSignedResult(null);
     setSignedEvidence(null);
+    setSourceProjectProof(null);
+    setSourceProjectFileName(null);
+    setSourceProjectError(null);
     setWorkerProgress({ percent: 15, stage: 'decoding' });
     try {
       const rawFileBytes = new Uint8Array(await file.arrayBuffer());

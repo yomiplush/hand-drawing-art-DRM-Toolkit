@@ -182,6 +182,16 @@ export function ArtworkDetailDrawer({
                     <dd className="ga-text font-medium mt-0.5">{item.verificationSummary}</dd>
                   </div>
                 )}
+                {item.sourceProjectFormat && item.sourceCommitmentHash && (
+                  <div className="col-span-2" data-testid="drawer-source-project-meta">
+                    <dt className="ga-text-muted">Source Project</dt>
+                    <dd className="font-mono text-[11px] ga-text-accent mt-0.5 break-all">
+                      {item.sourceProjectFormat}
+                      {item.sourceLayerCount ? ` (${item.sourceLayerCount} layers)` : ''} ·{' '}
+                      {item.sourceCommitmentHash.slice(0, 16)}…
+                    </dd>
+                  </div>
+                )}
               </dl>
 
               {item.provenanceStatus !== 'signed' && (
