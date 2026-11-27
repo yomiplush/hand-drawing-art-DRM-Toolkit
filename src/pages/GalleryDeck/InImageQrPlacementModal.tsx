@@ -313,9 +313,9 @@ function InImageQrPlacementModalBody({
   const artWidth = Math.max(120, item.width || 1024);
   const artHeight = Math.max(120, item.height || 1024);
   const minDim = Math.min(artWidth, artHeight);
-  const minBoxSize = Math.min(minDim, Math.max(180, Math.round(minDim * 0.18)));
+  const minBoxSize = Math.min(minDim, 64);
   const maxBoxSize = Math.min(minDim, Math.max(minBoxSize + 80, Math.min(540, Math.round(minDim * 0.54))));
-  const defaultBoxSize = Math.max(minBoxSize, Math.min(maxBoxSize, Math.round(minDim * 0.22)));
+  const defaultBoxSize = Math.max(minBoxSize, Math.min(maxBoxSize, Math.round(minDim * 0.1)));
 
   const [boxSize, setBoxSize] = useState<number>(defaultBoxSize);
   const [opacityPct, setOpacityPct] = useState<number>(100);
@@ -888,7 +888,21 @@ function InImageQrPlacementModalBody({
               <label className="space-y-1.5 text-xs text-sky-200/85">
                 <div className="flex items-center justify-between">
                   <span>{isJa ? 'QRサイズ' : 'QR Size'}</span>
-                  <span className="font-mono text-white">{boxSize}px</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBoxSize(minBoxSize);
+                        if (preset !== 'custom') {
+                          setCoords(computePresetCoords(preset, artWidth, artHeight, minBoxSize));
+                        }
+                      }}
+                      className="rounded-md border border-sky-400/35 bg-sky-500/20 hover:bg-sky-500/35 px-2 py-0.5 text-[10px] font-semibold text-sky-100 cursor-pointer"
+                    >
+                      {isJa ? `最小 (${minBoxSize}px)` : `Min (${minBoxSize}px)`}
+                    </button>
+                    <span className="font-mono text-white">{boxSize}px</span>
+                  </div>
                 </div>
                 <input
                   type="range"
