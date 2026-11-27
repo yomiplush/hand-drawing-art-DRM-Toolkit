@@ -9,6 +9,7 @@ import type { GoogleComplianceTranslations } from './googleCompliance';
 import type { HardeningTranslations } from './hardening';
 import type { HowToTranslations } from './howto';
 import type { HumanUxTranslations } from './humanUx';
+import type { InteractiveTutorialTranslations } from './interactiveTutorial';
 import type { LicenseGuideTranslations } from './licenses';
 import type { MinimalUiTranslations } from './minimalUi';
 import type { NextGenTranslations } from './nextGen';
@@ -25,6 +26,7 @@ export type FullTranslations = Translations & {
   licenses: LicenseGuideTranslations;
   howTo: HowToTranslations;
   tutorial: TutorialTranslations;
+  interactiveTutorial: InteractiveTutorialTranslations;
   qrStudio: QrStudioTranslations;
   verifyMobile: VerifyMobileTranslations;
   seo: SeoTranslations;

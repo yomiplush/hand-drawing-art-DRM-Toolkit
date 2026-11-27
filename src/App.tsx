@@ -7,6 +7,11 @@ import { Layout } from './components/Layout';
 import { PreferencesProvider } from './components/PreferencesContext';
 import { Ps3WaveBackground } from './components/Ps3WaveBackground';
 import { SeoHead } from './components/SeoHead';
+import { InteractiveTutorialModal } from './components/tutorial/InteractiveTutorialModal';
+import {
+  hasSeenInteractiveTutorial,
+  markInteractiveTutorialSeen,
+} from './core/preferences/tutorialState';
 import {
   getConsentStatus,
   resetConsentStatus,
@@ -146,6 +151,7 @@ function AppRoutes() {
 
   const [consentStatus, setConsentState] = useState<ConsentStatus>(() => getConsentStatus());
   const [bannerOpen, setBannerOpen] = useState<boolean>(() => getConsentStatus() === 'unset');
+  const [tutorialOpen, setTutorialOpen] = useState<boolean>(() => !hasSeenInteractiveTutorial());
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
@@ -190,6 +196,20 @@ function AppRoutes() {
     setBannerOpen(true);
   };
 
+  const handleSkipTutorial = () => {
+    markInteractiveTutorialSeen('skipped');
+    setTutorialOpen(false);
+  };
+
+  const handleCompleteTutorial = () => {
+    markInteractiveTutorialSeen('completed');
+    setTutorialOpen(false);
+  };
+
+  const handleOpenTutorial = () => {
+    setTutorialOpen(true);
+  };
+
   const privacyElement = (
     <PrivacyPolicyPage
       consentStatus={consentStatus}
@@ -223,7 +243,8 @@ function AppRoutes() {
                   needRefresh={needRefresh}
                   onUpdateSw={handleUpdateSw}
                   onOpenCookieSettings={() => setBannerOpen(true)}
-                  bannerOpen={bannerOpen}
+                  onOpenTutorial={handleOpenTutorial}
+                  bannerOpen={bannerOpen && !tutorialOpen}
                 />
               }
             >
@@ -240,7 +261,10 @@ function AppRoutes() {
                 }
               />
               <Route path="/privacypolicy" element={privacyElement} />
-              <Route path="/tutorial" element={<TutorialPage />} />
+              <Route
+                path="/tutorial"
+                element={<TutorialPage onOpenInteractiveTutorial={handleOpenTutorial} />}
+              />
               <Route path="/create" element={<CreateCertificatePage />} />
               <Route path="/qr-studio" element={<Navigate to="/create?mode=studio" replace />} />
               <Route path="/verify" element={<VerifyCertificatePage />} />
@@ -264,11 +288,17 @@ function AppRoutes() {
       </RouteErrorBoundary>
 
       <CookieConsentBanner
-        open={bannerOpen}
+        open={bannerOpen && !tutorialOpen}
         status={consentStatus}
         onAccept={handleAcceptConsent}
         onReject={handleRejectConsent}
         onClose={() => setBannerOpen(false)}
+      />
+
+      <InteractiveTutorialModal
+        open={tutorialOpen}
+        onSkip={handleSkipTutorial}
+        onComplete={handleCompleteTutorial}
       />
     </>
   );

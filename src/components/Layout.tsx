@@ -9,6 +9,7 @@ import {
   Globe,
   HardDriveDownload,
   Heart,
+  HelpCircle,
   KeyRound,
   RefreshCw,
   Share2,
@@ -30,6 +31,7 @@ interface LayoutProps {
   needRefresh: boolean;
   onUpdateSw: () => void;
   onOpenCookieSettings: () => void;
+  onOpenTutorial?: () => void;
   bannerOpen?: boolean;
 }
 
@@ -41,6 +43,7 @@ export function Layout({
   needRefresh,
   onUpdateSw,
   onOpenCookieSettings,
+  onOpenTutorial,
   bannerOpen = false,
 }: LayoutProps) {
   const { t, locale, setLocale } = useI18n();
@@ -184,6 +187,19 @@ export function Layout({
               )}
 
               <ModeToggle compact testId="header-mode-toggle" />
+
+              {onOpenTutorial && (
+                <button
+                  type="button"
+                  onClick={onOpenTutorial}
+                  data-testid="header-tutorial-btn"
+                  aria-label={t.interactiveTutorial.headerButtonTooltip}
+                  title={t.interactiveTutorial.headerButtonTooltip}
+                  className="ga-btn-secondary inline-flex items-center justify-center rounded-full h-[38px] w-[38px] sm:h-[40px] sm:w-[40px] shrink-0 transition-colors cursor-pointer"
+                >
+                  <HelpCircle className="h-4 w-4 text-[var(--ga-accent)]" aria-hidden="true" />
+                </button>
+              )}
 
               <div className="relative inline-flex items-center shrink-0">
                 <Globe

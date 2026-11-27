@@ -9,10 +9,15 @@ import {
   Info,
   KeyRound,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 import { useI18n } from '../i18n/context';
 
-export function TutorialPage() {
+interface TutorialPageProps {
+  onOpenInteractiveTutorial?: () => void;
+}
+
+export function TutorialPage({ onOpenInteractiveTutorial }: TutorialPageProps) {
   const { t } = useI18n();
   const tr = t.tutorial;
   const recovery = t.humanUx.keyRecoveryGuide;
@@ -32,6 +37,20 @@ export function TutorialPage() {
         <p className="text-sm sm:text-base ga-text-secondary leading-relaxed max-w-2xl">
           {tr.subtitle}
         </p>
+
+        {onOpenInteractiveTutorial && (
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={onOpenInteractiveTutorial}
+              data-testid="tutorial-page-launch-3d"
+              className="ga-btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold min-h-[44px] cursor-pointer"
+            >
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              <span>{t.interactiveTutorial.launchFromPageBtn}</span>
+            </button>
+          </div>
+        )}
 
         <ul className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
           {tr.reassuranceItems.map((item) => (

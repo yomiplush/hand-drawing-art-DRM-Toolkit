@@ -649,3 +649,12 @@
 .chmx-root .chmx-banner-body {
   overflow-wrap: anywhere;
 }
+
+/* Interactive 3D Tutorial Stage */
+.chm-3d-stage {
+  perspective: 1100px;
+}
+
+.chm-3d-preserve {
+  transform-style: preserve-3d;
+}

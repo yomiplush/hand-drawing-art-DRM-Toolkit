@@ -13,6 +13,7 @@ import { GOOGLE_COMPLIANCE_I18N } from './googleCompliance';
 import { HARDENING_I18N } from './hardening';
 import { HOWTO_I18N } from './howto';
 import { HUMAN_UX_I18N } from './humanUx';
+import { INTERACTIVE_TUTORIAL_I18N } from './interactiveTutorial';
 import { ja } from './ja';
 import { LICENSE_I18N } from './licenses';
 import { MINIMAL_UI_I18N } from './minimalUi';
@@ -88,6 +89,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     licenses: LICENSE_I18N[locale] ?? LICENSE_I18N.en,
     howTo: HOWTO_I18N[locale] ?? HOWTO_I18N.en,
     tutorial: TUTORIAL_I18N[locale] ?? TUTORIAL_I18N.en,
+    interactiveTutorial: INTERACTIVE_TUTORIAL_I18N[locale] ?? INTERACTIVE_TUTORIAL_I18N.en,
     qrStudio: QR_STUDIO_I18N[locale] ?? QR_STUDIO_I18N.en,
     verifyMobile: VERIFY_MOBILE_I18N[locale] ?? VERIFY_MOBILE_I18N.en,
     seo: SEO_I18N[locale] ?? SEO_I18N.en,
