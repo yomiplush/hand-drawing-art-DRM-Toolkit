@@ -9,6 +9,7 @@ import {
   GoogleDriveStorageProvider,
   InMemoryGoogleAuthManager,
   checkGoogleDriveEnvironmentSupport,
+  buildCanonicalRedirectUrl,
   type GisOAuth2Global,
 } from '../../src/core/google';
 import { savePolicyPreset } from '../../src/core/policies';
@@ -206,6 +207,32 @@ describe('Google OAuth 2.0 Memory-Only Auth, Drive Folder Recovery & Encrypted S
     });
     expect(prod.supported).toBe(true);
     expect(prod.reason).toBe('ok');
+  });
+
+  it('blocks Google OAuth on the apex origin, which is not an Authorized JavaScript Origin', () => {
+    const apex = checkGoogleDriveEnvironmentSupport({
+      origin: 'https://certified-handmade.com',
+    });
+    expect(apex.supported).toBe(false);
+    expect(apex.reason).toBe('apex-origin');
+    expect(apex.message).toContain('www.certified-handmade.com');
+  });
+
+  it('redirects the apex to the canonical www origin and leaves every other origin untouched', () => {
+    expect(buildCanonicalRedirectUrl('https://certified-handmade.com/')).toBe(
+      'https://www.certified-handmade.com/',
+    );
+    expect(buildCanonicalRedirectUrl('https://certified-handmade.com/storage?sync=1#vault')).toBe(
+      'https://www.certified-handmade.com/storage?sync=1#vault',
+    );
+    expect(buildCanonicalRedirectUrl('https://www.certified-handmade.com/storage')).toBeNull();
+    expect(buildCanonicalRedirectUrl('http://certified-handmade.com/')).toBeNull();
+    expect(buildCanonicalRedirectUrl('http://localhost:5173/storage')).toBeNull();
+    expect(
+      buildCanonicalRedirectUrl('https://hand-drawing-art-drm-toolkit.pages.dev/storage'),
+    ).toBeNull();
+    expect(buildCanonicalRedirectUrl('http://127.0.0.1:43777/')).toBeNull();
+    expect(buildCanonicalRedirectUrl('not a url')).toBeNull();
   });
 
   it('keeps access tokens in RAM only, lazy-loads GIS, handles failures/expiry/account switching', async () => {

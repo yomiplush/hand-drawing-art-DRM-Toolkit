@@ -2,6 +2,42 @@ export const DEFAULT_GOOGLE_CLIENT_ID =
   '948913138881-4k5avda66dnimie2lou6erofuo9d9gmm.apps.googleusercontent.com';
 
 export const PRODUCTION_ORIGIN = 'https://www.certified-handmade.com';
+export const PRODUCTION_HOST = 'www.certified-handmade.com';
+export const PRODUCTION_APEX_HOST = 'certified-handmade.com';
+
+/**
+ * True when the origin is the bare apex of the production domain.
+ * Apex is a 301-only redirect target: it must never run the app, because Google
+ * Identity Services sends `window.location.origin` verbatim and the apex is not
+ * (and must not be) a registered Authorized JavaScript Origin.
+ */
+export function isApexProductionOrigin(origin: string): boolean {
+  try {
+    const parsed = new URL(origin);
+    return parsed.protocol === 'https:' && parsed.hostname === PRODUCTION_APEX_HOST;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Returns the canonical HTTPS URL to replace the current document with when the
+ * page is being served on the apex (a stale service worker can bypass the 301).
+ * Returns null for every other origin, including localhost/preview/standalone.
+ */
+export function buildCanonicalRedirectUrl(href: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(href);
+  } catch {
+    return null;
+  }
+  if (!isApexProductionOrigin(parsed.origin)) {
+    return null;
+  }
+  return `${PRODUCTION_ORIGIN}${parsed.pathname}${parsed.search}${parsed.hash}`;
+}
+
 export const GIS_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 export const GOOGLE_DRIVE_APPDATA_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 /** @deprecated Legacy visible My Drive scope; retained as constant only for disclosure references. */
@@ -12,7 +48,13 @@ export const GOOGLE_DRIVE_UPLOAD_BASE = 'https://www.googleapis.com/upload/drive
 
 export interface GoogleEnvironmentSupport {
   supported: boolean;
-  reason: 'ok' | 'no-window' | 'missing-client-id' | 'standalone-loopback' | 'insecure-origin';
+  reason:
+    | 'ok'
+    | 'no-window'
+    | 'missing-client-id'
+    | 'standalone-loopback'
+    | 'apex-origin'
+    | 'insecure-origin';
   clientId: string;
   origin: string;
   message: string;
@@ -81,6 +123,17 @@ export function checkGoogleDriveEnvironmentSupport(params?: {
       origin,
       message:
         'Google OAuth is unavailable on Standalone local server (127.0.0.1:43777). Use Portable Encrypted Files (.chmvault.json) or open the hosted HTTPS web app at https://www.certified-handmade.com.',
+    };
+  }
+
+  if (isApexProductionOrigin(origin)) {
+    return {
+      supported: false,
+      reason: 'apex-origin',
+      clientId,
+      origin,
+      message:
+        'This page is running on https://certified-handmade.com, which is not a registered OAuth origin, so Google blocks sign-in with origin_mismatch. Reload at https://www.certified-handmade.com.',
     };
   }
 
