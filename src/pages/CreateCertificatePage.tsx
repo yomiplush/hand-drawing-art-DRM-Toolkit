@@ -270,6 +270,7 @@ export function CreateCertificatePage() {
   const [selectedKeyId, setSelectedKeyId] = useState<string>('');
   const [keyPassphrase, setKeyPassphrase] = useState('');
   const [quickPassphrase, setQuickPassphrase] = useState('');
+  const [quickPassphraseConfirm, setQuickPassphraseConfirm] = useState('');
   const [quickKeyBusy, setQuickKeyBusy] = useState(false);
   const [quickKeyError, setQuickKeyError] = useState<string | null>(null);
   const [autoKeyCreatedNotice, setAutoKeyCreatedNotice] = useState(false);
@@ -355,6 +356,7 @@ export function CreateCertificatePage() {
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [stampCeremonyActive, setStampCeremonyActive] = useState(false);
   const [postBackupPassphrase, setPostBackupPassphrase] = useState('');
+  const [postBackupPassphraseConfirm, setPostBackupPassphraseConfirm] = useState('');
   const [postBackupBusy, setPostBackupBusy] = useState(false);
   const [postBackupError, setPostBackupError] = useState<string | null>(null);
   const [postBackupSaved, setPostBackupSaved] = useState(false);
@@ -776,6 +778,12 @@ export function CreateCertificatePage() {
       );
       return;
     }
+    if (quickPassphrase && quickPassphrase !== quickPassphraseConfirm) {
+      setQuickKeyError(
+        locale === 'ja' ? '確認用パスフレーズが一致していません' : 'Passphrases do not match',
+      );
+      return;
+    }
     setQuickKeyBusy(true);
     try {
       const { record } = await createAuthorKey({
@@ -783,6 +791,7 @@ export function CreateCertificatePage() {
         backupPassphrase: quickPassphrase || undefined,
       });
       setQuickPassphrase('');
+      setQuickPassphraseConfirm('');
       const updated = await listAuthorKeys();
       setKeys(updated);
       setSelectedKeyId(record.id);
@@ -817,6 +826,12 @@ export function CreateCertificatePage() {
       setPostBackupError(t.simple.create.backupShortPassError);
       return;
     }
+    if (postBackupPassphrase !== postBackupPassphraseConfirm) {
+      setPostBackupError(
+        locale === 'ja' ? '確認用パスフレーズが一致していません' : 'Passphrases do not match',
+      );
+      return;
+    }
     setPostBackupBusy(true);
     try {
       const { record, encryptedBackup } = await createAuthorKey({
@@ -833,6 +848,7 @@ export function CreateCertificatePage() {
         await markAuthorKeyBackedUp(record.id);
       }
       setPostBackupPassphrase('');
+      setPostBackupPassphraseConfirm('');
       const updated = await listAuthorKeys();
       setKeys(updated);
       setSelectedKeyId(record.id);
@@ -956,6 +972,7 @@ export function CreateCertificatePage() {
                 label: authorName.trim() || 'My Artist Key',
               });
         setQuickPassphrase('');
+      setQuickPassphraseConfirm('');
         const updatedKeys = await listAuthorKeys();
         setKeys(updatedKeys);
         setSelectedKeyId(record.id);
@@ -1662,6 +1679,30 @@ export function CreateCertificatePage() {
                     data-testid="create-quick-passphrase"
                     className="ga-input w-full rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
                   />
+                  {quickPassphrase.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      <input
+                        type="password"
+                        value={quickPassphraseConfirm}
+                        onChange={(e) => setQuickPassphraseConfirm(e.target.value)}
+                        placeholder={
+                          locale === 'ja'
+                            ? 'パスフレーズ（確認用・もう一度入力）'
+                            : 'Confirm passphrase'
+                        }
+                        data-testid="create-quick-passphrase-confirm"
+                        className="ga-input w-full rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
+                      />
+                      {quickPassphraseConfirm.length > 0 &&
+                        quickPassphrase !== quickPassphraseConfirm && (
+                          <p role="alert" className="text-xs text-[var(--ga-error-text)]">
+                            {locale === 'ja'
+                              ? 'パスフレーズが一致していません'
+                              : 'Passphrases do not match'}
+                          </p>
+                        )}
+                    </div>
+                  )}
                   {quickPassphrase.length > 0 && (
                     <div data-testid="create-quick-passphrase-strength" className="mt-1.5 space-y-1">
                       <div className="flex items-center justify-between text-[11px]">
@@ -3092,25 +3133,51 @@ export function CreateCertificatePage() {
                   <span>{t.simple.create.backupReadyBtn}</span>
                 </button>
               ) : (
-                <div className="flex flex-col sm:flex-row gap-2.5">
-                  <input
-                    type="password"
-                    value={postBackupPassphrase}
-                    onChange={(e) => setPostBackupPassphrase(e.target.value)}
-                    placeholder={t.simple.create.backupPassPlaceholder}
-                    data-testid="create-post-backup-pass"
-                    className="ga-input flex-1 rounded-xl px-3 py-2 text-xs sm:text-sm min-h-[44px]"
-                  />
-                  <button
-                    type="button"
-                    disabled={postBackupBusy}
-                    onClick={() => void handlePostSignBackup()}
-                    data-testid="create-post-backup-create-btn"
-                    className="chm-spring-btn ga-btn-secondary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold disabled:opacity-50 min-h-[44px] cursor-pointer"
-                  >
-                    <Download className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
-                    <span>{t.simple.create.backupCreateAndSaveBtn}</span>
-                  </button>
+                <div className="space-y-2">
+                  <div className="flex flex-col sm:flex-row gap-2.5">
+                    <input
+                      type="password"
+                      value={postBackupPassphrase}
+                      onChange={(e) => setPostBackupPassphrase(e.target.value)}
+                      placeholder={t.simple.create.backupPassPlaceholder}
+                      data-testid="create-post-backup-pass"
+                      className="ga-input flex-1 rounded-xl px-3 py-2 text-xs sm:text-sm min-h-[44px]"
+                    />
+                    <input
+                      type="password"
+                      value={postBackupPassphraseConfirm}
+                      onChange={(e) => setPostBackupPassphraseConfirm(e.target.value)}
+                      placeholder={
+                        locale === 'ja'
+                          ? 'パスフレーズ（確認用・もう一度入力）'
+                          : 'Confirm passphrase'
+                      }
+                      data-testid="create-post-backup-pass-confirm"
+                      className="ga-input flex-1 rounded-xl px-3 py-2 text-xs sm:text-sm min-h-[44px]"
+                    />
+                    <button
+                      type="button"
+                      disabled={
+                        postBackupBusy ||
+                        (postBackupPassphrase.length > 0 &&
+                          postBackupPassphrase !== postBackupPassphraseConfirm)
+                      }
+                      onClick={() => void handlePostSignBackup()}
+                      data-testid="create-post-backup-create-btn"
+                      className="chm-spring-btn ga-btn-secondary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold disabled:opacity-50 min-h-[44px] cursor-pointer"
+                    >
+                      <Download className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
+                      <span>{t.simple.create.backupCreateAndSaveBtn}</span>
+                    </button>
+                  </div>
+                  {postBackupPassphraseConfirm.length > 0 &&
+                    postBackupPassphrase !== postBackupPassphraseConfirm && (
+                      <p role="alert" className="text-xs text-[var(--ga-error-text)]">
+                        {locale === 'ja'
+                          ? 'パスフレーズが一致していません'
+                          : 'Passphrases do not match'}
+                      </p>
+                    )}
                 </div>
               )}
 

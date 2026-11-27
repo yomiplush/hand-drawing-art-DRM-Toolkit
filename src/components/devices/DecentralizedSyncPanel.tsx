@@ -63,7 +63,7 @@ export function DecentralizedSyncPanel({
   selectedAuthorKeyId,
   onRefresh,
 }: DecentralizedSyncPanelProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const s = t.devices.sync;
   const authOnly = t.nextGen.nostrAuthOnly;
 
@@ -82,6 +82,7 @@ export function DecentralizedSyncPanel({
   const [peerImportError, setPeerImportError] = useState<string | null>(null);
 
   const [backupPass, setBackupPass] = useState('');
+  const [backupPassConfirm, setBackupPassConfirm] = useState('');
   const [exportedNcryptsec, setExportedNcryptsec] = useState<string | null>(null);
   const [importNcryptsecInput, setImportNcryptsecInput] = useState('');
   const [backupMsg, setBackupMsg] = useState<string | null>(null);
@@ -693,10 +694,33 @@ export function DecentralizedSyncPanel({
               data-testid="sync-backup-password-input"
               className="ga-input w-full rounded-xl px-3 py-2 text-xs min-h-[44px]"
             />
+            {backupPass.length > 0 && (
+              <div className="space-y-1">
+                <input
+                  type="password"
+                  value={backupPassConfirm}
+                  onChange={(e) => setBackupPassConfirm(e.target.value)}
+                  placeholder={
+                    locale === 'ja'
+                      ? 'パスフレーズ（確認用・もう一度入力）'
+                      : 'Confirm passphrase'
+                  }
+                  data-testid="sync-backup-password-confirm-input"
+                  className="ga-input w-full rounded-xl px-3 py-2 text-xs min-h-[44px]"
+                />
+                {backupPassConfirm.length > 0 && backupPass !== backupPassConfirm && (
+                  <p role="alert" className="text-xs text-[var(--ga-error-text)]">
+                    {locale === 'ja'
+                      ? 'パスフレーズが一致していません'
+                      : 'Passphrases do not match'}
+                  </p>
+                )}
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                disabled={!nostrKey}
+                disabled={!nostrKey || (backupPass.length > 0 && backupPass !== backupPassConfirm)}
                 data-testid="sync-export-ncryptsec-btn"
                 onClick={() => void handleExportNcryptsec()}
                 className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium disabled:opacity-50 min-h-[44px] cursor-pointer"

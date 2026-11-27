@@ -43,6 +43,7 @@ export function SimpleKeysCard({
   const [loading, setLoading] = useState(true);
   const [label, setLabel] = useState('');
   const [passphrase, setPassphrase] = useState('');
+  const [passphraseConfirm, setPassphraseConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedBackup, setSavedBackup] = useState<{
@@ -87,6 +88,10 @@ export function SimpleKeysCard({
       setError(isJa ? 'バックアップ用パスフレーズは8文字以上にしてください' : 'Passphrase must be 8+ characters');
       return;
     }
+    if (passphrase.trim().length > 0 && passphrase !== passphraseConfirm) {
+      setError(isJa ? '確認用パスフレーズが一致していません' : 'Passphrases do not match');
+      return;
+    }
     setError(null);
     setBusy(true);
     try {
@@ -105,6 +110,7 @@ export function SimpleKeysCard({
       await refresh();
       setLabel('');
       setPassphrase('');
+      setPassphraseConfirm('');
       if (!result.encryptedBackup) {
         onKeyReady?.(result.record);
       }
@@ -276,6 +282,26 @@ export function SimpleKeysCard({
               data-testid="simple-keys-passphrase-input"
               className="w-full rounded-xl border border-sky-400/25 bg-[#04142b]/90 px-3.5 py-2.5 text-xs text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
             />
+            {passphrase.length > 0 && (
+              <div className="space-y-1">
+                <input
+                  type="password"
+                  value={passphraseConfirm}
+                  onChange={(e) => {
+                    setPassphraseConfirm(e.target.value);
+                    setError(null);
+                  }}
+                  placeholder={isJa ? 'バックアップ用パスフレーズ（確認用・もう一度入力）' : 'Confirm backup passphrase'}
+                  data-testid="simple-keys-passphrase-confirm-input"
+                  className="w-full rounded-xl border border-sky-400/25 bg-[#04142b]/90 px-3.5 py-2.5 text-xs text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
+                />
+                {passphraseConfirm.length > 0 && passphrase !== passphraseConfirm && (
+                  <p role="alert" className="text-[11px] text-rose-300 px-1">
+                    {isJa ? 'パスフレーズが一致していません' : 'Passphrases do not match'}
+                  </p>
+                )}
+              </div>
+            )}
             <p className="text-[11px] text-sky-200/70 px-1">
               {isJa
                 ? '※ ブラウザの履歴を消すと鍵が消えるため、おとなの人と一緒にバックアップを保存しておくと安心です。'
@@ -284,7 +310,11 @@ export function SimpleKeysCard({
           </div>
           <button
             type="submit"
-            disabled={busy || labelGuard.level === 'block'}
+            disabled={
+              busy ||
+              labelGuard.level === 'block' ||
+              (passphrase.length > 0 && passphrase !== passphraseConfirm)
+            }
             data-testid="simple-keys-create-btn"
             className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-50 px-4 py-3 text-sm font-semibold text-slate-950 cursor-pointer"
           >

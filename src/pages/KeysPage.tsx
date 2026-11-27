@@ -90,7 +90,7 @@ export function KeysPage() {
 }
 
 function AdvancedKeysPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const restoreFileInputId = useId();
   const noticeImportFileId = useId();
 
@@ -100,6 +100,7 @@ function AdvancedKeysPage() {
 
   const [newLabel, setNewLabel] = useState('');
   const [newPassphrase, setNewPassphrase] = useState('');
+  const [newPassphraseConfirm, setNewPassphraseConfirm] = useState('');
   const [genError, setGenError] = useState<string | null>(null);
   const [pendingBackup, setPendingBackup] = useState<{
     keyId: string;
@@ -210,12 +211,18 @@ function AdvancedKeysPage() {
       if (newPassphrase && newPassphrase.length < 8) {
         throw new Error(t.hardening.passphraseStrength.guidance);
       }
+      if (newPassphrase && newPassphrase !== newPassphraseConfirm) {
+        throw new Error(
+          locale === 'ja' ? '確認用パスフレーズが一致していません' : 'Passphrases do not match',
+        );
+      }
       const { record, encryptedBackup } = await createAuthorKey({
         label: newLabel || 'Artist Key',
         backupPassphrase: newPassphrase || undefined,
       });
       setNewLabel('');
       setNewPassphrase('');
+      setNewPassphraseConfirm('');
       if (encryptedBackup) {
         setPendingBackup({ keyId: record.id, backup: encryptedBackup });
       }
@@ -603,6 +610,29 @@ function AdvancedKeysPage() {
                 data-testid="keygen-passphrase"
                 className="ga-input w-full min-w-0 rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
               />
+              {newPassphrase.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <input
+                    type="password"
+                    value={newPassphraseConfirm}
+                    onChange={(e) => setNewPassphraseConfirm(e.target.value)}
+                    placeholder={
+                      locale === 'ja'
+                        ? 'パスフレーズ（確認用・もう一度入力）'
+                        : 'Confirm passphrase'
+                    }
+                    data-testid="keygen-passphrase-confirm"
+                    className="ga-input w-full min-w-0 rounded-xl px-3 py-2.5 text-sm min-h-[44px]"
+                  />
+                  {newPassphraseConfirm.length > 0 && newPassphrase !== newPassphraseConfirm && (
+                    <p role="alert" className="text-xs text-[var(--ga-error-text)]">
+                      {locale === 'ja'
+                        ? 'パスフレーズが一致していません'
+                        : 'Passphrases do not match'}
+                    </p>
+                  )}
+                </div>
+              )}
               {newPassphrase.length > 0 && (
                 <div data-testid="keygen-passphrase-strength" className="mt-1.5 space-y-1 min-w-0">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">

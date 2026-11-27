@@ -55,7 +55,7 @@ const indexedDbProvider = new IndexedDbStorageProvider();
 const portableFileProvider = new PortableFileStorageProvider();
 
 export function StorageSettingsPanel({ onVaultChanged }: StorageSettingsPanelProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const s = t.nextGen.storage;
   const dr = t.humanUx.driveRecovery;
 
@@ -82,6 +82,7 @@ export function StorageSettingsPanel({ onVaultChanged }: StorageSettingsPanelPro
 
   // Portable .chmvault.json state
   const [portablePass, setPortablePass] = useState('');
+  const [portablePassConfirm, setPortablePassConfirm] = useState('');
   const [portableBusy, setPortableBusy] = useState(false);
   const [portableMsg, setPortableMsg] = useState<string | null>(null);
   const [portableError, setPortableError] = useState<string | null>(null);
@@ -506,6 +507,29 @@ export function StorageSettingsPanel({ onVaultChanged }: StorageSettingsPanelPro
               data-testid="portable-passphrase-input"
               className="ga-input w-full rounded-xl px-3 py-2 text-xs min-h-[40px]"
             />
+            {portablePass.length > 0 && (
+              <div className="space-y-1">
+                <input
+                  type="password"
+                  value={portablePassConfirm}
+                  onChange={(e) => setPortablePassConfirm(e.target.value)}
+                  placeholder={
+                    locale === 'ja'
+                      ? 'パスフレーズ（確認用・もう一度入力）'
+                      : 'Confirm passphrase'
+                  }
+                  data-testid="portable-passphrase-confirm-input"
+                  className="ga-input w-full rounded-xl px-3 py-2 text-xs min-h-[40px]"
+                />
+                {portablePassConfirm.length > 0 && portablePass !== portablePassConfirm && (
+                  <p role="alert" className="text-xs text-[var(--ga-error-text)]">
+                    {locale === 'ja'
+                      ? 'パスフレーズが一致していません'
+                      : 'Passphrases do not match'}
+                  </p>
+                )}
+              </div>
+            )}
             {portablePass.length > 0 && (
               <div className="text-[11px] ga-text-muted">
                 Strength:{' '}

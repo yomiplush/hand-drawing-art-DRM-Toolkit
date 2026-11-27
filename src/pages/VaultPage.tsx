@@ -52,7 +52,7 @@ function triggerJsonDownload(data: unknown, filename: string): void {
 }
 
 export function VaultPage({ focusStorage = false }: { focusStorage?: boolean }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { isAdvanced } = useAppPreferences();
   const v = t.vault;
 
@@ -69,6 +69,7 @@ export function VaultPage({ focusStorage = false }: { focusStorage?: boolean }) 
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [backupPass, setBackupPass] = useState('');
+  const [backupPassConfirm, setBackupPassConfirm] = useState('');
   const [backupMsg, setBackupMsg] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
 
@@ -409,24 +410,46 @@ export function VaultPage({ focusStorage = false }: { focusStorage?: boolean }) 
           </button>
         </div>
 
-        <div className="flex flex-wrap gap-2 pt-2 border-t ga-border">
-          <input
-            type="password"
-            value={backupPass}
-            onChange={(e) => setBackupPass(e.target.value)}
-            placeholder={v.encryptedPassPlaceholder}
-            data-testid="vault-backup-pass-input"
-            className="ga-input flex-1 min-w-[220px] rounded-xl px-3 py-2 text-xs min-h-[44px]"
-          />
-          <button
-            type="button"
-            data-testid="vault-export-encrypted-btn"
-            onClick={() => void handleExportEncrypted()}
-            className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold min-h-[44px] cursor-pointer"
-          >
-            <Lock className="h-4 w-4 ga-text-accent" aria-hidden="true" />
-            <span>{v.exportEncryptedJsonBtn}</span>
-          </button>
+        <div className="space-y-2 pt-2 border-t ga-border">
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="password"
+              value={backupPass}
+              onChange={(e) => setBackupPass(e.target.value)}
+              placeholder={v.encryptedPassPlaceholder}
+              data-testid="vault-backup-pass-input"
+              className="ga-input flex-1 min-w-[200px] rounded-xl px-3 py-2 text-xs min-h-[44px]"
+            />
+            {backupPass.length > 0 && (
+              <input
+                type="password"
+                value={backupPassConfirm}
+                onChange={(e) => setBackupPassConfirm(e.target.value)}
+                placeholder={
+                  locale === 'ja'
+                    ? 'パスフレーズ（確認用・もう一度入力）'
+                    : 'Confirm passphrase'
+                }
+                data-testid="vault-backup-pass-confirm-input"
+                className="ga-input flex-1 min-w-[200px] rounded-xl px-3 py-2 text-xs min-h-[44px]"
+              />
+            )}
+            <button
+              type="button"
+              disabled={backupPass.length > 0 && backupPass !== backupPassConfirm}
+              data-testid="vault-export-encrypted-btn"
+              onClick={() => void handleExportEncrypted()}
+              className="ga-btn-secondary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold disabled:opacity-50 min-h-[44px] cursor-pointer"
+            >
+              <Lock className="h-4 w-4 ga-text-accent" aria-hidden="true" />
+              <span>{v.exportEncryptedJsonBtn}</span>
+            </button>
+          </div>
+          {backupPassConfirm.length > 0 && backupPass !== backupPassConfirm && (
+            <p role="alert" className="text-xs text-[var(--ga-error-text)]">
+              {locale === 'ja' ? 'パスフレーズが一致していません' : 'Passphrases do not match'}
+            </p>
+          )}
         </div>
 
         <div className="pt-2 border-t ga-border space-y-2">
