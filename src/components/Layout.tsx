@@ -493,7 +493,31 @@ export function Layout({
             <div className="space-y-4 text-xs leading-relaxed">
               <div className="rounded-xl border border-sky-400/35 bg-sky-950/40 p-3.5 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono font-semibold text-sky-200">v1.3.1</span>
+                  <span className="font-mono font-semibold text-sky-200">v1.3.2</span>
+                  <span className="text-[11px] text-sky-200/70">2026-11-28</span>
+                </div>
+                <ul className="list-disc pl-4 space-y-1 text-sky-100/95">
+                  {locale === 'ja' ? (
+                    <>
+                      <li>公開鍵交換（/exchange）の仕様・セキュリティ注意点（指紋の別経路確認）をドキュメントに追記</li>
+                      <li>SNS（X・Instagram・Bluesky 等）での再圧縮によりピクセル一致が外れる点を「制限事項」に明記</li>
+                      <li>CodeQL セキュリティ解析・Dependabot 自動更新を導入し、CI を最小権限化</li>
+                      <li>コントリビューションガイド（13言語の翻訳手順）・Issue テンプレート・CHANGELOG を追加</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>Documented the /exchange protocol and security notes (out-of-band fingerprint checks)</li>
+                      <li>Clarified that social media re-compression (X, Instagram, Bluesky, etc.) breaks exact pixel-hash matches</li>
+                      <li>Added CodeQL security analysis, Dependabot updates, and least-privilege CI permissions</li>
+                      <li>Added a contributing guide (13-language translation steps), issue templates, and CHANGELOG</li>
+                    </>
+                  )}
+                </ul>
+              </div>
+
+              <div className="rounded-xl border border-sky-400/25 bg-sky-950/30 p-3.5 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-semibold text-sky-300">v1.3.1</span>
                   <span className="text-[11px] text-sky-200/70">2026-11-28</span>
                 </div>
                 <ul className="list-disc pl-4 space-y-1 text-sky-100/95">

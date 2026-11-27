@@ -1,0 +1,26 @@
+name: Feature Request
+description: Suggest an improvement or new capability for Certified Handmade
+title: '[Feature]: '
+labels: ['enhancement']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Use Case
+      description: What workflow or artist/verifier need does this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe how you would like this to work.
+    validations:
+      required: true
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Architecture Alignment
+      options:
+        - label: Works 100% locally without requiring a central server, paid API, or telemetry
+          required: false

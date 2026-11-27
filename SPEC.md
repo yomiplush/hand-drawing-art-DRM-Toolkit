@@ -470,3 +470,19 @@ Permitted Nostr sync payloads are restricted exclusively to:
 - **Sync Safety Invariants:** `lastManifestSeq` & `lastManifestHash` rollback detection; three-way conflict detection preserving local and remote versions without silent last-write-wins overwrites; soft deletion tombstones; immutable proof chunking (`PROOF_CHUNK_SIZE = 100`); `assertNoForbiddenSyncSecrets` rejecting raw binary buffers, pixels, private keys, `nsec`, and OAuth tokens.
 
 See [`docs/GOOGLE-DRIVE-SETUP.md`](./docs/GOOGLE-DRIVE-SETUP.md), [`docs/STORAGE-PROVIDERS.md`](./docs/STORAGE-PROVIDERS.md), and [`docs/CHM-COMPACT-PROOF-V3.md`](./docs/CHM-COMPACT-PROOF-V3.md) for full details.
+
+---
+
+## 17. Serverless Public-Key Exchange (`/exchange`, `@yomiplush/chm-exchange`)
+
+### 17.1 Host Adapter Boundary & Public-Only Projection (`src/core/exchange/hostAdapter.ts`)
+
+- `/exchange` (`src/pages/ExchangePage.tsx`) mounts `<ChmExchangeView />` from `@yomiplush/chm-exchange/react` backed by `createCertifiedHandmadeExchangeAdapter()`.
+- **Public-only identity projection:** `toPublicHostIdentity()` uses `stripToPublicHostIdentity()` so only public fields (`id`, `displayName`, `publicKeyBase64Url`, `fingerprintHex`, `fingerprintShort`, `createdAt`) are exposed from IndexedDB `AuthorKeyRecord` entries. Private key material (`webCryptoPrivateKey`, `encryptedBackup`) is never exposed across the exchange boundary.
+- **Trusted key boundary:** `listTrustedKeys()` and `getTrustStatus()` return trusted status **only** for records where `verificationState !== 'unconfirmed'`. `addTrustedKey()` validates the Ed25519 public key, recomputes its `SHA-256` fingerprint locally, and throws (rolling back the write) if any declared `fingerprintHex` does not match.
+
+### 17.2 Transport, Fingerprint Verification & Artwork Package Wrapper (`src/core/exchange/proofAdapter.ts`)
+
+- **Exchange transport:** Public keys are shared locally via `#key=<base64url>` URL fragments (never sent to servers in HTTP `GET` requests), QR codes, or canonical `chm-exchange-public-key` (`v1`) JSON bundles.
+- **Trust establishment:** Received keys are inspected locally with recomputed `SHA-256(publicKey32)` (`64`-hex `fingerprintHex` and `CHM-XXXX-XXXX-XXXX-XXXX`) and remain untrusted (`unconfirmed`) until explicit out-of-band fingerprint verification promotes them to `confirmed`.
+- **Signed v2 artwork exchange wrapper:** `src/core/exchange/proofAdapter.ts` defines `ChmExchangeArtworkPackage` (`exchange_schema_version: "2.0"`, `package_type: "chm-verified-artwork"`), wrapping a verified `SignedChmProofV2` native project proof (`schema_version: "2"`, `layer_count >= 1`) alongside `gallery_deck` metadata and optional `certified_png_base64`, and re-verifies proofs via `verifyChmProofAny()` on import.

@@ -3,7 +3,7 @@
 [![CI](https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/yomiplush/hand-drawing-art-DRM-Toolkit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-**Your Art. Your Rights. Your Freedom.** (v1.3.1)
+**Your Art. Your Rights. Your Freedom.** (v1.3.2)
 
 Certified Handmade is a **¥0 / $0 forever**, open-source, local-first, offline-first **Cryptographic Artwork Provenance**, **Encrypted Proof Vault**, and **Pluggable Storage & Device Auth** toolkit. Artists can cryptographically sign illustrations locally with Ed25519, embed self-contained verification QR codes into lossless PNG margins (Protocol v1), masked in-image overlays (Protocol v2), or compact DEFLATE + dictionary-compressed QR payloads carrying full artwork/creator/policy/evidence metadata (Protocol v3), manage an encrypted Proof Vault across **Local IndexedDB**, **Portable Encrypted Files (`.chmvault.json`)**, and opt-in **Personal Google Drive**, and optionally synchronize **device authentication & revocations only** over untrusted free public Nostr relays (`CHM-SYNC-v1`)—or run 100% offline via the **Web / PWA Edition** (`https://www.certified-handmade.com/`), the **Portable Standalone Edition** (`http://127.0.0.1:43777` for Linux x86_64 and Windows x86_64), or the **Independent Offline CLIs**.
 
@@ -42,6 +42,15 @@ All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding
 
 > **Moving keys & vaults between Web, Standalone, and other devices:** Export a passphrase-encrypted `.chkey.json` backup in **Identity / Keys** (`/keys`) and a `.chmvault.json` backup (or sync via Personal Google Drive on Web) in **Proof Vault & Storage** (`/vault`, `/storage`).
 
+<!--
+### Screenshots
+Place UI screenshots under `docs/screenshots/` and uncomment the table below when ready:
+
+| Create (`/create`) | Verify (`/verify`) | Exchange (`/exchange`) |
+| --- | --- | --- |
+| ![Create Certificate](./docs/screenshots/create.png) | ![Verify Certificate](./docs/screenshots/verify.png) | ![Public Key Exchange](./docs/screenshots/exchange.png) |
+-->
+
 ---
 
 ## Features
@@ -50,7 +59,7 @@ All key generation, Ed25519 signing, canonical RGBA8 pixel hashing, PNG encoding
    - Generates Ed25519 keypairs inside the browser (non-extractable Web Crypto `CryptoKey` in IndexedDB where supported, with audited `@noble/ed25519` fallback).
    - Passphrase-encrypted private key backups (`.chkey.json` using 600,000-iteration PBKDF2-SHA256 + AES-256-GCM) with live passphrase strength feedback (`8+` required, `12+` recommended), non-mutating backup verification ("Verify Backup Only"), and restore flow.
    - **How `non-extractable` `CryptoKey` and `.chkey.json` backups coexist:** During key generation (or restore), a transient 32-byte Ed25519 seed is simultaneously imported into Web Crypto as a `non-extractable` `CryptoKey` (stored in IndexedDB) and encrypted with the user's passphrase into the `.chkey.json` backup payload; the raw seed is then immediately zeroized in memory (`wipeSeed()`). Once created, the Web Crypto `CryptoKey` is never exported—ordinary signing uses the non-extractable handle while portable recovery relies strictly on the passphrase-encrypted `.chkey.json`.
-   - **Local-First Public Key Exchange (`@yomiplush/chm-exchange`, `/exchange`):** Integrated serverless key-exchange UI for sharing, receiving, inspecting, and managing artist public keys and 64-hex SHA-256 fingerprints via QR codes, URL fragments, or portable JSON—running **100% locally with zero central directory or server**. Received keys remain `unconfirmed` until explicit out-of-band fingerprint confirmation promotes them to **Trusted** (`unconfirmed` vs `confirmed`).
+   - **Local-First Public Key Exchange (`@yomiplush/chm-exchange`, `/exchange`):** Integrated serverless key-exchange UI (`ChmExchangeView` + `createCertifiedHandmadeExchangeAdapter`) for sharing, receiving, inspecting, and managing artist public keys and 64-hex SHA-256 fingerprints (`CHM-XXXX-XXXX-XXXX-XXXX`) via QR codes, `#key=` URL fragments, or portable JSON—running **100% locally with zero central directory or server**. Strictly projects public identity fields only (`stripToPublicHostIdentity`), displays any locally imported key revocation/rotation notices, supports optional signed Discord identity links (`?discordProfile=...`), and keeps received keys `unconfirmed` until explicit out-of-band fingerprint confirmation promotes them to **Trusted**.
    - Supports offline **Key Revocation & Rotation Notices** (`CHM-NOTICE1\0`, `.chnotice.json` / `chm-notice:`) and **Offline Key-Possession Challenge-Response** (`CHM-CHALLENGE1\0`).
 
 2. **Certificate Creation, Mandatory Working-File Verification, Protocol v3 Self-Contained Compact QR & QR Studio (`/create`)**
@@ -108,6 +117,7 @@ go run . --notice /path/to/notice.chnotice.json
 ## Important Limitations & Scope
 
 - **Cryptographic Provenance, Not Copy-Protection DRM:** Certified Handmade creates tamper-evident signatures and machine-readable rights declarations; it does **not** encrypt artwork pixels, block screenshots, or technically enforce `aiTraining: disallow`.
+- **Social Media Re-compression:** Platforms such as X (Twitter), Instagram, and Bluesky strip image metadata and re-encode uploads to JPEG/WebP, which alters pixel values and breaks exact `CAR-v1` RGBA8 pixel-hash verification (`Mismatched`). Signed PNGs are intended for **lossless direct distribution or archival verification** (e.g., ZIP/PNG downloads, client delivery, BOOTH/FANBOX); on social platforms, a readable embedded QR code still allows viewers to verify the Ed25519 signature, creator metadata, and policy, alongside the non-cryptographic `dHash64`/`pHash64` visual helper (see [`docs/SNS-WORKFLOW.md`](./docs/SNS-WORKFLOW.md)).
 - **Signature ≠ Proof of Hand-Drawing or Legal Copyright:** A valid Ed25519 signature (or evidence hash match / offline key-possession challenge) proves only that the holder of that private key signed the data and (when checked) that pixels or local evidence files match their signed SHA-256 hashes. It cannot prove by math alone that no AI tools were used, verify external social account ownership, or prove legal copyright ownership.
 - **Self-Declared Timestamps & Decentralized Notices:** Without a central server or TSA, `issuedAt`, `noticeIssuedAt`, and `.chmevidence` `createdAt` are self-declared, and offline verifiers only see `.chnotice.json` notices imported locally.
 - **Google Account ≠ CHM Identity & Zero Remote Wipe:** Connecting Google Drive only authorizes storage on the user's Drive (`drive.appdata` (`appDataFolder`)). It does not authenticate CHM authorship or unlock Vault data without the passphrase. Revoking a device rotates future Vault epochs (`rotationReason: 'device-revoked'`) cleanly, but cannot remotely erase data or keys already copied before revocation.
@@ -181,6 +191,8 @@ See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for:
 - [`SECURITY.md`](./SECURITY.md) — Threat model, Google OAuth 2.0 GIS Token Model & RAM-only token boundaries, Encrypted Vault AES-256-GCM/HKDF-SHA256 design, strict Nostr auth-only isolation, Protocol v3 anti-bomb/dictionary sanitization, CSP/COOP hardening, and honest disclosures.
 - [`DEPLOYMENT.md`](./DEPLOYMENT.md) — Cloudflare Pages setup (`VITE_GOOGLE_CLIENT_ID`, `https://www.certified-handmade.com`), portable standalone build/release workflow, and self-hosting guide.
 - [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md) — Open-source dependencies and licenses.
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — Local development, PR guidelines, and 13-language localization guide.
+- [`CHANGELOG.md`](./CHANGELOG.md) — Release history following Keep a Changelog and Semantic Versioning.
 
 ### Architecture, Storage Providers, Protocol v3 & Sync Guides (`docs/`)
 - [`docs/SNS-WORKFLOW.md`](./docs/SNS-WORKFLOW.md) — Practical artist workflow guide for SNS posting (handling JPEG/WebP recompression, original PNG distribution, and `dHash64`/`pHash64` visual similarity helper).

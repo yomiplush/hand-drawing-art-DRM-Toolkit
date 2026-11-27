@@ -36,5 +36,8 @@ Development tooling is not shipped in the runtime bundle (except the local Workb
 | `tailwindcss` / `@tailwindcss/vite` | CSS utility framework | MIT |
 | `typescript` | Static type checking | Apache-2.0 |
 | `vitest` / `@testing-library/*` | Unit & integration tests | MIT |
+| `jsdom` | DOM test environment | MIT |
 | `@playwright/test` | Cross-viewport & offline E2E tests | Apache-2.0 |
+| `@axe-core/playwright` | Automated WCAG accessibility checks in E2E tests | MPL-2.0 |
 | `eslint` / `typescript-eslint` | Static linting | MIT |
+| `eslint-plugin-jsx-a11y` | Static JSX accessibility linting | MIT |

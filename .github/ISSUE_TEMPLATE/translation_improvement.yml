@@ -1,0 +1,32 @@
+name: Translation Improvement
+description: Suggest a translation fix or add support for a language in the 13-language UI
+title: '[i18n]: '
+labels: ['i18n']
+body:
+  - type: input
+    id: locale
+    attributes:
+      label: Language / Locale Code
+      description: 'e.g., ja, en, zh-CN, zh-TW, ko, ru, uk, es, fr, de, pt, it, ar (or new locale)'
+      placeholder: 'ja'
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: Screen, Route, or i18n Key
+      placeholder: 'e.g., /create, /exchange, src/i18n/ja.ts -> keys.generateTitle'
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current Text
+      description: Paste the current UI text (if updating an existing translation).
+  - type: textarea
+    id: suggested
+    attributes:
+      label: Suggested Text
+      description: Provide the improved translation and any context.
+    validations:
+      required: true
