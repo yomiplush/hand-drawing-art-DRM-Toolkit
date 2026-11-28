@@ -11,7 +11,7 @@
 Protocol `v1` (outer QR frame) and `v2` (in-image masked QR overlay) purposefully stored minimal fields in the QR code and pushed creator links, artwork descriptions, creation environment notes, and evidence hashes out to a companion `.chmevidence` file. While compact, sharing just a signed PNG on social platforms meant verifiers without the companion `.chmevidence` file could not see creator links, creation tool declarations, or compare local WIP/PSD SHA-256 hashes.
 
 **Protocol `v3` (`CHM3\0`)** solves this cleanly **without central servers** and **without bloated un-scannable QR codes** by combining:
-1. Canonical RFC 8949 integer-keyed CBOR (`keys 1..17`)
+1. Canonical RFC 8949 integer-keyed CBOR (`keys 1..18`)
 2. 12-bit bit-packed license & extended policy flags
 3. Canonical longest-prefix URL dictionary (`1..15`) + enumerated SNS platforms/creation methods/evidence categories
 4. Optional **raw DEFLATE compression** (`deflate-raw`) checked for strict size reduction (`compressed.length < uncompressed.length`)
@@ -32,10 +32,10 @@ proofEnvelope = [ 3, compressionFlag, payloadOrDeflatedBytes, signature64 ]
 - `compressionFlag = 1`: `payloadOrDeflatedBytes` is raw DEFLATE (`RFC 1951`) of `payloadBytes`, permitted **only** when `deflated.length < payloadBytes.length` and `payloadBytes.length <= 8192` (`MAX_V3_DECOMPRESSED_BYTES`).
 - **`signature64`** is computed over `0x43 0x48 0x4D 0x33 0x00 || payloadBytes` (**always uncompressed canonical `payloadBytes`**).
 
-### 2.2 Payload Map (`keys 1..17`, Sorted Ascending)
+### 2.2 Payload Map (`keys 1..18`, Sorted Ascending)
 
 - **Shared Keys (`1..9`):** UUIDv4 `artworkId(16)`, Ed25519 `publicKey(32)`, canonical RGBA8 `sha256(32)`, `region[4]`, `issuedAt`, `license` (`[licenseCode, packedFlags12Bit, attributionName?]`), `authorName` (`<=64` B), `artworkTitle` (`<=128` B), optional `qrMask[4]` (masked mode).
-- **Extended Self-Contained Keys (`10..17`):**
+- **Extended Self-Contained Keys (`10..18`):**
   - `10` `description`: multiline sanitized UTF-8 (`<=600` B)
   - `11` `website`: `[urlPrefixCode, urlSuffix]`
   - `12` `snsLinks`: up to `12` tuples (`[urlCode, urlSuffix, platformCode?, label?]`)
@@ -44,6 +44,7 @@ proofEnvelope = [ 3, compressionFlag, payloadOrDeflatedBytes, signature64 ]
   - `15` `creationEnvironment`: sub-map `1=software(<=96B)`, `2=hardware(<=96B)`, `3=inputDevice(<=96B)`, `4=notes(<=240B)`
   - `16` `evidenceHashes`: up to `8` tuples (`[sha256(32), byteLength, categoryCode?, label(<=96B)?, mimeType(<=64B)?]`)
   - `17` `policyNote`: multiline sanitized UTF-8 (`<=240` B)
+  - `18` `tags`: up to `15` single-line sanitized strings (`<=48` B each); a leading `#` is stripped before encoding, empty entries are omitted, and the array MUST be non-empty when present
 
 ### 2.3 Canonical URL Prefix Dictionary (`V3_URL_PREFIX_DICT`)
 

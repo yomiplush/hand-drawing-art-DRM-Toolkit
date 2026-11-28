@@ -30,7 +30,7 @@ export function ThreeStepIndicator({
                   ? 'ga-surface-subtle ga-border-strong'
                   : isCompleted
                     ? 'ga-status-success'
-                    : 'ga-card-solid ga-border opacity-75'
+                    : 'ga-card-solid ga-border'
               }`}
             >
               <span

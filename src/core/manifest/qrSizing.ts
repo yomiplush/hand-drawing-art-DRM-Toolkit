@@ -14,6 +14,29 @@ import {
 } from './types';
 
 /**
+ * Deterministic pseudo-random placeholder bytes.
+ *
+ * Real proofs contain a random 16-byte UUID, a 32-byte public key, a 32-byte
+ * digest, and a 64-byte signature. Filling those fields with a single repeated
+ * byte makes them almost free for DEFLATE, so the estimated envelope shrinks by
+ * dozens of bytes and the in-image QR recommendation lands one or two versions
+ * too small. That produced "scannable" previews whose signed PNGs no longer
+ * decoded. A cheap xorshift stream keeps sizing deterministic while matching the
+ * incompressible shape of the real fields.
+ */
+function deterministicPlaceholderBytes(length: number, seed: number): Uint8Array {
+  const out = new Uint8Array(length);
+  let state = seed >>> 0 || 0x9e3779b9;
+  for (let i = 0; i < length; i++) {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    out[i] = state & 0xff;
+  }
+  return out;
+}
+
+/**
  * Classifies QR symbol density into human-friendly scanning guidance tiers.
  * Compact: QR <= 15 (77x77 modules) — effortless scanning even at small sizes.
  * Standard: QR <= 25 (117x117 modules) — reliable phone camera scanning.
@@ -44,9 +67,11 @@ export function measureUnsignedQrSizing(params: {
   const eccLevel = params.eccLevel ?? 'M';
   const manifest: UnsignedManifest = params.manifest ?? {
     version: PROTOCOL_VERSION_COMPACT,
-    artworkId: params.manifestWithoutCrypto?.artworkId ?? new Uint8Array(16).fill(0x11),
-    publicKey: params.manifestWithoutCrypto?.publicKey ?? new Uint8Array(32).fill(0x22),
-    sha256: params.manifestWithoutCrypto?.sha256 ?? new Uint8Array(32).fill(0x33),
+    artworkId:
+      params.manifestWithoutCrypto?.artworkId ?? deterministicPlaceholderBytes(16, 0x11),
+    publicKey:
+      params.manifestWithoutCrypto?.publicKey ?? deterministicPlaceholderBytes(32, 0x22),
+    sha256: params.manifestWithoutCrypto?.sha256 ?? deterministicPlaceholderBytes(32, 0x33),
     region: params.manifestWithoutCrypto?.region ?? [0, 0, 1200, 1200],
     qrMask: params.manifestWithoutCrypto?.qrMask,
     issuedAt: params.manifestWithoutCrypto?.issuedAt ?? Math.floor(Date.now() / 1000),
@@ -74,7 +99,7 @@ export function measureUnsignedQrSizing(params: {
     manifest.version === PROTOCOL_VERSION_COMPACT ? deflateRawFixed(payloadBytes) : null;
   const usedDeflate = deflated !== null && deflated.length < payloadBytes.length;
   const compressedPayloadBytes = usedDeflate ? deflated.length : payloadBytes.length;
-  const dummySig = new Uint8Array(64).fill(0x55);
+  const dummySig = deterministicPlaceholderBytes(64, 0x55);
 
   const envelopeBytes = cborEncodeShim(
     manifest.version === PROTOCOL_VERSION_COMPACT

@@ -114,6 +114,7 @@ Encoded as a deterministic RFC 8949 CBOR map with integer keys sorted ascending:
 | `15` | `creationEnvironment` | `map` (optional, non-empty) | `v3` only | `1`: `software` (`<=96` B), `2`: `hardware` (`<=96` B), `3`: `inputDevice` (`<=96` B), `4`: `notes` (multiline `<=240` B) |
 | `16` | `evidenceHashes` | `array(1..8)` (optional) | `v3` only | Items: `[sha256_32, byteLength, categoryCode?, label?, mimeType?]` (`category` `1..6`, `label <= 96` B basename only, `mimeType <= 64` B) |
 | `17` | `policyNote` | `tstr` (optional) | `v3` only | Multiline sanitized custom policy note, max `240` UTF-8 B |
+| `18` | `tags` | `array(1..15)` of `tstr` (optional) | `v3` only | Single-line sanitized tags, max `48` UTF-8 B each; a leading `#` is stripped before encoding; empty tags are omitted; the array MUST be non-empty when present |
 
 #### License, Policy & Compact Dictionary Codes
 
@@ -170,7 +171,7 @@ A conforming verifier MUST reject proofs if any of the following hold:
 - Unknown map keys or malformed values in `payloadBytes`:
   - `version == 1`: keys outside `{1..8}` (including `9` `qrMask`) MUST be rejected.
   - `version == 2`: keys outside `{1..9}` MUST be rejected.
-  - `version == 3`: keys outside `{1..17}` MUST be rejected; `v3` string/URL sanitizers MUST reject ASCII control chars (`<0x20` except `\n`/`\t` on multiline fields), C1 controls (`U+007F..U+009F`), Unicode bidi overrides (`U+202A..U+202E`, `U+2066..U+2069`), non-canonical URL prefix codes, embedded URL `user:pass@` credentials, or non-`http:`/`https:` schemes.
+  - `version == 3`: keys outside `{1..18}` MUST be rejected; `v3` string/URL sanitizers MUST reject ASCII control chars (`<0x20` except `\n`/`\t` on multiline fields), C1 controls (`U+007F..U+009F`), Unicode bidi overrides (`U+202A..U+202E`, `U+2066..U+2069`), non-canonical URL prefix codes, embedded URL `user:pass@` credentials, or non-`http:`/`https:` schemes.
 - Re-encoding the decoded payload map or outer envelope with RFC 8949 deterministic rules does not match the input bytes byte-for-byte.
 
 ---
@@ -230,7 +231,7 @@ Any standalone script or tool (Python, Rust, Go, Node.js) can verify a signed PN
    - `v1`/`v2`: `Ed25519_Verify(publicKey, b"CHM1\x00" + payloadBytes, signature64)`
    - `v3`: `Ed25519_Verify(publicKey, b"CHM3\x00" + payloadBytes, signature64)`
    -> sets **Cryptographic Signature** (`Valid` / `Invalid`).
-4. Decode `payloadBytes` as strict CBOR map (`{1..8}` for `v1`, `{1..9}` for `v2`, `{1..17}` for `v3`) and confirm canonical re-encoding. Validate `region`, optional `qrMask`, compact URL dictionary canonicality, policy flags, and string sanitization constraints.
+4. Decode `payloadBytes` as strict CBOR map (`{1..8}` for `v1`, `{1..9}` for `v2`, `{1..18}` for `v3`) and confirm canonical re-encoding. Validate `region`, optional `qrMask`, compact URL dictionary canonicality, policy flags, and string sanitization constraints.
 5. **Artwork Integrity** (if an artwork image is supplied):
    - Decode the PNG into straight RGBA8 (`CAR-v1`, enforcing pre-flight `IHDR` size bounds).
    - Extract `region = [x, y, w, h]` (or `[0, 0, w, h]` when image dimensions equal `(w, h)`).

@@ -35,6 +35,7 @@ function detectCategory(raw: string): ErrorCategory {
     lower.includes('qr') &&
     (lower.includes('not found') ||
       lower.includes('no qr') ||
+      lower.includes('no readable') ||
       lower.includes('not detect') ||
       lower.includes('detected') ||
       lower.includes('scan'))

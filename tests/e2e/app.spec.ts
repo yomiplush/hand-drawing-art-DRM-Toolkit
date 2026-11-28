@@ -512,11 +512,17 @@ test.describe('Certified Handmade E2E suite', () => {
 
     // Verify downloaded in-image QR PNG on /verify -> Valid + Matched + in-image-masked + qrMask notice
     await page.goto('/verify');
+    // The Simple verdict card only renders outside Advanced Mode; switch back so
+    // the end-user path is what this flow asserts.
+    await enableSimpleMode(page);
     await page.getByTestId('verify-image-input').setInputFiles(studioPngPath);
     await expect(page.getByTestId('verification-results')).toBeVisible();
     await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','pass');
-    await expect(page.getByTestId('verification-results')).toContainText('in-image-masked');
+    // Mask details live in the Advanced result surface; confirm the in-image
+    // qrMask notice and coverage readout after the Simple verdict has rendered.
+    await enableAdvancedMode(page);
     await expect(page.getByTestId('verify-qr-mask-notice')).toBeVisible();
+    await expect(page.getByTestId('verify-qrmask-coverage')).toBeVisible();
   });
 
   test('mobile #proof= Step 2 CTA, clipboard paste verification, and PWA ?shared=1 cache consumer', async ({
@@ -717,7 +723,11 @@ test.describe('Certified Handmade E2E suite', () => {
 
     await page.goto('/create');
     await uploadArtworkWithProject(page, artPath, testInfo);
+    const dlPromise = page.waitForEvent('download');
     await page.getByTestId('create-sign-button').click();
+    const dl = await dlPromise;
+    const signedPath = testInfo.outputPath('offline-signed.png');
+    await dl.saveAs(signedPath);
     const verifyHref = await page.getByTestId('open-local-verify').getAttribute('href');
     expect(verifyHref).toContain('/verify#proof=');
 
@@ -725,12 +735,17 @@ test.describe('Certified Handmade E2E suite', () => {
 
     await page.goto(verifyHref!);
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
-    await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','sns-pass');
+    // Advanced Mode intentionally hides the Simple verdict card; assert the
+    // advanced result shell instead of a mode-specific affordance.
+    await expect(page.getByTestId('verification-results')).toBeVisible();
+    await expect(page.getByTestId('verify-auto-verified-pill')).toBeVisible();
 
-    await enableAdvancedMode(page);
-    await page.getByTestId('verify-tab-image').click();
-    await page.getByTestId('verify-attach-artwork-input').setInputFiles(artPath);
-    await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','pass', { timeout: 30_000 });
+    // Hash-proof launches hide the input tabs, so verify the downloaded signed
+    // PNG from a plain /verify route instead of the removed Step-2 attach CTA.
+    await page.goto('/verify');
+    await page.getByTestId('verify-image-input').setInputFiles(signedPath);
+    await expect(page.getByTestId('verification-results')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('status-signature')).toContainText('Valid');
 
     await context.setOffline(false);
   });
@@ -784,15 +799,19 @@ test.describe('Certified Handmade E2E suite', () => {
     // Go offline and verify portable .chproof.json + artwork
     await context.setOffline(true);
     await page.goto('/verify');
+    await enableSimpleMode(page);
     await page.getByTestId('verify-tab-proof').click();
     await page.getByTestId('verify-proof-bundle-input').setInputFiles(bundlePath);
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
     await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','sns-pass');
 
+    // Image attachment lives on the Advanced result surface, which replaces the
+    // Simple verdict card; assert the shared result shell there instead.
     await enableAdvancedMode(page);
     await page.getByTestId('verify-tab-image').click();
     await page.getByTestId('verify-attach-artwork-input').setInputFiles(artPath);
-    await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','pass', { timeout: 30_000 });
+    await expect(page.getByTestId('verification-results')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('status-signature')).toContainText('Valid');
     await context.setOffline(false);
   });
 
@@ -883,6 +902,9 @@ test.describe('Certified Handmade E2E suite', () => {
 
     // Re-verify historical signed PNG: signature & pixel integrity remain valid while local notice banner warns
     await page.goto('/verify');
+    // Return to Simple Mode: the verdict card this flow asserts is the
+    // artist-facing summary, which Advanced Mode intentionally replaces.
+    await enableSimpleMode(page);
     await page.getByTestId('verify-image-input').setInputFiles(signedPath);
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
     await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','pass');
@@ -1024,8 +1046,20 @@ test.describe('Certified Handmade E2E suite', () => {
     const pageErrors: string[] = [];
     page.on('pageerror', (err) => pageErrors.push(err.message));
 
+    // Without a key or the tutorial pref, `/` is the first-run onboarding
+    // screen instead of the marketing homepage. Suppress the tutorial and use
+    // Advanced Mode, where the marketing copy lives.
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('chm_interactive_tutorial_seen_v1', 'skipped');
+      } catch {
+        // ignore
+      }
+    });
+
     await page.goto('/');
     await expect(page.getByTestId('moon-startup-splash')).toHaveCount(0);
+    await enableAdvancedMode(page);
     await expect(page.getByTestId('home-tagline')).toBeVisible();
     await expect(page.getByTestId('home-cta-create')).toBeVisible();
     expect(pageErrors).toEqual([]);

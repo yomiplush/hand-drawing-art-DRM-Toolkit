@@ -209,6 +209,22 @@ export function HomePage() {
         </Link>
 
         <Link
+          to="/privacypolicy"
+          data-testid="home-privacy-link"
+          className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5 hover:border-[var(--ga-accent)] transition-colors min-w-0"
+        >
+          <div className="flex items-center gap-2 font-semibold text-sm ga-text">
+            <ShieldCheck className="h-4 w-4 ga-text-accent shrink-0" aria-hidden="true" />
+            <span className="min-w-0 break-words">
+              {t.googleCompliance.homeOverview.privacyLinkLabel}
+            </span>
+          </div>
+          <p className="text-xs ga-text-secondary break-words">
+            {t.googleCompliance.homeOverview.drivePurposeTitle}
+          </p>
+        </Link>
+
+        <Link
           to="/vault"
           data-testid="home-vault-link"
           className="ga-card-solid rounded-2xl border ga-border p-4 space-y-1.5 hover:border-[var(--ga-accent)] transition-colors min-w-0"

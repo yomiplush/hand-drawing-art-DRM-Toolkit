@@ -111,7 +111,7 @@ export function Layout({
   const cockpitLinkClass = ({ isActive }: { isActive: boolean }) =>
     `chm-link-dynamic inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 sm:px-3 py-1.5 text-xs font-medium min-h-[36px] shrink-0 ${
       isActive
-        ? 'bg-[var(--ga-accent-soft)] text-[var(--ga-accent)] border ga-border-strong'
+        ? 'bg-[var(--ga-accent-soft)] text-[var(--ga-accent-hover)] border ga-border-strong'
         : 'ga-text-secondary hover:bg-[var(--ga-accent-soft)] hover:text-[var(--ga-text)] border border-transparent'
     }`;
 
@@ -313,7 +313,7 @@ export function Layout({
                     target="_blank"
                     rel="noopener noreferrer"
                     data-testid="header-sponsor-link"
-                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-400/35 bg-rose-500/10 px-2.5 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-200 hover:bg-rose-500/20 min-h-[34px] shrink-0 whitespace-nowrap"
+                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-400/35 bg-rose-500/10 px-2.5 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-200 hover:bg-rose-500/20 min-h-[34px] shrink-0 whitespace-nowrap"
                   >
                     <Heart className="h-3 w-3 fill-rose-400/30" aria-hidden="true" />
                     <span>Sponsor</span>
@@ -451,7 +451,7 @@ export function Layout({
               target="_blank"
               rel="noopener noreferrer"
               data-testid="footer-sponsor-link"
-              className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-300 hover:underline transition-colors py-1 shrink-0"
+              className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-300 hover:underline transition-colors py-1 shrink-0"
             >
               <Heart className="h-3.5 w-3.5 fill-rose-400/30" aria-hidden="true" />
               <span>Sponsor</span>

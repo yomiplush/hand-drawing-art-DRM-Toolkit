@@ -18,6 +18,12 @@ describe('toFriendlyError (artist-centered plain language error mapping)', () =>
     expect(toFriendlyError(new Error('PNG chunk corrupted'), 'en').title).toContain('image');
     expect(toFriendlyError(new Error('Image dimension too large'), 'ja').title).toContain('サイズ');
     expect(toFriendlyError(new Error('QR code not found in artwork'), 'en').title).toContain('QR');
+    expect(
+      toFriendlyError(
+        new Error('No readable Certified Handmade QR code found in this image.'),
+        'en',
+      ).title,
+    ).toContain('QR');
     expect(toFriendlyError(new Error('Google OAuth popup closed by user'), 'en').title).toContain('Google Drive');
     expect(toFriendlyError(new Error('WebSocket relay fetch timeout'), 'ja').title).toContain('通信');
     expect(toFriendlyError(new Error('IndexedDB QuotaExceededError'), 'en').title).toContain('storage');

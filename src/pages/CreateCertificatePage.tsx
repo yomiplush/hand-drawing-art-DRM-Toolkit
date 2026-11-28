@@ -1489,7 +1489,7 @@ export function CreateCertificatePage() {
               {sourceProjectError && (
                 <p
                   data-testid="source-project-error"
-                  className="text-xs text-rose-600 dark:text-rose-400"
+                  className="text-xs text-rose-700 dark:text-rose-400"
                 >
                   {sourceProjectError}
                 </p>

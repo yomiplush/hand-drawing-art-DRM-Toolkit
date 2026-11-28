@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Documented Protocol v3 `key 18` (`tags`) in `SPEC.md` and `docs/CHM-COMPACT-PROOF-V3.md`, including the 1..15 entry, 48-byte, leading-`#`, and non-empty constraints.
+- Restored the Advanced homepage privacy-policy card (`home-privacy-link`) linking to `/privacypolicy`.
+
+### Fixed
+- In-image QR sizing now uses incompressible placeholder bytes for the UUID, public key, digest, and signature, so the recommended box size no longer lands one QR version too small and produces unreadable signed PNGs.
+- QR "not found" verification failures now show the QR-specific plain-language message instead of the generic image-decode error.
+- WCAG 2.1 AA contrast on sponsor links, active workspace navigation, and pending three-step progress labels; axe-core E2E audits pass again on all primary routes.
+- E2E flows now assert the correct Simple vs Advanced result surface, verify the downloaded signed PNG offline, and cover the reduced-motion homepage in Advanced Mode.
+
 ## [1.3.2] - 2026-11-28
 
 ### Changed
