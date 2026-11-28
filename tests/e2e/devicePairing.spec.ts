@@ -2,10 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { MockNostrRelay } from '../helpers/mockNostrRelay';
+import { buildIllustrationPng, buildWorkingProjectPsd } from '../helpers/artworkFixtures';
 import * as ed25519 from '@noble/ed25519';
 import { sha512 } from '@noble/hashes/sha2.js';
 import { encode as cborEncode } from 'cborg';
-import { encode as encodePng } from 'fast-png';
 import {
   base64UrlEncode,
   createSignedEnrollmentCertificate,
@@ -16,20 +16,6 @@ import {
 } from '@yomiplush/chm-exchange/core';
 
 ed25519.hashes.sha512 = sha512;
-
-function buildSampleArtworkPng(width = 160, height = 120): Buffer {
-  const data = new Uint8Array(width * height * 4);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const i = (y * width + x) * 4;
-      data[i] = (x * 7 + y * 3) & 0xff;
-      data[i + 1] = (x * 5 + y * 11) & 0xff;
-      data[i + 2] = (x * 13 + y) & 0xff;
-      data[i + 3] = 255;
-    }
-  }
-  return Buffer.from(encodePng({ width, height, data, depth: 8, channels: 4 }));
-}
 
 function assertNoPrivateKeyLeak(label: string, text: string): void {
   const forbidden = [
@@ -45,6 +31,27 @@ function assertNoPrivateKeyLeak(label: string, text: string): void {
   }
 }
 
+// Every context in this spec must start with the first-run overlays suppressed,
+// otherwise the tutorial modal covers the page and the first click hangs.
+async function newCleanContext(
+  browser: import('@playwright/test').Browser,
+  options?: Parameters<import('@playwright/test').Browser['newContext']>[0],
+) {
+  const context = await browser.newContext(options);
+  await context.addInitScript(() => {
+    try {
+      window.localStorage.setItem('chm_interactive_tutorial_seen_v1', 'skipped');
+      window.localStorage.setItem(
+        'chm_gdpr_consent_v1',
+        JSON.stringify({ status: 'rejected', updatedAt: new Date().toISOString(), version: 1 }),
+      );
+    } catch {
+      // ignore
+    }
+  });
+  return context;
+}
+
 async function dismissCookieBannerIfVisible(page: import('@playwright/test').Page): Promise<void> {
   const rejectBtn = page.getByTestId('cookie-reject-btn');
   if (await rejectBtn.isVisible().catch(() => false)) {
@@ -52,15 +59,21 @@ async function dismissCookieBannerIfVisible(page: import('@playwright/test').Pag
   }
 }
 
+// These specs share a single preview server, service worker cache and loopback
+// mock relay. Running them in parallel makes contexts fight over SW registration
+// and relay ports, which surfaces as flaky "element not found" / dispose errors.
+// Serial execution keeps each multi-context pairing flow deterministic.
+test.describe.configure({ mode: 'serial' });
+
 test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
   test('multi-device QR pairing (PC -> iPhone & iPad), Japanese UX, trust & replay/tamper/expired/double-reg/malformed defenses', async ({
     browser,
   }, testInfo) => {
     test.setTimeout(90_000);
-    const contextPC = await browser.newContext();
-    const contextPhone = await browser.newContext();
-    const contextTablet = await browser.newContext();
-    const contextUnverified = await browser.newContext();
+    const contextPC = await newCleanContext(browser);
+    const contextPhone = await newCleanContext(browser);
+    const contextTablet = await newCleanContext(browser);
+    const contextUnverified = await newCleanContext(browser);
 
     const pagePC = await contextPC.newPage();
     const pagePhone = await contextPhone.newPage();
@@ -421,8 +434,8 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
     browser,
   }, testInfo) => {
     test.setTimeout(90_000);
-    const contextPC = await browser.newContext();
-    const contextPhone = await browser.newContext();
+    const contextPC = await newCleanContext(browser);
+    const contextPhone = await newCleanContext(browser);
 
     // Scenario 15: Stub camera permission denial on Phone
     await contextPhone.addInitScript(() => {
@@ -594,9 +607,11 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
   test('offline pairing via Service Worker + existing artwork signing v1/v2 & /verify regression + dist/devices.html', async ({
     browser,
   }, testInfo) => {
-    test.setTimeout(60_000);
-    const contextPC = await browser.newContext();
-    const contextTablet = await browser.newContext();
+    // Two full offline pairing handshakes plus sign + verify round-trips exceed
+    // the default 60s budget on slower CI runners.
+    test.setTimeout(150_000);
+    const contextPC = await newCleanContext(browser);
+    const contextTablet = await newCleanContext(browser);
 
     const pagePC = await contextPC.newPage();
     const pageTablet = await contextTablet.newPage();
@@ -667,9 +682,15 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
       await contextTablet.setOffline(false);
 
       const artPath = testInfo.outputPath('pairing-regression-art.png');
-      fs.writeFileSync(artPath, buildSampleArtworkPng());
+      const projectPath = testInfo.outputPath('pairing-regression-art.psd');
+      fs.writeFileSync(artPath, buildIllustrationPng());
+      fs.writeFileSync(projectPath, buildWorkingProjectPsd());
       await pagePC.goto('/create');
       await pagePC.getByTestId('create-image-input').setInputFiles(artPath);
+      await expect(pagePC.getByTestId('create-uploaded-preview')).toBeVisible();
+      // Signing requires the working project file to pass local structure checks.
+      await pagePC.getByTestId('create-source-project-input').setInputFiles(projectPath);
+      await expect(pagePC.getByTestId('source-project-verified-badge')).toBeVisible();
       await pagePC.getByTestId('create-title-input').fill('Post-Pairing Artwork');
       const signedDlPromise = pagePC.waitForEvent('download');
       await pagePC.getByTestId('create-sign-button').click();
@@ -680,7 +701,7 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
       await pagePC.goto('/verify');
       await pagePC.getByTestId('verify-image-input').setInputFiles(signedPng);
       await expect(pagePC.getByTestId('status-signature')).toContainText('Valid');
-      await expect(pagePC.getByTestId('status-integrity')).toContainText('Matched');
+      await expect(pagePC.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','pass');
       await expect(pagePC.getByTestId('status-identity')).toContainText('Unverified');
 
       await pagePC.getByTestId('verify-trust-label-input').fill('Offline Studio');
@@ -692,7 +713,7 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
       const devicesHtmlPath = path.resolve(process.cwd(), 'dist', 'devices.html');
       expect(fs.existsSync(devicesHtmlPath)).toBe(true);
       expect(fs.readFileSync(devicesHtmlPath, 'utf8')).toContain(
-        '<link rel="canonical" href="https://certified-handmade.com/devices" />',
+        '<link rel="canonical" href="https://www.certified-handmade.com/devices" />',
       );
 
       expect(consoleErrors).toEqual([]);
@@ -708,12 +729,12 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
     browser,
   }, testInfo) => {
     test.setTimeout(150_000);
-    const contextOwner = await browser.newContext();
+    const contextOwner = await newCleanContext(browser);
     const devContexts = await Promise.all([
-      browser.newContext(),
-      browser.newContext(),
-      browser.newContext(),
-      browser.newContext(),
+      newCleanContext(browser),
+      newCleanContext(browser),
+      newCleanContext(browser),
+      newCleanContext(browser),
     ]);
 
     const pageOwner = await contextOwner.newPage();
@@ -864,9 +885,9 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
     browser,
   }, testInfo) => {
     test.setTimeout(90_000);
-    const contextPC = await browser.newContext();
-    const contextPhone = await browser.newContext();
-    const contextTablet = await browser.newContext();
+    const contextPC = await newCleanContext(browser);
+    const contextPhone = await newCleanContext(browser);
+    const contextTablet = await newCleanContext(browser);
 
     const pagePC = await contextPC.newPage();
     const pagePhone = await contextPhone.newPage();
@@ -993,8 +1014,8 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
     browser,
   }) => {
     test.setTimeout(90_000);
-    const contextPC = await browser.newContext();
-    const contextIpad = await browser.newContext();
+    const contextPC = await newCleanContext(browser);
+    const contextIpad = await newCleanContext(browser);
 
     const pagePC = await contextPC.newPage();
     const pageIpad = await contextIpad.newPage();
@@ -1129,8 +1150,8 @@ test.describe('CHM Secure Device Pairing (CHM-DEVICE-PAIRING-v1) E2E', () => {
     const freeRelay = new MockNostrRelay({ tls: true, requireAuth: false });
     const freeUrl = await freeRelay.start();
 
-    const contextPC = await browser.newContext({ ignoreHTTPSErrors: true });
-    const contextIpad = await browser.newContext({ ignoreHTTPSErrors: true });
+    const contextPC = await newCleanContext(browser, { ignoreHTTPSErrors: true });
+    const contextIpad = await newCleanContext(browser, { ignoreHTTPSErrors: true });
     const pagePC = await contextPC.newPage();
     const pageIpad = await contextIpad.newPage();
 

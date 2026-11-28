@@ -154,7 +154,7 @@ test.describe('Protocol v3 Self-Contained Metadata, Profiles, Creation Evidence 
     // 3. Attach ONLY the signed PNG (no .chmevidence) -> Protocol v3 self-contained QR metadata & Mode C verification!
     await page.getByTestId('verify-image-input').setInputFiles(signedPngPath);
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
-    await expect(page.getByTestId('status-integrity')).toContainText('Matched');
+    await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','pass');
     await expect(page.getByTestId('verify-standalone-evidence-error')).toHaveCount(0);
     await expect(page.getByTestId('verify-artwork-details-panel')).toHaveCount(0);
 

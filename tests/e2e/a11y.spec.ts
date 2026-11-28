@@ -15,8 +15,11 @@ test.describe('WCAG 2.1 AA Accessibility Audits', () => {
   test.beforeEach(async ({ page }) => {
     // Skip first-run tutorial & cookie banner so pages are audited in their primary interactive state
     await page.addInitScript(() => {
-      window.localStorage.setItem('chm_interactive_tutorial_v1', 'completed');
-      window.localStorage.setItem('chm_cookie_consent_v1', 'accepted');
+      window.localStorage.setItem('chm_interactive_tutorial_seen_v1', 'skipped');
+      window.localStorage.setItem(
+        'chm_gdpr_consent_v1',
+        JSON.stringify({ status: 'rejected', updatedAt: new Date().toISOString(), version: 1 }),
+      );
     });
   });
 

@@ -150,7 +150,7 @@ test.describe('CHM-Exchange Critical End-to-End Integration', () => {
       await pageB.goto('/verify');
       await pageB.getByTestId('verify-image-input').setInputFiles(signedPngPath);
       await expect(pageB.getByTestId('status-signature')).toContainText('Valid');
-      await expect(pageB.getByTestId('status-integrity')).toContainText('Matched');
+      await expect(pageB.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','pass');
       await expect(pageB.getByTestId('status-identity')).toContainText(
         'Trusted (Artist A (Confirmed))',
       );
@@ -174,14 +174,14 @@ test.describe('CHM-Exchange Critical End-to-End Integration', () => {
       await pageB.goto('/verify');
       await pageB.getByTestId('verify-image-input').setInputFiles(signedPngPath);
       await expect(pageB.getByTestId('status-signature')).toContainText('Valid');
-      await expect(pageB.getByTestId('status-integrity')).toContainText('Matched');
+      await expect(pageB.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','pass');
       await expect(pageB.getByTestId('status-identity')).toContainText('Unverified');
 
       // Confirm dist/exchange.html static SEO shell exists with canonical link
       const exchangeHtmlPath = path.resolve(process.cwd(), 'dist', 'exchange.html');
       expect(fs.existsSync(exchangeHtmlPath)).toBe(true);
       expect(fs.readFileSync(exchangeHtmlPath, 'utf8')).toContain(
-        '<link rel="canonical" href="https://certified-handmade.com/exchange" />',
+        '<link rel="canonical" href="https://www.certified-handmade.com/exchange" />',
       );
 
       expect(consoleErrors).toEqual([]);
