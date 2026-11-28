@@ -25,8 +25,8 @@ import {
 } from 'lucide-react';
 import {
   ArtworkDetailsPanel,
-  createEmptyArtworkDetailsDraft,
 } from '../components/ArtworkDetailsPanel';
+import { createEmptyArtworkDetailsDraft } from '../components/artworkDetailsDraft';
 import type { ArtworkDetailsDraft } from '../components/ArtworkDetailsPanel';
 import { ImageDropzone } from '../components/ImageDropzone';
 import {
@@ -37,7 +37,7 @@ import { HelpTip } from '../components/HelpTip';
 import { SafeArtworkImage } from '../components/SafeArtworkImage';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
 import { StampCeremony } from '../components/motion/StampCeremony';
-import { useAppPreferences } from '../components/PreferencesContext';
+import { useAppPreferences } from '../components/useAppPreferences';
 import { AdvancedSettings } from '../components/ui/AdvancedSettings';
 import { FriendlyErrorAlert } from '../components/ui/FriendlyErrorAlert';
 import { HelpIconButton } from '../components/ui/HelpIconButton';

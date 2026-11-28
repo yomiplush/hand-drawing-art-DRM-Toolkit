@@ -15,7 +15,7 @@ import {
   Smartphone,
 } from 'lucide-react';
 import { HelpTip } from '../components/HelpTip';
-import { useAppPreferences } from '../components/PreferencesContext';
+import { useAppPreferences } from '../components/useAppPreferences';
 import { listAuthorKeys, listTrustedKeys } from '../core/storage/keyStore';
 import type { AuthorKeyRecord, TrustedKeyRecord } from '../core/storage/keyStore';
 import { useI18n } from '../i18n/context';

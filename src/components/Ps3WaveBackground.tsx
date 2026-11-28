@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useAppPreferences } from './PreferencesContext';
+import { useAppPreferences } from './useAppPreferences';
 
 interface RibbonConfig {
   yRatio: number;

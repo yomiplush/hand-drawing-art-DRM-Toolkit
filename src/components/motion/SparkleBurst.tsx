@@ -1,4 +1,4 @@
-import { useAppPreferences } from '../PreferencesContext';
+import { useAppPreferences } from '../useAppPreferences';
 
 interface SparkleBurstProps {
   active?: boolean;

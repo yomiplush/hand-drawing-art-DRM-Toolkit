@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useAppPreferences } from '../PreferencesContext';
+import { useAppPreferences } from '../useAppPreferences';
 
 interface ScannerBeamProps {
   scanning: boolean;

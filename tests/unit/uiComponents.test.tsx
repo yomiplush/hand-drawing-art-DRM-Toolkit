@@ -5,9 +5,9 @@ import { useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   ArtworkDetailsPanel,
-  createEmptyArtworkDetailsDraft,
   type ArtworkDetailsDraft,
 } from '../../src/components/ArtworkDetailsPanel';
+import { createEmptyArtworkDetailsDraft } from '../../src/components/artworkDetailsDraft';
 import { StorageSettingsPanel } from '../../src/components/vault/StorageSettingsPanel';
 import { VerifiedArtworkDetailsCard } from '../../src/components/VerifiedArtworkDetailsCard';
 import { AdvancedSettings } from '../../src/components/ui/AdvancedSettings';

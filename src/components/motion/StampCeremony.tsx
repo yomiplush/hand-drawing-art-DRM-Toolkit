@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Award } from 'lucide-react';
-import { useAppPreferences } from '../PreferencesContext';
+import { useAppPreferences } from '../useAppPreferences';
 import { SparkleBurst } from './SparkleBurst';
 
 interface StampCeremonyProps {

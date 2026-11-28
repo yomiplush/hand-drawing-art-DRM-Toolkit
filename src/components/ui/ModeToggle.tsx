@@ -1,6 +1,6 @@
 import { Sparkles, SlidersHorizontal } from 'lucide-react';
 import { useI18n } from '../../i18n/context';
-import { useAppPreferences } from '../PreferencesContext';
+import { useAppPreferences } from '../useAppPreferences';
 
 interface ModeToggleProps {
   compact?: boolean;

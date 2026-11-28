@@ -1,6 +1,6 @@
 import { SlidersHorizontal } from 'lucide-react';
 import { useI18n } from '../../i18n/context';
-import { useAppPreferences } from '../PreferencesContext';
+import { useAppPreferences } from '../useAppPreferences';
 
 export function SimpleModeBanner({
   testId = 'simple-mode-banner',

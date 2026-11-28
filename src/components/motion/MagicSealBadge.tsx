@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAppPreferences } from '../PreferencesContext';
+import { useAppPreferences } from '../useAppPreferences';
 
 interface MagicSealBadgeProps {
   className?: string;

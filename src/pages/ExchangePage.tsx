@@ -6,7 +6,7 @@ import type { ChmExchangeTheme, ExchangeTab } from '@yomiplush/chm-exchange/reac
 import '@yomiplush/chm-exchange/styles.css';
 import { DiscordIdentityLinkPanel } from '../components/discord/DiscordIdentityLinkPanel';
 import { HelpTip } from '../components/HelpTip';
-import { useAppPreferences } from '../components/PreferencesContext';
+import { useAppPreferences } from '../components/useAppPreferences';
 import { HelpIconButton } from '../components/ui/HelpIconButton';
 import { SimpleModeBanner } from '../components/ui/SimpleModeBanner';
 import { createCertifiedHandmadeExchangeAdapter } from '../core/exchange/hostAdapter';

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   applyResolvedThemeToDocument,
   getStoredAppMode,
@@ -8,22 +8,9 @@ import {
   persistThemeMode,
   resolveTheme,
 } from '../core/preferences/appPreferences';
-import type { AppMode, ResolvedTheme, ThemeMode } from '../core/preferences/appPreferences';
+import type { AppMode, ThemeMode } from '../core/preferences/appPreferences';
 import { useReducedMotion } from '../state/uiPreferences';
-
-interface PreferencesContextValue {
-  mode: AppMode;
-  isAdvanced: boolean;
-  setMode: (next: AppMode) => void;
-  toggleMode: () => void;
-  theme: ThemeMode;
-  resolvedTheme: ResolvedTheme;
-  setTheme: (next: ThemeMode) => void;
-  toggleTheme: () => void;
-  reducedMotion: boolean;
-}
-
-const PreferencesContext = createContext<PreferencesContextValue | null>(null);
+import { PreferencesContext } from './useAppPreferences';
 
 export function PreferencesProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<AppMode>(getStoredAppMode);
@@ -80,12 +67,4 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
       {children}
     </PreferencesContext.Provider>
   );
-}
-
-export function useAppPreferences(): PreferencesContextValue {
-  const ctx = useContext(PreferencesContext);
-  if (!ctx) {
-    throw new Error('useAppPreferences must be used within PreferencesProvider');
-  }
-  return ctx;
 }

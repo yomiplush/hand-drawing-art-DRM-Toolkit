@@ -13,7 +13,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { useAppPreferences } from '../../components/PreferencesContext';
+import { useAppPreferences } from '../../components/useAppPreferences';
 import {
   getCustomNostrProofRelays,
   setCustomNostrProofRelays,

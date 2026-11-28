@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from 'react';
 import { UploadCloud } from 'lucide-react';
-import { useAppPreferences } from './PreferencesContext';
+import { useAppPreferences } from './useAppPreferences';
 
 interface ImageDropzoneProps {
   onFileSelected: (file: File) => void;

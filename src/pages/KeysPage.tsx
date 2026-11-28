@@ -19,7 +19,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { HelpTip } from '../components/HelpTip';
-import { useAppPreferences } from '../components/PreferencesContext';
+import { useAppPreferences } from '../components/useAppPreferences';
 import { QrMatrixSvg } from '../components/QrMatrixSvg';
 import { SimpleKeysCard } from '../components/SimpleKeysCard';
 import { AdvancedSettings } from '../components/ui/AdvancedSettings';

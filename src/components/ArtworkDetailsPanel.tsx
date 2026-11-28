@@ -453,14 +453,3 @@ function guessCategory(label: string, mime?: string): EvidenceCategory {
   }
   return 'other';
 }
-
-export function createEmptyArtworkDetailsDraft(): ArtworkDetailsDraft {
-  return {
-    creationMethod: '',
-    envSoftware: '',
-    envHardware: '',
-    envInputDevice: '',
-    envNotes: '',
-    evidenceItems: [],
-  };
-}

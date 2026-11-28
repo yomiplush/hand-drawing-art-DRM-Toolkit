@@ -23,7 +23,7 @@ import type { AuthorKeyRecord } from '../core/storage/keyStore';
 import { useAccessibleModal } from '../hooks/useAccessibleModal';
 import { LOCALE_OPTIONS, useI18n } from '../i18n/context';
 import type { Locale } from '../i18n/context';
-import { useAppPreferences } from './PreferencesContext';
+import { useAppPreferences } from './useAppPreferences';
 import { ModeToggle } from './ui/ModeToggle';
 import { ThemeToggle } from './ui/ThemeToggle';
 

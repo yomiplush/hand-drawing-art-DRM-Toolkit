@@ -13,7 +13,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { HelpTip } from '../../components/HelpTip';
-import { useAppPreferences } from '../../components/PreferencesContext';
+import { useAppPreferences } from '../../components/useAppPreferences';
 import { googleAuthManager } from '../../core/google/gisAuth';
 import type { LicenseId } from '../../core/manifest/types';
 import {

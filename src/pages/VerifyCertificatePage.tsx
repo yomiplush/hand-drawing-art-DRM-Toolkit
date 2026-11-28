@@ -39,7 +39,7 @@ import { ImageDropzone } from '../components/ImageDropzone';
 import { LicenseSummaryCard } from '../components/LicenseSummaryCard';
 import { ScannerBeam } from '../components/motion/ScannerBeam';
 import { SparkleBurst } from '../components/motion/SparkleBurst';
-import { useAppPreferences } from '../components/PreferencesContext';
+import { useAppPreferences } from '../components/useAppPreferences';
 import { QrCameraScanner } from '../components/QrCameraScanner';
 import { StatusDimensionsGrid } from '../components/StatusBadge';
 import { AdvancedSettings } from '../components/ui/AdvancedSettings';
@@ -698,6 +698,7 @@ export function VerifyCertificatePage() {
     };
   }, [
     evidenceInputRaw,
+    locale,
     location.search,
     recordLog,
     runEvidenceVerification,

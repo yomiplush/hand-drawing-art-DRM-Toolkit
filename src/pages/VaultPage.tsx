@@ -9,7 +9,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
-import { useAppPreferences } from '../components/PreferencesContext';
+import { useAppPreferences } from '../components/useAppPreferences';
 import { FriendlyErrorAlert } from '../components/ui/FriendlyErrorAlert';
 import { SimpleModeBanner } from '../components/ui/SimpleModeBanner';
 import { StorageSettingsPanel } from '../components/vault/StorageSettingsPanel';
