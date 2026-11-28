@@ -17,6 +17,7 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"math/big"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -392,6 +393,159 @@ func computeFingerprint(pub32 []byte) (string, string) {
 	upper := strings.ToUpper(fullHex[:16])
 	short := fmt.Sprintf("CHM-%s-%s-%s-%s", upper[0:4], upper[4:8], upper[8:12], upper[12:16])
 	return fullHex, short
+}
+
+// Ed25519 field/group constants (RFC 8032 §5.1).
+var (
+	edP  = mustBigInt("57896044618658097711785492504343953926634992332820282019728792003956564819949") // 2^255-19
+	edD  = mustBigInt("37095705934669439343138083508754565189542113879843219016388785533085940283555") // -121665/121666
+	edSQ = mustBigInt("19681161376707505956807079304988542015446066515923890162744021073123829784752") // sqrt(-1)
+)
+
+func mustBigInt(s string) *big.Int {
+	v, ok := new(big.Int).SetString(s, 10)
+	if !ok {
+		panic("invalid bignum constant")
+	}
+	return v
+}
+
+// ed25519Point is an extended twisted-Edwards coordinate point (X:Y:Z:T).
+type ed25519Point struct{ x, y, z, t *big.Int }
+
+func ed25519Identity() ed25519Point {
+	zero, one := big.NewInt(0), big.NewInt(1)
+	return ed25519Point{zero, one, one, zero}
+}
+
+func (p ed25519Point) add(q ed25519Point) ed25519Point {
+	// Unified addition for a = -1 (add-2008-hwcd-3); valid for doubling too.
+	mul := func(a, b *big.Int) *big.Int { return new(big.Int).Mul(a, b) }
+	sub := func(a, b *big.Int) *big.Int { return new(big.Int).Sub(a, b) }
+	add := func(a, b *big.Int) *big.Int { return new(big.Int).Add(a, b) }
+	mod := func(a *big.Int) *big.Int { return a.Mod(a, edP) }
+
+	a := mod(mul(sub(p.y, p.x), sub(q.y, q.x)))
+	b := mod(mul(add(p.y, p.x), add(q.y, q.x)))
+	twoD := mod(new(big.Int).Mul(big.NewInt(2), edD))
+	c := mod(mul(mul(p.t, twoD), q.t))
+	d := mod(mul(mul(big.NewInt(2), p.z), q.z))
+	e := sub(b, a)
+	f := sub(d, c)
+	g := add(d, c)
+	h := add(b, a)
+	return ed25519Point{
+		x: mod(mul(e, f)),
+		y: mod(mul(g, h)),
+		t: mod(mul(e, h)),
+		z: mod(mul(f, g)),
+	}
+}
+
+// decodeEd25519Point decompresses a 32-byte encoding; false if not on the curve.
+func decodeEd25519Point(b []byte) (ed25519Point, bool) {
+	if len(b) != 32 {
+		return ed25519Point{}, false
+	}
+	enc := make([]byte, 32)
+	copy(enc, b)
+	sign := (enc[31] >> 7) & 1
+	enc[31] &= 0x7f
+
+	rev := make([]byte, 32)
+	for i := 0; i < 32; i++ {
+		rev[i] = enc[31-i]
+	}
+	y := new(big.Int).SetBytes(rev)
+	if y.Cmp(edP) >= 0 {
+		return ed25519Point{}, false
+	}
+
+	// x^2 = (y^2 - 1) / (d*y^2 + 1)
+	y2 := new(big.Int).Mul(y, y)
+	y2.Mod(y2, edP)
+	u := new(big.Int).Sub(y2, big.NewInt(1))
+	u.Mod(u, edP)
+	v := new(big.Int).Mul(edD, y2)
+	v.Add(v, big.NewInt(1))
+	v.Mod(v, edP)
+
+	// x = u*v^3 * (u*v^7)^((p-5)/8)
+	v3 := new(big.Int).Mul(v, v)
+	v3.Mul(v3, v)
+	v3.Mod(v3, edP)
+	v7 := new(big.Int).Mul(v3, v3)
+	v7.Mul(v7, v)
+	v7.Mod(v7, edP)
+	uv7 := new(big.Int).Mul(u, v7)
+	uv7.Mod(uv7, edP)
+
+	exp := new(big.Int).Sub(edP, big.NewInt(5))
+	exp.Rsh(exp, 3)
+	x := new(big.Int).Exp(uv7, exp, edP)
+	x.Mul(x, u)
+	x.Mul(x, v3)
+	x.Mod(x, edP)
+
+	vx2 := new(big.Int).Mul(v, x)
+	vx2.Mul(vx2, x)
+	vx2.Mod(vx2, edP)
+	if vx2.Cmp(u) != 0 {
+		if vx2.Cmp(new(big.Int).Neg(u).Mod(new(big.Int).Neg(u), edP)) == 0 {
+			x.Mul(x, edSQ)
+			x.Mod(x, edP)
+		} else {
+			return ed25519Point{}, false
+		}
+	}
+
+	if x.Bit(0) != uint(sign) {
+		x.Sub(edP, x)
+	}
+
+	z := big.NewInt(1)
+	t := new(big.Int).Mul(x, y)
+	t.Mod(t, edP)
+	return ed25519Point{x: x, y: y, z: z, t: t}, true
+}
+
+func (p ed25519Point) isIdentity() bool {
+	xIsZero := p.x.Sign() == 0
+	yEqZ := new(big.Int).Sub(p.y, p.z).Mod(new(big.Int).Sub(p.y, p.z), edP).Sign() == 0
+	return xIsZero && yEqZ
+}
+
+// isStrictEd25519PublicKey rejects all-zero and small-order (order dividing 8)
+// public keys. Node's OpenSSL and Go's crypto/ed25519 both accept some of these,
+// which would let a forged signature verify, so callers must gate on this first.
+func isStrictEd25519PublicKey(pub []byte) bool {
+	if len(pub) != ed25519.PublicKeySize {
+		return false
+	}
+	allZero := true
+	for _, b := range pub {
+		if b != 0 {
+			allZero = false
+			break
+		}
+	}
+	if allZero {
+		return false
+	}
+	pt, ok := decodeEd25519Point(pub)
+	if !ok {
+		return false
+	}
+	// Additive order divides 8 exactly when [8]P is the identity.
+	eightP := pt.add(pt).add(pt.add(pt)).add(pt.add(pt).add(pt.add(pt)))
+	return !eightP.isIdentity()
+}
+
+func verifyEd25519Sig(pub, msg, sig []byte) bool {
+	if !isStrictEd25519PublicKey(pub) {
+		return false
+	}
+	return ed25519.Verify(ed25519.PublicKey(pub), msg, sig)
 }
 
 func formatUUID(b []byte) string {
@@ -1230,7 +1384,7 @@ func verifyProofWithRaw(proofInput string, artworkPath string) (ProofSummary, pr
 	signingMsg := make([]byte, len(activeDomain)+len(payloadBytes))
 	copy(signingMsg, activeDomain)
 	copy(signingMsg[len(activeDomain):], payloadBytes)
-	sigValid := ed25519.Verify(ed25519.PublicKey(pubKey), signingMsg, sig)
+	sigValid := verifyEd25519Sig(pubKey, signingMsg, sig)
 
 	fpHex, fpShort := computeFingerprint(pubKey)
 	summary.ProtocolVersion = ver
@@ -1697,7 +1851,7 @@ func verifyEvidenceExtension(rawInput string, proof proofRawData, suppliedPaths 
 	signingMsg := make([]byte, len(domainEvidencePrefix)+len(payloadBytes))
 	copy(signingMsg, domainEvidencePrefix)
 	copy(signingMsg[len(domainEvidencePrefix):], payloadBytes)
-	sigValid := ed25519.Verify(ed25519.PublicKey(pubKey), signingMsg, sig)
+	sigValid := verifyEd25519Sig(pubKey, signingMsg, sig)
 
 	expectedProofSum := sha256.Sum256(proof.proofBytes)
 	pubMatch := subtle.ConstantTimeCompare(pubKey, proof.publicKey) == 1
@@ -2077,12 +2231,12 @@ func verifyNotice(rawInput string) (NoticeSummary, error) {
 	copy(signingMsg, domainNoticePrefix)
 	copy(signingMsg[len(domainNoticePrefix):], payloadBytes)
 
-	subjOk := ed25519.Verify(ed25519.PublicKey(subjPub), signingMsg, subjSig)
+	subjOk := verifyEd25519Sig(subjPub, signingMsg, subjSig)
 	if !subjOk {
 		res.Errors = append(res.Errors, "subject key signature verification failed")
 	}
 	if noticeType == "rotation" {
-		if !ed25519.Verify(ed25519.PublicKey(replPub), signingMsg, replSig) {
+		if !verifyEd25519Sig(replPub, signingMsg, replSig) {
 			res.Errors = append(res.Errors, "replacement key signature verification failed")
 		}
 	}

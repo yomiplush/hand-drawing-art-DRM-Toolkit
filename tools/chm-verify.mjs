@@ -10,6 +10,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import { ed25519 } from '@noble/curves/ed25519.js';
 import { decode as cborDecode, encode as cborEncode, rfc8949EncodeOptions } from 'cborg';
 import { decode as decodePng, hasPngSignature } from 'fast-png';
 import jsQR from 'jsqr';
@@ -127,8 +128,30 @@ function strictBase64UrlDecode(str) {
   return new Uint8Array(buf);
 }
 
+function isStrictEd25519PublicKey(pub32) {
+  if (!(pub32 instanceof Uint8Array) || pub32.length !== 32) return false;
+  let allZero = true;
+  for (let i = 0; i < pub32.length; i++) {
+    if (pub32[i] !== 0) {
+      allZero = false;
+      break;
+    }
+  }
+  if (allZero) return false;
+  try {
+    const point = ed25519.Point.fromBytes(pub32);
+    return !point.isSmallOrder() && point.isTorsionFree();
+  } catch {
+    return false;
+  }
+}
+
 function verifyEd25519(pub32, message, sig64) {
   if (pub32.length !== 32 || sig64.length !== 64) return false;
+  // Node's OpenSSL accepts small-order / all-zero public keys on some versions
+  // (observed on Node 22), which would let a forged signature verify. Mirror the
+  // browser core's strict key check before delegating to crypto.verify().
+  if (!isStrictEd25519PublicKey(pub32)) return false;
   try {
     const spki = Buffer.concat([ED25519_SPKI_PREFIX, Buffer.from(pub32)]);
     const keyObj = crypto.createPublicKey({ key: spki, format: 'der', type: 'spki' });

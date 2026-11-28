@@ -12,6 +12,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -650,5 +651,59 @@ func TestProtocolVectors(t *testing.T) {
 				t.Fatalf("Go CLI accepted invalid evidence vector %s (stdout=%s)", ev.ID, stdout.String())
 			}
 		}
+	}
+}
+
+// Regression: Node's OpenSSL and Go's crypto/ed25519 both accept small-order
+// (including all-zero) Ed25519 public keys on some versions, which lets a
+// forged signature verify. Guarding in verifyEd25519Sig is what prevents the
+// v1_small_order_pubkey vector from being reported as valid.
+func TestSmallOrderAndZeroPublicKeyRejected(t *testing.T) {
+	cases := map[string][]byte{
+		"all_zero": make([]byte, 32),
+		// Order-1 identity point encoded as y=1, x=0 with sign bit clear.
+		"identity_order_1": func() []byte {
+			b := make([]byte, 32)
+			b[0] = 1
+			return b
+		}(),
+		// Order-2 point: y = -1 (mod p), encoded little-endian.
+		"order_2": func() []byte {
+			p := edP
+			y := new(big.Int).Sub(p, big.NewInt(1))
+			b := y.FillBytes(make([]byte, 32))
+			for i, j := 0, len(b)-1; i < j; i, j = i+1, j-1 {
+				b[i], b[j] = b[j], b[i]
+			}
+			return b
+		}(),
+	}
+	for name, pub := range cases {
+		if isStrictEd25519PublicKey(pub) {
+			t.Fatalf("%s: isStrictEd25519PublicKey accepted a small-order key", name)
+		}
+		msg := []byte("message")
+		if verifyEd25519Sig(pub, msg, make([]byte, 64)) {
+			t.Fatalf("%s: verifyEd25519Sig accepted a forged signature", name)
+		}
+	}
+}
+
+// A genuine keypair must still verify after the strict-key guard was added.
+func TestStrictGuardKeepsValidSignatureWorking(t *testing.T) {
+	pub, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	msg := []byte("certified-handmade")
+	sig := ed25519.Sign(priv, msg)
+	if !isStrictEd25519PublicKey(pub) {
+		t.Fatal("isStrictEd25519PublicKey rejected a valid public key")
+	}
+	if !verifyEd25519Sig(pub, msg, sig) {
+		t.Fatal("verifyEd25519Sig rejected a valid signature")
+	}
+	if verifyEd25519Sig(pub, []byte("tampered"), sig) {
+		t.Fatal("verifyEd25519Sig accepted a signature over the wrong message")
 	}
 }
