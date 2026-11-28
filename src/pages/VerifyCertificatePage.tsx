@@ -1184,6 +1184,7 @@ export function VerifyCertificatePage() {
           role="tab"
           aria-selected={activeTab === 'image'}
           onClick={() => setActiveTab('image')}
+          data-testid="verify-tab-image"
           className={tabClass('image')}
         >
           <FileImage className="h-4 w-4 shrink-0" aria-hidden="true" />

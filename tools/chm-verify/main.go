@@ -996,7 +996,8 @@ func verifyProofWithRaw(proofInput string, artworkPath string) (ProofSummary, pr
 	if ver == 2 {
 		maxKey = 9
 	} else if ver == 3 {
-		maxKey = 17
+		// 18 is `tags` (v3 extension beyond the 1..17 core set).
+		maxKey = 18
 	}
 	fields := make(map[uint64]any, len(entries))
 	for _, e := range entries {

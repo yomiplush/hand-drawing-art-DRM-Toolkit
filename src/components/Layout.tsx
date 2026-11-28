@@ -380,7 +380,11 @@ export function Layout({
         className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 py-6 sm:py-10 min-w-0 focus:outline-none"
       >
         <div
-          key={`${location.pathname}:${isAdvanced ? 'adv' : 'simple'}`}
+          // Keying on mode remounted the route subtree and discarded unsaved
+          // form state (e.g. a /create draft) whenever the user switched
+          // Simple <-> Advanced. Keep the enter animation scoped to pathname
+          // changes so in-page state survives the toggle.
+          key={location.pathname}
           className="chm-page-enter motion-reduce:animate-none min-w-0 w-full"
         >
           <Outlet />

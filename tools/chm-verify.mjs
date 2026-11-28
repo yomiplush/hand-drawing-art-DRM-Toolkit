@@ -559,7 +559,7 @@ function verifyProofData(proofInput, raster) {
   if (!(m instanceof Map)) throw new Error('Manifest payload must be a CBOR map');
   const allowedKeys =
     ver === PROTOCOL_V3
-      ? new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+      ? new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
       : ver === PROTOCOL_V2
         ? new Set([1, 2, 3, 4, 5, 6, 7, 8, 9])
         : new Set([1, 2, 3, 4, 5, 6, 7, 8]);
