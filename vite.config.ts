@@ -69,7 +69,7 @@ export default defineConfig({
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,wasm,json}'],
-        globIgnores: ['og-card.png'],
+        globIgnores: ['og-card.png', 'og-image.png'],
       },
     }),
   ],

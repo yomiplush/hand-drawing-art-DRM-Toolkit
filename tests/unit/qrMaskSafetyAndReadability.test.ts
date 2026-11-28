@@ -18,7 +18,7 @@ import type { ArtworkRegion, UnsignedManifest } from '../../src/core/manifest/ty
 import { generateQrMatrix } from '../../src/core/qr/qrGenerator';
 import { verifyProofAndArtwork } from '../../src/core/verify/verifier';
 import { SUPPORTED_LOCALES } from '../../src/core/storage/consent';
-import { UX_GUIDANCE_I18N } from '../../src/i18n/uxGuidance';
+import { UX_GUIDANCE_I18N } from '../../src/i18n/uxGuidance.data';
 
 function makeSolidRaster(width: number, height: number, r: number, g: number, b: number): CanonicalRaster {
   const data = new Uint8Array(width * height * 4);

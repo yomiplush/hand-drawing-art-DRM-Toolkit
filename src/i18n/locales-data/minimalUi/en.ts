@@ -1,0 +1,121 @@
+import type { MinimalUiTranslations } from '../../minimalUi';
+
+export const EN: MinimalUiTranslations = {
+  nav: {
+    createShort: 'Create',
+    verifyShort: 'Verify',
+    menuBtn: 'Menu',
+    myKeysItem: 'My Keys',
+    keyExchangeItem: 'Key Exchange',
+    standaloneItem: 'Offline / Standalone Edition',
+    settingsSection: 'Settings',
+    languageLabel: 'Language',
+  },
+  home: {
+    tagline: 'Your art. Your proof.',
+    subtitle: 'Always free. No sign-up. No image uploads.',
+    createCta: 'Certify Artwork',
+    verifyCta: 'Verify Artwork',
+    helpLabel: 'Help & How It Works',
+    helpTitle: 'About Certified Handmade',
+    closeHelp: 'Close',
+    helpDocsLink: 'Documentation',
+    helpTutorialLink: 'Tutorial',
+    helpItems: [
+      {
+        title: 'What Certified Handmade Does',
+        body: 'Adds a tamper-evident artist stamp (QR code) directly to your finished artwork PNG so viewers can verify it came from your signing key.',
+      },
+      {
+        title: 'How It Protects Your Image',
+        body: 'Creates a unique fingerprint of your artwork pixels and signs your name and usage rules right on your device—your original artwork stays intact.',
+      },
+      {
+        title: '100% Local & Private',
+        body: 'Everything runs directly in your browser. Your drawings and signing keys are never uploaded to any server, and it works offline.',
+      },
+      {
+        title: 'Easy Checking Anywhere',
+        body: 'Anyone can drop a certified PNG, scan its QR code, or open a proof link to see whether the signature is valid and pixels match.',
+      },
+      {
+        title: 'What Proof Means (Honest Limits)',
+        body: 'A valid proof shows which artist key signed the file and whether pixels changed since signing—it does not replace legal copyright or prove how it was drawn.',
+      },
+      {
+        title: 'Free & Open Forever',
+        body: '100% free, open source, and ad-free. No accounts, no NFTs or crypto tokens, and optional encrypted backups you control.',
+      },
+    ],
+  },
+  create: {
+    helpLabel: 'About Certificate Creation',
+    helpBody:
+      'All image decoding, SHA-256 hashing, Ed25519 signing, and PNG encoding happen locally on your device. No artwork or key leaves your browser.',
+    step1Title: '1. Select Artwork',
+    step1Hint: 'PNG, JPEG, or WebP · Exported as lossless PNG',
+    changeImageBtn: 'Change Image',
+    step2Title: '2. Identity & License',
+    createSigningKeyBtn: 'Create Signing Key',
+    keyRequiredNote: 'Generates a local Ed25519 key in this browser. Download an encrypted backup afterward.',
+    advancedIdentityLabel: 'Metadata & License Policy Controls',
+    step3Title: '3. QR Placement',
+    modeOutsideTitle: 'Outside Artwork',
+    modeOutsideBadge: 'Protocol v1 · Recommended',
+    modeOutsideDesc: 'Places the QR code in an outer border so every original artwork pixel stays untouched.',
+    modeInsideTitle: 'Inside Artwork',
+    modeInsideBadge: 'Protocol v2',
+    modeInsideDesc: 'Overlays the QR inside the canvas; pixels under the QR mask are excluded from integrity hashing.',
+    advancedQrLabel: 'Advanced QR Settings',
+    outerPreviewNote: 'Outer border layout preview (original pixels preserved 1:1)',
+    quietZoneLabel: 'QR White Border (Quiet Zone)',
+    quietZoneNone: '0 modules (No white border)',
+    quietZoneMinimal: '1 module (Minimal · Recommended)',
+    quietZoneCompact: '2 modules (Compact)',
+    quietZoneStandard: '4 modules (Standard)',
+    step4Title: '4. Sign and Download',
+    signAndDownloadBtn: 'Sign & Download PNG',
+    technicalDetailsLabel: 'Technical Details & Proof Bundle',
+  },
+  verify: {
+    helpLabel: 'Understanding Verification Results',
+    helpBody:
+      'Verification reports cryptographic signature, artwork pixel match, and local trust independently. A valid signature does not prove human authorship or legal copyright.',
+    inputTitle: 'Verify Artwork or Proof',
+    tabImage: 'Image / Paste',
+    tabCamera: 'Camera',
+    tabProof: 'Link / Bundle',
+    dropHint: 'Drop an image, choose a file, or paste from clipboard (Ctrl+V)',
+    sigLabel: 'Signature',
+    sigValid: 'Valid',
+    sigInvalid: 'Invalid',
+    sigUnsupported: 'Unsupported',
+    sigHelp:
+      'Ed25519 signature check against the manifest and public key. Proves the key holder signed this manifest—not human authorship or real-world identity.',
+    intLabel: 'Artwork Integrity',
+    intMatched: 'Matched',
+    intMismatched: 'Mismatched',
+    intNotChecked: 'Not Checked',
+    intHelp:
+      'Compares canonical RGBA8 pixels to the signed SHA-256 digest. Protocol v2 excludes pixels inside qrMask.',
+    idLabel: 'Author Identity',
+    idTrusted: 'Trusted',
+    idUnverified: 'Unverified',
+    idHelp:
+      'Marked Trusted only when you have explicitly saved this public key in your local Trusted Keys list.',
+    detailsLabel: 'Technical Manifest Details',
+    declaredSummaryTitle: 'Declared Provenance & License Info',
+    autoVerifiedBadge: 'QR Auto-Verified',
+    verifyingProofLabel: 'Verifying QR certificate locally…',
+    rightsSignalsLabel: 'Usage & AI Policy Signals',
+  },
+  keys: {
+    helpLabel: 'Key Storage & Backups',
+    unbackedAlertShort: 'Unbacked key detected — download a .chkey.json backup so you do not lose access.',
+  },
+  exchange: {
+    helpLabel: 'About Key Exchange',
+    helpBody:
+      'Exchange public keys offline via QR codes or compact text bundles. No server or account required; confirm fingerprints out-of-band before trusting.',
+  },
+};

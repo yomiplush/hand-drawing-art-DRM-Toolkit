@@ -13,7 +13,7 @@ import {
 } from '../../src/core/preferences/tutorialState';
 import { SUPPORTED_LOCALES } from '../../src/core/storage/consent';
 import { I18nProvider } from '../../src/i18n';
-import { INTERACTIVE_TUTORIAL_I18N } from '../../src/i18n/interactiveTutorial';
+import { INTERACTIVE_TUTORIAL_I18N } from '../../src/i18n/interactiveTutorial.data';
 
 function renderWithProviders(ui: React.ReactElement) {
   return render(

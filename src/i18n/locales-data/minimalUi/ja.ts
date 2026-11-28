@@ -1,0 +1,121 @@
+import type { MinimalUiTranslations } from '../../minimalUi';
+
+export const JA: MinimalUiTranslations = {
+  nav: {
+    createShort: '作成',
+    verifyShort: '検証',
+    menuBtn: 'メニュー',
+    myKeysItem: 'マイ鍵管理',
+    keyExchangeItem: '鍵交換',
+    standaloneItem: 'オフライン / スタンドアローン版',
+    settingsSection: '設定',
+    languageLabel: '言語',
+  },
+  home: {
+    tagline: '大切な絵に、あなたの証を。',
+    subtitle: 'ずっと無料。登録不要。画像送信なし。',
+    createCta: '作品を証明する',
+    verifyCta: '作品を確認する',
+    helpLabel: 'ヘルプと仕組み',
+    helpTitle: 'Certified Handmade について',
+    closeHelp: '閉じる',
+    helpDocsLink: 'ドキュメント',
+    helpTutorialLink: 'チュートリアル',
+    helpItems: [
+      {
+        title: 'Certified Handmade でできること',
+        body: '完成したイラストに「あなた専用の電子スタンプ（QRコード）」をそっと添えて、自分の作品であることや利用ルールを示せる無料ツールです。',
+      },
+      {
+        title: '画像はどう守られる？',
+        body: '絵の見た目を変えずにデータの指紋を作り、作者名や利用ルールとあわせて端末内で署名します。元画像の画質はそのまま保たれます。',
+      },
+      {
+        title: '画像は外に送られません',
+        body: '処理はすべてあなたの端末・ブラウザの中だけで完了します。描いた絵や署名用の鍵がサーバーへ送信されることは一切ありません。',
+      },
+      {
+        title: '誰でもすぐ確認できる',
+        body: '保存したPNG画像やQRコード、証明リンクを読み込むだけで、ネットが繋がっていなくても署名と改変の有無を確認できます。',
+      },
+      {
+        title: '証明できる範囲について',
+        body: '有効な証明は「その鍵を持つ人が署名したこと」と「署名後に絵が書き換わっていないこと」を示します（制作工程そのものや法的権利を自動保証するものではありません）。',
+      },
+      {
+        title: 'ずっと無料・シンプル設計',
+        body: '登録不要・広告なし・ブロックチェーンやNFTも使いません。必要なときは安全なバックアップや端末同期も選べます。',
+      },
+    ],
+  },
+  create: {
+    helpLabel: '証明書作成のヘルプ',
+    helpBody:
+      '画像処理・SHA-256 計算・Ed25519 署名・PNG 書き出しはすべて端末内で実行され、外部に送信されません。',
+    step1Title: '1. 作品を選択',
+    step1Hint: 'PNG / JPEG / WebP 対応 · 可逆 PNG として出力',
+    changeImageBtn: '画像を変更',
+    step2Title: '2. 署名鍵とライセンス',
+    createSigningKeyBtn: '署名鍵を作成',
+    keyRequiredNote: 'ブラウザ内にローカル Ed25519 鍵を作成します。作成後は暗号化バックアップを推奨します。',
+    advancedIdentityLabel: '作者情報と詳細ポリシー設定',
+    step3Title: '3. QR 配置',
+    modeOutsideTitle: '作品の外側',
+    modeOutsideBadge: 'Protocol v1 · 推奨',
+    modeOutsideDesc: '元画像のピクセルを一切変更せず、外枠に QR コードを配置します。',
+    modeInsideTitle: '作品の内側',
+    modeInsideBadge: 'Protocol v2',
+    modeInsideDesc: '作品キャンバス内に QR を重ねます（QR マスク領域はハッシュ対象外になります）。',
+    advancedQrLabel: '詳細な QR 設定',
+    outerPreviewNote: '外枠レイアウトのプレビュー（元画像のピクセルは 1:1 で保持されます）',
+    quietZoneLabel: 'QR 白枠（クワイエットゾーン）',
+    quietZoneNone: '0 モジュール（白枠なし）',
+    quietZoneMinimal: '1 モジュール（最小・推奨）',
+    quietZoneCompact: '2 モジュール（やや狭め）',
+    quietZoneStandard: '4 モジュール（標準）',
+    step4Title: '4. 署名してダウンロード',
+    signAndDownloadBtn: '署名して PNG をダウンロード',
+    technicalDetailsLabel: '技術詳細・Proof バンドル',
+  },
+  verify: {
+    helpLabel: '検証結果の見方',
+    helpBody:
+      '署名・ピクセル整合性・本人信頼はそれぞれ独立して評価されます。署名有効は人間による手描きや法的権利の自動保証ではありません。',
+    inputTitle: '作品または証明を検証',
+    tabImage: '画像 / 貼り付け',
+    tabCamera: 'カメラ',
+    tabProof: 'リンク / バンドル',
+    dropHint: '署名済み PNG をドロップ、ファイル選択、または貼り付け (Ctrl+V)',
+    sigLabel: '署名',
+    sigValid: '有効',
+    sigInvalid: '無効',
+    sigUnsupported: '非対応',
+    sigHelp:
+      'マニフェストと公開鍵に対する Ed25519 署名検証です。鍵所持者の署名事実のみを確認し、手描き証明や本人保証ではありません。',
+    intLabel: '作品の整合性',
+    intMatched: '一致',
+    intMismatched: '不一致',
+    intNotChecked: '未確認',
+    intHelp:
+      '正規化 RGBA8 ピクセルと署名済み SHA-256 を照合します。Protocol v2 では qrMask 内ピクセルは除外されます。',
+    idLabel: '作者の信頼状態',
+    idTrusted: '信頼済み',
+    idUnverified: '未確認',
+    idHelp:
+      'あなた自身がローカルの信頼済み鍵リストに登録した場合のみ「信頼済み」となります。中央認証局はありません。',
+    detailsLabel: 'マニフェスト詳細・技術データ',
+    declaredSummaryTitle: '宣言された来歴・ライセンス情報',
+    autoVerifiedBadge: 'QR 自動検証完了',
+    verifyingProofLabel: 'QR証明書をローカル検証中…',
+    rightsSignalsLabel: '利用許可・AI学習ポリシー宣言',
+  },
+  keys: {
+    helpLabel: '鍵の保存とバックアップ',
+    unbackedAlertShort: '未バックアップの鍵があります。消失防止のため .chkey.json を保存してください。',
+  },
+  exchange: {
+    helpLabel: '鍵交換について',
+    helpBody:
+      'QR コードや JSON スニペットを使って公開鍵をオフラインで交換できます。登録前にフィンガープリントを別経路で確認してください。',
+  },
+};

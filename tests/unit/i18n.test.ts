@@ -1,23 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { LICENSE_DEFINITIONS } from '../../src/core/manifest/types';
 import { SUPPORTED_LOCALES } from '../../src/core/storage/consent';
-import { ARTWORK_DETAILS_I18N } from '../../src/i18n/artworkDetails';
+import { ARTWORK_DETAILS_I18N } from '../../src/i18n/artworkDetails.data';
 import { en } from '../../src/i18n/en';
-import { GOOGLE_COMPLIANCE_I18N } from '../../src/i18n/googleCompliance';
-import { HOWTO_I18N } from '../../src/i18n/howto';
+import { GOOGLE_COMPLIANCE_I18N } from '../../src/i18n/googleCompliance.data';
+import { HOWTO_I18N } from '../../src/i18n/howto.data';
 import { HUMAN_UX_I18N } from '../../src/i18n/humanUx';
 import { ja } from '../../src/i18n/ja';
-import { LICENSE_I18N } from '../../src/i18n/licenses';
+import { LICENSE_I18N } from '../../src/i18n/licenses.data';
 import { ko, zhCN, zhTW } from '../../src/i18n/locales/eastAsia';
 import { ar, de, es, fr, it as itLocale, pt } from '../../src/i18n/locales/europeanAndArabic';
 import { ru, uk } from '../../src/i18n/locales/slavic';
-import { MINIMAL_UI_I18N } from '../../src/i18n/minimalUi';
-import { NEXT_GEN_I18N } from '../../src/i18n/nextGen';
-import { QR_STUDIO_I18N } from '../../src/i18n/qrStudio';
-import { SEO_I18N } from '../../src/i18n/seo';
+import { MINIMAL_UI_I18N } from '../../src/i18n/minimalUi.data';
+import { NEXT_GEN_I18N } from '../../src/i18n/nextGen.data';
+import { QR_STUDIO_I18N } from '../../src/i18n/qrStudio.data';
+import { SEO_I18N } from '../../src/i18n/seo.data';
 import { STANDALONE_I18N } from '../../src/i18n/standalone';
-import { TUTORIAL_I18N } from '../../src/i18n/tutorial';
-import { VERIFY_MOBILE_I18N } from '../../src/i18n/verifyMobile';
+import { TUTORIAL_I18N } from '../../src/i18n/tutorial.data';
+import { VERIFY_MOBILE_I18N } from '../../src/i18n/verifyMobile.data';
 
 const BASE_TRANSLATIONS = {
   en,

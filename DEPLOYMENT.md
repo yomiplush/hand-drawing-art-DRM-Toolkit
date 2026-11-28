@@ -46,6 +46,36 @@ Certified Handmade uses the **Google Identity Services (GIS) OAuth 2.0 Token Mod
 
 ---
 
+## 2.1 Cloudflare Features That Break the Strict CSP (Disable These)
+
+Certified Handmade ships a deliberately strict Content Security Policy (`script-src 'self'` with **zero** `unsafe-inline` and **zero** third-party origins beyond Google Identity Services). Cloudflare can inject scripts at the edge that violate that policy, producing console errors such as:
+
+```
+Executing inline script violates the following Content Security Policy directive 'script-src 'self' ...'.
+Loading the script 'https://static.cloudflareinsights.com/beacon.min.js/...' violates ... 'script-src 'self' ...'.
+```
+
+Both come from Cloudflare's automatic injection (`window.__CF$cv$params` for Bot Fight Mode/Managed Challenge, and the Web Analytics beacon), **not** from this repository's code. Because the project advertises zero tracking and zero third-party analytics, the correct fix is to **disable the injection**, not to loosen the CSP with `unsafe-inline` or a `static.cloudflareinsights.com` allowance.
+
+In the Cloudflare dashboard for `certified-handmade.com`:
+
+1. **Speed → Optimization → Rocket Loader:** **Off**. Rocket Loader rewrites and defers scripts, injecting inline bootstrap code.
+2. **Security → Bots → Bot Fight Mode:** **Off**. Bot Fight Mode injects the inline `__CF$cv$params` script into every HTML response.
+3. **Analytics & Logs → Web Analytics:** **do not enable** for this zone (or remove the beacon). It injects `static.cloudflareinsights.com/beacon.min.js`.
+4. **Scrape Shield → Email Address Obfuscation:** **Off** if it rewrites inline script content.
+5. Keep **Always Use HTTPS**, the apex→`www` **301 redirect**, and `_headers`/`_redirects` handling enabled.
+
+> **Why not just add `unsafe-inline`?** It would silently permit any injected or XSS-planted inline script, and it directly contradicts the project's stated zero-telemetry, strict-CSP posture documented in [`SECURITY.md`](./SECURITY.md). If a future Cloudflare feature must be kept, prefer a nonce/hash-based CSP or move that feature off the zone.
+
+Verify after changing settings:
+
+```bash
+curl -sI https://www.certified-handmade.com/ | grep -i content-security-policy
+# Reload the site and confirm zero CSP violations in the browser console.
+```
+
+---
+
 ## 3. Assigning Custom Domain (`www.certified-handmade.com`) & Apex 301 Redirect
 
 1. Open your Cloudflare Pages project → **Custom domains** → **Set up a custom domain**.
