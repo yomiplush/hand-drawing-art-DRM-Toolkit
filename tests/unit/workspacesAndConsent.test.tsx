@@ -45,8 +45,9 @@ describe('ProjectConsentModal, SimpleWorkspace & AdvancedWorkspace', () => {
 
     expect(screen.getByTestId('simple-workspace')).toBeInTheDocument();
     const helpBtn = screen.getByTestId('help-tip-why-native-project-files');
+    expect(helpBtn).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(helpBtn);
-    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+    expect(helpBtn).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('renders AdvancedWorkspace 3-pane cockpit with key backup warning', () => {

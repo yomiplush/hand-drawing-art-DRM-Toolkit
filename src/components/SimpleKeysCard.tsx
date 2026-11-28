@@ -1,11 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, Cloud, Download, KeyRound, Plus, Upload } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  AlertTriangle,
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  Circle,
+  Download,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Lock,
+  ShieldCheck,
+  Upload,
+} from 'lucide-react';
 import type { EncryptedKeyBackup } from '../core/crypto/keyBackup';
+import { decryptKeyBackup, MIN_PASSPHRASE_LENGTH } from '../core/crypto/keyBackup';
 import {
   createAuthorKey,
+  deleteAuthorKey,
+  isAuthorKeyBackupVerified,
   listAuthorKeys,
   markAuthorKeyBackedUp,
+  markAuthorKeyBackupVerified,
   restoreAuthorKeyFromBackup,
 } from '../core/storage/keyStore';
 import type { AuthorKeyRecord } from '../core/storage/keyStore';
@@ -25,58 +42,87 @@ function downloadKeyBackup(backup: EncryptedKeyBackup, label: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 15000);
 }
 
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+
 interface SimpleKeysCardProps {
-  /** Called right after a key is created or restored (e.g. to advance onboarding into GalleryDeck). */
+  /** Called when the key is ready and the artist chooses to continue. */
   onKeyReady?: (record: AuthorKeyRecord) => void;
   /** When true, shows a primary link to GalleryDeck once a key exists. */
   showContinueToDeck?: boolean;
 }
 
+type Step = 1 | 2 | 3;
+
 export function SimpleKeysCard({
   onKeyReady,
   showContinueToDeck = true,
 }: SimpleKeysCardProps) {
-  const { locale } = useI18n();
-  const isJa = locale === 'ja';
+  const { t, locale } = useI18n();
+  const navigate = useNavigate();
+  const o = t.simple.onboarding;
 
   const [keys, setKeys] = useState<AuthorKeyRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [step, setStep] = useState<Step>(1);
+
   const [label, setLabel] = useState('');
   const [passphrase, setPassphrase] = useState('');
-  const [passphraseConfirm, setPassphraseConfirm] = useState('');
+  const [showPassphrase, setShowPassphrase] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savedBackup, setSavedBackup] = useState<{
-    keyId: string;
-    label: string;
-    backup: EncryptedKeyBackup;
-  } | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const [verifyPass, setVerifyPass] = useState('');
+  const [verifyFile, setVerifyFile] = useState<File | null>(null);
+  const [verifyFileName, setVerifyFileName] = useState<string>('');
+  const [downloaded, setDownloaded] = useState(false);
 
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [restorePass, setRestorePass] = useState('');
-  const restoreInputRef = useRef<HTMLInputElement | null>(null);
+  const [restartArmed, setRestartArmed] = useState(false);
 
-  const refresh = async () => {
+  const verifyInputRef = useRef<HTMLInputElement | null>(null);
+  const restoreInputRef = useRef<HTMLInputElement | null>(null);
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const isJa = locale === 'ja';
+
+  const refresh = async (syncStep = false) => {
     try {
       const list = await listAuthorKeys();
       setKeys(list);
+      if (syncStep) {
+        const key = list[0] ?? null;
+        setDownloaded(Boolean(key?.hasBackupDownloaded));
+        setStep(key ? (isAuthorKeyBackupVerified(key) ? 3 : 2) : 1);
+      }
+      return list;
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    void refresh();
+    void refresh(true);
   }, []);
 
   const primaryKey = keys[0] ?? null;
-  const labelGuard = inspectAuthorName(label);
+
+  useEffect(() => {
+    if (!loading) headingRef.current?.focus();
+  }, [step, loading]);
+
+  const announce = (message: string) => setStatus(message);
 
   const handleCreateKey = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = label.trim();
     if (!trimmed) {
-      setError(isJa ? '作家名（ニックネーム）を入力してください' : 'Enter your artist nickname');
+      setError(isJa ? '作家名を入力してください' : 'Enter your artist name');
       return;
     }
     const guard = inspectAuthorName(trimmed);
@@ -84,35 +130,28 @@ export function SimpleKeysCard({
       setError(isJa ? guard.messageJa : guard.messageEn);
       return;
     }
-    if (passphrase.trim().length > 0 && passphrase.trim().length < 8) {
-      setError(isJa ? 'バックアップ用パスフレーズは8文字以上にしてください' : 'Passphrase must be 8+ characters');
-      return;
-    }
-    if (passphrase.trim().length > 0 && passphrase !== passphraseConfirm) {
-      setError(isJa ? '確認用パスフレーズが一致していません' : 'Passphrases do not match');
+    if (passphrase.length < MIN_PASSPHRASE_LENGTH) {
+      setError(
+        isJa
+          ? `パスフレーズは${MIN_PASSPHRASE_LENGTH}文字以上にしてください`
+          : `Use at least ${MIN_PASSPHRASE_LENGTH} characters`,
+      );
       return;
     }
     setError(null);
     setBusy(true);
     try {
-      const result = await createAuthorKey({
-        label: trimmed,
-        backupPassphrase: passphrase.trim() || undefined,
-      });
-      if (result.encryptedBackup) {
-        setSavedBackup({
-          keyId: result.record.id,
-          label: result.record.label,
-          backup: result.encryptedBackup,
-        });
-      }
+      await createAuthorKey({ label: trimmed, backupPassphrase: passphrase });
       window.dispatchEvent(new Event('chm-keys-updated'));
-      await refresh();
-      setLabel('');
+      const list = await refresh();
       setPassphrase('');
-      setPassphraseConfirm('');
-      if (!result.encryptedBackup) {
-        onKeyReady?.(result.record);
+      setShowPassphrase(false);
+      if (isAuthorKeyBackupVerified(list[0])) {
+        setStep(3);
+        announce(o.backupVerifiedStatus);
+      } else {
+        setStep(2);
+        announce(o.keyCreatedStatus);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -122,28 +161,81 @@ export function SimpleKeysCard({
   };
 
   const handleDownloadBackup = async () => {
-    if (!savedBackup) return;
-    downloadKeyBackup(savedBackup.backup, savedBackup.label);
-    await markAuthorKeyBackedUp(savedBackup.keyId);
+    if (!primaryKey?.encryptedBackup) return;
+    downloadKeyBackup(primaryKey.encryptedBackup, primaryKey.label);
+    await markAuthorKeyBackedUp(primaryKey.id);
+    setDownloaded(true);
     await refresh();
-    const updated = (await listAuthorKeys()).find((k) => k.id === savedBackup.keyId);
-    if (updated) onKeyReady?.(updated);
+    announce(o.backupSavedStatus);
+  };
+
+  const handleVerifyBackup = async () => {
+    if (!primaryKey || !verifyFile) {
+      setError(isJa ? '保存したバックアップファイルを選んでください' : 'Choose the backup file you saved');
+      return;
+    }
+    if (!verifyPass) {
+      setError(isJa ? 'パスフレーズを入力してください' : 'Enter the backup passphrase');
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      const parsed = JSON.parse(await verifyFile.text()) as EncryptedKeyBackup;
+      const decrypted = await decryptKeyBackup(parsed, verifyPass);
+      const matches = sameBytes(decrypted.publicKey32, primaryKey.publicKey);
+      decrypted.seed32.fill(0);
+      if (!matches) {
+        setError(o.verifyFail);
+        return;
+      }
+      await markAuthorKeyBackupVerified(primaryKey.id);
+      window.dispatchEvent(new Event('chm-keys-updated'));
+      await refresh();
+      setVerifyPass('');
+      setVerifyFile(null);
+      setVerifyFileName('');
+      setStep(3);
+      announce(o.backupVerifiedStatus);
+    } catch {
+      setError(o.verifyFail);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleRestoreFile = async (file: File) => {
     setError(null);
     setBusy(true);
     try {
-      const text = await file.text();
-      const parsed = JSON.parse(text) as EncryptedKeyBackup;
-      const record = await restoreAuthorKeyFromBackup(parsed, restorePass);
+      const parsed = JSON.parse(await file.text()) as EncryptedKeyBackup;
+      await restoreAuthorKeyFromBackup(parsed, restorePass);
       window.dispatchEvent(new Event('chm-keys-updated'));
       await refresh();
       setRestoreOpen(false);
       setRestorePass('');
-      onKeyReady?.(record);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : isJa ? '復元に失敗しました' : 'Restore failed');
+      setStep(3);
+      announce(o.backupVerifiedStatus);
+    } catch {
+      setError(o.restoreFailed);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRestartKey = async () => {
+    if (!restartArmed) {
+      setRestartArmed(true);
+      return;
+    }
+    if (!primaryKey) return;
+    setBusy(true);
+    try {
+      await deleteAuthorKey(primaryKey.id);
+      window.dispatchEvent(new Event('chm-keys-updated'));
+      await refresh();
+      setRestartArmed(false);
+      setStep(1);
     } finally {
       setBusy(false);
     }
@@ -151,240 +243,372 @@ export function SimpleKeysCard({
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-md py-16 text-center text-xs ga-text-muted">
+      <div className="mx-auto max-w-md py-16 text-center text-xs ga-text-muted" role="status">
         {isJa ? '読み込み中…' : 'Loading…'}
       </div>
     );
   }
 
+  const canDownload = Boolean(primaryKey?.encryptedBackup);
+  const isLegacyUnbacked = Boolean(primaryKey && !primaryKey.encryptedBackup);
+  const steps: Array<{ num: Step; label: string }> = [
+    { num: 1, label: o.step1 },
+    { num: 2, label: o.step2 },
+    { num: 3, label: o.step3 },
+  ];
+
   return (
     <div
       data-testid="simple-keys-card"
-      className="mx-auto w-full max-w-md rounded-3xl border border-sky-400/30 bg-gradient-to-b from-[#071c38]/90 to-[#041328]/95 text-sky-50 shadow-[0_24px_70px_rgba(3,18,42,0.55)] p-6 sm:p-7 space-y-6"
+      className="mx-auto w-full max-w-md rounded-3xl border border-sky-400/30 bg-gradient-to-b from-[#071c38]/95 to-[#041328]/98 text-sky-50 shadow-[0_24px_70px_rgba(3,18,42,0.55)] p-6 sm:p-7 space-y-5"
     >
-      <div className="text-center space-y-2">
-        <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/20 border border-sky-400/40 text-sky-300">
-          <KeyRound className="h-6 w-6" />
+      <ol
+        aria-label={o.progressAria}
+        data-testid="simple-keys-steps"
+        className="flex flex-col gap-2 sm:flex-row sm:items-center"
+      >
+        {steps.map((s) => {
+          const state = step === s.num ? 'current' : step > s.num ? 'done' : 'todo';
+          return (
+            <li
+              key={s.num}
+              aria-current={state === 'current' ? 'step' : undefined}
+              className={`flex flex-1 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${
+                state === 'current'
+                  ? 'border-sky-400 bg-sky-400/15 text-sky-100'
+                  : state === 'done'
+                    ? 'border-emerald-400/50 bg-emerald-400/10 text-emerald-100'
+                    : 'border-sky-400/20 text-sky-200/70'
+              }`}
+            >
+              {state === 'done' ? (
+                <Check aria-hidden="true" className="h-4 w-4 shrink-0" />
+              ) : (
+                <Circle aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+              )}
+              <span className="break-keep sm:whitespace-nowrap">{s.label}</span>
+              {state === 'current' && (
+                <span className="sr-only">{isJa ? '（現在の手順）' : '(current step)'}</span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="text-center space-y-1.5">
+        <div className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-sky-400/40 bg-sky-500/20 text-sky-200">
+          {step === 3 ? (
+            <ShieldCheck aria-hidden="true" className="h-6 w-6" />
+          ) : step === 2 ? (
+            <Lock aria-hidden="true" className="h-6 w-6" />
+          ) : (
+            <KeyRound aria-hidden="true" className="h-6 w-6" />
+          )}
         </div>
-        <h1 className="text-xl font-bold tracking-tight text-white">
-          {primaryKey
-            ? isJa
-              ? 'マイ鍵（準備完了）'
-              : 'My Key (Ready)'
-            : isJa
-              ? '最初にマイ鍵を作成'
-              : 'Create Your Key First'}
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-lg sm:text-xl font-bold tracking-tight text-white focus:outline-none"
+        >
+          {step === 1 ? o.keyTitle : step === 2 ? o.backupTitle : o.verifiedTitle}
         </h1>
-        <p className="text-xs text-sky-200/75">
-          {primaryKey
-            ? isJa
-              ? 'この端末の署名鍵が有効です。'
-              : 'Your local signing key is active.'
-            : isJa
-              ? '端末内だけで生成されます。送信ゼロ。'
-              : 'Generated 100% locally. Never uploaded.'}
+        <p className="text-xs leading-relaxed text-sky-100/85">
+          {step === 1 ? o.keySubtitle : step === 2 ? o.backupSubtitle : o.verifiedSubtitle}
         </p>
       </div>
 
-      {primaryKey && (
-        <div className="rounded-2xl border border-emerald-400/35 bg-emerald-500/10 p-4 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 text-sm font-semibold text-white truncate">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-              <span className="truncate">{primaryKey.label}</span>
-            </div>
-            <div className="font-mono text-[11px] text-sky-200/80 mt-0.5">
-              {primaryKey.fingerprintShort}
-            </div>
+      <div aria-live="polite" role="status" className="sr-only">
+        {status}
+      </div>
+
+      {step === 1 && (
+        <form onSubmit={(e) => void handleCreateKey(e)} className="space-y-4" noValidate>
+          <div className="space-y-1.5">
+            <label htmlFor="simple-key-name" className="block text-xs font-semibold text-sky-100">
+              {o.nameLabel}
+            </label>
+            <input
+              id="simple-key-name"
+              type="text"
+              value={label}
+              autoComplete="nickname"
+              onChange={(e) => {
+                setLabel(e.target.value);
+                setError(null);
+              }}
+              placeholder={o.namePlaceholder}
+              aria-describedby="simple-key-name-hint"
+              data-testid="simple-keys-label-input"
+              className="w-full rounded-xl border border-sky-400/40 bg-[#04142b] px-3.5 py-2.5 text-sm text-white placeholder:text-sky-200/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+            />
+            <p id="simple-key-name-hint" className="px-1 text-[11px] text-sky-100/80">
+              {o.nameHint}
+            </p>
+            {label.length > 0 && inspectAuthorName(label).level !== 'safe' && (
+              <p
+                role={inspectAuthorName(label).level === 'block' ? 'alert' : 'status'}
+                className={`rounded-xl border px-3 py-2 text-[11px] leading-relaxed ${
+                  inspectAuthorName(label).level === 'block'
+                    ? 'border-rose-300/60 bg-rose-500/20 text-rose-100'
+                    : 'border-amber-300/60 bg-amber-500/20 text-amber-100'
+                }`}
+              >
+                {isJa ? inspectAuthorName(label).messageJa : inspectAuthorName(label).messageEn}
+              </p>
+            )}
           </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="simple-key-pass" className="block text-xs font-semibold text-sky-100">
+              {o.passLabel}
+            </label>
+            <div className="relative">
+              <input
+                id="simple-key-pass"
+                type={showPassphrase ? 'text' : 'password'}
+                value={passphrase}
+                autoComplete="new-password"
+                onChange={(e) => {
+                  setPassphrase(e.target.value);
+                  setError(null);
+                }}
+                placeholder={o.passPlaceholder}
+                aria-describedby="simple-key-pass-hint"
+                data-testid="simple-keys-passphrase-input"
+                className="w-full rounded-xl border border-sky-400/40 bg-[#04142b] px-3.5 py-2.5 pr-12 text-sm text-white placeholder:text-sky-200/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassphrase((v) => !v)}
+                aria-pressed={showPassphrase}
+                aria-label={showPassphrase ? o.passHide : o.passShow}
+                className="absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center rounded-r-xl text-sky-200 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-300"
+              >
+                {showPassphrase ? (
+                  <EyeOff aria-hidden="true" className="h-4 w-4" />
+                ) : (
+                  <Eye aria-hidden="true" className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+            <p id="simple-key-pass-hint" className="px-1 text-[11px] text-sky-100/80">
+              {o.passHint}
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={busy}
+            data-testid="simple-keys-create-btn"
+            className="inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-sky-400 px-4 py-3 text-sm font-bold text-[#04142b] hover:bg-sky-300 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          >
+            <KeyRound aria-hidden="true" className="h-4 w-4" />
+            <span>{busy ? o.creatingBtn : o.createBtn}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setRestoreOpen((v) => !v)}
+            aria-expanded={restoreOpen}
+            className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl text-xs font-medium text-sky-200 underline-offset-4 hover:text-white hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+          >
+            <Upload aria-hidden="true" className="h-3.5 w-3.5" />
+            <span>{o.restoreToggle}</span>
+          </button>
+        </form>
+      )}
+
+      {step === 2 && (
+        <div className="space-y-4">
+          {isLegacyUnbacked ? (
+            <div className="space-y-3 rounded-2xl border border-amber-300/60 bg-amber-500/15 p-4">
+              <p className="flex items-start gap-2 text-xs leading-relaxed text-amber-50">
+                <AlertTriangle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{o.legacyWarn}</span>
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleRestartKey()}
+                disabled={busy}
+                className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-amber-200/70 bg-amber-200/10 px-3 py-2 text-xs font-semibold text-amber-50 hover:bg-amber-200/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-100"
+              >
+                {restartArmed ? o.restartConfirmBtn : o.legacyRestartBtn}
+              </button>
+            </div>
+          ) : (
+            <>
+              <ul className="space-y-2 text-xs" data-testid="simple-backup-checklist">
+                {[
+                  { done: true, label: o.checklistPass },
+                  { done: downloaded, label: o.checklistSave },
+                  { done: isAuthorKeyBackupVerified(primaryKey), label: o.checklistVerify },
+                ].map((item, index) => (
+                  <li key={index} className="flex items-center gap-2 text-sky-50">
+                    {item.done ? (
+                      <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-emerald-300" />
+                    ) : (
+                      <Circle aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-sky-200/60" />
+                    )}
+                    <span className={item.done ? 'text-sky-50' : 'text-sky-100/80'}>
+                      {item.label}
+                    </span>
+                    <span className="sr-only">{item.done ? (isJa ? '完了' : 'done') : isJa ? '未完了' : 'not done'}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                type="button"
+                onClick={() => void handleDownloadBackup()}
+                disabled={!canDownload}
+                data-testid="simple-keys-download-backup-btn"
+                className="inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-sky-400 px-4 py-3 text-sm font-bold text-[#04142b] hover:bg-sky-300 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                <Download aria-hidden="true" className="h-4 w-4" />
+                <span>{downloaded ? o.downloadedBtn : o.downloadBtn}</span>
+              </button>
+
+              <div className="space-y-2 rounded-2xl border border-sky-400/30 bg-[#04142b]/70 p-4">
+                <label htmlFor="simple-verify-pass" className="block text-xs font-semibold text-sky-100">
+                  {o.verifyLabel}
+                </label>
+                <input
+                  id="simple-verify-pass"
+                  type="password"
+                  value={verifyPass}
+                  autoComplete="current-password"
+                  onChange={(e) => {
+                    setVerifyPass(e.target.value);
+                    setError(null);
+                  }}
+                  placeholder={o.verifyPlaceholder}
+                  className="w-full rounded-xl border border-sky-400/40 bg-[#04142b] px-3.5 py-2.5 text-sm text-white placeholder:text-sky-200/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+                />
+                <input
+                  ref={verifyInputRef}
+                  type="file"
+                  accept=".json,.chkey.json,application/json"
+                  className="sr-only"
+                  aria-label={o.verifyFileBtn}
+                  data-testid="simple-keys-verify-file-input"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setVerifyFile(file);
+                    setVerifyFileName(file?.name ?? '');
+                    setError(null);
+                    e.target.value = '';
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => verifyInputRef.current?.click()}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-sky-400/50 bg-sky-950/60 px-3 py-2 text-xs font-semibold text-sky-50 hover:bg-sky-900/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+                >
+                  <Upload aria-hidden="true" className="h-4 w-4" />
+                  <span>{o.verifyFileBtn}</span>
+                </button>
+                <p className="text-[11px] text-sky-100/80" aria-live="polite">
+                  {verifyFileName ? `${o.fileChosen}: ${verifyFileName}` : o.noFileChosen}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleVerifyBackup()}
+                  disabled={busy || !verifyFile || !verifyPass}
+                  data-testid="simple-keys-verify-btn"
+                  className="inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-emerald-400 px-4 py-3 text-sm font-bold text-[#04142b] hover:bg-emerald-300 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                >
+                  <ShieldCheck aria-hidden="true" className="h-4 w-4" />
+                  <span>{busy ? o.verifyingBtn : o.verifyBtn}</span>
+                </button>
+              </div>
+
+              <details className="rounded-xl border border-sky-400/20 bg-sky-950/30 px-3 py-2 text-xs text-sky-100/90">
+                <summary className="cursor-pointer font-semibold text-sky-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300">
+                  {o.whyBackup}
+                </summary>
+                <p className="pt-2 leading-relaxed">{o.whyBackupText}</p>
+              </details>
+            </>
+          )}
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-emerald-300/50 bg-emerald-400/10 p-4 text-center">
+            <CheckCircle2 aria-hidden="true" className="mx-auto h-8 w-8 text-emerald-300" />
+            <p className="pt-1 font-mono text-[11px] text-emerald-100/90">
+              {primaryKey?.label} · {primaryKey?.fingerprintShort}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (!primaryKey) return;
+              if (onKeyReady) onKeyReady(primaryKey);
+              else navigate('/');
+            }}
+            data-testid="simple-keys-start-btn"
+            className="inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-sky-400 px-4 py-3 text-sm font-bold text-[#04142b] hover:bg-sky-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          >
+            <ArrowRight aria-hidden="true" className="h-4 w-4" />
+            <span>{o.startBtn}</span>
+          </button>
           {showContinueToDeck && (
             <Link
               to="/"
               data-testid="simple-keys-go-deck-link"
-              className="inline-flex items-center gap-1 rounded-xl bg-sky-500 hover:bg-sky-400 px-3.5 py-2 text-xs font-semibold text-slate-950 shrink-0"
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-1 rounded-xl border border-sky-400/40 px-3.5 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-400/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
             >
               <span>GalleryDeck</span>
-              <ArrowRight className="h-3.5 w-3.5" />
+              <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
             </Link>
           )}
         </div>
       )}
 
-      {savedBackup && (
-        <div className="rounded-2xl border border-sky-400/40 bg-sky-500/15 p-4 space-y-3 text-center">
-          <p className="text-xs font-medium text-sky-100">
-            {isJa ? '復元用バックアップ (.chkey.json) を保存できます' : 'Save your recovery backup (.chkey.json)'}
-          </p>
-          <p
-            data-testid="simple-keys-adult-backup-note"
-            className="text-[11px] leading-relaxed text-sky-200/85"
-          >
-            {isJa
-              ? 'ブラウザの履歴を消すと鍵も消えてしまいます。大切な絵を守るため、おとなの人（保護者）と一緒に保存しておこう。'
-              : 'Clearing browser history deletes local keys. Save this backup together with a parent or guardian to keep your artworks safe.'}
-          </p>
-          <button
-            type="button"
-            onClick={() => void handleDownloadBackup()}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 px-4 py-2.5 text-xs font-semibold text-slate-950 cursor-pointer"
-          >
-            <Download className="h-4 w-4" />
-            <span>{isJa ? '.chkey.json を保存して進む' : 'Save .chkey.json & Continue'}</span>
-          </button>
-        </div>
-      )}
-
-      {!primaryKey && (
-        <form onSubmit={(e) => void handleCreateKey(e)} className="space-y-3.5">
-          <div className="space-y-1.5">
-            <input
-              type="text"
-              value={label}
-              onChange={(e) => {
-                setLabel(e.target.value);
-                setError(null);
-              }}
-              placeholder={isJa ? 'ニックネーム・ペンネーム（本名は入れないでね）' : 'Nickname / Pen Name (not your real name)'}
-              data-testid="simple-keys-label-input"
-              className="w-full rounded-xl border border-sky-400/30 bg-[#04142b]/90 px-3.5 py-2.5 text-sm text-white placeholder:text-sky-300/45 focus:border-sky-400 focus:outline-none"
-            />
-            <p
-              data-testid="simple-keys-nickname-hint"
-              className="text-[11px] text-sky-200/75 px-1"
-            >
-              {isJa
-                ? '※ 本名や学校名ではなく、ニックネーム（ペンネーム）を入れよう'
-                : 'Use a nickname or pen name — not your real name or school name.'}
-            </p>
-            {labelGuard.level !== 'safe' && (
-              <p
-                role={labelGuard.level === 'block' ? 'alert' : 'status'}
-                data-testid="simple-keys-name-guard"
-                className={`rounded-xl border px-3 py-2 text-[11px] leading-relaxed ${
-                  labelGuard.level === 'block'
-                    ? 'border-rose-400/50 bg-rose-500/15 text-rose-200'
-                    : 'border-amber-400/50 bg-amber-500/15 text-amber-200'
-                }`}
-              >
-                {isJa ? labelGuard.messageJa : labelGuard.messageEn}
-              </p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <input
-              type="password"
-              value={passphrase}
-              onChange={(e) => {
-                setPassphrase(e.target.value);
-                setError(null);
-              }}
-              placeholder={isJa ? 'バックアップ用パスフレーズ（任意・8文字以上）' : 'Backup passphrase (optional, 8+ chars)'}
-              data-testid="simple-keys-passphrase-input"
-              className="w-full rounded-xl border border-sky-400/25 bg-[#04142b]/90 px-3.5 py-2.5 text-xs text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
-            />
-            {passphrase.length > 0 && (
-              <div className="space-y-1">
-                <input
-                  type="password"
-                  value={passphraseConfirm}
-                  onChange={(e) => {
-                    setPassphraseConfirm(e.target.value);
-                    setError(null);
-                  }}
-                  placeholder={isJa ? 'バックアップ用パスフレーズ（確認用・もう一度入力）' : 'Confirm backup passphrase'}
-                  data-testid="simple-keys-passphrase-confirm-input"
-                  className="w-full rounded-xl border border-sky-400/25 bg-[#04142b]/90 px-3.5 py-2.5 text-xs text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
-                />
-                {passphraseConfirm.length > 0 && passphrase !== passphraseConfirm && (
-                  <p role="alert" className="text-[11px] text-rose-300 px-1">
-                    {isJa ? 'パスフレーズが一致していません' : 'Passphrases do not match'}
-                  </p>
-                )}
-              </div>
-            )}
-            <p className="text-[11px] text-sky-200/70 px-1">
-              {isJa
-                ? '※ ブラウザの履歴を消すと鍵が消えるため、おとなの人と一緒にバックアップを保存しておくと安心です。'
-                : 'Clearing browser history removes local keys — back up your key together with a parent or guardian.'}
-            </p>
-          </div>
-          <button
-            type="submit"
-            disabled={
-              busy ||
-              labelGuard.level === 'block' ||
-              (passphrase.length > 0 && passphrase !== passphraseConfirm)
-            }
-            data-testid="simple-keys-create-btn"
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-50 px-4 py-3 text-sm font-semibold text-slate-950 cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            <span>{busy ? (isJa ? '作成中…' : 'Creating…') : isJa ? 'マイ鍵を作成してはじめる' : 'Create Key & Start'}</span>
-          </button>
-        </form>
-      )}
-
       {error && (
-        <p role="alert" className="text-center text-xs font-medium text-rose-300">
+        <p role="alert" className="text-center text-xs font-medium leading-relaxed text-rose-200">
           {error}
         </p>
       )}
 
-      {/* Minimal Restore Toggle & Google Drive Restore */}
-      <div className="pt-2 border-t border-sky-400/20 text-center space-y-2.5">
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+      {restoreOpen && step === 1 && (
+        <div className="space-y-2 border-t border-sky-400/20 pt-3">
+          <label htmlFor="simple-restore-pass" className="block text-xs font-semibold text-sky-100">
+            {o.restorePassPlaceholder}
+          </label>
+          <input
+            id="simple-restore-pass"
+            type="password"
+            value={restorePass}
+            autoComplete="current-password"
+            onChange={(e) => setRestorePass(e.target.value)}
+            className="w-full rounded-xl border border-sky-400/40 bg-[#04142b] px-3.5 py-2.5 text-sm text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+          />
+          <input
+            ref={restoreInputRef}
+            type="file"
+            accept=".json,.chkey.json,application/json"
+            className="sr-only"
+            aria-label={o.restoreFileBtn}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleRestoreFile(file);
+              e.target.value = '';
+            }}
+          />
           <button
             type="button"
-            onClick={() => setRestoreOpen((v) => !v)}
-            className="inline-flex items-center gap-1.5 text-xs text-sky-300/80 hover:text-sky-200 cursor-pointer"
+            onClick={() => restoreInputRef.current?.click()}
+            disabled={busy || !restorePass}
+            className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-sky-400/40 px-3 py-2 text-xs font-medium text-sky-100 hover:bg-sky-400/10 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
           >
-            <Upload className="h-3.5 w-3.5" />
-            <span>{isJa ? 'バックアップ (.chkey.json) から復元' : 'Restore from .chkey.json'}</span>
+            <Upload aria-hidden="true" className="h-4 w-4" />
+            <span>{o.restoreFileBtn}</span>
           </button>
-
-          <Link
-            to="/gallerydeck?sync=1"
-            data-testid="simple-keys-restore-gdrive-link"
-            className="inline-flex items-center gap-1.5 text-xs text-sky-300/80 hover:text-sky-200"
-          >
-            <Cloud className="h-3.5 w-3.5" />
-            <span>{isJa ? 'Google Drive から復号して復元' : 'Decrypt & Restore from Google Drive'}</span>
-          </Link>
         </div>
-
-        {restoreOpen && (
-          <div className="space-y-2 pt-1">
-            <input
-              type="password"
-              value={restorePass}
-              onChange={(e) => setRestorePass(e.target.value)}
-              placeholder={isJa ? '復元パスフレーズ' : 'Recovery passphrase'}
-              className="w-full rounded-xl border border-sky-400/25 bg-[#04142b]/90 px-3 py-2 text-xs text-white placeholder:text-sky-300/40 focus:border-sky-400 focus:outline-none"
-            />
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => restoreInputRef.current?.click()}
-              className="w-full rounded-xl border border-sky-400/35 bg-sky-950/60 hover:bg-sky-900/70 px-3 py-2 text-xs font-medium text-sky-100 cursor-pointer"
-            >
-              {isJa ? '.chkey.json ファイルを選択' : 'Select .chkey.json File'}
-            </button>
-            <input
-              ref={restoreInputRef}
-              type="file"
-              accept=".json,.chkey.json,application/json"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  void handleRestoreFile(file);
-                  e.target.value = '';
-                }
-              }}
-            />
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

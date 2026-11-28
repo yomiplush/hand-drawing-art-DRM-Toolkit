@@ -6,6 +6,7 @@ import {
   Gamepad2,
   HardDrive,
   ImagePlus,
+  Lock,
   QrCode,
   Search,
   ShieldAlert,
@@ -20,7 +21,7 @@ import {
   getCustomNostrProofRelays,
   setCustomNostrProofRelays,
 } from '../../core/nostr/proofRelay';
-import { listAuthorKeys } from '../../core/storage/keyStore';
+import { isAuthorKeyBackupVerified, listAuthorKeys } from '../../core/storage/keyStore';
 import { useDeckNavigation } from '../../hooks/useDeckNavigation';
 import { useI18n } from '../../i18n/context';
 import {
@@ -111,6 +112,18 @@ export function GalleryDeckPage() {
   const [driveRiskModalOpen, setDriveRiskModalOpen] = useState(false);
   const [driveRiskConsentAccepted, setDriveRiskConsentAccepted] = useState(false);
   const [busyAction, setBusyAction] = useState<'certify' | 'verify' | null>(null);
+  const [backupGateOpen, setBackupGateOpen] = useState(false);
+  const backupGatePrimaryRef = useRef<HTMLAnchorElement | null>(null);
+
+  useEffect(() => {
+    if (!backupGateOpen) return;
+    backupGatePrimaryRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setBackupGateOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [backupGateOpen]);
   const [syncing, setSyncing] = useState(false);
   const [statusToast, setStatusToast] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -388,6 +401,16 @@ export function GalleryDeckPage() {
     licenseId: LicenseId,
     qrMode: 'in-image' | 'outer-border' = 'in-image',
   ) => {
+    const keys = await listAuthorKeys().catch(() => []);
+    const primaryKey = keys[0] ?? null;
+    if (!primaryKey) {
+      navigate('/keys');
+      return;
+    }
+    if (!isAuthorKeyBackupVerified(primaryKey)) {
+      setBackupGateOpen(true);
+      return;
+    }
     setPendingQrPlacement({ item, licenseId, qrMode });
   };
 
@@ -737,6 +760,7 @@ export function GalleryDeckPage() {
             type="file"
             accept={pickerCfg.accept}
             multiple={pickerCfg.multiple}
+            aria-label={isJa ? '作品の追加' : gd.importArtwork}
             data-testid="gallerydeck-file-input"
             className="sr-only"
             onChange={(e) => {
@@ -879,6 +903,19 @@ export function GalleryDeckPage() {
             className="mx-auto w-full max-w-lg px-4 text-center space-y-5"
           >
             <div className="ga-card rounded-3xl p-7 sm:p-10 space-y-6">
+              {!isAdvanced && hasAuthorKey && (
+                <p
+                  data-testid="gallerydeck-first-run-continue"
+                  className="ga-status-success -mt-1 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-left text-xs font-medium"
+                >
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>
+                    {isJa
+                      ? '鍵とバックアップの準備ができました。次は作品を入れるだけです（約1分）。'
+                      : 'Your key and backup are ready. Next, add an artwork (about 1 minute).'}
+                  </span>
+                </p>
+              )}
               <div className="space-y-1.5">
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight ga-text">
                   {gd.title}
@@ -927,7 +964,7 @@ export function GalleryDeckPage() {
                 <span className="text-base sm:text-lg font-bold tracking-tight ga-text">
                   {isJa ? '作品の追加(.psdなど)' : gd.importArtwork}
                 </span>
-                <span className="text-[11px] ga-text-muted">
+                <span className="text-[11px] ga-text-secondary">
                   .psd / .clip / .procreate / .kra / .sai2
                 </span>
               </div>
@@ -1257,6 +1294,62 @@ export function GalleryDeckPage() {
           await executeCertify(pendingQrPlacement.item, submission);
         }}
       />
+      {/* Backup gate: signing requires a verified .chkey.json backup */}
+      {backupGateOpen && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-[#030e1f]/80 p-4 backdrop-blur-sm"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="backup-gate-title"
+            aria-describedby="backup-gate-desc"
+            data-testid="gallerydeck-backup-gate"
+            className="ga-card w-full max-w-md space-y-4 rounded-2xl border p-5 sm:p-6 shadow-[var(--ga-shadow-lg)]"
+          >
+            <div className="flex items-start gap-3">
+              <span className="ga-status-warning inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border">
+                <Lock className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 space-y-1">
+                <h2 id="backup-gate-title" className="text-base font-bold ga-text">
+                  {isJa ? 'バックアップを確認してから証明します' : 'Confirm your backup before signing'}
+                </h2>
+                <p id="backup-gate-desc" className="text-xs leading-relaxed ga-text-secondary">
+                  {isJa
+                    ? '鍵をなくすと、新しい端末で過去の証明書を確認できなくなります。確認は1分で終わります。'
+                    : 'If you lose the key, past certificates cannot be checked on a new device. Confirmation takes about a minute.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row-reverse">
+              <Link
+                to="/keys"
+                ref={backupGatePrimaryRef}
+                onClick={() => setBackupGateOpen(false)}
+                data-testid="gallerydeck-backup-gate-cta"
+                className="ga-btn-primary inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
+              >
+                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                <span>{isJa ? 'バックアップを確認する' : 'Confirm backup'}</span>
+              </Link>
+              <button
+                type="button"
+                onClick={() => setBackupGateOpen(false)}
+                className="ga-btn-secondary inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium"
+              >
+                {isJa ? 'あとで' : 'Not now'}
+              </button>
+            </div>
+            <p className="text-[11px] leading-relaxed ga-text-muted">
+              {isJa
+                ? '確認が終わったら、この画面に戻って作品を選び直してください。作品ファイルは変更されません。'
+                : 'When you are done, come back here and choose the artwork again. Your file is not changed.'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Fullscreen Fade-In / Fade-Out Lightbox */}
       {fullscreenOpen && focusedItem?.thumbnailDataUrl && (
         <div

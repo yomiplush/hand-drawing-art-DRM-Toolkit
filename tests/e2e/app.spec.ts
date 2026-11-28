@@ -299,7 +299,7 @@ test.describe('Certified Handmade E2E suite', () => {
     await expect(page.getByTestId('verify-proof-artwork-cta')).toHaveCount(0);
     await expect(page.getByTestId('verification-results')).toBeVisible();
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
-    await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','sns-pass');
+    await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','compressed');
 
     const resultsBox = await page.getByTestId('verification-results').boundingBox();
     expect(resultsBox).not.toBeNull();
@@ -307,7 +307,7 @@ test.describe('Certified Handmade E2E suite', () => {
     // A #proof= launch hides the input tabs and the Step-2 attach CTA is gated
     // off, so this path reports signature-only (sns-pass): pixels are "not
     // checked" until an image is supplied through the normal Image tab flow.
-    await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','sns-pass');
+    await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','compressed');
 
     // Verification through the Image tab (not a #proof= launch) does compare
     // pixels: the original matches, a tampered copy does not.
@@ -337,7 +337,7 @@ test.describe('Certified Handmade E2E suite', () => {
     fs.writeFileSync(tamperedArtPath, Buffer.from(encodePng(decodedArt)));
     await page.goto('/verify');
     await page.getByTestId('verify-image-input').setInputFiles(tamperedArtPath);
-    await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','warn', { timeout: 30_000 });
+    await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','no-seal', { timeout: 30_000 });
 
     // Zero external network calls allowed
     expect(externalRequests).toEqual([]);
@@ -558,7 +558,7 @@ test.describe('Certified Handmade E2E suite', () => {
     // The optional Step-2 attach/paste CTA was removed from the QR-verify view.
     await expect(page.getByTestId('verify-proof-artwork-cta')).toHaveCount(0);
     await expect(page.getByTestId('verify-paste-image-btn')).toHaveCount(0);
-    await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','sns-pass');
+    await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','compressed');
 
     const artBytes = Array.from(artBuffer);
     await page.evaluate((bytes) => {
@@ -803,7 +803,7 @@ test.describe('Certified Handmade E2E suite', () => {
     await page.getByTestId('verify-tab-proof').click();
     await page.getByTestId('verify-proof-bundle-input').setInputFiles(bundlePath);
     await expect(page.getByTestId('status-signature')).toContainText('Valid');
-    await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','sns-pass');
+    await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict','compressed');
 
     // Image attachment lives on the Advanced result surface, which replaces the
     // Simple verdict card; assert the shared result shell there instead.

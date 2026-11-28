@@ -55,6 +55,9 @@ export interface AuthorKeyRecord {
   webCryptoPrivateKey?: CryptoKey;
   encryptedBackup?: EncryptedKeyBackup;
   hasBackupDownloaded: boolean;
+  /** True only after the saved .chkey.json was re-opened and matched this key. */
+  hasBackupVerified?: boolean;
+  backupVerifiedAt?: string;
   createdAt: string;
 }
 
@@ -298,6 +301,7 @@ export async function createAuthorKey(params: {
       webCryptoPrivateKey: material.webCryptoPrivateKey,
       encryptedBackup,
       hasBackupDownloaded: false,
+      hasBackupVerified: false,
       createdAt: new Date().toISOString(),
     };
 
@@ -313,6 +317,24 @@ export async function markAuthorKeyBackedUp(id: string): Promise<void> {
   if (!rec) return;
   rec.hasBackupDownloaded = true;
   await withChmStore(STORE_AUTHOR_KEYS, 'readwrite', (s) => s.put(rec));
+}
+
+export async function markAuthorKeyBackupVerified(id: string): Promise<AuthorKeyRecord | null> {
+  const rec = await getAuthorKey(id);
+  if (!rec) return null;
+  rec.hasBackupDownloaded = true;
+  rec.hasBackupVerified = true;
+  rec.backupVerifiedAt = new Date().toISOString();
+  await withChmStore(STORE_AUTHOR_KEYS, 'readwrite', (s) => s.put(rec));
+  return rec;
+}
+
+export function isAuthorKeyBackupVerified(record: AuthorKeyRecord | null | undefined): boolean {
+  if (!record) return false;
+  if (record.hasBackupVerified === true) return true;
+  // Records created before the explicit flag existed are grandfathered when a
+  // backup was already downloaded, so existing artists are not locked out.
+  return record.hasBackupVerified === undefined && record.hasBackupDownloaded === true;
 }
 
 export async function restoreAuthorKeyFromBackup(
@@ -357,6 +379,8 @@ export async function restoreAuthorKeyFromBackup(
       webCryptoPrivateKey,
       encryptedBackup,
       hasBackupDownloaded: true,
+      hasBackupVerified: true,
+      backupVerifiedAt: new Date().toISOString(),
       createdAt: decrypted.createdAt,
     };
 

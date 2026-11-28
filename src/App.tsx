@@ -8,10 +8,7 @@ import { PreferencesProvider } from './components/PreferencesContext';
 import { Ps3WaveBackground } from './components/Ps3WaveBackground';
 import { SeoHead } from './components/SeoHead';
 import { InteractiveTutorialModal } from './components/tutorial/InteractiveTutorialModal';
-import {
-  hasSeenInteractiveTutorial,
-  markInteractiveTutorialSeen,
-} from './core/preferences/tutorialState';
+import { markInteractiveTutorialSeen } from './core/preferences/tutorialState';
 import {
   getConsentStatus,
   resetConsentStatus,
@@ -151,7 +148,9 @@ function AppRoutes() {
 
   const [consentStatus, setConsentState] = useState<ConsentStatus>(() => getConsentStatus());
   const [bannerOpen, setBannerOpen] = useState<boolean>(() => getConsentStatus() === 'unset');
-  const [tutorialOpen, setTutorialOpen] = useState<boolean>(() => !hasSeenInteractiveTutorial());
+  // Do not block the first action with a modal. The tutorial stays one tap away in the header
+  // and on /tutorial; it opens on demand instead of covering the onboarding card.
+  const [tutorialOpen, setTutorialOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;

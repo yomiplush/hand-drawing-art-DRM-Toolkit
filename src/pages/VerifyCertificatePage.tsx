@@ -26,6 +26,7 @@ import {
   Loader2,
   MessageSquare,
   Share2,
+  SearchX,
   ShieldAlert,
   SlidersHorizontal,
   Sparkles,
@@ -1305,22 +1306,23 @@ export function VerifyCertificatePage() {
       {errorMsg && !isAdvanced && !scannerSweeping && (
         <div
           data-testid="verify-simple-verdict"
-          data-verdict="warn"
+          data-verdict="no-seal"
           className="chm-verdict-wobble ga-status-warning rounded-2xl border p-4 sm:p-5 space-y-2"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 text-sm sm:text-base font-bold">
-              <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden="true" />
-              <span>{t.simple.verify.verdictWarnTitle}</span>
+              <SearchX className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span>{t.simple.verify.verdictNoSealTitle}</span>
             </div>
             <HelpTip
-              label={t.simple.verify.verdictWarnTitle}
+              label={t.simple.verify.verdictNoSealTitle}
               text={t.simple.verify.verdictWarnTipText}
               testId="verify-verdict-tip-btn"
               panelTestId="verify-verdict-tip-panel"
             />
           </div>
-          <p className="text-xs sm:text-sm opacity-90">{t.simple.verify.verdictWarnDesc}</p>
+          <p className="text-xs sm:text-sm opacity-90">{t.simple.verify.verdictNoSealDesc}</p>
+          <p className="text-xs font-medium">{t.simple.verify.safeFileNote}</p>
         </div>
       )}
 
@@ -1407,29 +1409,64 @@ export function VerifyCertificatePage() {
     </div>
   ) : null;
 
-  const simpleVerdictKind = result
-    ? result.signatureStatus === 'valid' && result.integrityStatus === 'matched'
-      ? 'pass'
-      : result.signatureStatus === 'valid'
-        ? 'sns-pass'
-        : 'warn'
+  const simpleVerdictKind: 'pass' | 'compressed' | 'invalid' | 'unsupported' | null = result
+    ? result.signatureStatus === 'valid'
+      ? result.integrityStatus === 'matched'
+        ? 'pass'
+        : 'compressed'
+      : result.signatureStatus === 'unsupported'
+        ? 'unsupported'
+        : 'invalid'
     : null;
+
+  const simpleVerdictCopy =
+    simpleVerdictKind === 'pass'
+      ? {
+          title: t.simple.verify.verdictPassTitle,
+          desc: t.simple.verify.verdictPassDesc,
+          tipLabel: t.simple.verify.verdictPassTipLabel,
+          tipText: t.simple.verify.verdictPassTipText,
+        }
+      : simpleVerdictKind === 'compressed'
+        ? {
+            title: t.simple.verify.verdictSnsTitle,
+            desc: t.simple.verify.verdictSnsDesc,
+            tipLabel: t.simple.verify.verdictSnsTipLabel,
+            tipText: t.simple.verify.verdictSnsTipText,
+          }
+        : simpleVerdictKind === 'invalid'
+          ? {
+              title: t.simple.verify.verdictInvalidTitle,
+              desc: t.simple.verify.verdictInvalidDesc,
+              tipLabel: t.simple.verify.verdictInvalidTitle,
+              tipText: t.simple.verify.verdictInvalidTipText,
+            }
+          : simpleVerdictKind === 'unsupported'
+            ? {
+                title: t.simple.verify.verdictWarnTitle,
+                desc: t.simple.verify.verdictWarnDesc,
+                tipLabel: t.simple.verify.verdictWarnTitle,
+                tipText: t.simple.verify.verdictWarnTipText,
+              }
+            : null;
 
   const resultsSection = result && !scannerSweeping ? (
     <div className="space-y-5" data-testid="verification-results">
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {t.a11y.verificationCompleteAnnounce}
       </div>
-      {!isAdvanced && simpleVerdictKind && (
+      {!isAdvanced && simpleVerdictKind && simpleVerdictCopy && (
         <section
           data-testid="verify-simple-verdict"
           data-verdict={simpleVerdictKind}
           className={`relative rounded-2xl border p-4 sm:p-5 space-y-3 min-w-0 ${
             simpleVerdictKind === 'pass'
               ? 'chm-verdict-pop ga-status-success shadow-sm'
-              : simpleVerdictKind === 'sns-pass'
+              : simpleVerdictKind === 'compressed'
                 ? 'chm-pulse-soft ga-status-info shadow-sm'
-                : 'chm-verdict-wobble ga-status-warning'
+                : simpleVerdictKind === 'invalid'
+                  ? 'ga-status-error'
+                  : 'chm-verdict-wobble ga-status-warning'
           }`}
         >
           {simpleVerdictKind === 'pass' && (
@@ -1440,47 +1477,42 @@ export function VerifyCertificatePage() {
           <div className="relative z-10 flex items-start justify-between gap-3 min-w-0">
             <div className="space-y-1 min-w-0 flex-1">
               <div className="flex items-center gap-2 text-base sm:text-lg font-bold">
-                {simpleVerdictKind === 'warn' ? (
-                  <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden="true" />
-                ) : (
+                {simpleVerdictKind === 'pass' ? (
                   <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden="true" />
+                ) : simpleVerdictKind === 'compressed' ? (
+                  <Info className="h-5 w-5 shrink-0" aria-hidden="true" />
+                ) : simpleVerdictKind === 'invalid' ? (
+                  <ShieldAlert className="h-5 w-5 shrink-0" aria-hidden="true" />
+                ) : (
+                  <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden="true" />
                 )}
-                <span>
-                  {simpleVerdictKind === 'pass'
-                    ? t.simple.verify.verdictPassTitle
-                    : simpleVerdictKind === 'sns-pass'
-                      ? t.simple.verify.verdictSnsTitle
-                      : t.simple.verify.verdictWarnTitle}
-                </span>
+                <span>{simpleVerdictCopy.title}</span>
               </div>
-              <p className="text-xs sm:text-sm opacity-90">
-                {simpleVerdictKind === 'pass'
-                  ? t.simple.verify.verdictPassDesc
-                  : simpleVerdictKind === 'sns-pass'
-                    ? t.simple.verify.verdictSnsDesc
-                    : t.simple.verify.verdictWarnDesc}
-              </p>
+              <p className="text-xs sm:text-sm opacity-90">{simpleVerdictCopy.desc}</p>
+              {(simpleVerdictKind === 'compressed' || simpleVerdictKind === 'unsupported') && (
+                <p className="text-xs font-medium">{t.simple.verify.safeFileNote}</p>
+              )}
             </div>
 
             <HelpTip
-              label={
-                simpleVerdictKind === 'pass'
-                  ? t.simple.verify.verdictPassTipLabel
-                  : simpleVerdictKind === 'sns-pass'
-                    ? t.simple.verify.verdictSnsTipLabel
-                    : t.simple.verify.verdictWarnTitle
-              }
-              text={
-                simpleVerdictKind === 'pass'
-                  ? t.simple.verify.verdictPassTipText
-                  : simpleVerdictKind === 'sns-pass'
-                    ? t.simple.verify.verdictSnsTipText
-                    : t.simple.verify.verdictWarnTipText
-              }
+              label={simpleVerdictCopy.tipLabel}
+              text={simpleVerdictCopy.tipText}
               testId="verify-verdict-tip-btn"
               panelTestId="verify-verdict-tip-panel"
             />
           </div>
+
+          {simpleVerdictKind === 'compressed' && (
+            <div className="relative z-10 flex flex-wrap items-center gap-2 pt-1">
+              <Link
+                to="/tutorial"
+                className="ga-btn-secondary inline-flex min-h-[40px] items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold"
+              >
+                <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>{t.simple.verify.nextSnsGuideBtn}</span>
+              </Link>
+            </div>
+          )}
 
           {result.manifest && (
             <div
@@ -1860,7 +1892,7 @@ export function VerifyCertificatePage() {
               <div
                 className={`rounded-xl border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.commercialUse)}`}
               >
-                <div className="opacity-75 text-[11px]">{t.verify.fields.commercial}</div>
+                <div className="text-[11px]">{t.verify.fields.commercial}</div>
                 <div className="font-semibold mt-0.5">
                   {formatPolicySignal(result.manifest.license.commercialUse)}
                 </div>
@@ -1868,7 +1900,7 @@ export function VerifyCertificatePage() {
               <div
                 className={`rounded-xl border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.redistribution)}`}
               >
-                <div className="opacity-75 text-[11px]">{t.verify.fields.redistribution}</div>
+                <div className="text-[11px]">{t.verify.fields.redistribution}</div>
                 <div className="font-semibold mt-0.5">
                   {formatPolicySignal(result.manifest.license.redistribution)}
                 </div>
@@ -1876,7 +1908,7 @@ export function VerifyCertificatePage() {
               <div
                 className={`rounded-xl border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.aiTraining)}`}
               >
-                <div className="opacity-75 text-[11px]">{t.verify.fields.aiTraining}</div>
+                <div className="text-[11px]">{t.verify.fields.aiTraining}</div>
                 <div className="font-semibold mt-0.5">
                   {formatPolicySignal(result.manifest.license.aiTraining)}
                 </div>
@@ -1889,7 +1921,7 @@ export function VerifyCertificatePage() {
                   <div
                     className={`rounded-xl border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.allowsDerivatives)}`}
                   >
-                    <div className="opacity-75 text-[11px]">
+                    <div className="text-[11px]">
                       {t.nextGen.verify.v3DerivativesLabel}
                     </div>
                     <div className="font-semibold mt-0.5">
@@ -1901,7 +1933,7 @@ export function VerifyCertificatePage() {
                   <div
                     className={`rounded-xl border px-3 py-2 text-xs ${policyPillTone(result.manifest.license.allowsModifications)}`}
                   >
-                    <div className="opacity-75 text-[11px]">
+                    <div className="text-[11px]">
                       {t.nextGen.verify.v3ModificationsLabel}
                     </div>
                     <div className="font-semibold mt-0.5">
@@ -1911,7 +1943,7 @@ export function VerifyCertificatePage() {
                 )}
                 {result.manifest.license.requiresAttribution !== undefined && (
                   <div className="ga-surface-subtle rounded-xl border ga-border px-3 py-2 text-xs ga-text">
-                    <div className="opacity-75 text-[11px]">
+                    <div className="text-[11px]">
                       {t.nextGen.verify.v3RequiresAttributionLabel}
                     </div>
                     <div className="font-semibold mt-0.5">

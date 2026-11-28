@@ -85,12 +85,68 @@ export interface SimpleTranslations {
     verdictWarnTitle: string;
     verdictWarnDesc: string;
     verdictWarnTipText: string;
+    verdictInvalidTitle: string;
+    verdictInvalidDesc: string;
+    verdictInvalidTipText: string;
+    verdictNoSealTitle: string;
+    verdictNoSealDesc: string;
+    nextOriginalBtn: string;
+    nextSnsGuideBtn: string;
+    safeFileNote: string;
     artistPillLabel: string;
     titlePillLabel: string;
     licensePillLabel: string;
     expandDetailsBtn: string;
     collapseDetailsBtn: string;
     tryAnotherBtn: string;
+  };
+  onboarding: {
+    progressAria: string;
+    step1: string;
+    step2: string;
+    step3: string;
+    keyTitle: string;
+    keySubtitle: string;
+    nameLabel: string;
+    namePlaceholder: string;
+    nameHint: string;
+    passLabel: string;
+    passPlaceholder: string;
+    passHint: string;
+    passShow: string;
+    passHide: string;
+    createBtn: string;
+    creatingBtn: string;
+    backupTitle: string;
+    backupSubtitle: string;
+    checklistPass: string;
+    checklistSave: string;
+    checklistVerify: string;
+    downloadBtn: string;
+    downloadedBtn: string;
+    verifyLabel: string;
+    verifyPlaceholder: string;
+    verifyFileBtn: string;
+    verifyBtn: string;
+    verifyingBtn: string;
+    fileChosen: string;
+    noFileChosen: string;
+    verifiedTitle: string;
+    verifiedSubtitle: string;
+    startBtn: string;
+    whyBackup: string;
+    whyBackupText: string;
+    legacyWarn: string;
+    legacyRestartBtn: string;
+    restartConfirmBtn: string;
+    verifyFail: string;
+    keyCreatedStatus: string;
+    backupSavedStatus: string;
+    backupVerifiedStatus: string;
+    restoreToggle: string;
+    restorePassPlaceholder: string;
+    restoreFileBtn: string;
+    restoreFailed: string;
   };
   advancedTips: {
     ed25519Label: string;
@@ -183,26 +239,86 @@ const enSimple: SimpleTranslations = {
     pageSubtitle: 'Drop a signed artwork or scan a QR code to verify.',
     sampleTryBtn: 'Try a sample artwork',
     scanningLabel: 'Scanning artwork seal…',
-    verdictPassTitle: 'Verified Authentic Art!',
-    verdictPassDesc: 'The artist signature and pixels match the original.',
+    verdictPassTitle: 'The artist signature matches',
+    verdictPassDesc: 'The pixels match the signed original exactly.',
     verdictPassTipLabel: 'How this check works',
     verdictPassTipText:
-      "We checked the cryptographic signature against the artwork pixels and confirmed it hasn't been altered.",
-    verdictSnsTitle: 'Signature Verified via QR!',
-    verdictSnsDesc: 'The artist signature is valid, though the pixels differ from the original file.',
-    verdictSnsTipLabel: 'Why pixels can differ on social media',
+      'We compared the signature with the image pixels. Both match the signed original.',
+    verdictSnsTitle: 'Signature is valid (image differs from the original)',
+    verdictSnsDesc:
+      'Social platforms and screenshots can re-save an image and change its pixels. The artwork itself is not broken. The QR signature is valid, and the artist and rules were confirmed.',
+    verdictSnsTipLabel: 'Why the pixels differ',
     verdictSnsTipText:
-      "Social media apps often shrink and re-save images automatically. Use 'In-Image QR' mode when sharing on SNS!",
-    verdictWarnTitle: 'No Seal Found or Image Modified',
-    verdictWarnDesc: 'We could not match a valid artist seal on this image.',
+      'Social apps shrink and re-save images automatically. The artwork itself is not broken. Use the in-image QR when posting.',
+    verdictWarnTitle: 'No certificate QR found or readable',
+    verdictWarnDesc:
+      'The image may be small, cropped, or blurred. The image itself is not broken.',
     verdictWarnTipText:
-      'If this came from social media or a screenshot, try checking the original file or the QR code directly.',
+      'Try the original PNG, a larger copy, or paste the proof link instead.',
+    verdictInvalidTitle: 'This QR does not belong to this image',
+    verdictInvalidDesc:
+      'The signature and the image are not linked. A QR from a different image may have been mixed in.',
+    verdictInvalidTipText: 'Check the original file, or ask the artist to confirm.',
+    verdictNoSealTitle: 'No certificate QR in this image',
+    verdictNoSealDesc:
+      'This image does not contain a signed QR. It may have been cropped out.',
+    nextOriginalBtn: 'Check the original PNG',
+    nextSnsGuideBtn: 'View the guide',
+    safeFileNote: 'Your original file is unchanged.',
     artistPillLabel: 'Artist',
     titlePillLabel: 'Title',
     licensePillLabel: 'Rule',
     expandDetailsBtn: 'Show Detailed Verification Data',
     collapseDetailsBtn: 'Hide Detailed Verification Data',
     tryAnotherBtn: 'Check Another Image',
+  },
+  onboarding: {
+    progressAria: 'Setup progress',
+    step1: '1. Key',
+    step2: '2. Backup',
+    step3: '3. Start',
+    keyTitle: 'Create your signing key',
+    keySubtitle: 'It is made inside this device and is never uploaded.',
+    nameLabel: 'Artist name (nickname)',
+    namePlaceholder: 'e.g. Sakura',
+    nameHint: 'Use a pen name, not your real name or school name.',
+    passLabel: 'Backup passphrase',
+    passPlaceholder: 'At least 8 characters',
+    passHint: '12 characters or more is safer. You will need this to restore the key.',
+    passShow: 'Show passphrase',
+    passHide: 'Hide passphrase',
+    createBtn: 'Create my key',
+    creatingBtn: 'Creating…',
+    backupTitle: 'Back it up before you sign',
+    backupSubtitle: 'Without this file, past certificates cannot be checked on a new device.',
+    checklistPass: 'Passphrase set',
+    checklistSave: 'Backup file saved',
+    checklistVerify: 'Backup re-opened and matched',
+    downloadBtn: 'Save .chkey.json',
+    downloadedBtn: 'Saved — now confirm it',
+    verifyLabel: 'Passphrase for this backup',
+    verifyPlaceholder: 'Enter the passphrase again',
+    verifyFileBtn: 'Choose the saved .chkey.json',
+    verifyBtn: 'Confirm backup',
+    verifyingBtn: 'Checking…',
+    fileChosen: 'File selected',
+    noFileChosen: 'No file selected yet',
+    verifiedTitle: 'Backup confirmed',
+    verifiedSubtitle: 'You are ready to certify your first artwork.',
+    startBtn: 'Certify an artwork',
+    whyBackup: 'Why is this required?',
+    whyBackupText: 'The backup file is the only way to restore this key. We ask once, before any artwork depends on it.',
+    legacyWarn: 'This key was created without a backup file. It cannot be backed up now.',
+    legacyRestartBtn: 'Create a new key with a backup',
+    restartConfirmBtn: 'Press again to replace this key',
+    verifyFail: 'That file did not open with this passphrase. Check the passphrase, or choose the file you saved.',
+    keyCreatedStatus: 'Key created. Next, back it up.',
+    backupSavedStatus: 'Backup saved. Now confirm that it opens.',
+    backupVerifiedStatus: 'Backup confirmed.',
+    restoreToggle: 'Restore from a backup file',
+    restorePassPlaceholder: 'Backup passphrase',
+    restoreFileBtn: 'Select .chkey.json',
+    restoreFailed: 'Could not restore from this file.',
   },
   advancedTips: {
     ed25519Label: 'About Ed25519 keys',
@@ -296,30 +412,90 @@ const jaSimple: SimpleTranslations = {
     backupShortPassError: '合言葉は8文字以上で入力してください。',
   },
   verify: {
-    pageTitle: '本物チェック',
+    pageTitle: '作品を確認',
     pageSubtitle: 'イラストを入れるかQRを読み込むと、すぐに判定します。',
     sampleTryBtn: 'サンプル画像で試してみる',
     scanningLabel: 'イラストの証をスキャン中…',
-    verdictPassTitle: '✅ 本物の作品です！',
-    verdictPassDesc: '作家のサインも、絵のピクセルデータも元のまま一致しました！',
+    verdictPassTitle: '作者の署名と一致しました',
+    verdictPassDesc: '署名したときのピクセルと、完全に一致しています。',
     verdictPassTipLabel: '判定のしくみ',
     verdictPassTipText:
-      '暗号サインと絵のデータを照合して、改ざんされていない本物のデータだと確認しました！',
-    verdictSnsTitle: '✅ SNS経由でもサインを確認できました！',
-    verdictSnsDesc: '作家のサインは本物ですが、元の絵より少し圧縮・加工されています。',
-    verdictSnsTipLabel: 'SNSで画像が変わる理由',
+      '署名と画像のピクセルを照合しました。どちらも署名したときの記録と一致しています。',
+    verdictSnsTitle: '署名は有効です（画像は一致しません）',
+    verdictSnsDesc:
+      'SNSやスクリーンショットでは画像が再保存され、ピクセルが変わることがあります。作品そのものは壊れていません。QRコードの署名は有効で、作者とルールを確認できました。',
+    verdictSnsTipLabel: 'ピクセルが変わる理由',
     verdictSnsTipText:
-      'XやLINEなどに送ると画像が自動で縮んで元のデータと少し変わることがあります。SNS用には『絵の中にQR』モードがおすすめ！',
-    verdictWarnTitle: '⚠️ サインが見つからないか、画像が加工されています',
-    verdictWarnDesc: 'この画像からは有効な証明サインを読み取れませんでした。',
+      'SNSは画像を自動で縮小して保存し直します。作品そのものは壊れていません。投稿するときは「画像内QR」がおすすめです。',
+    verdictWarnTitle: '証明書のQRが見つからないか、読み取れません',
+    verdictWarnDesc:
+      '画像が小さい、トリミングされた、ぼやけている、のいずれかかもしれません。画像は壊れていません。',
     verdictWarnTipText:
-      'SNSで画質が落ちた画像やスクリーンショットでは読めないことがあります。元のファイルやQRリンクから試してね。',
+      '元のPNG、大きい画像、または証明リンクを貼る方法でお試しください。',
+    verdictInvalidTitle: 'このQRは、この画像のものではありません',
+    verdictInvalidDesc:
+      '署名と画像の内容が結びつきませんでした。別の画像のQRが混ざった可能性があります。',
+    verdictInvalidTipText: '元のファイルを確認するか、作者に確認してください。',
+    verdictNoSealTitle: 'この画像に証明書のQRがありません',
+    verdictNoSealDesc:
+      '署名済みのQRが含まれていません。トリミングで切れた可能性があります。',
+    nextOriginalBtn: '元のPNGで確認する',
+    nextSnsGuideBtn: '使い方を見る',
+    safeFileNote: '元のファイルは変更されていません。',
     artistPillLabel: '作家名',
     titlePillLabel: 'タイトル',
     licensePillLabel: 'ルール',
     expandDetailsBtn: '詳しい検証データを見る',
     collapseDetailsBtn: '詳しい検証データを閉じる',
     tryAnotherBtn: '別の画像をチェックする',
+  },
+  onboarding: {
+    progressAria: '設定の進み具合',
+    step1: '1. 鍵',
+    step2: '2. バックアップ',
+    step3: '3. はじめる',
+    keyTitle: 'あなた専用の鍵をつくります',
+    keySubtitle: 'この端末の中だけで作られ、どこにも送信されません。',
+    nameLabel: '作家名（ニックネーム）',
+    namePlaceholder: '例：さくら',
+    nameHint: '本名や学校名ではなく、ペンネームを使ってください。',
+    passLabel: 'バックアップ用パスフレーズ',
+    passPlaceholder: '8文字以上',
+    passHint: '12文字以上がおすすめです。鍵を復元するときに必要になります。',
+    passShow: 'パスフレーズを表示',
+    passHide: 'パスフレーズを隠す',
+    createBtn: '鍵をつくる',
+    creatingBtn: '作成中…',
+    backupTitle: '署名の前に、バックアップを',
+    backupSubtitle: 'このファイルがないと、端末を変えたときに過去の証明書を確認できません。',
+    checklistPass: 'パスフレーズを決めた',
+    checklistSave: 'バックアップを保存した',
+    checklistVerify: '保存したファイルを開いて確認した',
+    downloadBtn: '.chkey.json を保存',
+    downloadedBtn: '保存しました — 次に確認します',
+    verifyLabel: 'このバックアップのパスフレーズ',
+    verifyPlaceholder: 'もう一度入力してください',
+    verifyFileBtn: '保存した .chkey.json を選ぶ',
+    verifyBtn: 'バックアップを確認する',
+    verifyingBtn: '確認中…',
+    fileChosen: 'ファイルを選択済み',
+    noFileChosen: 'まだファイルが選ばれていません',
+    verifiedTitle: 'バックアップを確認しました',
+    verifiedSubtitle: '最初の作品を証明できます。',
+    startBtn: '作品を証明する',
+    whyBackup: 'なぜ必要？',
+    whyBackupText: 'バックアップは、この鍵を戻すための唯一の方法です。作品がこの鍵に紐づく前に、一度だけ確認します。',
+    legacyWarn: 'この鍵はバックアップなしで作られたため、あとからバックアップを作れません。',
+    legacyRestartBtn: 'バックアップ付きで鍵を作り直す',
+    restartConfirmBtn: 'もう一度押すと作り直します',
+    verifyFail: 'このパスフレーズではファイルを開けませんでした。パスフレーズを確認するか、保存したファイルを選び直してください。',
+    keyCreatedStatus: '鍵を作成しました。次にバックアップします。',
+    backupSavedStatus: 'バックアップを保存しました。開けるか確認します。',
+    backupVerifiedStatus: 'バックアップを確認しました。',
+    restoreToggle: 'バックアップから復元',
+    restorePassPlaceholder: 'バックアップのパスフレーズ',
+    restoreFileBtn: '.chkey.json を選択',
+    restoreFailed: 'このファイルから復元できませんでした。',
   },
   advancedTips: {
     ed25519Label: 'Ed25519 署名鍵について',
@@ -346,6 +522,7 @@ function makeFallbackSimple(overrides: {
   home?: Partial<SimpleTranslations['home']>;
   create?: Partial<SimpleTranslations['create']>;
   verify?: Partial<SimpleTranslations['verify']>;
+  onboarding?: Partial<SimpleTranslations['onboarding']>;
   advancedTips?: Partial<SimpleTranslations['advancedTips']>;
 }): SimpleTranslations {
   return {
@@ -354,6 +531,7 @@ function makeFallbackSimple(overrides: {
     home: { ...enSimple.home, ...overrides.home },
     create: { ...enSimple.create, ...overrides.create },
     verify: { ...enSimple.verify, ...overrides.verify },
+    onboarding: { ...enSimple.onboarding, ...overrides.onboarding },
     advancedTips: { ...enSimple.advancedTips, ...overrides.advancedTips },
   };
 }

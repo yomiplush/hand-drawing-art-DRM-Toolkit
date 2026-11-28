@@ -1,13 +1,13 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import {
   CheckCircle2,
   Download,
-  HelpCircle,
   Layers,
   LayoutGrid,
   ShieldCheck,
   Upload,
 } from 'lucide-react';
+import { HelpTip } from '../HelpTip';
 import { getNativeProjectAcceptAttr } from '../../core/parsers';
 import type { ProjectInspectionResult, ProjectMergeResult } from '../../core/parsers';
 import type { SignedChmProofV2 } from '../../core/manifest/proofV2';
@@ -26,32 +26,6 @@ export interface SimpleWorkspaceProps {
   onDownloadPng: () => void;
   onAddToGalleryDeck: () => void;
   onReset: () => void;
-}
-
-function HelpPopover({ text, label }: { text: string; label: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <span className="relative inline-flex items-center">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label={label}
-        aria-expanded={open}
-        data-testid={`help-tip-${label.toLowerCase().replace(/\s+/g, '-')}`}
-        className="inline-flex h-6 w-6 items-center justify-center rounded-full ga-text-muted hover:text-[var(--ga-accent)] cursor-pointer"
-      >
-        <HelpCircle className="h-4 w-4" aria-hidden="true" />
-      </button>
-      {open && (
-        <div
-          role="tooltip"
-          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-30 w-60 rounded-xl border ga-border-strong ga-card p-3 text-xs ga-text-secondary shadow-xl"
-        >
-          {text}
-        </div>
-      )}
-    </span>
-  );
 }
 
 export function SimpleWorkspace({
@@ -77,32 +51,39 @@ export function SimpleWorkspace({
   return (
     <section data-testid="simple-workspace" className="mx-auto max-w-xl space-y-6">
       {/* Compact 3-step indicator */}
-      <div className="flex items-center justify-between gap-2 text-xs font-semibold">
+      <ol
+        aria-label={isJa ? '証明の手順' : 'Certification steps'}
+        className="flex flex-col gap-2 text-xs font-semibold sm:flex-row sm:items-center"
+      >
         {[
           { num: 1, label: isJa ? '1. 作業ファイル' : '1. Drop Project' },
           { num: 2, label: isJa ? '2. 統合して証明' : '2. Merge & Sign' },
           { num: 3, label: isJa ? '3. 保存・登録' : '3. Save & Deck' },
         ].map((step) => (
-          <div
+          <li
             key={step.num}
+            aria-current={currentStep === step.num ? 'step' : undefined}
             className={`flex-1 rounded-xl border px-3 py-2 text-center transition-colors ${
               currentStep === step.num
                 ? 'border-[var(--ga-accent)] bg-[var(--ga-accent-soft)] text-[var(--ga-accent)]'
                 : currentStep > step.num
-                  ? 'ga-border bg-emerald-500/10 text-emerald-500'
+                  ? 'ga-border bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
                   : 'ga-border ga-text-muted'
             }`}
           >
             {step.label}
-          </div>
+            {currentStep === step.num && (
+              <span className="sr-only">{isJa ? '（現在の手順）' : ' (current step)'}</span>
+            )}
+          </li>
         ))}
-      </div>
+      </ol>
 
       {errorMessage && (
         <div
           role="alert"
           data-testid="simple-workspace-error"
-          className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-xs sm:text-sm text-rose-500"
+          className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-xs sm:text-sm text-rose-700 dark:text-rose-300"
         >
           {errorMessage}
         </div>
@@ -127,8 +108,9 @@ export function SimpleWorkspace({
             <h2 className="text-lg font-bold ga-text">
               {isJa ? '作業ファイルをドロップ' : 'Drop Project File'}
             </h2>
-            <HelpPopover
+            <HelpTip
               label="Why native project files"
+              testId="help-tip-why-native-project-files"
               text={
                 isJa
                   ? 'AI生成や盗用を防ぐため、.psd / .clip / .procreate などのレイヤー付き作業ファイルのみ受け付けます。'
@@ -178,7 +160,7 @@ export function SimpleWorkspace({
             <h2 className="text-lg font-bold ga-text">
               {isJa ? '統合完了・証明を作成' : 'Layers Flattened'}
             </h2>
-            <HelpPopover
+            <HelpTip
               label="About certification"
               text={
                 isJa
@@ -242,7 +224,7 @@ export function SimpleWorkspace({
             <h2 className="text-lg font-bold ga-text">
               {isJa ? '証明が完了しました' : 'Artwork Certified'}
             </h2>
-            <HelpPopover
+            <HelpTip
               label="What happens next"
               text={
                 isJa

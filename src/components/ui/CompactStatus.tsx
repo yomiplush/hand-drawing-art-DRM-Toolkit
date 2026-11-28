@@ -45,7 +45,7 @@ export function CompactStatus({
           {icon}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-[11px] font-medium uppercase tracking-wider opacity-80">
+          <div className="text-[11px] font-medium uppercase tracking-wider">
             {label}
           </div>
           <div className="flex flex-wrap items-center gap-2">

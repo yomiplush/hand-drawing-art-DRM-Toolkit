@@ -156,7 +156,7 @@ test.describe('Dual-Mode UX Overhaul, Progressive HelpTips & Tactile Flows', () 
 
     await page.getByTestId('verify-image-input').setInputFiles(plainPath);
     await expect(page.getByTestId('verify-simple-verdict')).toBeVisible();
-    await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict', 'warn');
+    await expect(page.getByTestId('verify-simple-verdict')).toHaveAttribute('data-verdict', 'no-seal');
 
     await jaContext.close();
   });
